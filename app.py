@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 from contextlib import asynccontextmanager
 
 import anthropic
@@ -158,7 +159,11 @@ async def save_gratitude(
             }],
         )
 
-        ai_data = json.loads(msg.content[0].text)
+        raw = msg.content[0].text if msg.content else ""
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            raise HTTPException(status_code=502, detail=f"Claude returned non-JSON: {raw[:200]!r}")
+        ai_data = json.loads(match.group())
         anon_name = random.choice(ANON_NAMES)
 
         db_resp = await db().post(
