@@ -35,7 +35,12 @@ async function callGratitudeApi(items: GratitudeItems): Promise<AiResult> {
     },
     body: JSON.stringify(items),
   })
-  if (!resp.ok) throw new Error(`API error: ${resp.status}`)
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: resp.status }))
+    const detail = (body as { detail?: unknown }).detail ?? resp.status
+    console.error('[gratitude API error]', detail)
+    throw new Error(`API error: ${detail}`)
+  }
   return resp.json() as Promise<AiResult>
 }
 

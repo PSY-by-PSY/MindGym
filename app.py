@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import re
@@ -10,6 +11,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger("mindgym")
 
 load_dotenv()
 
@@ -118,7 +121,8 @@ async def save_perma(req: PermaRequest):
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("save_perma failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
 @app.post("/api/gratitude")
@@ -131,7 +135,7 @@ async def save_gratitude(
         user_id = await get_user_id(token)
 
         msg = await claude().messages.create(
-            model="claude-sonnet-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=256,
             system="你是一位心理學分析助手，回應請使用繁體中文，且只回傳 JSON，不要加任何前言或 markdown。",
             messages=[{
@@ -194,7 +198,8 @@ async def save_gratitude(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("save_gratitude failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
