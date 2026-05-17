@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 export const Route = createFileRoute('/app/gratitude')({
   component: GratitudePage,
@@ -21,16 +22,21 @@ interface AiResult {
   anon_name: string
 }
 
-// Step 5：mock API，Step 6 換成真實呼叫
-async function callGratitudeApi(_items: GratitudeItems): Promise<AiResult> {
-  await new Promise(resolve => setTimeout(resolve, 2000))
-  return {
-    tag_1: '身邊他人',
-    tag_2: '自己',
-    tag_3: '環境',
-    ai_feedback: '你今天留意到了身邊的支持，這份覺察是你最珍貴的心理資源。',
-    anon_name: '溫暖的星火',
-  }
+async function callGratitudeApi(items: GratitudeItems): Promise<AiResult> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+  const resp = await fetch(`${apiUrl}/api/gratitude`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(items),
+  })
+  if (!resp.ok) throw new Error(`API error: ${resp.status}`)
+  return resp.json() as Promise<AiResult>
 }
 
 function formatDate(date: Date): string {
