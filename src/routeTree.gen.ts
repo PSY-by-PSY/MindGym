@@ -15,7 +15,11 @@ import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
 import { Route as AppImport } from './routes/app'
 import { Route as IndexImport } from './routes/index'
+import { Route as AppProfileImport } from './routes/app.profile'
+import { Route as AppPlaceholderImport } from './routes/app.placeholder'
 import { Route as AppHomeImport } from './routes/app.home'
+import { Route as AppGratitudeImport } from './routes/app.gratitude'
+import { Route as AppCommunityImport } from './routes/app.community'
 
 // Create/Update Routes
 
@@ -43,9 +47,33 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const AppProfileRoute = AppProfileImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppPlaceholderRoute = AppPlaceholderImport.update({
+  id: '/placeholder',
+  path: '/placeholder',
+  getParentRoute: () => AppRoute,
+} as any)
+
 const AppHomeRoute = AppHomeImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppGratitudeRoute = AppGratitudeImport.update({
+  id: '/gratitude',
+  path: '/gratitude',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppCommunityRoute = AppCommunityImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -81,11 +109,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingImport
       parentRoute: typeof rootRoute
     }
+    '/app/community': {
+      id: '/app/community'
+      path: '/community'
+      fullPath: '/app/community'
+      preLoaderRoute: typeof AppCommunityImport
+      parentRoute: typeof AppImport
+    }
+    '/app/gratitude': {
+      id: '/app/gratitude'
+      path: '/gratitude'
+      fullPath: '/app/gratitude'
+      preLoaderRoute: typeof AppGratitudeImport
+      parentRoute: typeof AppImport
+    }
     '/app/home': {
       id: '/app/home'
       path: '/home'
       fullPath: '/app/home'
       preLoaderRoute: typeof AppHomeImport
+      parentRoute: typeof AppImport
+    }
+    '/app/placeholder': {
+      id: '/app/placeholder'
+      path: '/placeholder'
+      fullPath: '/app/placeholder'
+      preLoaderRoute: typeof AppPlaceholderImport
+      parentRoute: typeof AppImport
+    }
+    '/app/profile': {
+      id: '/app/profile'
+      path: '/profile'
+      fullPath: '/app/profile'
+      preLoaderRoute: typeof AppProfileImport
       parentRoute: typeof AppImport
     }
   }
@@ -94,11 +150,19 @@ declare module '@tanstack/react-router' {
 // Create and export the route tree
 
 interface AppRouteChildren {
+  AppCommunityRoute: typeof AppCommunityRoute
+  AppGratitudeRoute: typeof AppGratitudeRoute
   AppHomeRoute: typeof AppHomeRoute
+  AppPlaceholderRoute: typeof AppPlaceholderRoute
+  AppProfileRoute: typeof AppProfileRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppCommunityRoute: AppCommunityRoute,
+  AppGratitudeRoute: AppGratitudeRoute,
   AppHomeRoute: AppHomeRoute,
+  AppPlaceholderRoute: AppPlaceholderRoute,
+  AppProfileRoute: AppProfileRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -108,7 +172,11 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/app/community': typeof AppCommunityRoute
+  '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
+  '/app/placeholder': typeof AppPlaceholderRoute
+  '/app/profile': typeof AppProfileRoute
 }
 
 export interface FileRoutesByTo {
@@ -116,7 +184,11 @@ export interface FileRoutesByTo {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/app/community': typeof AppCommunityRoute
+  '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
+  '/app/placeholder': typeof AppPlaceholderRoute
+  '/app/profile': typeof AppProfileRoute
 }
 
 export interface FileRoutesById {
@@ -125,15 +197,47 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/app/community': typeof AppCommunityRoute
+  '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
+  '/app/placeholder': typeof AppPlaceholderRoute
+  '/app/profile': typeof AppProfileRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/login' | '/onboarding' | '/app/home'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/login'
+    | '/onboarding'
+    | '/app/community'
+    | '/app/gratitude'
+    | '/app/home'
+    | '/app/placeholder'
+    | '/app/profile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/login' | '/onboarding' | '/app/home'
-  id: '__root__' | '/' | '/app' | '/login' | '/onboarding' | '/app/home'
+  to:
+    | '/'
+    | '/app'
+    | '/login'
+    | '/onboarding'
+    | '/app/community'
+    | '/app/gratitude'
+    | '/app/home'
+    | '/app/placeholder'
+    | '/app/profile'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/login'
+    | '/onboarding'
+    | '/app/community'
+    | '/app/gratitude'
+    | '/app/home'
+    | '/app/placeholder'
+    | '/app/profile'
   fileRoutesById: FileRoutesById
 }
 
@@ -173,7 +277,11 @@ export const routeTree = rootRoute
     "/app": {
       "filePath": "app.tsx",
       "children": [
-        "/app/home"
+        "/app/community",
+        "/app/gratitude",
+        "/app/home",
+        "/app/placeholder",
+        "/app/profile"
       ]
     },
     "/login": {
@@ -182,8 +290,24 @@ export const routeTree = rootRoute
     "/onboarding": {
       "filePath": "onboarding.tsx"
     },
+    "/app/community": {
+      "filePath": "app.community.tsx",
+      "parent": "/app"
+    },
+    "/app/gratitude": {
+      "filePath": "app.gratitude.tsx",
+      "parent": "/app"
+    },
     "/app/home": {
       "filePath": "app.home.tsx",
+      "parent": "/app"
+    },
+    "/app/placeholder": {
+      "filePath": "app.placeholder.tsx",
+      "parent": "/app"
+    },
+    "/app/profile": {
+      "filePath": "app.profile.tsx",
       "parent": "/app"
     }
   }
