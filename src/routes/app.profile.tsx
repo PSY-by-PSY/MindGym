@@ -125,6 +125,7 @@ function ProfilePage() {
       {/* Re-assess button */}
       <Link
         to="/onboarding"
+        search={{ reassess: true }}
         className="flex w-full items-center justify-center rounded-2xl border border-indigo-200 bg-white py-3.5 text-sm font-semibold text-indigo-600 transition-colors hover:bg-indigo-50"
       >
         重新評估
