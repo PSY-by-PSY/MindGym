@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { PrimaryCta } from '../components/PrimaryCta'
 
 export const Route = createFileRoute('/app/gratitude')({
   component: GratitudePage,
@@ -96,40 +97,49 @@ function GratitudePage() {
 
 function IntroStage({ date, onStart }: { date: string; onStart: () => void }) {
   return (
-    <div className="flex flex-col px-6 py-8 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">今天的感恩日記</h1>
-      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-8">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
+      <p className="font-handwriting text-2xl text-muted-foreground">今天的練習</p>
+      <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
+        感恩日記
+      </h1>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <span>{date}</span>
-        <span className="font-medium text-orange-500">🔥 1 天連續</span>
+        <span className="rounded-full bg-tile-peach px-2.5 py-0.5 text-xs font-bold text-foreground">
+          🔥 連續 1 天
+        </span>
       </div>
 
-      <div className="rounded-2xl bg-indigo-50 p-5 mb-6">
-        <p className="font-medium text-gray-800 mb-2">
+      <div className="relative mt-6 overflow-hidden rounded-3xl bg-gradient-night p-6 shadow-soft">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary-foreground/55">
+          Today&apos;s session
+        </p>
+        <p className="mt-2 text-lg font-extrabold leading-snug text-primary-foreground">
           今天發生了哪三件值得你感謝的事情呢？
         </p>
-        <p className="text-sm text-gray-500">請寫得越具體越好，可以是生活中的細微小事</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-primary-foreground/70">
+          請寫得越具體越好，可以是生活中的細微小事。
+        </p>
       </div>
 
-      <div className="mb-8">
-        <p className="text-sm font-medium text-gray-600 mb-3">感恩對象可以是：</p>
-        <div className="flex flex-wrap gap-2">
-          {['身邊的人', '自己', '大自然與環境', '事物', '一段體驗'].map(tag => (
-            <span
-              key={tag}
-              className="rounded-full border border-gray-200 bg-white px-3 py-1 text-sm text-gray-600"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+      <p className="mb-3 mt-7 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+        感恩對象可以是
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {['身邊的人', '自己', '大自然與環境', '事物', '一段體驗'].map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full bg-card px-4 py-2 text-sm font-bold text-foreground shadow-soft"
+          >
+            {tag}
+          </span>
+        ))}
       </div>
 
-      <button
-        onClick={onStart}
-        className="w-full rounded-2xl bg-indigo-500 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-600"
-      >
-        開始練習
-      </button>
+      <div className="mt-10">
+        <PrimaryCta onClick={onStart} variant="next">
+          開始練習
+        </PrimaryCta>
+      </div>
     </div>
   )
 }
@@ -142,24 +152,24 @@ function CircularProgress({ value, max }: { value: number; max: number }) {
   const dash = (value / max) * circ
   return (
     <div className="relative flex items-center justify-center">
-      <svg width="88" height="88" viewBox="0 0 88 88">
-        <circle cx="44" cy="44" r={r} fill="none" stroke="#e0e7ff" strokeWidth="7" />
+      <svg width="92" height="92" viewBox="0 0 92 92">
+        <circle cx="46" cy="46" r={r} fill="none" stroke="var(--primary-soft)" strokeWidth="8" />
         <circle
-          cx="44"
-          cy="44"
+          cx="46"
+          cy="46"
           r={r}
           fill="none"
-          stroke="#6366f1"
-          strokeWidth="7"
+          stroke="var(--primary)"
+          strokeWidth="8"
           strokeDasharray={`${dash} ${circ}`}
           strokeLinecap="round"
-          transform="rotate(-90 44 44)"
+          transform="rotate(-90 46 46)"
           style={{ transition: 'stroke-dasharray 0.4s ease' }}
         />
       </svg>
       <div className="absolute text-center leading-none">
-        <span className="text-2xl font-bold text-indigo-600">{value}</span>
-        <span className="text-sm text-gray-400">/{max}</span>
+        <span className="text-2xl font-extrabold text-primary">{value}</span>
+        <span className="text-sm font-bold text-muted-foreground">/{max}</span>
       </div>
     </div>
   )
@@ -192,42 +202,41 @@ function WritingStage({
   onChange: (v: GratitudeItems) => void
   onSubmit: () => void
 }) {
-  const filled = [items.item_1, items.item_2, items.item_3].filter(s => s.trim()).length
+  const filled = [items.item_1, items.item_2, items.item_3].filter((s) => s.trim()).length
   const allFilled = filled === 3
 
   return (
-    <div className="flex flex-col px-6 py-8 max-w-md mx-auto">
-      <div className="flex flex-col items-center mb-6">
-        <p className="mb-3 text-sm font-medium text-gray-500">今日完成進度</p>
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
+      <div className="mb-7 flex flex-col items-center">
+        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+          今日完成進度
+        </p>
         <CircularProgress value={filled} max={3} />
       </div>
 
-      <div className="flex flex-col gap-4 mb-6">
-        {WRITING_FIELDS.map(({ key, label, placeholder }) => (
-          <div key={key} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <label className="mb-2 block text-sm font-medium text-gray-700">{label}</label>
+      <div className="mb-8 flex flex-col gap-4">
+        {WRITING_FIELDS.map(({ key, label, placeholder }, i) => (
+          <div key={key} className="rounded-3xl bg-card p-5 shadow-soft">
+            <label className="mb-2 flex items-center gap-2 text-sm font-extrabold text-foreground">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
+                {i + 1}
+              </span>
+              {label}
+            </label>
             <textarea
               value={items[key]}
-              onChange={e => onChange({ ...items, [key]: e.target.value })}
+              onChange={(e) => onChange({ ...items, [key]: e.target.value })}
               placeholder={placeholder}
               rows={3}
-              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 placeholder-gray-400 transition-colors focus:border-indigo-300 focus:bg-white focus:outline-none"
+              className="w-full resize-none rounded-2xl border-2 border-border bg-muted p-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary focus:bg-card focus:outline-none"
             />
           </div>
         ))}
       </div>
 
-      <button
-        disabled={!allFilled}
-        onClick={onSubmit}
-        className={`w-full rounded-2xl py-4 text-lg font-semibold transition-colors ${
-          allFilled
-            ? 'bg-indigo-500 text-white hover:bg-indigo-600'
-            : 'cursor-not-allowed bg-gray-200 text-gray-400'
-        }`}
-      >
+      <PrimaryCta onClick={onSubmit} disabled={!allFilled} variant="done">
         送出感恩日記
-      </button>
+      </PrimaryCta>
     </div>
   )
 }
@@ -236,21 +245,25 @@ function WritingStage({
 
 function ProcessingStage() {
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] flex-col items-center justify-center px-6 text-center">
-      <div className="mb-6 h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-500" />
-      <p className="text-lg font-medium text-gray-700">正在整理你的感恩時刻…</p>
+    <div className="flex min-h-[calc(100vh-9rem)] flex-col items-center justify-center px-6 text-center">
+      <div className="relative mb-6 h-20 w-20">
+        <div className="absolute inset-0 rounded-full border-[6px] border-primary-soft" />
+        <div className="absolute inset-0 animate-spin rounded-full border-[6px] border-transparent border-t-primary" />
+      </div>
+      <p className="text-lg font-extrabold text-foreground">正在整理你的感恩時刻…</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">教練正在閱讀你今天的練習</p>
     </div>
   )
 }
 
 // ─────────────────────────── RESULT ───────────────────────────
 
-const TAG_COLORS: Record<string, string> = {
-  身邊他人: 'bg-purple-100 text-purple-700',
-  自己: 'bg-pink-100 text-pink-700',
-  環境: 'bg-green-100 text-green-700',
-  體驗: 'bg-orange-100 text-orange-700',
-  自訂: 'bg-blue-100 text-blue-700',
+const TAG_TILES: Record<string, string> = {
+  身邊他人: 'bg-tile-pink',
+  自己: 'bg-tile-peach',
+  環境: 'bg-tile-mint',
+  體驗: 'bg-tile-blue',
+  自訂: 'bg-tile-blue',
 }
 
 function ResultStage({
@@ -273,16 +286,21 @@ function ResultStage({
   ]
 
   return (
-    <div className="flex flex-col px-6 py-8 max-w-md mx-auto">
-      <h2 className="mb-6 text-xl font-bold text-gray-900">你今天的感恩回顧 ✨</h2>
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
+      <p className="font-handwriting text-2xl text-muted-foreground">今天的回顧</p>
+      <h2 className="mb-6 mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
+        你今天的感恩回顧 ✨
+      </h2>
 
-      <div className="mb-6 flex flex-col gap-3">
+      <div className="mb-5 flex flex-col gap-3">
         {entries.map((entry, i) => (
-          <div key={i} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div key={i} className="rounded-3xl bg-card p-4 shadow-soft">
             <div className="flex items-start gap-3">
-              <p className="flex-1 text-sm leading-relaxed text-gray-700">{entry.text}</p>
+              <p className="flex-1 text-sm leading-relaxed text-foreground/80">{entry.text}</p>
               <span
-                className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TAG_COLORS[entry.tag] ?? 'bg-gray-100 text-gray-600'}`}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold text-foreground ${
+                  TAG_TILES[entry.tag] ?? 'bg-muted'
+                }`}
               >
                 {entry.tag}
               </span>
@@ -291,38 +309,37 @@ function ResultStage({
         ))}
       </div>
 
-      <div className="mb-6 rounded-2xl bg-indigo-50 p-4">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-500">AI 回饋</p>
-        <p className="text-sm leading-relaxed text-gray-700">{result.ai_feedback}</p>
+      <div className="mb-5 rounded-3xl bg-gradient-soft p-5 shadow-soft">
+        <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
+          Coach&apos;s note
+        </p>
+        <p className="text-sm leading-relaxed text-foreground">{result.ai_feedback}</p>
       </div>
 
-      <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+      <div className="mb-8 flex items-center justify-between rounded-3xl bg-card px-5 py-4 shadow-soft">
         <div>
-          <p className="text-sm font-medium text-gray-800">匿名分享到社群</p>
-          <p className="mt-0.5 text-xs text-gray-500">以「{result.anon_name}」分享</p>
+          <p className="text-sm font-extrabold text-foreground">匿名分享到社群</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">以「{result.anon_name}」分享</p>
         </div>
         <button
           role="switch"
           aria-checked={isShared}
           onClick={() => onToggleShared(!isShared)}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-            isShared ? 'bg-indigo-500' : 'bg-gray-300'
+          className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+            isShared ? 'bg-primary' : 'bg-border'
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-5 w-5 transform rounded-full bg-card shadow transition-transform ${
               isShared ? 'translate-x-6' : 'translate-x-1'
             }`}
           />
         </button>
       </div>
 
-      <button
-        onClick={onDone}
-        className="w-full rounded-2xl bg-indigo-500 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-600"
-      >
+      <PrimaryCta onClick={onDone} variant="done">
         結束今日練習
-      </button>
+      </PrimaryCta>
     </div>
   )
 }
@@ -330,33 +347,39 @@ function ResultStage({
 // ─────────────────────────── DONE ───────────────────────────
 
 const ABILITY_BOOSTS = [
-  { label: '情緒力', delta: 3, color: 'bg-pink-500' },
-  { label: '意義力', delta: 1, color: 'bg-purple-500' },
-  { label: '連結力', delta: 3, color: 'bg-indigo-500' },
+  { label: '情緒力', delta: 3, tile: 'bg-tile-pink' },
+  { label: '意義力', delta: 1, tile: 'bg-tile-peach' },
+  { label: '連結力', delta: 3, tile: 'bg-tile-blue' },
 ]
 
 function DoneStage({ onHome }: { onHome: () => void }) {
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] flex-col items-center justify-center px-6 max-w-md mx-auto">
-      <div className="mb-4 text-5xl">🎉</div>
-      <h2 className="mb-3 text-xl font-bold text-gray-900 text-center">今日感恩練習完成！</h2>
-      <p className="mb-8 text-center text-sm leading-relaxed text-gray-500">
+    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-12 md:px-10">
+      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-primary text-4xl shadow-soft">
+        🎉
+      </div>
+      <h2 className="mb-3 text-center text-2xl font-extrabold text-foreground">
+        今日感恩練習完成！
+      </h2>
+      <p className="mb-8 max-w-md text-center text-sm leading-relaxed text-muted-foreground">
         恭喜完成今天的感恩練習。當我們願意停下來留意身邊的美好時刻，這本身就能提供我們更多的心理健康資源。
       </p>
 
-      <div className="mb-8 w-full rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <p className="mb-4 text-sm font-semibold text-gray-700">練習後能力提升</p>
+      <div className="mb-8 w-full rounded-3xl bg-card p-6 shadow-soft">
+        <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+          練習後能力提升
+        </p>
         <div className="flex flex-col gap-4">
-          {ABILITY_BOOSTS.map(({ label, delta, color }) => (
+          {ABILITY_BOOSTS.map(({ label, delta, tile }) => (
             <div key={label} className="flex items-center gap-3">
-              <span className="w-14 shrink-0 text-sm text-gray-600">{label}</span>
-              <div className="flex-1 overflow-hidden rounded-full bg-gray-100 h-2">
+              <span className="w-14 shrink-0 text-sm font-bold text-foreground">{label}</span>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
                 <div
-                  className={`h-full rounded-full ${color}`}
+                  className={`h-full rounded-full ${tile}`}
                   style={{ width: `${(delta / 3) * 100}%` }}
                 />
               </div>
-              <span className="w-7 shrink-0 text-right text-sm font-semibold text-gray-700">
+              <span className="w-8 shrink-0 text-right text-sm font-extrabold text-primary">
                 +{delta}
               </span>
             </div>
@@ -364,12 +387,11 @@ function DoneStage({ onHome }: { onHome: () => void }) {
         </div>
       </div>
 
-      <button
-        onClick={onHome}
-        className="w-full rounded-2xl bg-indigo-500 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-600"
-      >
-        返回首頁
-      </button>
+      <div className="w-full">
+        <PrimaryCta onClick={onHome} variant="next">
+          返回首頁
+        </PrimaryCta>
+      </div>
     </div>
   )
 }

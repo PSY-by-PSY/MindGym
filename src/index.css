@@ -3,12 +3,92 @@
 @tailwind utilities;
 
 :root {
-  font-family: ui-sans-serif, system-ui, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --radius: 0.625rem;
+  --background: oklch(0.985 0.005 30);
+  --foreground: oklch(0.22 0.04 265);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.62 0.13 240);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-soft: oklch(0.92 0.05 235);
+  --primary-glow: oklch(0.78 0.1 230);
+  --night-deep: oklch(0.28 0.08 265);
+  --night-mid: oklch(0.38 0.11 260);
+  --secondary: oklch(0.96 0.02 235);
+  --muted: oklch(0.96 0.01 235);
+  --muted-foreground: oklch(0.55 0.04 265);
+  --accent: oklch(0.93 0.04 235);
+  --tile-blue: oklch(0.93 0.04 235);
+  --tile-peach: oklch(0.93 0.05 60);
+  --tile-pink: oklch(0.93 0.04 20);
+  --tile-mint: oklch(0.93 0.05 160);
+  --border: oklch(0.9 0.02 235);
+  --ring: oklch(0.62 0.13 240);
+
+  --gradient-primary: linear-gradient(135deg, oklch(0.78 0.1 230), oklch(0.55 0.14 245));
+  --gradient-soft: linear-gradient(135deg, oklch(0.96 0.03 235), oklch(0.9 0.06 230));
+  --gradient-night: linear-gradient(160deg, oklch(0.32 0.09 265) 0%, oklch(0.22 0.08 270) 100%);
+  --shadow-soft: 0 10px 30px -12px oklch(0.5 0.15 240 / 0.28);
+
+  font-family: ui-sans-serif, system-ui, -apple-system, 'PingFang TC',
+    'Microsoft JhengHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   margin: 0;
-  background-color: #fafaf9;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+  .bg-gradient-soft {
+    background-image: var(--gradient-soft);
+  }
+  .bg-gradient-night {
+    background-image: var(--gradient-night);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .animate-float {
+    animation: float-soft 4s ease-in-out infinite;
+  }
+  .animate-fade-up {
+    animation: fade-up 0.5s ease-out both;
+  }
+  .font-handwriting {
+    font-family: 'Caveat', 'Kalam', 'Noto Sans TC', cursive;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

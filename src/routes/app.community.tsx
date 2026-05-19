@@ -30,15 +30,37 @@ function formatDate(dateStr: string | null): string {
   return `${y} / ${m} / ${d}`
 }
 
+const AVATARS = [
+  { emoji: '🌟', tile: 'bg-tile-peach' },
+  { emoji: '🌿', tile: 'bg-tile-mint' },
+  { emoji: '🌸', tile: 'bg-tile-pink' },
+  { emoji: '☁️', tile: 'bg-tile-blue' },
+]
+
+function avatarFor(seed: string | null, index: number) {
+  if (!seed) return AVATARS[index % AVATARS.length]
+  const sum = [...seed].reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+  return AVATARS[sum % AVATARS.length]
+}
+
+function Header() {
+  return (
+    <header className="mb-6">
+      <p className="font-handwriting text-2xl text-muted-foreground">健身房動態</p>
+      <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
+        大家今天感謝了什麼？
+      </h1>
+    </header>
+  )
+}
+
 function LoadingState() {
   return (
-    <div className="px-5 pt-8 pb-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">大家今天感謝了什麼？</h1>
-      </header>
+    <div className="mx-auto max-w-3xl px-6 pt-10 md:px-10">
+      <Header />
       <div className="flex flex-col gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-36 animate-pulse rounded-2xl bg-indigo-50" />
+          <div key={i} className="h-40 animate-pulse rounded-3xl bg-primary-soft" />
         ))}
       </div>
     </div>
@@ -49,20 +71,18 @@ function CommunityPage() {
   const { entries } = Route.useLoaderData()
 
   return (
-    <div className="px-5 pt-8 pb-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">大家今天感謝了什麼？</h1>
-      </header>
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
+      <Header />
 
       {entries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+        <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
           <span className="text-4xl">💫</span>
-          <p className="mt-3 text-sm">還沒有人分享，快去寫感恩日記吧！</p>
+          <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {entries.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} />
+          {entries.map((entry, i) => (
+            <EntryCard key={entry.id} entry={entry} index={i} />
           ))}
         </div>
       )}
@@ -70,25 +90,37 @@ function CommunityPage() {
   )
 }
 
-function EntryCard({ entry }: { entry: GratitudeEntry }) {
+function EntryCard({ entry, index }: { entry: GratitudeEntry; index: number }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
+  const avatar = avatarFor(entry.anon_name, index)
 
   return (
-    <div className="rounded-2xl bg-indigo-50 p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-indigo-600">
-          {entry.anon_name ?? '匿名使用者'}
+    <article className="rounded-3xl bg-card p-5 shadow-soft">
+      <div className="flex items-center gap-3">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
+          {avatar.emoji}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-extrabold text-foreground">
+            {entry.anon_name ?? '匿名使用者'}
+          </p>
+          <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-tile-mint px-3 py-1 text-[11px] font-bold text-foreground">
+          感恩日記
         </span>
-        <span className="text-xs text-gray-400">{formatDate(entry.entry_date)}</span>
       </div>
-      <ul className="flex flex-col gap-2">
+
+      <ul className="mt-4 flex flex-col gap-2">
         {items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-            <span className="mt-0.5 flex-shrink-0 text-indigo-300">✦</span>
-            <span>{item}</span>
+          <li key={i} className="flex items-start gap-3 rounded-2xl bg-muted px-3.5 py-2.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
+              {i + 1}
+            </span>
+            <span className="text-sm leading-relaxed text-foreground/80">{item}</span>
           </li>
         ))}
       </ul>
-    </div>
+    </article>
   )
 }

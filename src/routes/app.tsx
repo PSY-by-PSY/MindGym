@@ -11,8 +11,8 @@ export const Route = createFileRoute('/app')({
 
 function AppShell() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#fafaf9]">
-      <main className="flex-1 pb-20">
+    <div className="flex min-h-screen flex-col bg-background">
+      <main className="flex-1 pb-24">
         <Outlet />
       </main>
       <BottomNav />
@@ -30,20 +30,27 @@ function BottomNav() {
   ] as const
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-      <div className="flex">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-[oklch(1_0_0_/_0.95)] backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto flex max-w-3xl">
         {tabs.map((tab) => {
           const isActive = pathname === tab.to || pathname.startsWith(tab.to + '/')
           return (
             <Link
               key={tab.to}
               to={tab.to}
-              className={`flex flex-1 flex-col items-center gap-1 py-3 transition-colors ${
-                isActive ? 'text-indigo-500' : 'text-gray-400'
+              data-status={isActive ? 'active' : undefined}
+              className={`group flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              {tab.icon}
-              <span className="text-[11px] font-medium">{tab.label}</span>
+              <span
+                className={`flex h-9 w-16 items-center justify-center rounded-full transition-colors ${
+                  isActive ? 'bg-primary-soft' : 'bg-transparent'
+                }`}
+              >
+                {tab.icon}
+              </span>
+              <span className="text-[11px] font-bold tracking-wide">{tab.label}</span>
             </Link>
           )
         })}

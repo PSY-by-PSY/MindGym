@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
+import coachWelcome from '../assets/coach-welcome.png'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
@@ -21,29 +22,56 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#fafaf9] px-6">
-      <div className="w-full max-w-sm space-y-10 text-center">
-        {/* Logo / 標題 */}
-        <div className="space-y-3">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#6366f1] text-3xl shadow-lg">
-            🧠
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">MindGym</h1>
-          <p className="text-base leading-relaxed text-gray-500">
-            照顧心理，像照顧身體一樣自然
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-40 pt-12">
+      {/* 教練手寫招呼 */}
+      <div className="animate-fade-up mb-3 w-full max-w-sm">
+        <div className="relative rounded-3xl bg-card px-6 py-5 shadow-soft">
+          <p className="font-handwriting text-3xl leading-snug text-foreground">
+            嗨，很高興認識你！歡迎來到 MindGym 心理健身房。
+          </p>
+          <SpeechTail />
+        </div>
+      </div>
+      <p className="animate-fade-up mb-10 max-w-xs text-center font-handwriting text-2xl leading-snug text-muted-foreground">
+        照顧心理，就像照顧身體一樣自然，先從登入開始吧。
+      </p>
+
+      {/* 教練插畫 + 背後色塊 */}
+      <div className="relative animate-float">
+        <div className="absolute inset-0 -z-10 translate-x-5 translate-y-7 rounded-[45%] bg-primary-soft" />
+        <div className="absolute inset-0 -z-10 -translate-x-4 translate-y-3 rounded-[45%] bg-primary-glow opacity-50" />
+        <img src={coachWelcome} alt="MindGym 教練" className="relative h-64 w-auto drop-shadow-sm" />
+      </div>
+
+      {/* 底部固定 CTA */}
+      <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-6 pb-10 pt-12">
+        <div className="mx-auto w-full max-w-sm space-y-3">
+          <button
+            onClick={handleGoogleLogin}
+            className="flex h-16 w-full items-center justify-center gap-3 rounded-full bg-card text-base font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            <GoogleIcon />
+            用 Google 登入
+          </button>
+          <p className="text-center text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+            MindGym · Train your mind
           </p>
         </div>
-
-        {/* Google 登入按鈕 */}
-        <button
-          onClick={handleGoogleLogin}
-          className="inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-6 py-4 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95"
-        >
-          <GoogleIcon />
-          用 Google 登入
-        </button>
       </div>
     </div>
+  )
+}
+
+function SpeechTail() {
+  return (
+    <svg
+      className="absolute -bottom-3 left-10 h-4 w-8 text-card"
+      viewBox="0 0 32 16"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M0 0c6 0 10 4 14 9 3 4 6 7 12 7H0z" />
+    </svg>
   )
 }
 
