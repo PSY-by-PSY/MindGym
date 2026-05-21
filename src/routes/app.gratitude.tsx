@@ -4,6 +4,8 @@ import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
 
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+
 export const Route = createFileRoute('/app/gratitude')({
   component: GratitudePage,
 })
@@ -18,7 +20,6 @@ interface GratitudeItems {
   item_3: string
 }
 
-const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
 
 const DIFFICULTY_PROMPTS: Record<Difficulty, string> = {
   basic: '今天有什麼讓你心存感謝的事？可以是很小的事。',
@@ -72,13 +73,20 @@ function isoDate(date: Date): string {
 }
 
 async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('gratitude-summary', {
-    body: { ...items, difficulty },
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+  const resp = await fetch(`${API_URL}/api/gratitude-summary`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ ...items, difficulty }),
   })
-  if (error) throw error
-  const summary = (data as { summary?: string } | null)?.summary
-  if (!summary) throw new Error('Empty summary')
-  return summary
+  if (!resp.ok) throw new Error(`API error: ${resp.status}`)
+  const data = await resp.json() as { summary?: string }
+  if (!data.summary) throw new Error('Empty summary')
+  return data.summary
 }
 
 function GratitudePage() {
@@ -120,24 +128,29 @@ function GratitudePage() {
   }, [stage, items, difficulty])
 
   const handleFinalSave = async () => {
-    const anonName = ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
     const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user?.id
-    if (!userId) {
-      navigate({ to: '/app/community' })
-      return
+    if (session) {
+      try {
+        const resp = await fetch(`${API_URL}/api/gratitude-save`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            item_1: items.item_1,
+            item_2: items.item_2,
+            item_3: items.item_3,
+            is_shared: isShared,
+            ai_feedback: summary,
+            entry_date: isoDate(todayDate()),
+          }),
+        })
+        if (!resp.ok) console.error('[gratitude save]', resp.status)
+      } catch (e) {
+        console.error('[gratitude save]', e)
+      }
     }
-    const { error } = await supabase.from('gratitude_entries').insert({
-      user_id: userId,
-      item_1: items.item_1,
-      item_2: items.item_2,
-      item_3: items.item_3,
-      is_shared: isShared,
-      anon_name: anonName,
-      entry_date: isoDate(todayDate()),
-      ai_feedback: summary,
-    })
-    if (error) console.error('[gratitude save]', error)
     navigate({ to: '/app/community' })
   }
 

@@ -93,6 +93,22 @@ class GratitudeRequest(BaseModel):
     item_3: str
 
 
+class GratitudeSummaryRequest(BaseModel):
+    item_1: str
+    item_2: str
+    item_3: str
+    difficulty: str = "basic"
+
+
+class GratitudeSaveRequest(BaseModel):
+    item_1: str
+    item_2: str
+    item_3: str
+    is_shared: bool = True
+    ai_feedback: str | None = None
+    entry_date: str | None = None
+
+
 class KeywordEntry(BaseModel):
     id: str
     item_1: str | None = None
@@ -210,6 +226,88 @@ async def save_gratitude(
         raise
     except Exception as exc:
         logger.error("save_gratitude failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/gratitude-summary")
+async def gratitude_summary(
+    req: GratitudeSummaryRequest,
+    authorization: str = Header(...),
+):
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        await get_user_id(token)  # auth check only
+
+        tone = (
+            "使用者選擇了「進階」模式，請更深入地反映其覺察與內在意義。"
+            if req.difficulty == "advanced"
+            else "使用者選擇了「初階」模式，請以溫柔、平實、簡短的語氣陪伴。"
+        )
+
+        msg = await claude().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=256,
+            system="你是一位心理學取向的健心教練，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳純文字摘要，不要加標題、不要加引號、不要使用 Markdown。",
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"以下是使用者今天寫下的三件感恩：\n\n"
+                    f"1. {req.item_1}\n"
+                    f"2. {req.item_2}\n"
+                    f"3. {req.item_3}\n\n"
+                    f"{tone}\n\n"
+                    "請用一段約 60–90 字的繁體中文，整體性地回應這三件感恩，反映使用者的正向情緒，"
+                    "點出整體的心理意義，讓人讀完後感到被理解與支持。"
+                ),
+            }],
+        )
+
+        summary = msg.content[0].text.strip() if msg.content else ""
+        if not summary:
+            raise HTTPException(status_code=502, detail="Empty response from Claude")
+        return {"summary": summary}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("gratitude_summary failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/gratitude-save")
+async def gratitude_save(
+    req: GratitudeSaveRequest,
+    authorization: str = Header(...),
+):
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+        anon_name = random.choice(ANON_NAMES)
+
+        payload: dict = {
+            "user_id": user_id,
+            "item_1": req.item_1,
+            "item_2": req.item_2,
+            "item_3": req.item_3,
+            "is_shared": req.is_shared,
+            "anon_name": anon_name,
+        }
+        if req.ai_feedback:
+            payload["ai_feedback"] = req.ai_feedback
+        if req.entry_date:
+            payload["entry_date"] = req.entry_date
+
+        db_resp = await db().post(
+            f"{SUPABASE_REST}/gratitude_entries",
+            headers=SUPABASE_HEADERS,
+            json=payload,
+        )
+        if db_resp.status_code not in (200, 201):
+            raise HTTPException(status_code=502, detail=f"Supabase error: {db_resp.text}")
+        return {"ok": True, "anon_name": anon_name}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("gratitude_save failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
