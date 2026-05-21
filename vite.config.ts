@@ -15,6 +15,7 @@ export default defineConfig({
     }),
     react(),
     VitePWA({
+      selfDestroying: true,
       registerType: 'autoUpdate',
       manifest: {
         name: 'MindGym',
