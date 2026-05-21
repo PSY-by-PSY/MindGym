@@ -36,56 +36,61 @@ export const Route = createFileRoute('/app/home')({
   component: HomePage,
 })
 
+const permaColors: Record<string, string> = {
+  P: 'bg-tile-peach',
+  E: 'bg-tile-pink',
+  R: 'bg-tile-mint',
+  M: 'bg-tile-blue',
+  A: 'bg-tile-peach',
+}
+
 const modules = [
   {
-    emoji: '🕐',
-    name: '正念冥想',
-    desc: '專注當下，觀察思緒流動',
-    en: 'Mindfulness',
-    tile: 'bg-tile-blue',
+    emoji: '☑️',
+    name: '三件好事',
+    tile: 'bg-tile-peach',
     to: '/app/placeholder' as const,
-    searchName: '正念冥想',
-    hot: false,
-  },
-  {
-    emoji: '❤️',
-    name: '自我慈悲',
-    desc: '善待自己，接納不完美',
-    en: 'Self-compassion',
-    tile: 'bg-tile-pink',
-    to: '/app/placeholder' as const,
-    searchName: '自我慈悲',
-    hot: false,
+    searchName: '三件好事',
+    perma: [{ letter: 'P', label: '正向情緒' }],
   },
   {
     emoji: '⭐',
     name: '感恩日記',
-    desc: '記錄生活中的美好片刻',
-    en: 'Gratitude journal',
     tile: 'bg-tile-mint',
     to: '/app/gratitude' as const,
     searchName: null,
-    hot: true,
+    perma: [
+      { letter: 'P', label: '情緒力' },
+      { letter: 'R', label: '連結力' },
+      { letter: 'M', label: '意義力' },
+    ],
   },
   {
-    emoji: '☑️',
-    name: '三件好事',
-    desc: '每日記錄三個正向事件',
-    en: 'Three good things',
-    tile: 'bg-tile-peach',
+    emoji: '❤️',
+    name: '自我慈悲',
+    tile: 'bg-tile-pink',
     to: '/app/placeholder' as const,
-    searchName: '三件好事',
-    hot: false,
+    searchName: '自我慈悲',
+    perma: [{ letter: 'E', label: '全心投入' }],
   },
   {
     emoji: '👁️',
     name: '過程目標覺察',
-    desc: '覺察成長、心得與樂趣',
-    en: 'Process awareness',
     tile: 'bg-tile-blue',
     to: '/app/placeholder' as const,
     searchName: '過程目標覺察',
-    hot: false,
+    perma: [
+      { letter: 'M', label: '意義力' },
+      { letter: 'A', label: '成就感' },
+    ],
+  },
+  {
+    emoji: '🕐',
+    name: '正念冥想',
+    tile: 'bg-tile-blue',
+    to: '/app/placeholder' as const,
+    searchName: '正念冥想',
+    perma: [{ letter: 'E', label: '全心投入' }],
   },
 ]
 
@@ -115,22 +120,27 @@ function HomePage() {
         </p>
       </div>
 
-      {/* 訓練模組 */}
+      {/* 訓練模組格狀菜單 */}
       <h2 className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
         Training modules
       </h2>
-      <div className="flex flex-col gap-3">
-        {modules.map((mod) => (
-          <ModuleCard key={mod.name} {...mod} />
+      <div className="grid grid-cols-2 gap-3">
+        {modules.slice(0, 4).map((mod) => (
+          <GridTile key={mod.name} {...mod} />
         ))}
+        <div className="col-span-2 flex justify-center">
+          <div className="w-[calc(50%-6px)]">
+            <GridTile {...modules[4]} />
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-type ModuleCardProps = (typeof modules)[number]
+type GridTileProps = (typeof modules)[number]
 
-function ModuleCard({ emoji, name, desc, en, tile, to, searchName, hot }: ModuleCardProps) {
+function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
   const linkProps =
     to === '/app/placeholder'
       ? { to, search: { name: searchName ?? name } }
@@ -139,26 +149,20 @@ function ModuleCard({ emoji, name, desc, en, tile, to, searchName, hot }: Module
   return (
     <Link
       {...(linkProps as Parameters<typeof Link>[0])}
-      className={`flex items-center gap-4 rounded-3xl p-4 shadow-soft transition active:scale-[0.98] ${tile}`}
+      className={`flex w-full flex-col items-center gap-2.5 rounded-3xl p-4 shadow-soft transition active:scale-[0.97] ${tile}`}
     >
-      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-card text-2xl shadow-sm">
-        {emoji}
+      <span className="text-4xl leading-none">{emoji}</span>
+      <p className="text-center text-sm font-extrabold leading-tight text-foreground">{name}</p>
+      <div className="flex flex-wrap justify-center gap-1">
+        {perma.map(({ letter, label }) => (
+          <span
+            key={letter + label}
+            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold text-foreground/80 shadow-sm ${permaColors[letter]}`}
+          >
+            {letter} {label}
+          </span>
+        ))}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground">
-          {en}
-        </p>
-        <div className="mt-0.5 flex items-center gap-2">
-          <p className="font-extrabold text-foreground">{name}</p>
-          {hot && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-primary-foreground">
-              Hot
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 truncate text-sm text-muted-foreground">{desc}</p>
-      </div>
-      <ChevronRight className="h-5 w-5 flex-shrink-0 text-foreground/25" />
     </Link>
   )
 }
@@ -178,10 +182,3 @@ function StarField() {
   )
 }
 
-function ChevronRight({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18l6-6-6-6" />
-    </svg>
-  )
-}
