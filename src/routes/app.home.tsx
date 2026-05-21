@@ -134,6 +134,39 @@ function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* 感恩日記快速啟動橫幅 */}
+      <Link
+        to="/app/gratitude"
+        className="mt-4 flex items-center justify-between rounded-3xl bg-gradient-primary p-5 shadow-soft transition active:scale-[0.98]"
+      >
+        <div className="flex items-center gap-3.5">
+          <span className="text-3xl leading-none">⭐</span>
+          <div>
+            <p className="text-sm font-extrabold leading-tight text-primary-foreground">
+              感恩日記練習
+            </p>
+            <p className="mt-0.5 text-xs text-primary-foreground/70">
+              點擊直接開始今日練習
+            </p>
+          </div>
+        </div>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="shrink-0 text-primary-foreground/80"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+      </Link>
     </div>
   )
 }
