@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Link } from '@tanstack/react-router'
+import { createFileRoute, redirect, Link, useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 
 export const Route = createFileRoute('/app/home')({
@@ -167,6 +167,9 @@ function HomePage() {
           <path d="M5 12h14M12 5l7 7-7 7" />
         </svg>
       </Link>
+
+      {/* 訓練中心 */}
+      <TrainingCenter />
     </div>
   )
 }
@@ -197,6 +200,178 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
         ))}
       </div>
     </Link>
+  )
+}
+
+const permaMenuItems: { letter: string; label: string; practices: { name: string; to: string; searchName?: string }[] }[] = [
+  {
+    letter: 'P', label: '正向情緒',
+    practices: [
+      { name: '三件好事', to: '/app/placeholder', searchName: '三件好事' },
+      { name: '感恩日記', to: '/app/gratitude' },
+    ],
+  },
+  {
+    letter: 'E', label: '全心投入',
+    practices: [
+      { name: '自我慈悲', to: '/app/placeholder', searchName: '自我慈悲' },
+      { name: '正念冥想', to: '/app/placeholder', searchName: '正念冥想' },
+    ],
+  },
+  {
+    letter: 'R', label: '連結力',
+    practices: [
+      { name: '感恩日記', to: '/app/gratitude' },
+    ],
+  },
+  {
+    letter: 'M', label: '意義力',
+    practices: [
+      { name: '感恩日記', to: '/app/gratitude' },
+      { name: '過程目標覺察', to: '/app/placeholder', searchName: '過程目標覺察' },
+    ],
+  },
+  {
+    letter: 'A', label: '成就感',
+    practices: [
+      { name: '過程目標覺察', to: '/app/placeholder', searchName: '過程目標覺察' },
+    ],
+  },
+]
+
+function SectionHeading({ label }: { label: string }) {
+  return (
+    <h3 className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+      {label}
+    </h3>
+  )
+}
+
+function LockIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
+
+function ScheduleCard({ label }: { label: string }) {
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      onClick={() => navigate({ to: '/app/placeholder', search: { name: label } })}
+      className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft transition active:scale-[0.97]"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-soft text-sm">📋</span>
+      <span className="text-sm font-bold text-foreground">{label}</span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-auto text-muted-foreground" aria-hidden="true">
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    </button>
+  )
+}
+
+function TrainingCenter() {
+  return (
+    <section className="mt-10 pb-16">
+      <h2 className="mb-6 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+        Training center
+      </h2>
+
+      {/* 1. 我的菜單 */}
+      <div className="mb-8">
+        <SectionHeading label="我的菜單（我的日程）" />
+        <div className="flex flex-col gap-2">
+          <ScheduleCard label="日程一" />
+          <ScheduleCard label="日程二" />
+          <ScheduleCard label="日程三" />
+          {/* locked placeholder */}
+          <div className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 opacity-50">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-muted text-sm text-muted-foreground">
+              <LockIcon />
+            </span>
+            <span className="text-sm font-bold text-muted-foreground">更多日程</span>
+            <span className="ml-auto text-muted-foreground"><LockIcon /></span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. 最新上架 */}
+      <div className="mb-8">
+        <SectionHeading label="最新上架" />
+        <div className="relative overflow-hidden rounded-3xl bg-muted/60 px-6 py-10 text-center shadow-soft">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-full w-full bg-muted/40" />
+          </div>
+          <span className="text-2xl">🔒</span>
+          <p className="mt-2 text-sm font-extrabold text-muted-foreground">敬請期待</p>
+          <p className="mt-1 text-xs text-muted-foreground/70">新課程正在路上</p>
+        </div>
+      </div>
+
+      {/* 3. 最熱門 */}
+      <div className="mb-8">
+        <SectionHeading label="最熱門" />
+        <Link
+          to="/app/gratitude"
+          className="flex items-center gap-4 rounded-3xl bg-tile-mint px-5 py-4 shadow-soft transition active:scale-[0.97]"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-2xl shadow-sm">⭐</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-foreground">感恩日記</p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {['P 情緒力', 'R 連結力', 'M 意義力'].map((tag) => (
+                <span key={tag} className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-extrabold text-foreground/70">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-foreground/50" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
+
+      {/* 4. PERMA 練習菜單 */}
+      <div>
+        <SectionHeading label="PERMA 練習菜單" />
+        <div className="flex flex-col gap-3">
+          {permaMenuItems.map(({ letter, label, practices }) => (
+            <div key={letter} className={`rounded-3xl p-4 shadow-soft ${permaColors[letter]}`}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/60 text-xs font-extrabold text-foreground shadow-sm">
+                  {letter}
+                </span>
+                <span className="text-xs font-extrabold text-foreground/70">{label}</span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {practices.map((p) => {
+                  const linkProps =
+                    p.to === '/app/placeholder'
+                      ? { to: p.to as '/app/placeholder', search: { name: p.searchName ?? p.name } }
+                      : { to: p.to as '/app/gratitude' }
+                  return (
+                    <Link
+                      key={p.name + p.to}
+                      {...(linkProps as Parameters<typeof Link>[0])}
+                      className="flex items-center justify-between rounded-2xl bg-white/50 px-3 py-2 transition active:scale-[0.97]"
+                    >
+                      <span className="text-sm font-bold text-foreground">{p.name}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40" aria-hidden="true">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 
