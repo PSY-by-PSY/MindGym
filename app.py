@@ -93,6 +93,17 @@ class GratitudeRequest(BaseModel):
     item_3: str
 
 
+class KeywordEntry(BaseModel):
+    id: str
+    item_1: str | None = None
+    item_2: str | None = None
+    item_3: str | None = None
+
+
+class ExtractKeywordsRequest(BaseModel):
+    entries: list[KeywordEntry]
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 @app.get("/healthz")
@@ -200,6 +211,65 @@ async def save_gratitude(
     except Exception as exc:
         logger.error("save_gratitude failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/extract-keywords")
+async def extract_keywords(req: ExtractKeywordsRequest):
+    if not req.entries:
+        return {"tags": {}}
+
+    entries_text = "\n\n".join(
+        f"ID: {e.id}\n內容：{'; '.join(x for x in [e.item_1, e.item_2, e.item_3] if x)}"
+        for e in req.entries
+    )
+
+    try:
+        msg = await claude().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "你是一個繁體中文文本分析助手。請分析以下感恩日記條目，為每一則提取 2-3 個關鍵詞標籤。\n\n"
+                    "每個標籤規則：\n"
+                    "- 2-4 個繁體中文字的詞語\n"
+                    "- 必須屬於以下四個類別之一：感受、事件、對象、其他\n"
+                    "  - 感受：描述情緒或心理狀態（例如：溫暖、感動、平靜）\n"
+                    "  - 事件：描述發生的事情（例如：聚餐、完成目標、下雨天）\n"
+                    "  - 對象：描述人物或事物（例如：家人、朋友、貓咪）\n"
+                    "  - 其他：不屬於以上三類的詞語\n\n"
+                    "只回傳以下 JSON 格式，不要其他文字：\n"
+                    '{\n'
+                    '  "results": [\n'
+                    '    {\n'
+                    '      "id": "entry_id_here",\n'
+                    '      "tags": [\n'
+                    '        { "word": "關鍵詞", "category": "感受" },\n'
+                    '        { "word": "關鍵詞", "category": "事件" }\n'
+                    '      ]\n'
+                    '    }\n'
+                    '  ]\n'
+                    '}\n\n'
+                    f"感恩日記條目：\n{entries_text}"
+                ),
+            }],
+        )
+
+        raw = msg.content[0].text if msg.content else ""
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            return {"tags": {}}
+
+        parsed = json.loads(match.group())
+        tags: dict[str, list] = {}
+        for result in parsed.get("results", []):
+            tags[result["id"]] = result.get("tags", [])[:3]
+
+        return {"tags": tags}
+
+    except Exception as exc:
+        logger.error("extract_keywords failed [%s]: %s", type(exc).__name__, exc)
+        return {"tags": {}}
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
