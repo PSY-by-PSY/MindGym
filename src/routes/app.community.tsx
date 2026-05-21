@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 type GratitudeEntry = {
@@ -67,26 +68,111 @@ function LoadingState() {
   )
 }
 
-function CommunityPage() {
-  const { entries } = Route.useLoaderData()
+const LS_KEY = 'community_last_visited'
+
+function useDailyModal(hasEntries: boolean) {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!hasEntries) return
+    const today = new Date().toISOString().slice(0, 10)
+    if (localStorage.getItem(LS_KEY) !== today) {
+      localStorage.setItem(LS_KEY, today)
+      setOpen(true)
+    }
+  }, [hasEntries])
+
+  return { open, close: () => setOpen(false) }
+}
+
+function DailyModal({ entry, onClose }: { entry: GratitudeEntry; onClose: () => void }) {
+  const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
+  const avatar = avatarFor(entry.anon_name, 0)
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
-      <Header />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="mb-4 text-center text-sm font-medium text-muted-foreground">
+          今日社群動態
+        </p>
 
-      {entries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
-          <span className="text-4xl">💫</span>
-          <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
+        <div className="flex items-center gap-3">
+          <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
+            {avatar.emoji}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-extrabold text-foreground">
+              {entry.anon_name ?? '匿名使用者'}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
+          </div>
         </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {entries.map((entry, i) => (
-            <EntryCard key={entry.id} entry={entry} index={i} />
+
+        <ul className="mt-4 flex flex-col gap-2">
+          {items.map((item, i) => (
+            <li key={i} className="flex items-start gap-3 rounded-2xl bg-muted px-3.5 py-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
+                {i + 1}
+              </span>
+              <span className="text-sm leading-relaxed text-foreground/80">{item}</span>
+            </li>
           ))}
+        </ul>
+
+        <p className="mt-5 text-center text-sm font-semibold text-foreground">
+          請給對方一些回饋吧 💬
+        </p>
+
+        <div className="mt-4 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
+          >
+            先看看
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-2xl bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
+          >
+            去留言
+          </button>
         </div>
-      )}
+      </div>
     </div>
+  )
+}
+
+function CommunityPage() {
+  const { entries } = Route.useLoaderData()
+  const { open, close } = useDailyModal(entries.length > 0)
+
+  return (
+    <>
+      {open && <DailyModal entry={entries[0]} onClose={close} />}
+
+      <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
+        <Header />
+
+        {entries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
+            <span className="text-4xl">💫</span>
+            <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {entries.map((entry, i) => (
+              <EntryCard key={entry.id} entry={entry} index={i} />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
