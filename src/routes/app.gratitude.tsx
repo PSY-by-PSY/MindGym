@@ -408,10 +408,28 @@ function SummaryStage({
     if (!shareCardRef.current || sharing) return
     setSharing(true)
     try {
-      const dataUrl = await toPng(shareCardRef.current, {
+      const node = shareCardRef.current
+      // Wait two frames so the off-screen card has actually been laid out
+      // (otherwise html-to-image can capture before fonts/layout settle).
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      const dataUrl = await toPng(node, {
+        width: 1080,
+        height: 1440,
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: '#ffffff',
+        // Skip web-font embedding — ShareCard uses system fonts only, and
+        // fetching Google Fonts stylesheets hits CORS in the browser.
+        skipFonts: true,
+        // Override the off-screen positioning on the cloned node so its
+        // contents render at (0,0) inside the generated SVG.
+        style: {
+          position: 'static',
+          left: '0',
+          top: '0',
+          transform: 'none',
+          margin: '0',
+        },
       })
       const link = document.createElement('a')
       link.download = `gratitude-${isoDate(todayDate())}.png`
@@ -464,7 +482,7 @@ function SummaryStage({
         ref={shareCardRef}
         aria-hidden
         className="pointer-events-none fixed -left-[9999px] top-0"
-        style={{ width: '1280px', height: '720px' }}
+        style={{ width: '1080px', height: '1440px' }}
       >
         <ShareCard items={items} summary={summary} date={date} />
       </div>
@@ -512,43 +530,45 @@ function ShareCard({
   return (
     <div
       style={{
-        width: '1280px',
-        height: '720px',
-        background: 'linear-gradient(135deg,#dfe7f5 0%,#e8d6e8 60%,#f1d6c2 100%)',
-        padding: '64px 80px',
+        width: '1080px',
+        height: '1440px',
+        background: 'linear-gradient(150deg,#dfe7f5 0%,#e8d6e8 55%,#f1d6c2 100%)',
+        padding: '80px 72px',
         boxSizing: 'border-box',
         fontFamily: 'PingFang TC, Microsoft JhengHei, sans-serif',
         color: '#1f2742',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
+        gap: 36,
       }}
     >
       <div>
-        <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, opacity: 0.55 }}>
+        <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.55 }}>
           MINDGYM · GRATITUDE
         </div>
-        <div style={{ fontSize: 36, fontWeight: 800, marginTop: 12 }}>今天的三件感恩</div>
-        <div style={{ fontSize: 18, opacity: 0.65, marginTop: 6 }}>{date}</div>
+        <div style={{ fontSize: 52, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>
+          今天的三件感恩
+        </div>
+        <div style={{ fontSize: 22, opacity: 0.65, marginTop: 10 }}>{date}</div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         {[items.item_1, items.item_2, items.item_3].map((text, i) => (
           <div
             key={i}
             style={{
-              background: 'rgba(255,255,255,0.7)',
-              borderRadius: 28,
-              padding: '20px 28px',
+              background: 'rgba(255,255,255,0.72)',
+              borderRadius: 32,
+              padding: '28px 32px',
               display: 'flex',
-              gap: 18,
+              gap: 22,
               alignItems: 'flex-start',
             }}
           >
             <div
               style={{
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 background: '#3b56a8',
                 color: '#fff',
@@ -556,19 +576,39 @@ function ShareCard({
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 800,
-                fontSize: 16,
+                fontSize: 20,
                 flexShrink: 0,
               }}
             >
               {i + 1}
             </div>
-            <div style={{ fontSize: 20, lineHeight: 1.55 }}>{text}</div>
+            <div style={{ fontSize: 26, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{text}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ fontSize: 16, lineHeight: 1.7, opacity: 0.8, maxWidth: 1120 }}>
-        {summary ?? '——'}
+      <div
+        style={{
+          marginTop: 'auto',
+          background: 'rgba(255,255,255,0.55)',
+          borderRadius: 32,
+          padding: '28px 32px',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 14,
+            letterSpacing: 6,
+            fontWeight: 800,
+            color: '#3b56a8',
+            marginBottom: 10,
+          }}
+        >
+          COACH&apos;S NOTE
+        </div>
+        <div style={{ fontSize: 22, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+          {summary ?? '——'}
+        </div>
       </div>
     </div>
   )
