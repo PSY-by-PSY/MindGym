@@ -3,6 +3,40 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import petCat from '../assets/pet-cat.png'
 
+type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
+
+const TARGET_META: Record<TargetCode, { emoji: string; label: string }> = {
+  others:      { emoji: '👥', label: '身邊他人' },
+  self:        { emoji: '🙋', label: '自己' },
+  environment: { emoji: '🌳', label: '環境' },
+  experience:  { emoji: '✨', label: '體驗' },
+  custom:      { emoji: '🏷️', label: '自訂' },
+}
+
+const TARGET_COLORS: Record<TargetCode, string> = {
+  others:      '#6BAED6',
+  self:        '#FD8D3C',
+  environment: '#74C476',
+  experience:  '#9E9AC8',
+  custom:      '#BDBDBD',
+}
+
+const TARGET_INSIGHT: Record<TargetCode, string> = {
+  others:      '你的幸福感有很大一部分來自身邊的人，珍惜這些連結吧。',
+  self:        '你非常懂得欣賞自己的努力與成長，這是很珍貴的自我覺察。',
+  environment: '你對生活中的細微美好特別敏感，這份覺察讓你隨時都能找到禮物。',
+  experience:  '你善於從日常的小體驗中找到喜悅，生活對你來說充滿驚喜。',
+  custom:      '你的感恩來自各種面向，這份多元的覺察豐富了你的內在世界。',
+}
+
+const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
+  others:      { title: '👥 身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
+  self:        { title: '🙋 自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
+  environment: { title: '🌳 環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
+  experience:  { title: '✨ 體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
+  custom:      { title: '🏷️ 自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
+}
+
 type PermaScores = {
   p_score: number
   e_score: number
@@ -187,6 +221,169 @@ function LoadingState() {
         <div className="h-72 animate-pulse rounded-3xl bg-primary-soft" />
       </div>
     </div>
+  )
+}
+
+// ── 感恩對象地圖 ────────────────────────────────────────────────────────────
+
+function DonutChart({ segments }: { segments: { code: TargetCode; count: number; pct: number }[] }) {
+  const r = 38
+  const cx = 50
+  const cy = 50
+  const circumference = 2 * Math.PI * r
+
+  if (segments.length === 0) {
+    return (
+      <svg viewBox="0 0 100 100" className="h-32 w-32">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="16" />
+      </svg>
+    )
+  }
+
+  let cumulative = 0
+  return (
+    <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
+      {segments.map(({ code, pct }) => {
+        const dash = Math.max(0, pct * circumference - 2)
+        const gap = circumference - dash
+        const offset = -(cumulative * circumference)
+        cumulative += pct
+        return (
+          <circle
+            key={code}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={TARGET_COLORS[code]}
+            strokeWidth="16"
+            strokeDasharray={`${dash} ${gap}`}
+            strokeDashoffset={offset}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
+function GratitudeTargetMap({ userId }: { userId: string | null }) {
+  const [segments, setSegments] = useState<{ code: TargetCode; count: number; pct: number }[]>([])
+  const [showInfoModal, setShowInfoModal] = useState(false)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('gratitude_entries')
+        .select('target_1, target_2, target_3')
+        .eq('user_id', userId)
+      if (cancelled || !data) return
+
+      const counts: Partial<Record<TargetCode, number>> = {}
+      for (const row of data) {
+        for (const val of [row.target_1, row.target_2, row.target_3]) {
+          if (val) counts[val as TargetCode] = (counts[val as TargetCode] ?? 0) + 1
+        }
+      }
+      const total = Object.values(counts).reduce((s, v) => s + v, 0)
+      if (total > 0) {
+        const segs = (Object.entries(counts) as [TargetCode, number][])
+          .sort((a, b) => b[1] - a[1])
+          .map(([code, count]) => ({ code, count, pct: count / total }))
+        setSegments(segs)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [userId])
+
+  const topCode = segments[0]?.code ?? null
+  const insight = topCode ? TARGET_INSIGHT[topCode] : null
+
+  return (
+    <>
+      <div className="rounded-3xl bg-card p-5 shadow-soft">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+              Gratitude Map
+            </p>
+            <h2 className="text-lg font-extrabold text-foreground">感恩對象地圖</h2>
+          </div>
+          <button
+            onClick={() => setShowInfoModal(true)}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary"
+          >
+            ?
+          </button>
+        </div>
+
+        <div className="flex items-center gap-5">
+          <DonutChart segments={segments} />
+          <div className="flex flex-1 flex-col gap-2">
+            {segments.length === 0 ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                完成更多感恩練習後，這裡會顯示你的感恩對象分佈。
+              </p>
+            ) : (
+              segments.map(({ code, pct }) => {
+                const meta = TARGET_META[code]
+                return (
+                  <div key={code} className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: TARGET_COLORS[code] }}
+                    />
+                    <span className="flex-1 text-xs text-foreground/80">
+                      {meta.emoji} {meta.label}
+                    </span>
+                    <span className="text-xs font-bold text-foreground">
+                      {Math.round(pct * 100)}%
+                    </span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {insight && (
+          <p className="mt-3 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+            {insight}
+          </p>
+        )}
+      </div>
+
+      {showInfoModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
+          onClick={() => setShowInfoModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-extrabold text-foreground">感恩對象的心理學意義</p>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              {(Object.entries(TARGET_INFO) as [TargetCode, { title: string; desc: string }][]).map(([, info]) => (
+                <div key={info.title}>
+                  <p className="text-xs font-extrabold text-foreground">{info.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{info.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -495,6 +692,9 @@ function ProfilePage() {
 
         {/* 健心紀錄日曆 */}
         <GratitudeCalendar initialEntries={initialEntries} userId={userId} />
+
+        {/* 感恩對象地圖 */}
+        <GratitudeTargetMap userId={userId} />
       </div>
     </div>
   )
