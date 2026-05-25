@@ -37,6 +37,21 @@ const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
   custom:      { title: '🏷️ 自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
 }
 
+type AvatarCode = 'star' | 'blossom' | 'leaf' | 'sun' | 'butterfly' | 'wave'
+
+const AVATAR_OPTIONS: { code: AvatarCode; emoji: string; tile: string; label: string }[] = [
+  { code: 'star',      emoji: '🌟', tile: 'bg-tile-peach', label: '星光' },
+  { code: 'blossom',   emoji: '🌸', tile: 'bg-tile-pink',  label: '花朵' },
+  { code: 'leaf',      emoji: '🌿', tile: 'bg-tile-mint',  label: '綠意' },
+  { code: 'sun',       emoji: '☀️', tile: 'bg-tile-blue',  label: '陽光' },
+  { code: 'butterfly', emoji: '🦋', tile: 'bg-tile-pink',  label: '蝴蝶' },
+  { code: 'wave',      emoji: '🌊', tile: 'bg-tile-blue',  label: '海浪' },
+]
+
+function avatarByCode(code: string | null): { emoji: string; tile: string } {
+  return AVATAR_OPTIONS.find((a) => a.code === code) ?? { emoji: '🌟', tile: 'bg-tile-peach' }
+}
+
 type PermaScores = {
   p_score: number
   e_score: number
@@ -67,7 +82,7 @@ export const Route = createFileRoute('/app/profile')({
     const endOfMonth = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
 
     const [profileRes, permaRes, entriesRes, allDatesRes] = await Promise.all([
-      supabase.from('profiles').select('name').eq('id', userId).single(),
+      supabase.from('profiles').select('name, avatar').eq('id', userId).single(),
       supabase
         .from('perma_scores')
         .select('p_score, e_score, r_score, m_score, a_score')
@@ -108,6 +123,7 @@ export const Route = createFileRoute('/app/profile')({
 
     return {
       name: (profileRes.data?.name ?? null) as string | null,
+      avatar: (profileRes.data?.avatar ?? null) as string | null,
       scores: (permaRes.data ?? null) as PermaScores | null,
       userId,
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
@@ -615,21 +631,95 @@ function formatPracticeTime(totalMinutes: number): { value: string; unit: string
   return { value: text, unit: '小時' }
 }
 
+function AvatarPicker({
+  current,
+  onSelect,
+  onClose,
+}: {
+  current: string | null
+  onSelect: (code: AvatarCode) => void
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-center justify-between">
+          <p className="text-sm font-extrabold text-foreground">選擇你的頭像</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {AVATAR_OPTIONS.map((opt) => (
+            <button
+              key={opt.code}
+              onClick={() => onSelect(opt.code)}
+              className={`flex flex-col items-center gap-2 rounded-2xl py-4 transition active:scale-95 ${
+                current === opt.code
+                  ? 'ring-2 ring-primary ring-offset-2'
+                  : 'hover:bg-muted'
+              }`}
+            >
+              <span className={`flex h-14 w-14 items-center justify-center rounded-full text-3xl ${opt.tile}`}>
+                {opt.emoji}
+              </span>
+              <span className="text-xs font-bold text-foreground">{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ProfilePage() {
-  const { name, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
+  const [showPicker, setShowPicker] = useState(false)
   const totalMinutes = totalCount * 5
   const practiceTime = formatPracticeTime(totalMinutes)
+
+  const handleSelectAvatar = async (code: AvatarCode) => {
+    setAvatar(code)
+    setShowPicker(false)
+    if (userId) {
+      await supabase.from('profiles').update({ avatar: code }).eq('id', userId)
+    }
+  }
+
+  const avatarDisplay = avatarByCode(avatar)
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl pb-4">
       <Header />
 
+      {showPicker && (
+        <AvatarPicker
+          current={avatar}
+          onSelect={handleSelectAvatar}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+
       <div className="flex flex-col gap-4 px-6 pt-5 md:px-10">
         {/* 名字卡 */}
         <div className="flex items-center gap-4 rounded-3xl bg-card p-5 shadow-soft">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-primary text-2xl text-primary-foreground">
-            {(name ?? '友').slice(0, 1)}
-          </div>
+          <button
+            onClick={() => setShowPicker(true)}
+            className="relative shrink-0 transition active:scale-95"
+            aria-label="更換頭像"
+          >
+            <div className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl ${avatarDisplay.tile}`}>
+              {avatarDisplay.emoji}
+            </div>
+            <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow">
+              ✏️
+            </span>
+          </button>
           <div>
             <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
               Member

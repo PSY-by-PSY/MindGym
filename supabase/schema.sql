@@ -72,3 +72,10 @@ CREATE POLICY "gratitude_entries: 本人可讀" ON gratitude_entries
 
 CREATE POLICY "gratitude_entries: is_shared 資料公開可讀" ON gratitude_entries
   FOR SELECT USING (is_shared = true);
+
+-- Migration for Step 12: avatar
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar text;
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS avatar text;
+
+-- use_real_name 欄位（Step 6 新增，若尚未存在）
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS use_real_name bool;

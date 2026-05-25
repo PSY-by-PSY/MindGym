@@ -191,6 +191,7 @@ function GratitudePage() {
         const t1 = tags.find((t) => t.item === 1)
         const t2 = tags.find((t) => t.item === 2)
         const t3 = tags.find((t) => t.item === 3)
+        const profileRes = await supabase.from('profiles').select('avatar').eq('id', session.user.id).single()
         const payload: Record<string, unknown> = {
           item_1: items.item_1,
           item_2: items.item_2,
@@ -203,6 +204,7 @@ function GratitudePage() {
         if (t1) payload.target_1 = t1.target
         if (t2) payload.target_2 = t2.target
         if (t3) payload.target_3 = t3.target
+        if (profileRes.data?.avatar) payload.avatar = profileRes.data.avatar
         const resp = await fetch(`${API_URL}/api/gratitude-save`, {
           method: 'POST',
           headers: {

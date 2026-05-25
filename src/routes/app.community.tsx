@@ -9,6 +9,7 @@ type GratitudeEntry = {
   item_2: string | null
   item_3: string | null
   entry_date: string | null
+  avatar: string | null
 }
 
 type Comment = {
@@ -37,7 +38,7 @@ const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { emoji: string; color
 async function fetchEntriesPage(offset: number) {
   return supabase
     .from('gratitude_entries')
-    .select('id, anon_name, item_1, item_2, item_3, entry_date')
+    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar')
     .eq('is_shared', true)
     .order('created_at', { ascending: false })
     .range(offset, offset + 3)
@@ -142,17 +143,24 @@ function formatDate(dateStr: string | null): string {
   return `${y} / ${m} / ${d}`
 }
 
-const AVATARS = [
-  { emoji: '🌟', tile: 'bg-tile-peach' },
-  { emoji: '🌿', tile: 'bg-tile-mint' },
-  { emoji: '🌸', tile: 'bg-tile-pink' },
-  { emoji: '☁️', tile: 'bg-tile-blue' },
+const AVATAR_OPTIONS = [
+  { code: 'star',      emoji: '🌟', tile: 'bg-tile-peach' },
+  { code: 'blossom',   emoji: '🌸', tile: 'bg-tile-pink' },
+  { code: 'leaf',      emoji: '🌿', tile: 'bg-tile-mint' },
+  { code: 'sun',       emoji: '☀️', tile: 'bg-tile-blue' },
+  { code: 'butterfly', emoji: '🦋', tile: 'bg-tile-pink' },
+  { code: 'wave',      emoji: '🌊', tile: 'bg-tile-blue' },
 ]
 
-function avatarFor(seed: string | null, index: number) {
-  if (!seed) return AVATARS[index % AVATARS.length]
+function avatarFor(seed: string | null, index: number, avatarCode?: string | null) {
+  if (avatarCode) {
+    const opt = AVATAR_OPTIONS.find((a) => a.code === avatarCode)
+    if (opt) return { emoji: opt.emoji, tile: opt.tile }
+  }
+  if (!seed) return { emoji: AVATAR_OPTIONS[index % AVATAR_OPTIONS.length].emoji, tile: AVATAR_OPTIONS[index % AVATAR_OPTIONS.length].tile }
   const sum = [...seed].reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-  return AVATARS[sum % AVATARS.length]
+  const idx = sum % AVATAR_OPTIONS.length
+  return { emoji: AVATAR_OPTIONS[idx].emoji, tile: AVATAR_OPTIONS[idx].tile }
 }
 
 function RefreshIcon({ spinning }: { spinning: boolean }) {
@@ -232,7 +240,7 @@ function useDailyModal(hasEntries: boolean) {
 
 function DailyModal({ entry, onClose }: { entry: GratitudeEntry; onClose: () => void }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
-  const avatar = avatarFor(entry.anon_name, 0)
+  const avatar = avatarFor(entry.anon_name, 0, entry.avatar)
 
   return (
     <div
@@ -412,7 +420,7 @@ function EntryCard({
   onCommentAdded: (c: Comment) => void
 }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
-  const avatar = avatarFor(entry.anon_name, index)
+  const avatar = avatarFor(entry.anon_name, index, entry.avatar)
   const [showComments, setShowComments] = useState(false)
   const [liking, setLiking] = useState(false)
   const [commentText, setCommentText] = useState('')

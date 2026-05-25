@@ -117,6 +117,7 @@ class GratitudeSaveRequest(BaseModel):
     target_1: str | None = None
     target_2: str | None = None
     target_3: str | None = None
+    avatar: str | None = None
 
 
 class KeywordEntry(BaseModel):
@@ -378,6 +379,8 @@ async def gratitude_save(
             payload["target_2"] = req.target_2
         if req.target_3:
             payload["target_3"] = req.target_3
+        if req.avatar:
+            payload["avatar"] = req.avatar
 
         db_resp = await db().post(
             f"{SUPABASE_REST}/gratitude_entries",
