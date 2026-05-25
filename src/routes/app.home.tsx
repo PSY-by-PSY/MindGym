@@ -213,43 +213,195 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
   )
 }
 
-// permaMenuItems kept for Step 9
-const permaMenuItems: { letter: string; label: string; practices: { name: string; to: string; searchName?: string }[] }[] = [
+// ─── PERMA Menu Table (Step 9) ───────────────────────────────────────────────
+
+const PRACTICE_BADGE_STYLE: Record<string, { bg: string; dot: string; text: string }> = {
+  '正念冥想':     { bg: '#EDE9FE', dot: '#7C3AED', text: '#5B21B6' },
+  '自我慈悲':     { bg: '#FCE7F3', dot: '#BE185D', text: '#9D174D' },
+  '感恩日記':     { bg: '#D1FAE5', dot: '#059669', text: '#065F46' },
+  '三件好事':     { bg: '#FEF3C7', dot: '#D97706', text: '#92400E' },
+  '過程目標覺察': { bg: '#DBEAFE', dot: '#2563EB', text: '#1E3A8A' },
+}
+
+const PERMA_LETTER_COLOR: Record<string, string> = {
+  P: '#7C3AED',
+  E: '#059669',
+  R: '#BE185D',
+  M: '#9B1257',
+  A: '#2563EB',
+}
+
+const BADGE_STYLE = {
+  good:     { bg: '#D1FAE5', text: '#065F46' },
+  improve:  { bg: '#FEE2E2', text: '#991B1B' },
+  adjusted: { bg: '#E0E7FF', text: '#3730A3' },
+}
+
+type PermaPractice = { name: string; primary: boolean }
+type PermaRow = {
+  letter: string
+  zh: string
+  en: string
+  practices: PermaPractice[]
+  strength: number
+  strengthLabel: string
+  description: string
+  badge: { text: string; style: keyof typeof BADGE_STYLE }
+}
+
+const PERMA_ROWS: PermaRow[] = [
   {
-    letter: 'P', label: '正向情緒',
+    letter: 'P', zh: '正向情緒', en: 'Positive Emotion',
     practices: [
-      { name: '三件好事', to: '/app/placeholder', searchName: '三件好事' },
-      { name: '感恩日記', to: '/app/gratitude' },
+      { name: '三件好事', primary: true },
+      { name: '感恩日記', primary: true },
+      { name: '正念冥想', primary: false },
     ],
+    strength: 4, strengthLabel: '強',
+    description: '三件好事與感恩日記直接累積正向情感體驗；正念冥想透過情緒調節間接貢獻。',
+    badge: { text: '覆蓋良好', style: 'good' },
   },
   {
-    letter: 'E', label: '全心投入',
+    letter: 'E', zh: '投入感', en: 'Engagement',
     practices: [
-      { name: '自我慈悲', to: '/app/placeholder', searchName: '自我慈悲' },
-      { name: '正念冥想', to: '/app/placeholder', searchName: '正念冥想' },
+      { name: '正念冥想', primary: true },
+      { name: '過程目標覺察', primary: true },
     ],
+    strength: 3, strengthLabel: '中',
+    description: '正念訓練專注與當下投入；過程目標覺察的「享受到的樂趣」直接對應 flow 狀態的反思。',
+    badge: { text: '可加強', style: 'improve' },
   },
   {
-    letter: 'R', label: '連結力',
+    letter: 'R', zh: '正向關係', en: 'Relationships',
     practices: [
-      { name: '感恩日記', to: '/app/gratitude' },
+      { name: '感恩日記', primary: true },
+      { name: '自我慈悲', primary: false },
     ],
+    strength: 3, strengthLabel: '中',
+    description: '感恩日記的書寫對象多為他人，強化對人際連結的覺察與珍視；自我慈悲的「共同人性」成分（common humanity）也間接涉及關係感。',
+    badge: { text: '修正後合理', style: 'adjusted' },
   },
   {
-    letter: 'M', label: '意義力',
+    letter: 'M', zh: '意義感', en: 'Meaning',
     practices: [
-      { name: '感恩日記', to: '/app/gratitude' },
-      { name: '過程目標覺察', to: '/app/placeholder', searchName: '過程目標覺察' },
+      { name: '過程目標覺察', primary: true },
+      { name: '自我慈悲', primary: false },
+      { name: '感恩日記', primary: false },
     ],
+    strength: 3, strengthLabel: '中',
+    description: '過程目標覺察的「成長心得」最直接引導意義建構；感恩讓使用者辨認生命中有價值的事物。可加入更明確的價值觀連結引導。',
+    badge: { text: '可加強', style: 'improve' },
   },
   {
-    letter: 'A', label: '成就感',
+    letter: 'A', zh: '成就感', en: 'Accomplishment',
     practices: [
-      { name: '過程目標覺察', to: '/app/placeholder', searchName: '過程目標覺察' },
+      { name: '三件好事', primary: true },
+      { name: '過程目標覺察', primary: true },
     ],
+    strength: 4, strengthLabel: '強',
+    description: '三件好事引導使用者辨認每日小成就；過程目標覺察的「成長了哪些部分」直接強化勝任感。平台打卡機制也持續累積成就感。',
+    badge: { text: '覆蓋良好', style: 'good' },
   },
 ]
-void permaMenuItems // used in Step 9
+
+function PermaMenuTable() {
+  return (
+    <div className="overflow-hidden rounded-3xl bg-card shadow-soft">
+      {/* Practice legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border px-4 py-3">
+        {Object.entries(PRACTICE_BADGE_STYLE).map(([name, { dot }]) => (
+          <span key={name} className="flex items-center gap-1.5 text-[11px] text-foreground/70">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dot }} />
+            {name}
+          </span>
+        ))}
+      </div>
+
+      {/* Column headers */}
+      <div className="grid grid-cols-[72px_1fr_72px] border-b border-border bg-muted/30 px-4 py-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground md:grid-cols-[80px_1fr_88px_1fr]">
+        <span>維度</span>
+        <span>對應練習</span>
+        <span className="text-center">覆蓋強度</span>
+        <span className="hidden md:block">說明</span>
+      </div>
+
+      {/* Rows */}
+      {PERMA_ROWS.map((row, idx) => {
+        const letterColor = PERMA_LETTER_COLOR[row.letter]
+        return (
+          <div key={row.letter} className={idx < PERMA_ROWS.length - 1 ? 'border-b border-border' : ''}>
+            <div className="grid grid-cols-[72px_1fr_72px] gap-3 px-4 pt-4 md:grid-cols-[80px_1fr_88px_1fr]">
+              {/* Dimension */}
+              <div className="pb-4">
+                <p className="text-xl font-extrabold leading-none" style={{ color: letterColor }}>{row.letter}</p>
+                <p className="mt-1 text-xs font-bold text-foreground/80">{row.zh}</p>
+                <p className="text-[10px] text-muted-foreground">{row.en}</p>
+              </div>
+
+              {/* Practices */}
+              <div className="flex flex-wrap content-start gap-1.5 pb-4">
+                {row.practices.map((p) => {
+                  const s = PRACTICE_BADGE_STYLE[p.name]
+                  return (
+                    <span
+                      key={p.name}
+                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold leading-none"
+                      style={{ backgroundColor: s.bg, color: s.text }}
+                    >
+                      {p.name}
+                      <span className="opacity-80">{p.primary ? '●' : '◐'}</span>
+                    </span>
+                  )
+                })}
+              </div>
+
+              {/* Strength */}
+              <div className="flex flex-col items-center gap-1 pb-4 pt-1">
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <span
+                      key={i}
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: i < row.strength ? letterColor : '#E5E7EB' }}
+                    />
+                  ))}
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{row.strengthLabel}</span>
+              </div>
+
+              {/* Description — shown as 4th column on md+ */}
+              <div className="hidden pb-4 md:block">
+                <p className="text-xs leading-relaxed text-muted-foreground">{row.description}</p>
+                <span
+                  className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                  style={{ backgroundColor: BADGE_STYLE[row.badge.style].bg, color: BADGE_STYLE[row.badge.style].text }}
+                >
+                  {row.badge.text}
+                </span>
+              </div>
+            </div>
+
+            {/* Description — shown below row on mobile */}
+            <div className="px-4 pb-4 md:hidden">
+              <p className="text-xs leading-relaxed text-muted-foreground">{row.description}</p>
+              <span
+                className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                style={{ backgroundColor: BADGE_STYLE[row.badge.style].bg, color: BADGE_STYLE[row.badge.style].text }}
+              >
+                {row.badge.text}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Footer */}
+      <div className="border-t border-border px-4 py-3 text-[10px] leading-relaxed text-muted-foreground/60">
+        ● 主要對應　◐ 部分對應　｜　覆蓋強度以五個練習對該維度的累計貢獻估算，非實驗數據
+      </div>
+    </div>
+  )
+}
 
 // ─── Training Center ──────────────────────────────────────────────────────────
 
@@ -472,13 +624,7 @@ function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
         </Link>
       )}
 
-      {activeTab === 'perma' && (
-        <div className="relative overflow-hidden rounded-3xl bg-muted/60 px-6 py-10 text-center shadow-soft">
-          <span className="text-2xl">🔒</span>
-          <p className="mt-2 text-sm font-extrabold text-muted-foreground">敬請期待</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">PERMA 練習菜單正在整理中</p>
-        </div>
-      )}
+      {activeTab === 'perma' && <PermaMenuTable />}
     </section>
   )
 }
