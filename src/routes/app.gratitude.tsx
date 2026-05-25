@@ -10,7 +10,7 @@ export const Route = createFileRoute('/app/gratitude')({
   component: GratitudePage,
 })
 
-type Stage = 'INTRO' | 'WRITE_1' | 'WRITE_2' | 'WRITE_3' | 'SUMMARY' | 'CELEBRATE'
+type Stage = 'INTRO' | 'WRITING' | 'SUMMARY' | 'CELEBRATE'
 type Difficulty = 'basic' | 'advanced'
 type ItemKey = 'item_1' | 'item_2' | 'item_3'
 
@@ -63,6 +63,14 @@ function formatDate(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y} / ${m} / ${d}（星期${days[date.getDay()]}）`
+}
+
+function formatWritingDate(date: Date): string {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y} / ${m} / ${d}（${days[date.getDay()]}）`
 }
 
 function isoDate(date: Date): string {
@@ -160,33 +168,19 @@ function GratitudePage() {
         <IntroStage
           difficulty={difficulty}
           onChangeDifficulty={setDifficulty}
-          onStart={() => setStage('WRITE_1')}
+          onStart={() => setStage('WRITING')}
         />
       )
-    case 'WRITE_1':
-    case 'WRITE_2':
-    case 'WRITE_3': {
-      const step = stage === 'WRITE_1' ? 1 : stage === 'WRITE_2' ? 2 : 3
-      const itemKey: ItemKey = `item_${step}` as ItemKey
+    case 'WRITING':
       return (
         <WritingStage
-          step={step}
           difficulty={difficulty}
-          value={items[itemKey]}
-          onChange={(v) => setItems({ ...items, [itemKey]: v })}
-          onBack={() => {
-            if (step === 1) setStage('INTRO')
-            else if (step === 2) setStage('WRITE_1')
-            else setStage('WRITE_2')
-          }}
-          onNext={() => {
-            if (step === 1) setStage('WRITE_2')
-            else if (step === 2) setStage('WRITE_3')
-            else setStage('SUMMARY')
-          }}
+          items={items}
+          onChangeItem={(key, val) => setItems((prev) => ({ ...prev, [key]: val }))}
+          onBack={() => setStage('INTRO')}
+          onNext={() => setStage('SUMMARY')}
         />
       )
-    }
     case 'SUMMARY':
       return (
         <SummaryStage
@@ -411,75 +405,269 @@ function LoopIcon() {
   )
 }
 
-// ─────────────────────────── WRITING (per page) ───────────────────────────
+// ─────────────────────────── WRITING (single page) ───────────────────────────
+
+const CARD_PLACEHOLDERS = [
+  {
+    title: '第一件感恩的事情是…',
+    example:
+      '舉例：我很感激工作夥伴幫忙來回溝通開會事項，交給對方處理我感到很安心',
+  },
+  {
+    title: '第二件感恩的事情是…',
+    example:
+      '舉例：我很感謝自己今天面對一整天繁忙的行程並沒有退縮或放棄，真的好難得～',
+  },
+  {
+    title: '第三件感恩的事情是…',
+    example:
+      '舉例：今天的公車準時抵達，讓我有餘裕不匆忙地去上班，還可以欣賞沿途風景',
+  },
+]
+
+async function loadStreak(): Promise<number> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return 0
+  const { data } = await supabase
+    .from('gratitude_entries')
+    .select('entry_date')
+    .order('entry_date', { ascending: false })
+    .limit(100)
+  if (!data || data.length === 0) return 0
+  const dateSet = new Set(data.map((r: { entry_date: string }) => r.entry_date))
+  const today = isoDate(todayDate())
+  const cursor = new Date(todayDate())
+  if (!dateSet.has(today)) cursor.setDate(cursor.getDate() - 1)
+  let count = 0
+  while (dateSet.has(isoDate(cursor))) {
+    count++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return count
+}
 
 function WritingStage({
-  step,
   difficulty,
-  value,
-  onChange,
+  items,
+  onChangeItem,
   onBack,
   onNext,
 }: {
-  step: 1 | 2 | 3
   difficulty: Difficulty
-  value: string
-  onChange: (v: string) => void
+  items: GratitudeItems
+  onChangeItem: (key: ItemKey, val: string) => void
   onBack: () => void
   onNext: () => void
 }) {
-  const date = useMemo(() => formatDate(todayDate()), [])
-  const dirty = value.trim().length > 0
-  const nextLabel = step === 3 ? '完成三件感恩' : '下一件'
-  const nextVariant = step === 3 ? 'done' : 'next'
+  const dateStr = useMemo(() => formatWritingDate(todayDate()), [])
+  const [streak, setStreak] = useState(0)
+  const [activeCard, setActiveCard] = useState<number>(1)
+
+  useEffect(() => {
+    loadStreak().then(setStreak).catch(() => {})
+  }, [])
+
+  const values = [items.item_1, items.item_2, items.item_3]
+  const filledCount = values.filter((v) => v.trim().length > 0).length
+  const totalChars = values.join('').replace(/\s/g, '').length
+  const allFilled = filledCount === 3
 
   return (
-    <div className="animate-fade-up mx-auto flex min-h-[calc(100vh-9rem)] max-w-3xl flex-col px-6 pt-8 md:px-10">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <button
-          onClick={onBack}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
-          aria-label="返回"
-        >
-          <BackIcon />
-        </button>
-        <span>{date}</span>
-        <span className="text-xs font-extrabold text-primary">{step}/3</span>
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-40 md:px-10">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        aria-label="返回"
+      >
+        <BackIcon />
+      </button>
+
+      {/* 4-B ① Date & streak */}
+      <div className="mt-5">
+        <p className="text-lg font-extrabold text-foreground">{dateStr}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          已連續紀錄 {streak} 天 🔥
+        </p>
       </div>
 
-      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-gradient-primary transition-all duration-500"
-          style={{ width: `${(step / 3) * 100}%` }}
-        />
+      {/* 4-B ② Circular progress */}
+      <div className="mt-6 flex justify-center">
+        <CircularProgress filled={filledCount} chars={totalChars} />
       </div>
 
-      <p className="mb-3 mt-8 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        感恩 {step} / 3 · {difficulty === 'basic' ? '初階' : '進階'}
-      </p>
-      <h2 className="text-xl font-extrabold leading-snug text-foreground md:text-2xl">
-        {DIFFICULTY_PROMPTS[difficulty]}
-      </h2>
-
-      <div className="mt-6 flex-1">
-        <textarea
-          autoFocus
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={
-            difficulty === 'basic'
-              ? '寫下今天的這份感謝…'
-              : '描述為什麼讓你感謝、對你的意義…'
-          }
-          rows={8}
-          className="w-full resize-none rounded-3xl bg-card p-5 text-base leading-relaxed text-foreground shadow-soft placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+      {/* 4-C Guiding text */}
+      <div className="mt-6 rounded-3xl bg-card p-4 shadow-soft">
+        <p className="text-sm leading-relaxed text-foreground/80">
+          今天發生了哪三件值得你感謝的事情呢？
+          <br />
+          請寫得越具體越好。感恩的對象可以是：身邊的人、自己、大自然與環境、一段體驗，或任何讓你感到被支持的事情。
+        </p>
       </div>
 
-      <div className="mt-6 pb-6">
-        <PrimaryCta onClick={onNext} disabled={!dirty} variant={nextVariant}>
-          {nextLabel}
+      {/* 4-C Cards */}
+      <div className="mt-4 flex flex-col gap-3">
+        {([1, 2, 3] as const).map((i) => (
+          <GratitudeCard
+            key={i}
+            index={i}
+            value={values[i - 1]}
+            difficulty={difficulty}
+            isActive={activeCard === i}
+            onActivate={() => setActiveCard(i)}
+            onChange={(v) => onChangeItem(`item_${i}` as ItemKey, v)}
+          />
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="mt-6">
+        <PrimaryCta onClick={onNext} disabled={!allFilled} variant="done">
+          完成三件感恩
         </PrimaryCta>
+      </div>
+    </div>
+  )
+}
+
+function CircularProgress({ filled, chars }: { filled: number; chars: number }) {
+  const r = 52
+  const circumference = 2 * Math.PI * r
+  const strokeDashoffset = circumference * (1 - filled / 3)
+  const isComplete = filled === 3
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="relative">
+        <svg
+          width="140"
+          height="140"
+          viewBox="0 0 140 140"
+          style={
+            isComplete
+              ? { filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.65))' }
+              : undefined
+          }
+        >
+          {/* Track */}
+          <circle
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="10"
+            className="text-muted-foreground/20"
+          />
+          {/* Progress */}
+          <circle
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke={isComplete ? '#f59e0b' : '#3b56a8'}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            transform="rotate(-90 70 70)"
+            style={{ transition: 'stroke-dashoffset 0.7s ease, stroke 0.5s ease' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span
+            className={`text-2xl font-extrabold ${
+              isComplete ? 'text-amber-500' : 'text-foreground'
+            }`}
+          >
+            {filled}/3
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            今日進度
+          </span>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">今日已寫 {chars} 字</p>
+    </div>
+  )
+}
+
+function GratitudeCard({
+  index,
+  value,
+  difficulty,
+  isActive,
+  onActivate,
+  onChange,
+}: {
+  index: 1 | 2 | 3
+  value: string
+  difficulty: Difficulty
+  isActive: boolean
+  onActivate: () => void
+  onChange: (v: string) => void
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { title, example } = CARD_PLACEHOLDERS[index - 1]
+  const filled = value.trim().length > 0
+
+  useEffect(() => {
+    if (isActive) textareaRef.current?.focus()
+  }, [isActive])
+
+  return (
+    <div
+      role={!isActive ? 'button' : undefined}
+      tabIndex={!isActive ? 0 : undefined}
+      onClick={!isActive ? onActivate : undefined}
+      onKeyDown={
+        !isActive ? (e) => e.key === 'Enter' && onActivate() : undefined
+      }
+      className={`rounded-3xl bg-card shadow-soft transition-all duration-200 ${
+        !isActive ? 'cursor-pointer active:scale-[0.99]' : ''
+      } ${filled && !isActive ? 'ring-1 ring-primary/30' : ''}`}
+    >
+      <div className="p-4">
+        <div className="mb-3 flex items-center gap-3">
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${
+              filled
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {filled ? '✓' : index}
+          </span>
+          <span className="text-sm font-bold text-foreground">{title}</span>
+        </div>
+
+        {isActive ? (
+          <>
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={example}
+              rows={5}
+              className="w-full resize-none bg-transparent text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+            />
+            {difficulty === 'advanced' && (
+              <p className="mt-2 border-t border-border pt-2 text-xs leading-relaxed text-primary/70">
+                💡 {DIFFICULTY_PROMPTS[difficulty]}
+              </p>
+            )}
+          </>
+        ) : filled ? (
+          <p className="line-clamp-3 text-sm leading-relaxed text-foreground/70">
+            {value}
+          </p>
+        ) : (
+          <p className="text-xs leading-relaxed text-muted-foreground/50">
+            {example}
+          </p>
+        )}
       </div>
     </div>
   )
