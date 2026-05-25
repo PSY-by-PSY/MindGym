@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
@@ -287,13 +287,8 @@ function IntroStage({
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-36 md:px-10">
-      {/* 3-A 評分 + 大標題 */}
-      <div className="flex items-center gap-1.5 text-sm">
-        <span className="text-yellow-400">⭐</span>
-        <span className="font-extrabold text-foreground">4.6</span>
-        <span className="text-muted-foreground">/ 540 則評分</span>
-      </div>
-      <h1 className="mt-2 text-[1.9rem] font-extrabold leading-tight text-foreground">
+      {/* 3-A 大標題 */}
+      <h1 className="text-[1.9rem] font-extrabold leading-tight text-foreground">
         感恩日記練習
       </h1>
 
@@ -366,18 +361,13 @@ function IntroStage({
           <span className="mt-5 text-[0.95rem] font-extrabold text-emerald-800">初階練習</span>
           <span className="mt-1 text-xs font-medium text-emerald-700">5 分 能量值</span>
         </button>
-        <button
-          onClick={() => onChangeDifficulty('advanced')}
-          className={`relative flex flex-col items-start rounded-2xl bg-tile-peach p-4 text-left transition active:scale-[0.98] ${
-            difficulty === 'advanced' ? 'ring-2 ring-orange-400' : ''
-          }`}
-        >
-          <span className="absolute right-3 top-3 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-bold text-orange-700">
-            標準
+        <div className="relative flex flex-col items-start rounded-2xl bg-muted/50 p-4 text-left grayscale opacity-50 cursor-not-allowed select-none">
+          <span className="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+            施工中
           </span>
-          <span className="mt-5 text-[0.95rem] font-extrabold text-orange-800">進階練習</span>
-          <span className="mt-1 text-xs font-medium text-orange-700">10 分 能量值</span>
-        </button>
+          <span className="mt-5 text-[0.95rem] font-extrabold text-muted-foreground">進階練習</span>
+          <span className="mt-1 text-xs font-medium text-muted-foreground">10 分 能量值</span>
+        </div>
       </div>
 
       {/* 開始練習 CTA */}
@@ -386,90 +376,7 @@ function IntroStage({
           開始練習
         </PrimaryCta>
       </div>
-
-      {/* 3-F 底部固定 Action Bar */}
-      <div className="fixed bottom-[68px] left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-around px-4 py-2.5">
-          <ActionBarItem icon={<HeartIcon />} label="想練" count="5.8K" />
-          <ActionBarItem icon={<CalendarIcon />} label="加日曆" />
-          <ActionBarItem icon={<ShareIcon />} label="分享" />
-          <ActionBarItem icon={<ChatIcon />} label="留言" count="19" />
-          <ActionBarItem icon={<LoopIcon />} label="練過" count="2210" />
-        </div>
-      </div>
     </div>
-  )
-}
-
-function ActionBarItem({
-  icon,
-  label,
-  count,
-}: {
-  icon: ReactNode
-  label: string
-  count?: string
-}) {
-  return (
-    <button className="flex flex-col items-center gap-0.5 px-1">
-      {count ? (
-        <span className="text-[11px] font-bold text-foreground">{count}</span>
-      ) : (
-        <span className="h-[18px]" />
-      )}
-      <span className="text-foreground/70">{icon}</span>
-      <span className="text-[10px] text-muted-foreground">{label}</span>
-    </button>
-  )
-}
-
-function HeartIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  )
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  )
-}
-
-function ShareIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  )
-}
-
-function ChatIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  )
-}
-
-function LoopIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="17 1 21 5 17 9" />
-      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-      <polyline points="7 23 3 19 7 15" />
-      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-    </svg>
   )
 }
 

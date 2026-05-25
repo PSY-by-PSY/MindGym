@@ -119,13 +119,13 @@ function HomePage() {
       {/* 今日暖身 — 暗夜漸層卡 */}
       <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-night p-6 shadow-soft">
         <StarField />
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary-foreground/55">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-white/60">
           Today&apos;s warm-up
         </p>
-        <p className="mt-2 text-lg font-extrabold leading-snug text-primary-foreground">
+        <p className="mt-2 text-lg font-extrabold leading-snug text-white">
           先深呼吸三次，讓今天的開機更順暢
         </p>
-        <p className="mt-1.5 text-sm leading-relaxed text-primary-foreground/70">
+        <p className="mt-1.5 text-sm leading-relaxed text-white/70">
           心理肌群和身體一樣，需要每天陪自己練一組。
         </p>
       </div>
