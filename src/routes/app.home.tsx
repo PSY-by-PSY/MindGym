@@ -1,4 +1,5 @@
-import { createFileRoute, redirect, Link, useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
+import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 
 export const Route = createFileRoute('/app/home')({
@@ -31,7 +32,16 @@ export const Route = createFileRoute('/app/home')({
       throw redirect({ to: '/onboarding' })
     }
 
-    return { userName }
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const { data: todayGratitude } = await supabase
+      .from('gratitude_entries')
+      .select('id')
+      .eq('user_id', userId)
+      .gte('created_at', todayStart.toISOString())
+      .limit(1)
+
+    return { userName, hasGratitudeToday: (todayGratitude?.length ?? 0) > 0 }
   },
   component: HomePage,
 })
@@ -95,7 +105,7 @@ const modules = [
 ]
 
 function HomePage() {
-  const { userName } = Route.useRouteContext()
+  const { userName, hasGratitudeToday } = Route.useRouteContext()
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
@@ -169,7 +179,7 @@ function HomePage() {
       </Link>
 
       {/* 訓練中心 */}
-      <TrainingCenter />
+      <TrainingCenter hasGratitudeToday={hasGratitudeToday} />
     </div>
   )
 }
@@ -203,6 +213,7 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
   )
 }
 
+// permaMenuItems kept for Step 9
 const permaMenuItems: { letter: string; label: string; practices: { name: string; to: string; searchName?: string }[] }[] = [
   {
     letter: 'P', label: '正向情緒',
@@ -238,139 +249,236 @@ const permaMenuItems: { letter: string; label: string; practices: { name: string
     ],
   },
 ]
+void permaMenuItems // used in Step 9
 
-function SectionHeading({ label }: { label: string }) {
-  return (
-    <h3 className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-      {label}
-    </h3>
-  )
+// ─── Training Center ──────────────────────────────────────────────────────────
+
+const DAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
+
+function getWeekDays(): Date[] {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const dow = today.getDay() // 0=Sun
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
 }
 
-function LockIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  )
-}
+function WeekCalendar({
+  selectedDay,
+  onSelectDay,
+}: {
+  selectedDay: Date
+  onSelectDay: (d: Date) => void
+}) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = getWeekDays()
 
-function ScheduleCard({ label }: { label: string }) {
-  const navigate = useNavigate()
   return (
-    <button
-      type="button"
-      onClick={() => navigate({ to: '/app/placeholder', search: { name: label } })}
-      className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft transition active:scale-[0.97]"
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-soft text-sm">📋</span>
-      <span className="text-sm font-bold text-foreground">{label}</span>
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-auto text-muted-foreground" aria-hidden="true">
-        <path d="M5 12h14M12 5l7 7-7 7" />
-      </svg>
-    </button>
-  )
-}
-
-function TrainingCenter() {
-  return (
-    <section className="mt-10 pb-16">
-      <h2 className="mb-6 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        Training center
-      </h2>
-
-      {/* 1. 我的菜單 */}
-      <div className="mb-8">
-        <SectionHeading label="我的菜單（我的日程）" />
-        <div className="flex flex-col gap-2">
-          <ScheduleCard label="日程一" />
-          <ScheduleCard label="日程二" />
-          <ScheduleCard label="日程三" />
-          {/* locked placeholder */}
-          <div className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 opacity-50">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-muted text-sm text-muted-foreground">
-              <LockIcon />
+    <div className="mb-4 flex gap-1">
+      {days.map((day, i) => {
+        const isToday = day.getTime() === today.getTime()
+        const isSelected = day.getTime() === selectedDay.getTime()
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onSelectDay(day)}
+            className="flex flex-1 flex-col items-center gap-1 py-1"
+          >
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition ${
+                isSelected
+                  ? 'bg-foreground text-background'
+                  : 'border border-border text-foreground/70'
+              }`}
+            >
+              {isToday ? '今' : DAY_NAMES[i]}
+            </div>
+            <span
+              className={`text-[11px] ${
+                isSelected ? 'font-extrabold text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {day.getDate()}
             </span>
-            <span className="text-sm font-bold text-muted-foreground">更多日程</span>
-            <span className="ml-auto text-muted-foreground"><LockIcon /></span>
-          </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function StatsCard({
+  hasGratitudeToday,
+  selectedDay,
+}: {
+  hasGratitudeToday: boolean
+  selectedDay: Date
+}) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isToday = selectedDay.getTime() === today.getTime()
+  const completionPct = isToday && hasGratitudeToday ? 100 : 0
+
+  return (
+    <div className="mb-4 rounded-2xl bg-card p-4 shadow-soft">
+      <div className="grid grid-cols-2 divide-x divide-border">
+        <div className="pr-4">
+          <p className="text-xs text-muted-foreground">預計強度</p>
+          <p className="mt-1 text-xl font-extrabold text-foreground">
+            5 <span className="text-sm font-bold">分鐘</span>
+          </p>
+        </div>
+        <div className="pl-4">
+          <p className="text-xs text-muted-foreground">完成進度</p>
+          <p className="mt-1 text-xl font-extrabold text-foreground">
+            {completionPct} <span className="text-sm font-bold">%</span>
+          </p>
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* 2. 最新上架 */}
-      <div className="mb-8">
-        <SectionHeading label="最新上架" />
-        <div className="relative overflow-hidden rounded-3xl bg-muted/60 px-6 py-10 text-center shadow-soft">
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-full w-full bg-muted/40" />
+function GratitudeExerciseCard() {
+  return (
+    <Link
+      to="/app/gratitude"
+      className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft transition active:scale-[0.97]"
+    >
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-tile-mint text-2xl">⭐</span>
+      <div className="min-w-0 flex-1">
+        <p className="font-extrabold text-foreground">感恩日記</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">初階 · 5 分鐘 · 正向情緒</p>
+      </div>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="shrink-0 text-foreground/40"
+        aria-hidden="true"
+      >
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    </Link>
+  )
+}
+
+type TrainingTab = 'schedule' | 'new' | 'hot' | 'perma'
+
+const TABS: { key: TrainingTab; label: string }[] = [
+  { key: 'schedule', label: '我的日程' },
+  { key: 'new', label: '最新上架' },
+  { key: 'hot', label: '最熱門' },
+  { key: 'perma', label: 'PERMA' },
+]
+
+function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
+  const [activeTab, setActiveTab] = useState<TrainingTab>('schedule')
+  const [selectedDay, setSelectedDay] = useState<Date>(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+
+  return (
+    <section className="mt-10 pb-16">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-2xl font-extrabold text-foreground">訓練中心</h2>
+        <span className="text-sm text-muted-foreground">2 套菜單</span>
+      </div>
+
+      <div className="mb-5 flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+              activeTab === tab.key
+                ? 'bg-foreground text-background'
+                : 'bg-card text-foreground/70 shadow-soft'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'schedule' && (
+        <div>
+          <WeekCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+          <StatsCard hasGratitudeToday={hasGratitudeToday} selectedDay={selectedDay} />
+          <div className="flex flex-col gap-2">
+            <GratitudeExerciseCard />
           </div>
+        </div>
+      )}
+
+      {activeTab === 'new' && (
+        <div className="relative overflow-hidden rounded-3xl bg-muted/60 px-6 py-10 text-center shadow-soft">
           <span className="text-2xl">🔒</span>
           <p className="mt-2 text-sm font-extrabold text-muted-foreground">敬請期待</p>
           <p className="mt-1 text-xs text-muted-foreground/70">新課程正在路上</p>
         </div>
-      </div>
+      )}
 
-      {/* 3. 最熱門 */}
-      <div className="mb-8">
-        <SectionHeading label="最熱門" />
+      {activeTab === 'hot' && (
         <Link
           to="/app/gratitude"
           className="flex items-center gap-4 rounded-3xl bg-tile-mint px-5 py-4 shadow-soft transition active:scale-[0.97]"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-2xl shadow-sm">⭐</span>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-extrabold text-foreground">感恩日記</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {['P 情緒力', 'R 連結力', 'M 意義力'].map((tag) => (
-                <span key={tag} className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-extrabold text-foreground/70">
+                <span
+                  key={tag}
+                  className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-extrabold text-foreground/70"
+                >
                   {tag}
                 </span>
               ))}
             </div>
           </div>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-foreground/50" aria-hidden="true">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="shrink-0 text-foreground/50"
+            aria-hidden="true"
+          >
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </Link>
-      </div>
+      )}
 
-      {/* 4. PERMA 練習菜單 */}
-      <div>
-        <SectionHeading label="PERMA 練習菜單" />
-        <div className="flex flex-col gap-3">
-          {permaMenuItems.map(({ letter, label, practices }) => (
-            <div key={letter} className={`rounded-3xl p-4 shadow-soft ${permaColors[letter]}`}>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/60 text-xs font-extrabold text-foreground shadow-sm">
-                  {letter}
-                </span>
-                <span className="text-xs font-extrabold text-foreground/70">{label}</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {practices.map((p) => {
-                  const linkProps =
-                    p.to === '/app/placeholder'
-                      ? { to: p.to as '/app/placeholder', search: { name: p.searchName ?? p.name } }
-                      : { to: p.to as '/app/gratitude' }
-                  return (
-                    <Link
-                      key={p.name + p.to}
-                      {...(linkProps as Parameters<typeof Link>[0])}
-                      className="flex items-center justify-between rounded-2xl bg-white/50 px-3 py-2 transition active:scale-[0.97]"
-                    >
-                      <span className="text-sm font-bold text-foreground">{p.name}</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40" aria-hidden="true">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+      {activeTab === 'perma' && (
+        <div className="relative overflow-hidden rounded-3xl bg-muted/60 px-6 py-10 text-center shadow-soft">
+          <span className="text-2xl">🔒</span>
+          <p className="mt-2 text-sm font-extrabold text-muted-foreground">敬請期待</p>
+          <p className="mt-1 text-xs text-muted-foreground/70">PERMA 練習菜單正在整理中</p>
         </div>
-      </div>
+      )}
     </section>
   )
 }
@@ -389,4 +497,3 @@ function StarField() {
     </svg>
   )
 }
-
