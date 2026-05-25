@@ -51,11 +51,19 @@ CREATE TABLE IF NOT EXISTS gratitude_entries (
   tag_1       text,
   tag_2       text,
   tag_3       text,
+  target_1    text, -- AI-tagged target code: others/self/environment/experience/custom
+  target_2    text,
+  target_3    text,
   ai_feedback text,
   is_shared   bool DEFAULT true,
   anon_name   text,
   created_at  timestamptz DEFAULT now()
 );
+
+-- Migration for existing databases (Step 5D)
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS target_1 text;
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS target_2 text;
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS target_3 text;
 
 ALTER TABLE gratitude_entries ENABLE ROW LEVEL SECURITY;
 

@@ -93,6 +93,12 @@ class GratitudeRequest(BaseModel):
     item_3: str
 
 
+class GratitudeTagRequest(BaseModel):
+    item_1: str
+    item_2: str
+    item_3: str
+
+
 class GratitudeSummaryRequest(BaseModel):
     item_1: str
     item_2: str
@@ -107,6 +113,9 @@ class GratitudeSaveRequest(BaseModel):
     is_shared: bool = True
     ai_feedback: str | None = None
     entry_date: str | None = None
+    target_1: str | None = None
+    target_2: str | None = None
+    target_3: str | None = None
 
 
 class KeywordEntry(BaseModel):
@@ -229,6 +238,51 @@ async def save_gratitude(
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
+@app.post("/api/tag-gratitude-targets")
+async def tag_gratitude_targets(
+    req: GratitudeTagRequest,
+    authorization: str = Header(...),
+):
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        await get_user_id(token)
+
+        msg = await claude().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=256,
+            system="你是心理學分析助手，只回傳 JSON，不要加任何前言或 markdown。",
+            messages=[{
+                "role": "user",
+                "content": (
+                    "根據以下三件感恩事件，精準標記每件的感恩對象類別。\n\n"
+                    f"1. {req.item_1}\n"
+                    f"2. {req.item_2}\n"
+                    f"3. {req.item_3}\n\n"
+                    "規則：\n"
+                    "- others（身邊他人）：提及家人/朋友/伴侶/同事/陌生人/任何人名或人際關係\n"
+                    "- self（自己）：提及自身努力/堅持/情緒覺察/自我照顧\n"
+                    "- environment（環境）：提及天氣/空間/大自然/城市環境\n"
+                    "- experience（體驗）：提及電影/音樂/美食/旅行/活動/事物\n"
+                    "- custom（自訂）：其他情況\n"
+                    "label 填入最精簡的中文描述（2–4 字），例如「同事」「自己」「天氣」「美食」\n\n"
+                    "只回傳 JSON：\n"
+                    '{"tags":[{"item":1,"target":"others","label":"同事"},{"item":2,"target":"self","label":"自己"},{"item":3,"target":"experience","label":"體驗"}]}'
+                ),
+            }],
+        )
+
+        raw = msg.content[0].text if msg.content else ""
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            raise HTTPException(status_code=502, detail=f"Claude returned non-JSON: {raw[:200]!r}")
+        return json.loads(match.group())
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("tag_gratitude_targets failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
 @app.post("/api/gratitude-summary")
 async def gratitude_summary(
     req: GratitudeSummaryRequest,
@@ -236,7 +290,7 @@ async def gratitude_summary(
 ):
     try:
         token = authorization.removeprefix("Bearer ").strip()
-        await get_user_id(token)  # auth check only
+        await get_user_id(token)
 
         tone = (
             "使用者選擇了「進階」模式，請更深入地反映其覺察與內在意義。"
@@ -246,8 +300,8 @@ async def gratitude_summary(
 
         msg = await claude().messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=256,
-            system="你是一位心理學取向的健心教練，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳純文字摘要，不要加標題、不要加引號、不要使用 Markdown。",
+            max_tokens=512,
+            system="你是一位心理學取向的健心教練，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳 JSON，不要加任何前言或 markdown。",
             messages=[{
                 "role": "user",
                 "content": (
@@ -256,16 +310,24 @@ async def gratitude_summary(
                     f"2. {req.item_2}\n"
                     f"3. {req.item_3}\n\n"
                     f"{tone}\n\n"
-                    "請用一段約 60–90 字的繁體中文，整體性地回應這三件感恩，反映使用者的正向情緒，"
-                    "點出整體的心理意義，讓人讀完後感到被理解與支持。"
+                    "請生成兩段回饋：\n"
+                    "1. emotional_summary：一句話溫柔反映使用者今天整體的正向情緒狀態（30 字以內，不批判）\n"
+                    "2. action_suggestion：\n"
+                    "   - 若感恩內容提及他人（家人/朋友/同事/任何人名或人際關係詞）→ 鼓勵直接分享給對方（例：不妨今天讓對方知道你的感謝）\n"
+                    "   - 否則 → 提供一個生活中可留意或行動的建設性建議（30 字以內）\n\n"
+                    '只回傳 JSON：{"emotional_summary":"...","action_suggestion":"..."}'
                 ),
             }],
         )
 
-        summary = msg.content[0].text.strip() if msg.content else ""
-        if not summary:
+        raw = msg.content[0].text if msg.content else ""
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            raise HTTPException(status_code=502, detail=f"Claude returned non-JSON: {raw[:200]!r}")
+        result = json.loads(match.group())
+        if not result.get("emotional_summary"):
             raise HTTPException(status_code=502, detail="Empty response from Claude")
-        return {"summary": summary}
+        return result
     except HTTPException:
         raise
     except Exception as exc:
@@ -295,6 +357,12 @@ async def gratitude_save(
             payload["ai_feedback"] = req.ai_feedback
         if req.entry_date:
             payload["entry_date"] = req.entry_date
+        if req.target_1:
+            payload["target_1"] = req.target_1
+        if req.target_2:
+            payload["target_2"] = req.target_2
+        if req.target_3:
+            payload["target_3"] = req.target_3
 
         db_resp = await db().post(
             f"{SUPABASE_REST}/gratitude_entries",

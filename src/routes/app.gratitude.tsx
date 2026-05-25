@@ -13,11 +13,31 @@ export const Route = createFileRoute('/app/gratitude')({
 type Stage = 'INTRO' | 'WRITING' | 'SUMMARY' | 'CELEBRATE'
 type Difficulty = 'basic' | 'advanced'
 type ItemKey = 'item_1' | 'item_2' | 'item_3'
+type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
 
 interface GratitudeItems {
   item_1: string
   item_2: string
   item_3: string
+}
+
+interface TagResult {
+  item: number
+  target: TargetCode
+  label: string
+}
+
+interface SummaryResult {
+  emotional_summary: string
+  action_suggestion: string
+}
+
+const TARGET_META: Record<TargetCode, { emoji: string; label: string }> = {
+  others:      { emoji: '👥', label: '身邊他人' },
+  self:        { emoji: '🙋', label: '自己' },
+  environment: { emoji: '🌳', label: '環境' },
+  experience:  { emoji: '✨', label: '體驗' },
+  custom:      { emoji: '🏷️', label: '自訂' },
 }
 
 
@@ -80,7 +100,7 @@ function isoDate(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Promise<string> {
+async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Promise<SummaryResult> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
   const resp = await fetch(`${API_URL}/api/gratitude-summary`, {
@@ -92,17 +112,37 @@ async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Prom
     body: JSON.stringify({ ...items, difficulty }),
   })
   if (!resp.ok) throw new Error(`API error: ${resp.status}`)
-  const data = await resp.json() as { summary?: string }
-  if (!data.summary) throw new Error('Empty summary')
-  return data.summary
+  const data = await resp.json() as { emotional_summary?: string; action_suggestion?: string }
+  if (!data.emotional_summary) throw new Error('Empty summary')
+  return {
+    emotional_summary: data.emotional_summary,
+    action_suggestion: data.action_suggestion ?? '',
+  }
+}
+
+async function fetchTags(items: GratitudeItems): Promise<TagResult[]> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+  const resp = await fetch(`${API_URL}/api/tag-gratitude-targets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(items),
+  })
+  if (!resp.ok) throw new Error(`API error: ${resp.status}`)
+  const data = await resp.json() as { tags?: TagResult[] }
+  return data.tags ?? []
 }
 
 function GratitudePage() {
   const [stage, setStage] = useState<Stage>('INTRO')
   const [difficulty, setDifficulty] = useState<Difficulty>('advanced')
   const [items, setItems] = useState<GratitudeItems>({ item_1: '', item_2: '', item_3: '' })
-  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null)
   const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [tags, setTags] = useState<TagResult[]>([])
   const [isShared, setIsShared] = useState(true)
   const navigate = useNavigate()
 
@@ -110,49 +150,63 @@ function GratitudePage() {
     setStage('INTRO')
     setDifficulty('basic')
     setItems({ item_1: '', item_2: '', item_3: '' })
-    setSummary(null)
+    setSummaryResult(null)
     setSummaryError(null)
+    setTags([])
     setIsShared(true)
   }
 
   useEffect(() => {
     if (stage !== 'SUMMARY') return
     let cancelled = false
-    setSummary(null)
+    setSummaryResult(null)
     setSummaryError(null)
+    setTags([])
+
     fetchSummary(items, difficulty)
-      .then((s) => {
-        if (!cancelled) setSummary(s)
-      })
+      .then((r) => { if (!cancelled) setSummaryResult(r) })
       .catch((e) => {
         if (!cancelled) {
           console.error('[gratitude-summary]', e)
           setSummaryError('教練暫時無法整理你的感恩，稍後再試一次也沒關係。')
         }
       })
-    return () => {
-      cancelled = true
-    }
+
+    fetchTags(items)
+      .then((t) => { if (!cancelled) setTags(t) })
+      .catch((e) => { console.error('[gratitude-tags]', e) })
+
+    return () => { cancelled = true }
   }, [stage, items, difficulty])
 
   const handleFinalSave = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       try {
+        const aiFeedback = summaryResult
+          ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
+          : undefined
+        const t1 = tags.find((t) => t.item === 1)
+        const t2 = tags.find((t) => t.item === 2)
+        const t3 = tags.find((t) => t.item === 3)
+        const payload: Record<string, unknown> = {
+          item_1: items.item_1,
+          item_2: items.item_2,
+          item_3: items.item_3,
+          is_shared: isShared,
+          entry_date: isoDate(todayDate()),
+        }
+        if (aiFeedback) payload.ai_feedback = aiFeedback
+        if (t1) payload.target_1 = t1.target
+        if (t2) payload.target_2 = t2.target
+        if (t3) payload.target_3 = t3.target
         const resp = await fetch(`${API_URL}/api/gratitude-save`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            item_1: items.item_1,
-            item_2: items.item_2,
-            item_3: items.item_3,
-            is_shared: isShared,
-            ai_feedback: summary,
-            entry_date: isoDate(todayDate()),
-          }),
+          body: JSON.stringify(payload),
         })
         if (!resp.ok) console.error('[gratitude save]', resp.status)
       } catch (e) {
@@ -185,8 +239,9 @@ function GratitudePage() {
       return (
         <SummaryStage
           items={items}
-          summary={summary}
+          summaryResult={summaryResult}
           summaryError={summaryError}
+          tags={tags}
           onContinue={() => setStage('CELEBRATE')}
           onRestart={resetAll}
         />
@@ -693,14 +748,16 @@ function BackIcon() {
 
 function SummaryStage({
   items,
-  summary,
+  summaryResult,
   summaryError,
+  tags,
   onContinue,
   onRestart,
 }: {
   items: GratitudeItems
-  summary: string | null
+  summaryResult: SummaryResult | null
   summaryError: string | null
+  tags: TagResult[]
   onContinue: () => void
   onRestart: () => void
 }) {
@@ -708,13 +765,15 @@ function SummaryStage({
   const [sharing, setSharing] = useState(false)
   const date = useMemo(() => formatDate(todayDate()), [])
 
+  const summaryText = summaryResult
+    ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
+    : null
+
   const handleShare = async () => {
     if (!shareCardRef.current || sharing) return
     setSharing(true)
     try {
       const node = shareCardRef.current
-      // Wait two frames so the off-screen card has actually been laid out
-      // (otherwise html-to-image can capture before fonts/layout settle).
       await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
       const dataUrl = await toPng(node, {
         width: 1080,
@@ -722,11 +781,7 @@ function SummaryStage({
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: '#ffffff',
-        // Skip web-font embedding — ShareCard uses system fonts only, and
-        // fetching Google Fonts stylesheets hits CORS in the browser.
         skipFonts: true,
-        // Override the off-screen positioning on the cloned node so its
-        // contents render at (0,0) inside the generated SVG.
         style: {
           position: 'static',
           left: '0',
@@ -747,6 +802,7 @@ function SummaryStage({
   }
 
   const entries = [items.item_1, items.item_2, items.item_3]
+  const isLoading = summaryResult === null && !summaryError
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 md:px-10">
@@ -756,30 +812,60 @@ function SummaryStage({
       </h2>
       <p className="text-xs text-muted-foreground">{date}</p>
 
+      {/* Entries with target tag badges */}
       <div className="mb-6 mt-6 flex flex-col gap-3">
-        {entries.map((text, i) => (
-          <div key={i} className="rounded-3xl bg-card p-4 shadow-soft">
-            <div className="flex items-start gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
-                {i + 1}
-              </span>
-              <p className="flex-1 text-sm leading-relaxed text-foreground/85">{text}</p>
+        {entries.map((text, i) => {
+          const tag = tags.find((t) => t.item === i + 1)
+          const meta = tag ? TARGET_META[tag.target] : null
+          return (
+            <div key={i} className="rounded-3xl bg-card p-4 shadow-soft">
+              <div className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
+                  {i + 1}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm leading-relaxed text-foreground/85">{text}</p>
+                  {meta && (
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      {meta.emoji} {tag!.label || meta.label}
+                    </span>
+                  )}
+                  {!meta && tags.length === 0 && (
+                    <span className="mt-2 inline-block h-5 w-16 animate-pulse rounded-full bg-muted" />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
+      {/* AI Coach feedback - 2-part */}
       <div className="mb-6 rounded-3xl bg-gradient-soft p-5 shadow-soft">
-        <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
+        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
           Coach&apos;s note
         </p>
-        {summary === null && !summaryError ? (
+        {isLoading ? (
           <SummarySkeleton />
         ) : summaryError ? (
           <p className="text-sm leading-relaxed text-muted-foreground">{summaryError}</p>
-        ) : (
-          <p className="text-sm leading-relaxed text-foreground">{summary}</p>
-        )}
+        ) : summaryResult ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm leading-relaxed text-foreground">
+              {summaryResult.emotional_summary}
+            </p>
+            {summaryResult.action_suggestion && (
+              <div className="rounded-2xl bg-white/40 px-3.5 py-2.5">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary/60 mb-1">
+                  行動建議
+                </p>
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  {summaryResult.action_suggestion}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -788,11 +874,11 @@ function SummaryStage({
         className="pointer-events-none fixed -left-[9999px] top-0"
         style={{ width: '1080px', height: '1440px' }}
       >
-        <ShareCard items={items} summary={summary} date={date} />
+        <ShareCard items={items} summary={summaryText} date={date} />
       </div>
 
       <div className="flex flex-col gap-3 pb-4">
-        <PrimaryCta onClick={handleShare} disabled={sharing || !summary} variant="done">
+        <PrimaryCta onClick={handleShare} disabled={sharing || !summaryResult} variant="done">
           {sharing ? '正在生成分享圖…' : '儲存並分享'}
         </PrimaryCta>
         <button
