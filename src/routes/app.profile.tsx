@@ -166,7 +166,7 @@ function ScoreBar({ score, tile }: { score: number; tile: string }) {
 
 function Header() {
   return (
-    <div className="relative">
+    <div className="relative min-h-44">
       <div className="absolute inset-x-0 top-0 h-44 rounded-b-[40%] bg-gradient-soft" />
       <div className="relative px-6 pt-10 md:px-10">
         <p className="font-handwriting text-2xl text-muted-foreground">你的健心檔案</p>
