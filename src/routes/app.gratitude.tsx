@@ -144,6 +144,7 @@ function GratitudePage() {
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [tags, setTags] = useState<TagResult[]>([])
   const [isShared, setIsShared] = useState(true)
+  const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const resetAll = () => {
@@ -179,9 +180,10 @@ function GratitudePage() {
     return () => { cancelled = true }
   }, [stage, items, difficulty])
 
-  const handleFinalSave = async () => {
+  const handleFinalSave = async (navTarget: 'comment' | 'wall' | 'close') => {
     const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
+    let entryId: string | null = savedEntryId
+    if (session && !savedEntryId) {
       try {
         const aiFeedback = summaryResult
           ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
@@ -193,7 +195,8 @@ function GratitudePage() {
           item_1: items.item_1,
           item_2: items.item_2,
           item_3: items.item_3,
-          is_shared: isShared,
+          is_shared: true,
+          use_real_name: isShared,
           entry_date: isoDate(todayDate()),
         }
         if (aiFeedback) payload.ai_feedback = aiFeedback
@@ -208,12 +211,22 @@ function GratitudePage() {
           },
           body: JSON.stringify(payload),
         })
-        if (!resp.ok) console.error('[gratitude save]', resp.status)
+        if (resp.ok) {
+          const data = await resp.json() as { entry_id?: string }
+          entryId = data.entry_id ?? null
+          setSavedEntryId(entryId)
+        } else {
+          console.error('[gratitude save]', resp.status)
+        }
       } catch (e) {
         console.error('[gratitude save]', e)
       }
     }
-    navigate({ to: '/app/community' })
+    if (navTarget === 'comment' && entryId) {
+      navigate({ to: '/app/community', search: { openEntry: entryId } })
+    } else {
+      navigate({ to: '/app/community' })
+    }
   }
 
   switch (stage) {
@@ -251,7 +264,7 @@ function GratitudePage() {
         <CelebrateStage
           isShared={isShared}
           onToggleShared={setIsShared}
-          onConfirm={handleFinalSave}
+          onNavigate={handleFinalSave}
         />
       )
   }
@@ -1006,28 +1019,184 @@ function ShareCard({
 
 // ─────────────────────────── CELEBRATE ───────────────────────────
 
+const TARGET_COLORS: Record<TargetCode, string> = {
+  others:      '#6BAED6',
+  self:        '#FD8D3C',
+  environment: '#74C476',
+  experience:  '#9E9AC8',
+  custom:      '#BDBDBD',
+}
+
+const TARGET_INSIGHT: Record<TargetCode, string> = {
+  others:      '你的幸福感有很大一部分來自身邊的人，珍惜這些連結吧。',
+  self:        '你非常懂得欣賞自己的努力與成長，這是很珍貴的自我覺察。',
+  environment: '你對生活中的細微美好特別敏感，這份覺察讓你隨時都能找到禮物。',
+  experience:  '你善於從日常的小體驗中找到喜悅，生活對你來說充滿驚喜。',
+  custom:      '你的感恩來自各種面向，這份多元的覺察豐富了你的內在世界。',
+}
+
+const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
+  others:      { title: '👥 身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
+  self:        { title: '🙋 自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
+  environment: { title: '🌳 環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
+  experience:  { title: '✨ 體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
+  custom:      { title: '🏷️ 自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
+}
+
+function DonutChart({ segments }: { segments: { code: TargetCode; count: number; pct: number }[] }) {
+  const r = 38
+  const cx = 50
+  const cy = 50
+  const circumference = 2 * Math.PI * r
+
+  if (segments.length === 0) {
+    return (
+      <svg viewBox="0 0 100 100" className="h-32 w-32">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="16" />
+      </svg>
+    )
+  }
+
+  let cumulative = 0
+  return (
+    <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
+      {segments.map(({ code, pct }) => {
+        const dash = Math.max(0, pct * circumference - 2)
+        const gap = circumference - dash
+        const offset = -(cumulative * circumference)
+        cumulative += pct
+        return (
+          <circle
+            key={code}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={TARGET_COLORS[code]}
+            strokeWidth="16"
+            strokeDasharray={`${dash} ${gap}`}
+            strokeDashoffset={offset}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
 function CelebrateStage({
   isShared,
   onToggleShared,
-  onConfirm,
+  onNavigate,
 }: {
   isShared: boolean
   onToggleShared: (v: boolean) => void
-  onConfirm: () => void
+  onNavigate: (target: 'comment' | 'wall' | 'close') => void
 }) {
+  const [streak, setStreak] = useState<number | null>(null)
+  const [todayCount, setTodayCount] = useState<number | null>(null)
+  const [targetSegments, setTargetSegments] = useState<{ code: TargetCode; count: number; pct: number }[]>([])
+  const [showInfoModal, setShowInfoModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const userId = session.user.id
+      const today = isoDate(todayDate())
+
+      const [allDatesRes, todayRes] = await Promise.all([
+        supabase
+          .from('gratitude_entries')
+          .select('entry_date')
+          .eq('user_id', userId)
+          .order('entry_date', { ascending: false }),
+        supabase
+          .from('gratitude_entries')
+          .select('id', { count: 'exact' })
+          .eq('user_id', userId)
+          .eq('entry_date', today),
+      ])
+
+      if (cancelled) return
+
+      const dateSet = new Set(allDatesRes.data?.map((e) => e.entry_date) ?? [])
+      let s = 0
+      const d = new Date()
+      while (dateSet.has(isoDate(d))) {
+        s++
+        d.setDate(d.getDate() - 1)
+      }
+      setStreak(s)
+      setTodayCount((todayRes.count ?? 0) + 1)
+
+      const tagsRes = await supabase
+        .from('gratitude_entries')
+        .select('target_1, target_2, target_3')
+        .eq('user_id', userId)
+      if (cancelled) return
+
+      const counts: Partial<Record<TargetCode, number>> = {}
+      for (const row of tagsRes.data ?? []) {
+        for (const val of [row.target_1, row.target_2, row.target_3]) {
+          if (val) counts[val as TargetCode] = (counts[val as TargetCode] ?? 0) + 1
+        }
+      }
+      const total = Object.values(counts).reduce((s, v) => s + v, 0)
+      if (total > 0) {
+        const segs = (Object.entries(counts) as [TargetCode, number][])
+          .sort((a, b) => b[1] - a[1])
+          .map(([code, count]) => ({ code, count, pct: count / total }))
+        setTargetSegments(segs)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const topCode = targetSegments[0]?.code ?? null
+  const insight = topCode ? TARGET_INSIGHT[topCode] : null
+
+  const handleNavigate = async (target: 'comment' | 'wall' | 'close') => {
+    if (saving) return
+    setSaving(true)
+    await onNavigate(target)
+  }
+
   return (
-    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-12 md:px-10">
+    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-12 pb-12 md:px-10">
       <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-primary text-5xl shadow-soft">
         🎉
       </div>
       <h2 className="mb-2 text-center text-2xl font-extrabold text-foreground">
         今日感恩練習完成！
       </h2>
-      <p className="mb-8 max-w-md text-center text-sm leading-relaxed text-muted-foreground">
+      <p className="mb-6 max-w-md text-center text-sm leading-relaxed text-muted-foreground">
         願意停下來留意身邊的美好，這份覺察本身就是一份很大的禮物。
       </p>
 
-      <div className="mb-7 w-full rounded-3xl bg-card p-6 shadow-soft">
+      {/* 6-A 完成統計 */}
+      <div className="mb-6 flex w-full gap-3">
+        <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
+          <span className="text-xl font-extrabold text-primary">
+            {todayCount !== null ? todayCount : '—'}
+          </span>
+          <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            今日完成
+          </span>
+        </div>
+        <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
+          <span className="text-xl font-extrabold text-primary">
+            {streak !== null ? streak : '—'} 🔥
+          </span>
+          <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            連續紀錄
+          </span>
+        </div>
+      </div>
+
+      {/* PERMA 加分 */}
+      <div className="mb-6 w-full rounded-3xl bg-card p-6 shadow-soft">
         <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
           練習後 PERMA 加分
         </p>
@@ -1060,11 +1229,60 @@ function CelebrateStage({
         </div>
       </div>
 
+      {/* 6-B 感恩對象地圖 */}
+      <div className="mb-6 w-full rounded-3xl bg-card p-5 shadow-soft">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+            感恩對象地圖
+          </p>
+          <button
+            onClick={() => setShowInfoModal(true)}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary"
+          >
+            ?
+          </button>
+        </div>
+        <div className="flex items-center gap-5">
+          <DonutChart segments={targetSegments} />
+          <div className="flex flex-1 flex-col gap-2">
+            {targetSegments.length === 0 ? (
+              <p className="text-xs text-muted-foreground">完成更多練習後，這裡會顯示你的感恩對象分佈。</p>
+            ) : (
+              <>
+                {targetSegments.map(({ code, pct }) => {
+                  const meta = TARGET_META[code]
+                  return (
+                    <div key={code} className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: TARGET_COLORS[code] }}
+                      />
+                      <span className="flex-1 text-xs text-foreground/80">
+                        {meta.emoji} {meta.label}
+                      </span>
+                      <span className="text-xs font-bold text-foreground">
+                        {Math.round(pct * 100)}%
+                      </span>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+          </div>
+        </div>
+        {insight && (
+          <p className="mt-3 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+            {insight}
+          </p>
+        )}
+      </div>
+
+      {/* 6-C 分享設定 */}
       <div className="mb-7 flex w-full items-center justify-between rounded-3xl bg-card px-5 py-4 shadow-soft">
         <div className="pr-3">
-          <p className="text-sm font-extrabold text-foreground">分享給健心的好夥伴</p>
+          <p className="text-sm font-extrabold text-foreground">以實名在社群分享你今天的感恩</p>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            以匿名身份在社群中分享你今天的感恩
+            {isShared ? '你的名字將顯示在打卡牆上' : `以「能量代號」匿名出現在打卡牆`}
           </p>
         </div>
         <button
@@ -1083,11 +1301,61 @@ function CelebrateStage({
         </button>
       </div>
 
-      <div className="w-full">
-        <PrimaryCta onClick={onConfirm} variant="next">
-          收下，繼續加油
-        </PrimaryCta>
+      {/* 6-D 三個導航按鈕 */}
+      <div className="flex w-full flex-col gap-3">
+        <button
+          onClick={() => handleNavigate('comment')}
+          disabled={saving}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+        >
+          💬 點擊留言
+        </button>
+        <button
+          onClick={() => handleNavigate('wall')}
+          disabled={saving}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-card text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+        >
+          📖 查看更多
+        </button>
+        <button
+          onClick={() => handleNavigate('close')}
+          disabled={saving}
+          className="h-12 w-full text-xs font-bold tracking-[0.2em] text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+        >
+          ✕ 關閉
+        </button>
       </div>
+
+      {/* "?" 說明 Modal */}
+      {showInfoModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
+          onClick={() => setShowInfoModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-extrabold text-foreground">感恩對象的心理學意義</p>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              {(Object.entries(TARGET_INFO) as [TargetCode, { title: string; desc: string }][]).map(([, info]) => (
+                <div key={info.title}>
+                  <p className="text-xs font-extrabold text-foreground">{info.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{info.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

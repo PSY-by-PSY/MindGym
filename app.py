@@ -111,6 +111,7 @@ class GratitudeSaveRequest(BaseModel):
     item_2: str
     item_3: str
     is_shared: bool = True
+    use_real_name: bool = True
     ai_feedback: str | None = None
     entry_date: str | None = None
     target_1: str | None = None
@@ -343,7 +344,21 @@ async def gratitude_save(
     try:
         token = authorization.removeprefix("Bearer ").strip()
         user_id = await get_user_id(token)
-        anon_name = random.choice(ANON_NAMES)
+
+        if req.use_real_name:
+            profile_resp = await db().get(
+                f"{SUPABASE_REST}/profiles",
+                headers=SUPABASE_HEADERS,
+                params={"select": "name", "id": f"eq.{user_id}", "limit": "1"},
+            )
+            profile_name = None
+            if profile_resp.status_code == 200:
+                rows = profile_resp.json()
+                if rows:
+                    profile_name = rows[0].get("name")
+            anon_name = profile_name or random.choice(ANON_NAMES)
+        else:
+            anon_name = random.choice(ANON_NAMES)
 
         payload: dict = {
             "user_id": user_id,
@@ -366,12 +381,14 @@ async def gratitude_save(
 
         db_resp = await db().post(
             f"{SUPABASE_REST}/gratitude_entries",
-            headers=SUPABASE_HEADERS,
+            headers={**SUPABASE_HEADERS, "Prefer": "return=representation"},
             json=payload,
         )
         if db_resp.status_code not in (200, 201):
             raise HTTPException(status_code=502, detail=f"Supabase error: {db_resp.text}")
-        return {"ok": True, "anon_name": anon_name}
+        rows = db_resp.json()
+        entry_id = rows[0]["id"] if rows else None
+        return {"ok": True, "anon_name": anon_name, "entry_id": entry_id}
     except HTTPException:
         raise
     except Exception as exc:
