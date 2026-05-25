@@ -408,10 +408,13 @@ async function loadStreak(): Promise<number> {
   const { data } = await supabase
     .from('gratitude_entries')
     .select('entry_date')
+    .eq('user_id', session.user.id)
     .order('entry_date', { ascending: false })
-    .limit(100)
+    .limit(365)
   if (!data || data.length === 0) return 0
-  const dateSet = new Set(data.map((r: { entry_date: string }) => r.entry_date))
+  const dateSet = new Set(
+    data.map((r: { entry_date: string }) => String(r.entry_date).slice(0, 10))
+  )
   const today = isoDate(todayDate())
   const cursor = new Date(todayDate())
   if (!dateSet.has(today)) cursor.setDate(cursor.getDate() - 1)

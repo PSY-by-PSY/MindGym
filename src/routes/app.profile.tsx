@@ -57,7 +57,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0 }
+    if (!userId) return { name: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
 
     const today = new Date()
     const y = today.getFullYear()
@@ -88,17 +88,23 @@ export const Route = createFileRoute('/app/profile')({
         .order('entry_date', { ascending: false }),
     ])
 
-    const entryDateSet = new Set(allDatesRes.data?.map((e) => e.entry_date) ?? [])
     const toDS = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const allDates = allDatesRes.data ?? []
+    const entryDateSet = new Set(allDates.map((e) => String(e.entry_date).slice(0, 10)))
+
     let streak = 0
     const checkDate = new Date(today)
+    if (!entryDateSet.has(toDS(checkDate))) {
+      checkDate.setDate(checkDate.getDate() - 1)
+    }
     while (entryDateSet.has(toDS(checkDate))) {
       streak++
       checkDate.setDate(checkDate.getDate() - 1)
     }
 
     const monthlyCount = (entriesRes.data ?? []).length
+    const totalCount = allDates.length
 
     return {
       name: (profileRes.data?.name ?? null) as string | null,
@@ -107,6 +113,7 @@ export const Route = createFileRoute('/app/profile')({
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
       streak,
       monthlyCount,
+      totalCount,
     }
   },
   pendingComponent: LoadingState,
@@ -396,8 +403,8 @@ function GratitudeCalendar({
   initialEntries: GratitudeEntry[]
   userId: string | null
 }) {
-  const todayStr = new Date().toISOString().slice(0, 10)
   const todayDate = new Date()
+  const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`
 
   const [year, setYear] = useState(todayDate.getFullYear())
   const [month, setMonth] = useState(todayDate.getMonth()) // 0-indexed
@@ -436,7 +443,9 @@ function GratitudeCalendar({
 
   const firstWeekday = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const entryMap = new Map(entries.map((e) => [e.entry_date, e]))
+  const entryMap = new Map(
+    entries.map((e) => [String(e.entry_date).slice(0, 10), { ...e, entry_date: String(e.entry_date).slice(0, 10) }] as const)
+  )
 
   const cells: (number | null)[] = [
     ...Array(firstWeekday).fill(null),
@@ -599,8 +608,17 @@ function GratitudeCalendar({
 
 // ── 主頁面 ────────────────────────────────────────────────────────────────
 
+function formatPracticeTime(totalMinutes: number): { value: string; unit: string } {
+  if (totalMinutes < 60) return { value: String(totalMinutes), unit: '分鐘' }
+  const hours = totalMinutes / 60
+  const text = Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
+  return { value: text, unit: '小時' }
+}
+
 function ProfilePage() {
-  const { name, scores, userId, initialEntries, streak, monthlyCount } = Route.useLoaderData()
+  const { name, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const totalMinutes = totalCount * 5
+  const practiceTime = formatPracticeTime(totalMinutes)
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl pb-4">
@@ -633,9 +651,9 @@ function ProfilePage() {
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">本月完成</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-xl text-primary">🎖️</span>
-            <span className="text-2xl font-extrabold text-foreground">1.8<span className="text-base font-bold">噸</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">總重量</span>
+            <span className="mb-1 text-xl text-primary">⏱️</span>
+            <span className="text-2xl font-extrabold text-foreground">{practiceTime.value}<span className="text-base font-bold">{practiceTime.unit}</span></span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">總練習時間</span>
           </div>
         </div>
 
