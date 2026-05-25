@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
@@ -91,7 +91,7 @@ async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Prom
 
 function GratitudePage() {
   const [stage, setStage] = useState<Stage>('INTRO')
-  const [difficulty, setDifficulty] = useState<Difficulty>('basic')
+  const [difficulty, setDifficulty] = useState<Difficulty>('advanced')
   const [items, setItems] = useState<GratitudeItems>({ item_1: '', item_2: '', item_3: '' })
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryError, setSummaryError] = useState<string | null>(null)
@@ -219,79 +219,195 @@ function IntroStage({
   onChangeDifficulty: (d: Difficulty) => void
   onStart: () => void
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const energyValue = difficulty === 'basic' ? 5 : 10
+  const difficultyLabel = difficulty === 'basic' ? '初階' : '進階'
+
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
-      <p className="font-handwriting text-2xl text-muted-foreground">今天的練習</p>
-      <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-        感恩日記
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-36 md:px-10">
+      {/* 3-A 評分 + 大標題 */}
+      <div className="flex items-center gap-1.5 text-sm">
+        <span className="text-yellow-400">⭐</span>
+        <span className="font-extrabold text-foreground">4.6</span>
+        <span className="text-muted-foreground">/ 540 則評分</span>
+      </div>
+      <h1 className="mt-2 text-[1.9rem] font-extrabold leading-tight text-foreground">
+        感恩日記練習
       </h1>
 
-      <p className="mb-3 mt-6 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        完成後 PERMA 加分
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {PERMA_BOOSTS.map(({ label, delta, badge }) => (
-          <span
-            key={label}
-            className={`flex items-center gap-1.5 rounded-full ${badge} px-3.5 py-1.5 text-xs font-bold text-foreground`}
-          >
-            {label}
-            <span className="text-primary">+{delta}</span>
+      {/* 3-B 基本資訊行 */}
+      <div className="mt-5 flex items-end gap-8">
+        <div>
+          <p className="text-3xl font-extrabold text-foreground">5</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">分鐘</p>
+        </div>
+        <div>
+          <p className="text-3xl font-extrabold text-foreground">{difficultyLabel}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">難度</p>
+        </div>
+      </div>
+
+      {/* 3-C 描述文字（可收合） */}
+      <div className="mt-5 text-sm leading-relaxed text-foreground/80">
+        停下來，把注意力放回身邊的美好。即使是一件很小的事，當你願意命名它、寫下它，就能為自己累積一份內在的心理資源。{' '}
+        <strong>適用人群</strong>{' '}
+        想感受平靜的人、練習感謝的人、需要情緒出口的人
+        {expanded ? (
+          <span>
+            。透過日復一日的書寫，培養感恩的習慣，逐步提升內心的穩定與韌性。
           </span>
+        ) : (
+          <>
+            {'... '}
+            <button
+              onClick={() => setExpanded(true)}
+              className="font-bold text-primary"
+            >
+              更多
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 3-D 練習內容清單 */}
+      <div className="mt-5 flex flex-col gap-2.5">
+        {['選擇練習難度', '寫下三件感恩的事', '閱讀 AI 教練回饋'].map((item) => (
+          <div key={item} className="flex items-center gap-2.5 text-sm text-foreground/80">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary/70 text-[10px] font-extrabold text-primary">
+              ✓
+            </span>
+            {item}
+          </div>
         ))}
       </div>
 
-      <div className="relative mt-7 overflow-hidden rounded-3xl bg-gradient-night p-6 shadow-soft">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary-foreground/55">
-          What you&apos;ll do
-        </p>
-        <p className="mt-2 text-lg font-extrabold leading-snug text-primary-foreground">
-          寫下今天的三件感恩
-        </p>
-        <p className="mt-1.5 text-sm leading-relaxed text-primary-foreground/75">
-          停下來，把注意力放回身邊的美好。即使是一件很小的事，當你願意命名它、寫下它，就能為自己累積一份內在的心理資源。
-        </p>
-      </div>
-
-      <p className="mb-3 mt-7 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        選擇今天的難度
+      {/* 3-E 難度選擇 */}
+      <p className="mt-7 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+        CHOOSE INTENSITY
       </p>
-      <div className="grid grid-cols-2 gap-3">
-        {(['basic', 'advanced'] as const).map((d) => {
-          const selected = difficulty === d
-          return (
-            <button
-              key={d}
-              onClick={() => onChangeDifficulty(d)}
-              className={`flex flex-col items-start gap-1 rounded-3xl border-2 p-5 text-left transition active:scale-[0.98] ${
-                selected
-                  ? 'border-primary bg-primary-soft shadow-soft'
-                  : 'border-border bg-card'
-              }`}
-            >
-              <span
-                className={`text-sm font-extrabold ${
-                  selected ? 'text-primary' : 'text-foreground'
-                }`}
-              >
-                {d === 'basic' ? '初階' : '進階'}
-              </span>
-              <span className="text-xs leading-relaxed text-muted-foreground">
-                {d === 'basic'
-                  ? '寫下讓你感謝的人事物，不需要太多解釋'
-                  : '深入探討為什麼感謝、它如何影響你'}
-              </span>
-            </button>
-          )
-        })}
+      <div className="mt-1 flex items-baseline justify-between">
+        <h3 className="text-base font-extrabold text-foreground">依今天的能量挑一個強度</h3>
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
+          本次 <strong className="text-foreground">{energyValue}</strong> 分
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <button
+          onClick={() => onChangeDifficulty('basic')}
+          className={`relative flex flex-col items-start rounded-2xl bg-tile-mint p-4 text-left transition active:scale-[0.98] ${
+            difficulty === 'basic' ? 'ring-2 ring-orange-400' : ''
+          }`}
+        >
+          <span className="absolute right-3 top-3 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+            輕量
+          </span>
+          <span className="mt-5 text-[0.95rem] font-extrabold text-emerald-800">初階練習</span>
+          <span className="mt-1 text-xs font-medium text-emerald-700">5 分 能量值</span>
+        </button>
+        <button
+          onClick={() => onChangeDifficulty('advanced')}
+          className={`relative flex flex-col items-start rounded-2xl bg-tile-peach p-4 text-left transition active:scale-[0.98] ${
+            difficulty === 'advanced' ? 'ring-2 ring-orange-400' : ''
+          }`}
+        >
+          <span className="absolute right-3 top-3 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+            標準
+          </span>
+          <span className="mt-5 text-[0.95rem] font-extrabold text-orange-800">進階練習</span>
+          <span className="mt-1 text-xs font-medium text-orange-700">10 分 能量值</span>
+        </button>
       </div>
 
-      <div className="mt-10">
+      {/* 開始練習 CTA */}
+      <div className="mt-6">
         <PrimaryCta onClick={onStart} variant="next">
           開始練習
         </PrimaryCta>
       </div>
+
+      {/* 3-F 底部固定 Action Bar */}
+      <div className="fixed bottom-[68px] left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-center justify-around px-4 py-2.5">
+          <ActionBarItem icon={<HeartIcon />} label="想練" count="5.8K" />
+          <ActionBarItem icon={<CalendarIcon />} label="加日曆" />
+          <ActionBarItem icon={<ShareIcon />} label="分享" />
+          <ActionBarItem icon={<ChatIcon />} label="留言" count="19" />
+          <ActionBarItem icon={<LoopIcon />} label="練過" count="2210" />
+        </div>
+      </div>
     </div>
+  )
+}
+
+function ActionBarItem({
+  icon,
+  label,
+  count,
+}: {
+  icon: ReactNode
+  label: string
+  count?: string
+}) {
+  return (
+    <button className="flex flex-col items-center gap-0.5 px-1">
+      {count ? (
+        <span className="text-[11px] font-bold text-foreground">{count}</span>
+      ) : (
+        <span className="h-[18px]" />
+      )}
+      <span className="text-foreground/70">{icon}</span>
+      <span className="text-[10px] text-muted-foreground">{label}</span>
+    </button>
+  )
+}
+
+function HeartIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function ShareIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  )
+}
+
+function ChatIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
+function LoopIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
   )
 }
 
