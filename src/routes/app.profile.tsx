@@ -23,7 +23,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, scores: null, userId: null, initialEntries: [] }
+    if (!userId) return { name: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0 }
 
     const today = new Date()
     const y = today.getFullYear()
@@ -32,7 +32,7 @@ export const Route = createFileRoute('/app/profile')({
     const lastDay = new Date(y, m, 0).getDate()
     const endOfMonth = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
 
-    const [profileRes, permaRes, entriesRes] = await Promise.all([
+    const [profileRes, permaRes, entriesRes, allDatesRes] = await Promise.all([
       supabase.from('profiles').select('name').eq('id', userId).single(),
       supabase
         .from('perma_scores')
@@ -47,13 +47,32 @@ export const Route = createFileRoute('/app/profile')({
         .eq('user_id', userId)
         .gte('entry_date', startOfMonth)
         .lte('entry_date', endOfMonth),
+      supabase
+        .from('gratitude_entries')
+        .select('entry_date')
+        .eq('user_id', userId)
+        .order('entry_date', { ascending: false }),
     ])
+
+    const entryDateSet = new Set(allDatesRes.data?.map((e) => e.entry_date) ?? [])
+    const toDS = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    let streak = 0
+    const checkDate = new Date(today)
+    while (entryDateSet.has(toDS(checkDate))) {
+      streak++
+      checkDate.setDate(checkDate.getDate() - 1)
+    }
+
+    const monthlyCount = (entriesRes.data ?? []).length
 
     return {
       name: (profileRes.data?.name ?? null) as string | null,
       scores: (permaRes.data ?? null) as PermaScores | null,
       userId,
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
+      streak,
+      monthlyCount,
     }
   },
   pendingComponent: LoadingState,
@@ -150,9 +169,9 @@ function Header() {
     <div className="relative">
       <div className="absolute inset-x-0 top-0 h-44 rounded-b-[40%] bg-gradient-soft" />
       <div className="relative px-6 pt-10 md:px-10">
-        <p className="font-handwriting text-2xl text-muted-foreground">PSY GYM Profile</p>
+        <p className="font-handwriting text-2xl text-muted-foreground">你的健心檔案</p>
         <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-          你的健心檔案
+          本週進度，看得見
         </h1>
       </div>
     </div>
@@ -384,7 +403,7 @@ function GratitudeCalendar({
 // ── 主頁面 ────────────────────────────────────────────────────────────────
 
 function ProfilePage() {
-  const { name, scores, userId, initialEntries } = Route.useLoaderData()
+  const { name, scores, userId, initialEntries, streak, monthlyCount } = Route.useLoaderData()
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl pb-4">
@@ -404,6 +423,25 @@ function ProfilePage() {
           </div>
         </div>
 
+        {/* 三個統計數字框 */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
+            <span className="mb-1 text-xl text-primary">🔥</span>
+            <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">天</span></span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">連續打卡</span>
+          </div>
+          <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
+            <span className="mb-1 text-xl text-primary">📅</span>
+            <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">次</span></span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">本月完成</span>
+          </div>
+          <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
+            <span className="mb-1 text-xl text-primary">🎖️</span>
+            <span className="text-2xl font-extrabold text-foreground">1.8<span className="text-base font-bold">噸</span></span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">總重量</span>
+          </div>
+        </div>
+
         {/* 夥伴小卡（裝飾） */}
         <div className="flex items-center gap-4 rounded-3xl bg-tile-blue p-5 shadow-soft">
           <img src={petCat} alt="夥伴貓" className="h-20 w-20 animate-float" />
@@ -420,9 +458,10 @@ function ProfilePage() {
         {scores ? (
           <div className="rounded-3xl bg-card p-5 shadow-soft">
             <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Mental radar
+              MENTAL RADAR
             </p>
-            <h2 className="mb-2 text-lg font-extrabold text-foreground">PERMA 心理健康指數</h2>
+            <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌群雷達圖</h2>
+            <p className="mb-2 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
             <PermaRadar scores={scores} />
             <div className="mt-4 flex flex-col gap-4">
               {PERMA_DIMENSIONS.map(({ key, letter, label, tile }) => (
