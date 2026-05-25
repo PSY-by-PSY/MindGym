@@ -20,16 +20,18 @@ type Comment = {
 
 type LikeInfo = { count: number; liked: boolean }
 
-type KeywordTag = {
-  word: string
-  category: '感受' | '事件' | '對象' | '其他'
+type GratitudeTargetTag = {
+  item: number
+  target: 'others' | 'self' | 'environment' | 'experience' | 'custom'
+  label: string
 }
 
-const TAG_COLORS: Record<KeywordTag['category'], string> = {
-  感受: 'bg-tile-pink text-foreground',
-  事件: 'bg-tile-blue text-foreground',
-  對象: 'bg-tile-peach text-foreground',
-  其他: 'bg-muted text-muted-foreground',
+const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { emoji: string; color: string }> = {
+  others:      { emoji: '👥', color: 'bg-tile-peach text-foreground' },
+  self:        { emoji: '🙋', color: 'bg-tile-mint text-foreground' },
+  environment: { emoji: '🌳', color: 'bg-tile-blue text-foreground' },
+  experience:  { emoji: '✨', color: 'bg-tile-pink text-foreground' },
+  custom:      { emoji: '🏷️', color: 'bg-muted text-muted-foreground' },
 }
 
 async function fetchEntriesPage(offset: number) {
@@ -41,28 +43,19 @@ async function fetchEntriesPage(offset: number) {
     .range(offset, offset + 3)
 }
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+async function fetchTargetTags(entryIds: string[]): Promise<Record<string, GratitudeTargetTag[]>> {
+  if (entryIds.length === 0) return {}
+  const { data } = await supabase
+    .from('gratitude_item_tags')
+    .select('entry_id, item, target, label')
+    .in('entry_id', entryIds)
 
-async function fetchKeywordTags(entries: GratitudeEntry[]): Promise<Record<string, KeywordTag[]>> {
-  try {
-    const res = await fetch(`${API_URL}/api/extract-keywords`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        entries: entries.map((e) => ({
-          id: e.id,
-          item_1: e.item_1,
-          item_2: e.item_2,
-          item_3: e.item_3,
-        })),
-      }),
-    })
-    if (!res.ok) return {}
-    const data = await res.json()
-    return (data.tags as Record<string, KeywordTag[]>) ?? {}
-  } catch {
-    return {}
+  const result: Record<string, GratitudeTargetTag[]> = {}
+  for (const row of (data ?? []) as (GratitudeTargetTag & { entry_id: string })[]) {
+    if (!result[row.entry_id]) result[row.entry_id] = []
+    result[row.entry_id].push({ item: row.item, target: row.target, label: row.label })
   }
+  return result
 }
 
 async function fetchSupporting(
@@ -71,7 +64,7 @@ async function fetchSupporting(
 ): Promise<{
   likes: Record<string, LikeInfo>
   comments: Record<string, Comment[]>
-  tags: Record<string, KeywordTag[]>
+  tags: Record<string, GratitudeTargetTag[]>
 }> {
   const entryIds = entries.map((e) => e.id)
 
@@ -82,7 +75,7 @@ async function fetchSupporting(
       .select('id, entry_id, anon_name, content, created_at')
       .in('entry_id', entryIds)
       .order('created_at', { ascending: true }),
-    fetchKeywordTags(entries),
+    fetchTargetTags(entryIds),
   ])
 
   const allLikes = likesRes.data ?? []
@@ -122,7 +115,7 @@ export const Route = createFileRoute('/app/community')({
         entries,
         likes: {} as Record<string, LikeInfo>,
         comments: {} as Record<string, Comment[]>,
-        tags: {} as Record<string, KeywordTag[]>,
+        tags: {} as Record<string, GratitudeTargetTag[]>,
         anonName: null,
         userId,
       }
@@ -307,7 +300,7 @@ function CommunityPage() {
   const [entries, setEntries] = useState<GratitudeEntry[]>(loaderData.entries)
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
-  const [tags, setTags] = useState<Record<string, KeywordTag[]>>(loaderData.tags)
+  const [tags, setTags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [refreshing, setRefreshing] = useState(false)
   const [page, setPage] = useState(0)
 
@@ -362,6 +355,13 @@ function CommunityPage() {
       <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
         <Header onRefresh={refreshEntries} refreshing={refreshing} />
 
+        {/* Word cloud placeholder — 7-B，待設計師圖片後實作 */}
+        <div className="mb-6 flex flex-col items-center justify-center rounded-3xl bg-card px-6 py-10 shadow-soft">
+          <span className="text-3xl">☁️</span>
+          <p className="mt-2 text-sm font-semibold text-foreground">感恩文字雲</p>
+          <p className="mt-1 text-xs text-muted-foreground">設計師圖片準備中，即將上線 ✨</p>
+        </div>
+
         {entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
             <span className="text-4xl">💫</span>
@@ -405,7 +405,7 @@ function EntryCard({
   index: number
   likeInfo: LikeInfo
   comments: Comment[]
-  tags: KeywordTag[]
+  tags: GratitudeTargetTag[]
   userId: string | null
   anonName: string | null
   onLikeChange: (info: LikeInfo) => void
@@ -494,17 +494,20 @@ function EntryCard({
         ))}
       </ul>
 
-      {/* Keyword tags */}
+      {/* Gratitude target tags */}
       {tags.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {tags.map((tag, i) => (
-            <span
-              key={i}
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${TAG_COLORS[tag.category]}`}
-            >
-              {tag.word}
-            </span>
-          ))}
+          {tags.map((tag, i) => {
+            const cfg = TARGET_CONFIG[tag.target] ?? TARGET_CONFIG.custom
+            return (
+              <span
+                key={i}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cfg.color}`}
+              >
+                {cfg.emoji} {tag.label}
+              </span>
+            )
+          })}
         </div>
       )}
 
