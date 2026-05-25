@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import WordCloud from '../components/WordCloud'
 
 type GratitudeEntry = {
   id: string
@@ -363,11 +364,9 @@ function CommunityPage() {
       <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
         <Header onRefresh={refreshEntries} refreshing={refreshing} />
 
-        {/* Word cloud placeholder — 7-B，待設計師圖片後實作 */}
-        <div className="mb-6 flex flex-col items-center justify-center rounded-3xl bg-card px-6 py-10 shadow-soft">
-          <span className="text-3xl">☁️</span>
-          <p className="mt-2 text-sm font-semibold text-foreground">感恩文字雲</p>
-          <p className="mt-1 text-xs text-muted-foreground">設計師圖片準備中，即將上線 ✨</p>
+        <div className="mb-6 rounded-3xl bg-card px-6 pb-6 pt-5 shadow-soft">
+          <p className="mb-1 text-sm font-semibold text-foreground">感恩文字雲</p>
+          <WordCloud height={480} />
         </div>
 
         {entries.length === 0 ? (
