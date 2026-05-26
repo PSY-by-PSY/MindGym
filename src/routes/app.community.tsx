@@ -153,7 +153,18 @@ const AVATAR_OPTIONS = [
   { code: 'wave',      emoji: '🌊', tile: 'bg-tile-blue' },
 ]
 
-function avatarFor(seed: string | null, index: number, avatarCode?: string | null) {
+function isPhotoAvatar(code: string | null | undefined): boolean {
+  return !!code && (code.startsWith('data:image') || code.startsWith('http'))
+}
+
+function avatarFor(
+  seed: string | null,
+  index: number,
+  avatarCode?: string | null,
+): { emoji: string; tile: string; photoUrl?: string } {
+  if (isPhotoAvatar(avatarCode)) {
+    return { emoji: '', tile: '', photoUrl: avatarCode as string }
+  }
   if (avatarCode) {
     const opt = AVATAR_OPTIONS.find((a) => a.code === avatarCode)
     if (opt) return { emoji: opt.emoji, tile: opt.tile }
@@ -257,9 +268,17 @@ function DailyModal({ entry, onClose }: { entry: GratitudeEntry; onClose: () => 
         </p>
 
         <div className="flex items-center gap-3">
-          <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
-            {avatar.emoji}
-          </div>
+          {avatar.photoUrl ? (
+            <img
+              src={avatar.photoUrl}
+              alt="頭像"
+              className="h-11 w-11 rounded-full object-cover"
+            />
+          ) : (
+            <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
+              {avatar.emoji}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-extrabold text-foreground">
               {entry.anon_name ?? '匿名使用者'}

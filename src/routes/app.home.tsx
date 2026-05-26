@@ -14,12 +14,14 @@ export const Route = createFileRoute('/app/home')({
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, name')
       .eq('id', userId)
       .maybeSingle()
 
     if (!profile) {
       await supabase.from('profiles').insert({ id: userId, name: userName })
+    } else if (!profile.name && userName) {
+      await supabase.from('profiles').update({ name: userName }).eq('id', userId)
     }
 
     const { data: scores } = await supabase

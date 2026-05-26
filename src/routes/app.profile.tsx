@@ -48,6 +48,10 @@ const AVATAR_OPTIONS: { code: AvatarCode; emoji: string; tile: string; label: st
   { code: 'wave',      emoji: '🌊', tile: 'bg-tile-blue',  label: '海浪' },
 ]
 
+function isPhotoAvatar(code: string | null): boolean {
+  return !!code && (code.startsWith('data:image') || code.startsWith('http'))
+}
+
 function avatarByCode(code: string | null): { emoji: string; tile: string } {
   return AVATAR_OPTIONS.find((a) => a.code === code) ?? { emoji: '🌟', tile: 'bg-tile-peach' }
 }
@@ -72,7 +76,13 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
+    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
+
+    const fallbackName =
+      (session?.user.user_metadata?.full_name as string | undefined) ??
+      (session?.user.user_metadata?.name as string | undefined) ??
+      session?.user.email?.split('@')[0] ??
+      null
 
     const today = new Date()
     const y = today.getFullYear()
@@ -82,14 +92,14 @@ export const Route = createFileRoute('/app/profile')({
     const endOfMonth = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
 
     const [profileRes, permaRes, entriesRes, allDatesRes] = await Promise.all([
-      supabase.from('profiles').select('name, avatar').eq('id', userId).single(),
+      supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle(),
       supabase
         .from('perma_scores')
         .select('p_score, e_score, r_score, m_score, a_score')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single(),
+        .maybeSingle(),
       supabase
         .from('gratitude_entries')
         .select('id, entry_date, item_1, item_2, item_3')
@@ -121,8 +131,17 @@ export const Route = createFileRoute('/app/profile')({
     const monthlyCount = (entriesRes.data ?? []).length
     const totalCount = allDates.length
 
+    const dbName = (profileRes.data?.name ?? null) as string | null
+    const finalName = dbName ?? fallbackName
+
+    if (!dbName && fallbackName) {
+      void supabase
+        .from('profiles')
+        .upsert({ id: userId, name: fallbackName }, { onConflict: 'id' })
+    }
+
     return {
-      name: (profileRes.data?.name ?? null) as string | null,
+      name: finalName,
       avatar: (profileRes.data?.avatar ?? null) as string | null,
       scores: (permaRes.data ?? null) as PermaScores | null,
       userId,
@@ -631,15 +650,74 @@ function formatPracticeTime(totalMinutes: number): { value: string; unit: string
   return { value: text, unit: '小時' }
 }
 
+async function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function resizeImage(dataUrl: string, maxSize = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject(new Error('canvas not supported'))
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', 0.82))
+    }
+    img.onerror = () => reject(new Error('image load failed'))
+    img.src = dataUrl
+  })
+}
+
 function AvatarPicker({
   current,
   onSelect,
+  onUpload,
   onClose,
 }: {
   current: string | null
   onSelect: (code: AvatarCode) => void
+  onUpload: (dataUrl: string) => void
   onClose: () => void
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const customSelected = isPhotoAvatar(current)
+
+  const handleFile = async (file: File) => {
+    setError(null)
+    if (!file.type.startsWith('image/')) {
+      setError('請選擇圖片檔案')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('圖片不能超過 5MB')
+      return
+    }
+    setUploading(true)
+    try {
+      const raw = await readFileAsDataUrl(file)
+      const resized = await resizeImage(raw, 256)
+      onUpload(resized)
+    } catch (e) {
+      console.error('[avatar upload]', e)
+      setError('上傳失敗，請再試一次')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
@@ -653,6 +731,48 @@ function AvatarPicker({
           <p className="text-sm font-extrabold text-foreground">選擇你的頭像</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) void handleFile(file)
+            e.target.value = ''
+          }}
+        />
+
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className={`mb-4 flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/40 px-4 py-3 text-left transition active:scale-[0.98] disabled:opacity-60 ${
+            customSelected ? 'ring-2 ring-primary ring-offset-2' : ''
+          }`}
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-card text-xl">
+            {customSelected && current ? (
+              <img src={current} alt="目前頭像" className="h-12 w-12 rounded-full object-cover" />
+            ) : (
+              '📷'
+            )}
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-extrabold text-foreground">
+              {uploading ? '上傳中…' : customSelected ? '更換照片' : '上傳自己的照片'}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              JPG / PNG，最大 5MB
+            </p>
+          </div>
+        </button>
+
+        {error && <p className="mb-3 text-xs font-bold text-tile-pink">{error}</p>}
+
+        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground">
+          或選擇預設圖示
+        </p>
         <div className="grid grid-cols-3 gap-4">
           {AVATAR_OPTIONS.map((opt) => (
             <button
@@ -683,15 +803,22 @@ function ProfilePage() {
   const totalMinutes = totalCount * 5
   const practiceTime = formatPracticeTime(totalMinutes)
 
-  const handleSelectAvatar = async (code: AvatarCode) => {
-    setAvatar(code)
+  const persistAvatar = async (value: string) => {
+    setAvatar(value)
     setShowPicker(false)
     if (userId) {
-      await supabase.from('profiles').update({ avatar: code }).eq('id', userId)
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: userId, avatar: value }, { onConflict: 'id' })
+      if (error) console.error('[avatar save]', error)
     }
   }
 
+  const handleSelectAvatar = (code: AvatarCode) => persistAvatar(code)
+  const handleUploadAvatar = (dataUrl: string) => persistAvatar(dataUrl)
+
   const avatarDisplay = avatarByCode(avatar)
+  const isPhoto = isPhotoAvatar(avatar)
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl pb-4">
@@ -701,6 +828,7 @@ function ProfilePage() {
         <AvatarPicker
           current={avatar}
           onSelect={handleSelectAvatar}
+          onUpload={handleUploadAvatar}
           onClose={() => setShowPicker(false)}
         />
       )}
@@ -713,9 +841,17 @@ function ProfilePage() {
             className="relative shrink-0 transition active:scale-95"
             aria-label="更換頭像"
           >
-            <div className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl ${avatarDisplay.tile}`}>
-              {avatarDisplay.emoji}
-            </div>
+            {isPhoto && avatar ? (
+              <img
+                src={avatar}
+                alt="使用者頭像"
+                className="h-16 w-16 rounded-full object-cover"
+              />
+            ) : (
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl ${avatarDisplay.tile}`}>
+                {avatarDisplay.emoji}
+              </div>
+            )}
             <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow">
               ✏️
             </span>

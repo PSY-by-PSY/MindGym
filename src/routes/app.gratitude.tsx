@@ -1,10 +1,16 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+
+const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
+
+function pickAnonName() {
+  return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
+}
 
 export const Route = createFileRoute('/app/gratitude')({
   component: GratitudePage,
@@ -146,6 +152,7 @@ function GratitudePage() {
   const [isShared, setIsShared] = useState(true)
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const navigate = useNavigate()
+  const router = useRouter()
 
   const resetAll = () => {
     setStage('INTRO')
@@ -185,45 +192,60 @@ function GratitudePage() {
     let entryId: string | null = savedEntryId
     if (session && !savedEntryId) {
       try {
+        const userId = session.user.id
         const aiFeedback = summaryResult
           ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
-          : undefined
+          : null
         const t1 = tags.find((t) => t.item === 1)
         const t2 = tags.find((t) => t.item === 2)
         const t3 = tags.find((t) => t.item === 3)
-        const profileRes = await supabase.from('profiles').select('avatar').eq('id', session.user.id).single()
+
+        const profileRes = await supabase
+          .from('profiles')
+          .select('name, avatar')
+          .eq('id', userId)
+          .maybeSingle()
+
+        const profileName = profileRes.data?.name ?? null
+        const profileAvatar = profileRes.data?.avatar ?? null
+
+        const anonName = isShared
+          ? (profileName || session.user.user_metadata?.full_name || session.user.user_metadata?.name || pickAnonName())
+          : pickAnonName()
+
         const payload: Record<string, unknown> = {
+          user_id: userId,
           item_1: items.item_1,
           item_2: items.item_2,
           item_3: items.item_3,
           is_shared: true,
           use_real_name: isShared,
           entry_date: isoDate(todayDate()),
+          anon_name: anonName,
         }
         if (aiFeedback) payload.ai_feedback = aiFeedback
         if (t1) payload.target_1 = t1.target
         if (t2) payload.target_2 = t2.target
         if (t3) payload.target_3 = t3.target
-        if (profileRes.data?.avatar) payload.avatar = profileRes.data.avatar
-        const resp = await fetch(`${API_URL}/api/gratitude-save`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify(payload),
-        })
-        if (resp.ok) {
-          const data = await resp.json() as { entry_id?: string }
-          entryId = data.entry_id ?? null
-          setSavedEntryId(entryId)
+        if (profileAvatar) payload.avatar = profileAvatar
+
+        const { data: inserted, error } = await supabase
+          .from('gratitude_entries')
+          .insert(payload)
+          .select('id')
+          .single()
+
+        if (error) {
+          console.error('[gratitude save]', error)
         } else {
-          console.error('[gratitude save]', resp.status)
+          entryId = inserted?.id ?? null
+          setSavedEntryId(entryId)
         }
       } catch (e) {
         console.error('[gratitude save]', e)
       }
     }
+    await router.invalidate()
     if (navTarget === 'comment' && entryId) {
       navigate({ to: '/app/community', search: { openEntry: entryId } })
     } else {
