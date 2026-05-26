@@ -190,7 +190,14 @@ function GratitudePage() {
   const handleFinalSave = async (navTarget: 'comment' | 'wall' | 'close') => {
     const { data: { session } } = await supabase.auth.getSession()
     let entryId: string | null = savedEntryId
-    if (session && !savedEntryId) {
+    let saveError: string | null = null
+
+    if (!session) {
+      alert('登入狀態已失效，請重新登入後再儲存')
+      return
+    }
+
+    if (!savedEntryId) {
       try {
         const userId = session.user.id
         const aiFeedback = summaryResult
@@ -237,14 +244,22 @@ function GratitudePage() {
 
         if (error) {
           console.error('[gratitude save]', error)
+          saveError = error.message || JSON.stringify(error)
         } else {
           entryId = inserted?.id ?? null
           setSavedEntryId(entryId)
         }
       } catch (e) {
         console.error('[gratitude save]', e)
+        saveError = e instanceof Error ? e.message : String(e)
       }
     }
+
+    if (saveError) {
+      alert(`儲存失敗：${saveError}\n\n請截圖回報給工程師。`)
+      return
+    }
+
     await router.invalidate()
     if (navTarget === 'comment' && entryId) {
       navigate({ to: '/app/community', search: { openEntry: entryId } })

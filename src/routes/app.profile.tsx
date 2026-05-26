@@ -447,17 +447,13 @@ function GratitudeCalendar({
   const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [modalEntry, setModalEntry] = useState<GratitudeEntry | null>(null)
-  const isInitialMount = useRef(true)
 
+  // 永遠用最新的 DB 資料覆蓋（避免 useState 鎖在第一次的 initialEntries）
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false
-      return
-    }
     if (!userId) return
 
+    let cancelled = false
     setLoading(true)
-    setSelectedDate(null)
 
     const m = month + 1
     const startDate = `${year}-${String(m).padStart(2, '0')}-01`
@@ -470,11 +466,22 @@ function GratitudeCalendar({
       .eq('user_id', userId)
       .gte('entry_date', startDate)
       .lte('entry_date', endDate)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.error('[calendar fetch]', error)
+        }
         setEntries(data ?? [])
         setLoading(false)
       })
+
+    return () => { cancelled = true }
   }, [year, month, userId])
+
+  // 當父層因 router.invalidate() 回傳新的 initialEntries 時，立即同步
+  useEffect(() => {
+    setEntries(initialEntries)
+  }, [initialEntries])
 
   const firstWeekday = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
