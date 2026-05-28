@@ -154,15 +154,7 @@ function GratitudePage() {
   const navigate = useNavigate()
   const router = useRouter()
 
-  const resetAll = () => {
-    setStage('INTRO')
-    setDifficulty('basic')
-    setItems({ item_1: '', item_2: '', item_3: '' })
-    setSummaryResult(null)
-    setSummaryError(null)
-    setTags([])
-    setIsShared(true)
-  }
+
 
   useEffect(() => {
     if (stage !== 'SUMMARY') return
@@ -295,7 +287,6 @@ function GratitudePage() {
           summaryError={summaryError}
           tags={tags}
           onContinue={() => setStage('CELEBRATE')}
-          onRestart={resetAll}
         />
       )
     case 'CELEBRATE':
@@ -714,14 +705,12 @@ function SummaryStage({
   summaryError,
   tags,
   onContinue,
-  onRestart,
 }: {
   items: GratitudeItems
   summaryResult: SummaryResult | null
   summaryError: string | null
   tags: TagResult[]
   onContinue: () => void
-  onRestart: () => void
 }) {
   const shareCardRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
