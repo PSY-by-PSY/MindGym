@@ -100,10 +100,9 @@ function TopHeader() {
             note="即將開放"
           />
           <DrawerExternalLink
-            href="#"
+            href="https://www.instagram.com/psy_by_psy/"
             icon="📸"
             label="IG 追蹤我們"
-            note="即將開放"
           />
           <div className="my-2 border-t border-border" />
           <DrawerLink
