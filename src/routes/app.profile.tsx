@@ -807,8 +807,24 @@ function ProfilePage() {
   const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
   const [showPicker, setShowPicker] = useState(false)
+  const [nameValue, setNameValue] = useState<string>(name ?? '')
+  const [editingName, setEditingName] = useState(false)
+  const [savingName, setSavingName] = useState(false)
   const totalMinutes = totalCount * 5
   const practiceTime = formatPracticeTime(totalMinutes)
+
+  const handleSaveName = async () => {
+    const trimmed = nameValue.trim()
+    if (!trimmed || !userId) { setEditingName(false); return }
+    setSavingName(true)
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({ id: userId, name: trimmed }, { onConflict: 'id' })
+    if (error) console.error('[name save]', error)
+    setNameValue(trimmed)
+    setSavingName(false)
+    setEditingName(false)
+  }
 
   const persistAvatar = async (value: string) => {
     setAvatar(value)
@@ -863,11 +879,48 @@ function ProfilePage() {
               ✏️
             </span>
           </button>
-          <div>
+          <div className="flex-1">
             <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
               Member
             </p>
-            <p className="text-lg font-extrabold text-foreground">{name ?? '未設定名稱'}</p>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSaveName()
+                    if (e.key === 'Escape') setEditingName(false)
+                  }}
+                  className="flex-1 rounded-xl border border-primary bg-muted px-3 py-1.5 text-base font-extrabold text-foreground outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  onClick={() => void handleSaveName()}
+                  disabled={savingName}
+                  className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground transition active:scale-95 disabled:opacity-60"
+                >
+                  {savingName ? '…' : '儲存'}
+                </button>
+                <button
+                  onClick={() => { setNameValue(name ?? ''); setEditingName(false) }}
+                  className="shrink-0 text-sm text-muted-foreground transition hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-extrabold text-foreground">{nameValue || '未設定名稱'}</p>
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
+                  aria-label="編輯名稱"
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
