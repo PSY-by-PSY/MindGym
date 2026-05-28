@@ -179,82 +179,74 @@ function GratitudePage() {
     return () => { cancelled = true }
   }, [stage, items, difficulty])
 
-  const handleFinalSave = async (navTarget: 'comment' | 'wall' | 'close') => {
-    const { data: { session } } = await supabase.auth.getSession()
-    let entryId: string | null = savedEntryId
-    let saveError: string | null = null
+  const saveEntry = async (): Promise<string | null> => {
+    if (savedEntryId) return savedEntryId
 
+    const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       alert('登入狀態已失效，請重新登入後再儲存')
-      return
+      throw new Error('Not authenticated')
     }
 
-    if (!savedEntryId) {
-      try {
-        const userId = session.user.id
-        const aiFeedback = summaryResult
-          ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
-          : null
-        const t1 = tags.find((t) => t.item === 1)
-        const t2 = tags.find((t) => t.item === 2)
-        const t3 = tags.find((t) => t.item === 3)
+    const userId = session.user.id
+    const aiFeedback = summaryResult
+      ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
+      : null
+    const t1 = tags.find((t) => t.item === 1)
+    const t2 = tags.find((t) => t.item === 2)
+    const t3 = tags.find((t) => t.item === 3)
 
-        const profileRes = await supabase
-          .from('profiles')
-          .select('name, avatar')
-          .eq('id', userId)
-          .maybeSingle()
+    const profileRes = await supabase
+      .from('profiles')
+      .select('name, avatar')
+      .eq('id', userId)
+      .maybeSingle()
 
-        const profileName = profileRes.data?.name ?? null
-        const profileAvatar = profileRes.data?.avatar ?? null
+    const profileName = profileRes.data?.name ?? null
+    const profileAvatar = profileRes.data?.avatar ?? null
 
-        const anonName = isShared
-          ? (profileName || session.user.user_metadata?.full_name || session.user.user_metadata?.name || pickAnonName())
-          : pickAnonName()
+    const anonName = isShared
+      ? (profileName || session.user.user_metadata?.full_name || session.user.user_metadata?.name || pickAnonName())
+      : pickAnonName()
 
-        const payload: Record<string, unknown> = {
-          user_id: userId,
-          item_1: items.item_1,
-          item_2: items.item_2,
-          item_3: items.item_3,
-          is_shared: true,
-          use_real_name: isShared,
-          entry_date: isoDate(todayDate()),
-          anon_name: anonName,
-        }
-        if (aiFeedback) payload.ai_feedback = aiFeedback
-        if (t1) payload.target_1 = t1.target
-        if (t2) payload.target_2 = t2.target
-        if (t3) payload.target_3 = t3.target
-        if (profileAvatar) payload.avatar = profileAvatar
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      item_1: items.item_1,
+      item_2: items.item_2,
+      item_3: items.item_3,
+      is_shared: true,
+      use_real_name: isShared,
+      entry_date: isoDate(todayDate()),
+      anon_name: anonName,
+    }
+    if (aiFeedback) payload.ai_feedback = aiFeedback
+    if (t1) payload.target_1 = t1.target
+    if (t2) payload.target_2 = t2.target
+    if (t3) payload.target_3 = t3.target
+    if (profileAvatar) payload.avatar = profileAvatar
 
-        const { data: inserted, error } = await supabase
-          .from('gratitude_entries')
-          .insert(payload)
-          .select('id')
-          .single()
+    const { data: inserted, error } = await supabase
+      .from('gratitude_entries')
+      .insert(payload)
+      .select('id')
+      .single()
 
-        if (error) {
-          console.error('[gratitude save]', error)
-          saveError = error.message || JSON.stringify(error)
-        } else {
-          entryId = inserted?.id ?? null
-          setSavedEntryId(entryId)
-        }
-      } catch (e) {
-        console.error('[gratitude save]', e)
-        saveError = e instanceof Error ? e.message : String(e)
-      }
+    if (error) {
+      console.error('[gratitude save]', error)
+      const msg = error.message || JSON.stringify(error)
+      alert(`儲存失敗：${msg}\n\n請截圖回報給工程師。`)
+      throw new Error(msg)
     }
 
-    if (saveError) {
-      alert(`儲存失敗：${saveError}\n\n請截圖回報給工程師。`)
-      return
-    }
+    const entryId = inserted?.id ?? null
+    setSavedEntryId(entryId)
+    return entryId
+  }
 
+  const handleFinalSave = async (navTarget: 'comment' | 'wall' | 'close') => {
     await router.invalidate()
-    if (navTarget === 'comment' && entryId) {
-      navigate({ to: '/app/community', search: { openEntry: entryId } })
+    if (navTarget === 'comment' && savedEntryId) {
+      navigate({ to: '/app/community', search: { openEntry: savedEntryId } })
     } else {
       navigate({ to: '/app/community' })
     }
@@ -286,7 +278,14 @@ function GratitudePage() {
           summaryResult={summaryResult}
           summaryError={summaryError}
           tags={tags}
-          onContinue={() => setStage('CELEBRATE')}
+          onContinue={async () => {
+            try {
+              await saveEntry()
+              setStage('CELEBRATE')
+            } catch {
+              // saveEntry already showed alert; stay on SUMMARY
+            }
+          }}
         />
       )
     case 'CELEBRATE':
