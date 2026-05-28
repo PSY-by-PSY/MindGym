@@ -849,12 +849,6 @@ function SummaryStage({
         >
           下一步：完成這次練習
         </button>
-        <button
-          onClick={onRestart}
-          className="h-12 w-full text-xs font-bold tracking-[0.2em] text-muted-foreground transition hover:text-foreground"
-        >
-          結束這次練習
-        </button>
       </div>
     </div>
   )
