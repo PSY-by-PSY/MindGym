@@ -137,9 +137,13 @@ function HomePage() {
         Training modules
       </h2>
       <div className="grid grid-cols-2 gap-3">
-        {modules.slice(0, 4).map((mod) => (
-          <GridTile key={mod.name} {...mod} />
-        ))}
+        {modules.slice(0, 4).map((mod, i) =>
+          i === 0 ? (
+            <LockedGridTile key={mod.name} {...mod} />
+          ) : (
+            <GridTile key={mod.name} {...mod} />
+          ),
+        )}
         <div className="col-span-2 flex justify-center">
           <div className="w-[calc(50%-6px)]">
             <GridTile {...modules[4]} />
@@ -212,6 +216,28 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
         ))}
       </div>
     </Link>
+  )
+}
+
+function LockedGridTile({ emoji, name, tile, perma }: GridTileProps) {
+  return (
+    <div className={`relative flex w-full flex-col items-center gap-2.5 rounded-3xl p-4 shadow-soft grayscale opacity-50 cursor-not-allowed ${tile}`}>
+      <span className="absolute right-3 top-3 rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+        🔒 施工中
+      </span>
+      <span className="text-4xl leading-none">{emoji}</span>
+      <p className="text-center text-sm font-extrabold leading-tight text-foreground">{name}</p>
+      <div className="flex flex-wrap justify-center gap-1">
+        {perma.map(({ letter, label }) => (
+          <span
+            key={letter + label}
+            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold text-foreground/80 shadow-sm ${permaColors[letter]}`}
+          >
+            {letter} {label}
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 
