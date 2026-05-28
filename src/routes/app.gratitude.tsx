@@ -1247,25 +1247,11 @@ function CelebrateStage({
       {/* 6-D 三個導航按鈕 */}
       <div className="flex w-full flex-col gap-3">
         <button
-          onClick={() => handleNavigate('comment')}
+          onClick={() => handleNavigate('wall')}
           disabled={saving}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >
-          💬 點擊留言
-        </button>
-        <button
-          onClick={() => handleNavigate('wall')}
-          disabled={saving}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-card text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
-        >
-          📖 查看更多
-        </button>
-        <button
-          onClick={() => handleNavigate('close')}
-          disabled={saving}
-          className="h-12 w-full text-xs font-bold tracking-[0.2em] text-muted-foreground transition hover:text-foreground disabled:opacity-60"
-        >
-          ✕ 關閉
+          ✅ 結束今天練習
         </button>
       </div>
 
