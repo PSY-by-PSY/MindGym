@@ -144,7 +144,7 @@ async function fetchTags(items: GratitudeItems): Promise<TagResult[]> {
 
 function GratitudePage() {
   const [stage, setStage] = useState<Stage>('INTRO')
-  const [difficulty, setDifficulty] = useState<Difficulty>('advanced')
+  const [difficulty, setDifficulty] = useState<Difficulty>('basic')
   const [items, setItems] = useState<GratitudeItems>({ item_1: '', item_2: '', item_3: '' })
   const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null)
   const [summaryError, setSummaryError] = useState<string | null>(null)
@@ -333,25 +333,58 @@ function IntroStage({
         </div>
       </div>
 
-      {/* 3-C 描述文字（可收合） */}
-      <div className="mt-5 text-sm leading-relaxed text-foreground/80">
-        停下來，把注意力放回身邊的美好。即使是一件很小的事，當你願意命名它、寫下它，就能為自己累積一份內在的心理資源。{' '}
-        <strong>適用人群</strong>{' '}
-        想感受平靜的人、練習感謝的人、需要情緒出口的人
-        {expanded ? (
-          <span>
-            。透過日復一日的書寫，培養感恩的習慣，逐步提升內心的穩定與韌性。
-          </span>
+      {/* 3-C 常駐描述 */}
+      <div className="mt-5 rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/80">
+        感恩日記（Gratitude Journal）是正向心理學中最具代表性的練習之一，透過每天有意識地回顧值得感謝的事件，幫助大腦重新聚焦於生活中的支持、善意與美好經驗。
+      </div>
+
+      {/* 3-C2 查看更多展開 */}
+      <div className="mt-3">
+        {!expanded ? (
+          <button
+            onClick={() => setExpanded(true)}
+            className="text-xs font-bold text-primary"
+          >
+            查看更多 ▾
+          </button>
         ) : (
-          <>
-            {'... '}
+          <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
+            <div>
+              <p className="font-extrabold text-foreground mb-1.5">核心目標</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
+                <li>・建立覺察生活中的美好以及練習表達感恩的習慣</li>
+                <li>・透過簡單、低負擔的書寫，引導我們開始留意：今天有哪些事情值得被感謝？哪些人、環境與體驗支持了自己？自己是否也值得被感謝？</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-extrabold text-foreground mb-1.5">練前準備</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
+                <li>・練習時常：建議每日 5–10 分鐘</li>
+                <li>・時段推薦：建議在 19:00–24:00 之間練習</li>
+                <li>・環境營造：開啟 APP 安神背景音樂、暫停所有訊息通知、找安靜空間</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-extrabold text-foreground mb-1.5">不建議練習的時刻</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
+                <li>・情緒極端崩潰時、極度疲憊時</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-extrabold text-foreground mb-1.5">研究支持</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
+                <li>・持續感恩練習有助提升：正向情緒、人際連結、意義感、心理韌性、壓力調節與睡眠品質</li>
+                <li className="text-foreground/50 text-xs">Choi et al. (2025). Gratitude journaling and psychological well-being.</li>
+                <li className="text-foreground/50 text-xs">Folk & Dunn (2023). The efficacy of gratitude interventions.</li>
+              </ul>
+            </div>
             <button
-              onClick={() => setExpanded(true)}
-              className="font-bold text-primary"
+              onClick={() => setExpanded(false)}
+              className="text-xs font-bold text-primary text-left"
             >
-              更多
+              收合 ▴
             </button>
-          </>
+          </div>
         )}
       </div>
 
