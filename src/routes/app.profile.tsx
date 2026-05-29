@@ -727,11 +727,11 @@ function AvatarPicker({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+        className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-10 pt-6 shadow-soft"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
