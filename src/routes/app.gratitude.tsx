@@ -748,10 +748,6 @@ function SummaryStage({
   const [sharing, setSharing] = useState(false)
   const date = useMemo(() => formatDate(todayDate()), [])
 
-  const summaryText = summaryResult
-    ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
-    : null
-
   const handleShare = async () => {
     if (!shareCardRef.current || sharing) return
     setSharing(true)
@@ -773,12 +769,21 @@ function SummaryStage({
           margin: '0',
         },
       })
-      const link = document.createElement('a')
-      link.download = `gratitude-${isoDate(todayDate())}.png`
-      link.href = dataUrl
-      link.click()
+      const filename = `gratitude-${isoDate(todayDate())}.png`
+      const blob = await fetch(dataUrl).then((r) => r.blob())
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: '今天的感恩日記' })
+      } else {
+        const link = document.createElement('a')
+        link.download = filename
+        link.href = dataUrl
+        link.click()
+      }
     } catch (e) {
-      console.error('[share image]', e)
+      if (e instanceof Error && e.name !== 'AbortError') {
+        console.error('[share image]', e)
+      }
     } finally {
       setSharing(false)
     }
@@ -857,12 +862,17 @@ function SummaryStage({
         className="pointer-events-none fixed -left-[9999px] top-0"
         style={{ width: '1080px', height: '1440px' }}
       >
-        <ShareCard items={items} summary={summaryText} date={date} />
+        <ShareCard
+          items={items}
+          emotionalSummary={summaryResult?.emotional_summary ?? null}
+          actionSuggestion={summaryResult?.action_suggestion ?? null}
+          date={date}
+        />
       </div>
 
       <div className="flex flex-col gap-3 pb-4">
         <PrimaryCta onClick={handleShare} disabled={sharing || !summaryResult} variant="done">
-          {sharing ? '正在生成分享圖…' : '儲存並分享'}
+          {sharing ? '正在生成分享圖…' : '分享'}
         </PrimaryCta>
         <button
           onClick={onContinue}
@@ -887,11 +897,13 @@ function SummarySkeleton() {
 
 function ShareCard({
   items,
-  summary,
+  emotionalSummary,
+  actionSuggestion,
   date,
 }: {
   items: GratitudeItems
-  summary: string | null
+  emotionalSummary: string | null
+  actionSuggestion: string | null
   date: string
 }) {
   return (
@@ -968,14 +980,50 @@ function ShareCard({
             letterSpacing: 6,
             fontWeight: 800,
             color: '#3b56a8',
-            marginBottom: 10,
+            marginBottom: 14,
           }}
         >
           COACH&apos;S NOTE
         </div>
         <div style={{ fontSize: 22, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-          {summary ?? '——'}
+          {emotionalSummary ?? '——'}
         </div>
+        {actionSuggestion && (
+          <div
+            style={{
+              marginTop: 18,
+              background: 'rgba(255,255,255,0.55)',
+              borderRadius: 20,
+              padding: '18px 24px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                letterSpacing: 5,
+                fontWeight: 800,
+                color: '#3b56a8',
+                opacity: 0.7,
+                marginBottom: 8,
+              }}
+            >
+              行動建議
+            </div>
+            <div style={{ fontSize: 21, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+              {actionSuggestion}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* PSYbyPSY logo */}
+      <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 8 }}>
+        <img
+          src="/assets/psy-by-psy-logo.png"
+          alt="PSYbyPSY"
+          style={{ height: 48, objectFit: 'contain', opacity: 0.75 }}
+          crossOrigin="anonymous"
+        />
       </div>
     </div>
   )
