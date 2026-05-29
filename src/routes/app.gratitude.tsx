@@ -151,6 +151,8 @@ function GratitudePage() {
   const [tags, setTags] = useState<TagResult[]>([])
   const [isShared, setIsShared] = useState(true)
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(todayDate())
+  const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null)
   const navigate = useNavigate()
   const router = useRouter()
 
@@ -216,7 +218,7 @@ function GratitudePage() {
       item_3: items.item_3,
       is_shared: true,
       use_real_name: isShared,
-      entry_date: isoDate(todayDate()),
+      entry_date: isoDate(selectedDate),
       anon_name: anonName,
     }
     if (aiFeedback) payload.ai_feedback = aiFeedback
@@ -266,6 +268,8 @@ function GratitudePage() {
         <WritingStage
           difficulty={difficulty}
           items={items}
+          selectedDate={selectedDate}
+          onChangeSelectedDate={setSelectedDate}
           onChangeItem={(key, val) => setItems((prev) => ({ ...prev, [key]: val }))}
           onBack={() => setStage('INTRO')}
           onNext={() => setStage('SUMMARY')}
@@ -281,6 +285,8 @@ function GratitudePage() {
           onContinue={async () => {
             try {
               await saveEntry()
+              const s = await loadStreak().catch(() => null)
+              setCelebrateStreak(s)
               setStage('CELEBRATE')
             } catch {
               // saveEntry already showed alert; stay on SUMMARY
@@ -294,6 +300,7 @@ function GratitudePage() {
           isShared={isShared}
           onToggleShared={setIsShared}
           onNavigate={handleFinalSave}
+          streakOverride={celebrateStreak}
         />
       )
   }
@@ -488,22 +495,43 @@ async function loadStreak(): Promise<number> {
   return count
 }
 
+function formatSheetDate(date: Date): string {
+  const days = ['日', '一', '二', '三', '四', '五', '六']
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}/${m}/${d}，星期${days[date.getDay()]}`
+}
+
 function WritingStage({
   difficulty,
   items,
+  selectedDate,
+  onChangeSelectedDate,
   onChangeItem,
   onBack,
   onNext,
 }: {
   difficulty: Difficulty
   items: GratitudeItems
+  selectedDate: Date
+  onChangeSelectedDate: (d: Date) => void
   onChangeItem: (key: ItemKey, val: string) => void
   onBack: () => void
   onNext: () => void
 }) {
-  const dateStr = useMemo(() => formatWritingDate(todayDate()), [])
+  const dateStr = useMemo(() => formatWritingDate(selectedDate), [selectedDate])
   const [streak, setStreak] = useState(0)
   const [activeCard, setActiveCard] = useState<number>(1)
+  const [showDateSheet, setShowDateSheet] = useState(false)
+
+  const today = useMemo(() => todayDate(), [])
+  const yesterday = useMemo(() => {
+    const d = todayDate()
+    d.setDate(d.getDate() - 1)
+    return d
+  }, [])
+  const selectedIso = isoDate(selectedDate)
 
   useEffect(() => {
     loadStreak().then(setStreak).catch(() => {})
@@ -527,11 +555,69 @@ function WritingStage({
 
       {/* 4-B ① Date & streak */}
       <div className="mt-5">
-        <p className="text-lg font-extrabold text-foreground">{dateStr}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-lg font-extrabold text-foreground">{dateStr}</p>
+          <button
+            onClick={() => setShowDateSheet(true)}
+            className="rounded-full bg-card px-3 py-1 text-xs font-bold text-primary shadow-soft transition active:scale-95"
+          >
+            修改日期
+          </button>
+        </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
           已連續紀錄 {streak} 天 🔥
         </p>
       </div>
+
+      {/* 4-B ①-b 修改日期 bottom sheet */}
+      {showDateSheet && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+          onClick={() => setShowDateSheet(false)}
+        >
+          <div
+            className="animate-fade-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-8 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-extrabold text-foreground">選擇紀錄日期</p>
+              <button
+                onClick={() => setShowDateSheet(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {[
+                { label: '今天', date: today },
+                { label: '昨天', date: yesterday },
+              ].map(({ label, date }) => {
+                const active = selectedIso === isoDate(date)
+                return (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      onChangeSelectedDate(date)
+                      setShowDateSheet(false)
+                    }}
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left transition active:scale-[0.98] ${
+                      active ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50'
+                    }`}
+                  >
+                    <span className="text-sm font-bold text-foreground">
+                      {label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatSheetDate(date)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4-B ② Circular progress */}
       <div className="mt-6 flex justify-center">
@@ -1099,12 +1185,14 @@ function CelebrateStage({
   isShared,
   onToggleShared,
   onNavigate,
+  streakOverride,
 }: {
   isShared: boolean
   onToggleShared: (v: boolean) => void
   onNavigate: (target: 'comment' | 'wall' | 'close') => void
+  streakOverride?: number | null
 }) {
-  const [streak, setStreak] = useState<number | null>(null)
+  const [streak, setStreak] = useState<number | null>(streakOverride ?? null)
   const [todayCount, setTodayCount] = useState<number | null>(null)
   const [targetSegments, setTargetSegments] = useState<{ code: TargetCode; count: number; pct: number }[]>([])
   const [showInfoModal, setShowInfoModal] = useState(false)
@@ -1133,15 +1221,18 @@ function CelebrateStage({
 
       if (cancelled) return
 
-      const dateSet = new Set(allDatesRes.data?.map((e) => e.entry_date) ?? [])
-      let s = 0
-      const d = new Date()
-      while (dateSet.has(isoDate(d))) {
-        s++
-        d.setDate(d.getDate() - 1)
+      if (streakOverride == null) {
+        const dateSet = new Set(allDatesRes.data?.map((e) => e.entry_date) ?? [])
+        let s = 0
+        const d = new Date()
+        if (!dateSet.has(isoDate(d))) d.setDate(d.getDate() - 1)
+        while (dateSet.has(isoDate(d))) {
+          s++
+          d.setDate(d.getDate() - 1)
+        }
+        setStreak(s)
       }
-      setStreak(s)
-      setTodayCount((todayRes.count ?? 0) + 1)
+      setTodayCount(todayRes.count ?? 0)
 
       const tagsRes = await supabase
         .from('gratitude_entries')
