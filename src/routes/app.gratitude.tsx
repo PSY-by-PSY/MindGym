@@ -356,29 +356,69 @@ function IntroStage({
               <p className="font-extrabold text-foreground mb-1.5">核心目標</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>・建立覺察生活中的美好以及練習表達感恩的習慣</li>
-                <li>・透過簡單、低負擔的書寫，引導我們開始留意：今天有哪些事情值得被感謝？哪些人、環境與體驗支持了自己？自己是否也值得被感謝？</li>
+                <li>・透過簡單、低負擔的書寫，引導我們開始留意：</li>
+                <ul className="pl-3 mt-1 flex flex-col gap-1">
+                  <li>◦ 今天有哪些事情值得被感謝？</li>
+                  <li>◦ 哪些人、環境與體驗支持了自己？</li>
+                  <li>◦ 自己是否也值得被感謝？</li>
+                </ul>
               </ul>
             </div>
             <div>
               <p className="font-extrabold text-foreground mb-1.5">練前準備</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>・練習時常：建議每日 5–10 分鐘</li>
-                <li>・時段推薦：建議在 19:00–24:00 之間練習</li>
-                <li>・環境營造：開啟 APP 安神背景音樂、暫停所有訊息通知、找安靜空間</li>
+              <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
+                <li>
+                  <strong className="font-bold text-foreground">練習時常</strong>
+                  <div className="mt-0.5">建議每日 5–10 分鐘。</div>
+                </li>
+                <li>
+                  <strong className="font-bold text-foreground">時段推薦</strong>
+                  <div className="mt-0.5">建議在 19:00–24:00 之間練習，幫助自己：</div>
+                  <ul className="pl-3 mt-1 flex flex-col gap-1">
+                    <li>◦ 回顧一天發生的事件</li>
+                    <li>◦ 整理自己的思緒與情緒</li>
+                    <li>◦ 建立睡前的感恩儀式感</li>
+                  </ul>
+                </li>
+                <li>
+                  <strong className="font-bold text-foreground">環境營造</strong>
+                  <div className="mt-0.5">建議開始前：</div>
+                  <ul className="pl-3 mt-1 flex flex-col gap-1">
+                    <li>◦ 開啟 APP 安神背景音樂（選擇無歌詞的舒適、溫柔背景音樂）</li>
+                    <li>◦ 暫停所有訊息通知</li>
+                    <li>◦ 找一個舒服且安靜的空間</li>
+                    <li>◦ 將注意力回到自己身上</li>
+                  </ul>
+                </li>
               </ul>
             </div>
             <div>
               <p className="font-extrabold text-foreground mb-1.5">不建議練習的時刻</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>・情緒極端崩潰時、極度疲憊時</li>
+              <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
+                <li>
+                  <strong className="font-bold text-foreground">情緒極端崩潰時</strong>
+                  <div className="mt-0.5">若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業諮商協助。</div>
+                </li>
+                <li>
+                  <strong className="font-bold text-foreground">極度疲憊時</strong>
+                  <div className="mt-0.5">感恩書寫需要一定心理能量。若過度疲勞，容易變成應付式紀錄，同時難以書寫真實感受，可能增加心理負擔。</div>
+                </li>
               </ul>
             </div>
             <div>
-              <p className="font-extrabold text-foreground mb-1.5">研究支持</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>・持續感恩練習有助提升：正向情緒、人際連結、意義感、心理韌性、壓力調節與睡眠品質</li>
-                <li className="text-foreground/50 text-xs">Choi et al. (2025). Gratitude journaling and psychological well-being.</li>
-                <li className="text-foreground/50 text-xs">Folk & Dunn (2023). The efficacy of gratitude interventions.</li>
+              <p className="font-extrabold text-foreground mb-1.5">研究指出的效益</p>
+              <p className="text-foreground/75 mb-2">持續性的感恩練習有助於提升：</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3 mb-3">
+                <li>・正向情緒（Positive Emotion）</li>
+                <li>・人際連結（Relationships）</li>
+                <li>・意義感（Meaning）</li>
+                <li>・心理韌性與幸福感</li>
+                <li>・壓力調節與睡眠品質</li>
+              </ul>
+              <p className="font-extrabold text-foreground mb-1.5 mt-3">相關文獻</p>
+              <ul className="flex flex-col gap-1.5 text-foreground/60 text-xs pl-3">
+                <li>Choi, H., Cha, Y., McCullough, M. E., Coles, N. A., & Oishi, S. (2025). A meta-analysis of the effectiveness of gratitude interventions on well-being across cultures. <em>Proceedings of the National Academy of Sciences, 122</em>(28), e2425193122.</li>
+                <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707. https://doi.org/10.1038/s41562-023-01651-4</li>
               </ul>
             </div>
             <button
