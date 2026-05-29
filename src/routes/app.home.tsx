@@ -137,16 +137,16 @@ function HomePage() {
         Training modules
       </h2>
       <div className="grid grid-cols-2 gap-3">
-        {modules.slice(0, 4).map((mod, i) =>
-          i === 0 ? (
-            <LockedGridTile key={mod.name} {...mod} />
-          ) : (
+        {modules.slice(0, 4).map((mod) =>
+          mod.name === '感恩日記' ? (
             <GridTile key={mod.name} {...mod} />
+          ) : (
+            <LockedGridTile key={mod.name} {...mod} />
           ),
         )}
         <div className="col-span-2 flex justify-center">
           <div className="w-[calc(50%-6px)]">
-            <GridTile {...modules[4]} />
+            <LockedGridTile {...modules[4]} />
           </div>
         </div>
       </div>
