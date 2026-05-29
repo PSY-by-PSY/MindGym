@@ -45,6 +45,20 @@ async function fetchEntriesPage(offset: number) {
     .range(offset, offset + 3)
 }
 
+async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
+  let query = supabase
+    .from('gratitude_entries')
+    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar')
+    .eq('is_shared', true)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (userId) query = query.neq('user_id', userId)
+  const { data } = await query
+  const rows = (data ?? []) as GratitudeEntry[]
+  if (rows.length === 0) return null
+  return rows[Math.floor(Math.random() * rows.length)]
+}
+
 async function fetchTargetTags(entryIds: string[]): Promise<Record<string, GratitudeTargetTag[]>> {
   if (entryIds.length === 0) return {}
   const { data } = await supabase
@@ -102,6 +116,10 @@ async function fetchSupporting(
 }
 
 export const Route = createFileRoute('/app/community')({
+  validateSearch: (search: Record<string, unknown>): { showEntry?: number } => {
+    const raw = search.showEntry
+    return raw === 1 || raw === '1' ? { showEntry: 1 } : {}
+  },
   loader: async () => {
     const [entriesRes, sessionRes] = await Promise.all([
       fetchEntriesPage(0),
@@ -120,19 +138,21 @@ export const Route = createFileRoute('/app/community')({
         tags: {} as Record<string, GratitudeTargetTag[]>,
         anonName: null,
         userId,
+        modalEntry: null as GratitudeEntry | null,
       }
     }
 
-    const [supporting, profileRes] = await Promise.all([
+    const [supporting, profileRes, modalEntry] = await Promise.all([
       fetchSupporting(entries, userId),
       userId
         ? supabase.from('profiles').select('name').eq('id', userId).single()
         : Promise.resolve({ data: null }),
+      fetchModalEntry(userId),
     ])
 
     const anonName = (profileRes.data?.name ?? null) as string | null
 
-    return { entries, ...supporting, anonName, userId }
+    return { entries, ...supporting, anonName, userId, modalEntry }
   },
   pendingComponent: LoadingState,
   component: CommunityPage,
@@ -233,19 +253,25 @@ function LoadingState() {
   )
 }
 
-const LS_KEY = 'community_last_visited'
+const LS_KEY = 'community_last_shown'
 
-function useDailyModal(hasEntries: boolean) {
+function useWelcomeModal(hasEntry: boolean, forceShow: boolean) {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    if (!hasEntries) return
+    if (!hasEntry) return
+    // 條件一：完成練習導向（?showEntry=1）— 一律顯示
+    if (forceShow) {
+      setOpen(true)
+      return
+    }
+    // 條件二：每日首次進入社群 tab
     const today = new Date().toISOString().slice(0, 10)
     if (localStorage.getItem(LS_KEY) !== today) {
       localStorage.setItem(LS_KEY, today)
       setOpen(true)
     }
-  }, [hasEntries])
+  }, [hasEntry, forceShow])
 
   return { open, close: () => setOpen(false) }
 }
@@ -323,7 +349,9 @@ function DailyModal({ entry, onClose }: { entry: GratitudeEntry; onClose: () => 
 
 function CommunityPage() {
   const loaderData = Route.useLoaderData()
-  const { open, close } = useDailyModal(loaderData.entries.length > 0)
+  const { showEntry } = Route.useSearch()
+  const modalEntry = loaderData.modalEntry
+  const { open, close } = useWelcomeModal(!!modalEntry, showEntry === 1)
 
   const [entries, setEntries] = useState<GratitudeEntry[]>(loaderData.entries)
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
@@ -378,7 +406,7 @@ function CommunityPage() {
 
   return (
     <>
-      {open && <DailyModal entry={entries[0]} onClose={close} />}
+      {open && modalEntry && <DailyModal entry={modalEntry} onClose={close} />}
 
       <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
         <Header onRefresh={refreshEntries} refreshing={refreshing} />

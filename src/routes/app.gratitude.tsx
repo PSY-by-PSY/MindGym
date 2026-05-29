@@ -245,13 +245,9 @@ function GratitudePage() {
     return entryId
   }
 
-  const handleFinalSave = async (navTarget: 'comment' | 'wall' | 'close') => {
+  const handleFinalSave = async (_navTarget: 'comment' | 'wall' | 'close') => {
     await router.invalidate()
-    if (navTarget === 'comment' && savedEntryId) {
-      navigate({ to: '/app/community', search: { openEntry: savedEntryId } })
-    } else {
-      navigate({ to: '/app/community' })
-    }
+    navigate({ to: '/app/community', search: { showEntry: 1 } })
   }
 
   switch (stage) {
