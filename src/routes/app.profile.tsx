@@ -76,7 +76,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
+    if (!userId) return { name: null, avatar: null, scores: null, previousScores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
 
     const fallbackName =
       (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -95,11 +95,10 @@ export const Route = createFileRoute('/app/profile')({
       supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle(),
       supabase
         .from('perma_scores')
-        .select('p_score, e_score, r_score, m_score, a_score')
+        .select('p_score, e_score, r_score, m_score, a_score, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(2),
       supabase
         .from('gratitude_entries')
         .select('id, entry_date, item_1, item_2, item_3')
@@ -140,10 +139,13 @@ export const Route = createFileRoute('/app/profile')({
         .upsert({ id: userId, name: fallbackName }, { onConflict: 'id' })
     }
 
+    const permaRows = (permaRes.data ?? []) as (PermaScores & { created_at: string })[]
+
     return {
       name: finalName,
       avatar: (profileRes.data?.avatar ?? null) as string | null,
-      scores: (permaRes.data ?? null) as PermaScores | null,
+      scores: (permaRows[0] ?? null) as (PermaScores & { created_at?: string }) | null,
+      previousScores: (permaRows[1] ?? null) as (PermaScores & { created_at?: string }) | null,
       userId,
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
       streak,
@@ -209,7 +211,7 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
           <text
             key={d.key}
             x={x}
-            y={y}
+            y={y - 6}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize="12"
@@ -217,6 +219,23 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
             fill="var(--muted-foreground)"
           >
             {d.letter} {d.short}
+          </text>
+        )
+      })}
+      {PERMA_DIMENSIONS.map((d, i) => {
+        const [x, y] = point(i, maxR + 22)
+        return (
+          <text
+            key={`${d.key}-score`}
+            x={x}
+            y={y + 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="11"
+            fontWeight="800"
+            fill="var(--primary)"
+          >
+            {scores[d.key]}/5
           </text>
         )
       })}
@@ -804,9 +823,10 @@ function AvatarPicker({
 }
 
 function ProfilePage() {
-  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, previousScores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
   const [showPicker, setShowPicker] = useState(false)
+  const [showPrevious, setShowPrevious] = useState(false)
   const [nameValue, setNameValue] = useState<string>(name ?? '')
   const [editingName, setEditingName] = useState(false)
   const [savingName, setSavingName] = useState(false)
@@ -854,6 +874,52 @@ function ProfilePage() {
           onUpload={handleUploadAvatar}
           onClose={() => setShowPicker(false)}
         />
+      )}
+
+      {showPrevious && previousScores && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 px-4 pb-8 backdrop-blur-sm"
+          onClick={() => setShowPrevious(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+                  Previous result
+                </p>
+                <h3 className="text-lg font-extrabold text-foreground">上次測驗結果</h3>
+                {previousScores.created_at && (
+                  <p className="text-xs text-muted-foreground">
+                    {String(previousScores.created_at).slice(0, 10)}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setShowPrevious(false)}
+                className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition active:scale-95"
+              >
+                ✕
+              </button>
+            </div>
+            <PermaRadar scores={previousScores} />
+            <div className="mt-4 flex flex-col gap-4">
+              {PERMA_DIMENSIONS.map(({ key, letter, label, tile }) => (
+                <div key={key}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
+                      {letter}
+                    </span>
+                    <span className="text-sm font-bold text-foreground">{label}</span>
+                  </div>
+                  <ScoreBar score={previousScores[key]} tile={tile} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex flex-col gap-4 px-6 pt-5 md:px-10">
@@ -983,6 +1049,16 @@ function ProfilePage() {
             <span className="mb-2 text-3xl">📋</span>
             <p className="text-sm font-medium">尚未完成 PERMA 評估</p>
           </div>
+        )}
+
+        {/* 觀看上次測驗結果 */}
+        {previousScores && (
+          <button
+            onClick={() => setShowPrevious(true)}
+            className="flex w-full items-center justify-center rounded-full bg-primary-soft py-4 text-sm font-extrabold tracking-wide text-primary transition active:scale-[0.98]"
+          >
+            觀看上次測驗結果
+          </button>
         )}
 
         {/* 重新評估 */}
