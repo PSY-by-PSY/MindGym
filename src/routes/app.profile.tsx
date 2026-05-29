@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import petCat from '../assets/pet-cat.png'
 
@@ -676,74 +676,16 @@ function formatPracticeTime(totalMinutes: number): { value: string; unit: string
   return { value: text, unit: '小時' }
 }
 
-async function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
-
-async function resizeImage(dataUrl: string, maxSize = 256): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return reject(new Error('canvas not supported'))
-      ctx.drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/jpeg', 0.82))
-    }
-    img.onerror = () => reject(new Error('image load failed'))
-    img.src = dataUrl
-  })
-}
 
 function AvatarPicker({
   current,
   onSelect,
-  onUpload,
   onClose,
 }: {
   current: string | null
   onSelect: (code: AvatarCode) => void
-  onUpload: (dataUrl: string) => void
   onClose: () => void
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const customSelected = isPhotoAvatar(current)
-
-  const handleFile = async (file: File) => {
-    setError(null)
-    if (!file.type.startsWith('image/')) {
-      setError('請選擇圖片檔案')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('圖片不能超過 5MB')
-      return
-    }
-    setUploading(true)
-    try {
-      const raw = await readFileAsDataUrl(file)
-      const resized = await resizeImage(raw, 256)
-      onUpload(resized)
-    } catch (e) {
-      console.error('[avatar upload]', e)
-      setError('上傳失敗，請再試一次')
-    } finally {
-      setUploading(false)
-    }
-  }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
@@ -757,48 +699,6 @@ function AvatarPicker({
           <p className="text-sm font-extrabold text-foreground">選擇你的頭像</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) void handleFile(file)
-            e.target.value = ''
-          }}
-        />
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className={`mb-4 flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/40 px-4 py-3 text-left transition active:scale-[0.98] disabled:opacity-60 ${
-            customSelected ? 'ring-2 ring-primary ring-offset-2' : ''
-          }`}
-        >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-card text-xl">
-            {customSelected && current ? (
-              <img src={current} alt="目前頭像" className="h-12 w-12 rounded-full object-cover" />
-            ) : (
-              '📷'
-            )}
-          </span>
-          <div className="flex-1">
-            <p className="text-sm font-extrabold text-foreground">
-              {uploading ? '上傳中…' : customSelected ? '更換照片' : '上傳自己的照片'}
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              JPG / PNG，最大 5MB
-            </p>
-          </div>
-        </button>
-
-        {error && <p className="mb-3 text-xs font-bold text-tile-pink">{error}</p>}
-
-        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground">
-          或選擇預設圖示
-        </p>
         <div className="grid grid-cols-3 gap-4">
           {AVATAR_OPTIONS.map((opt) => (
             <button
@@ -858,71 +758,16 @@ function ProfilePage() {
   }
 
   const handleSelectAvatar = (code: AvatarCode) => persistAvatar(code)
-  const handleUploadAvatar = (dataUrl: string) => persistAvatar(dataUrl)
 
   const avatarDisplay = avatarByCode(avatar)
   const isPhoto = isPhotoAvatar(avatar)
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl pb-4">
-      <Header />
+    <>
+      <div className="animate-fade-up mx-auto max-w-3xl pb-4">
+        <Header />
 
-      {showPicker && (
-        <AvatarPicker
-          current={avatar}
-          onSelect={handleSelectAvatar}
-          onUpload={handleUploadAvatar}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
-
-      {showPrevious && previousScores && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 px-4 pb-8 backdrop-blur-sm"
-          onClick={() => setShowPrevious(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-2 flex items-start justify-between">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-                  Previous result
-                </p>
-                <h3 className="text-lg font-extrabold text-foreground">上次測驗結果</h3>
-                {previousScores.created_at && (
-                  <p className="text-xs text-muted-foreground">
-                    {String(previousScores.created_at).slice(0, 10)}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setShowPrevious(false)}
-                className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition active:scale-95"
-              >
-                ✕
-              </button>
-            </div>
-            <PermaRadar scores={previousScores} />
-            <div className="mt-4 flex flex-col gap-4">
-              {PERMA_DIMENSIONS.map(({ key, letter, label, tile }) => (
-                <div key={key}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
-                      {letter}
-                    </span>
-                    <span className="text-sm font-bold text-foreground">{label}</span>
-                  </div>
-                  <ScoreBar score={previousScores[key]} tile={tile} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-4 px-6 pt-5 md:px-10">
+        <div className="flex flex-col gap-4 px-6 pt-5 md:px-10">
         {/* 名字卡 */}
         <div className="flex items-center gap-4 rounded-3xl bg-card p-5 shadow-soft">
           <button
@@ -1075,7 +920,58 @@ function ProfilePage() {
 
         {/* 感恩對象地圖 */}
         <GratitudeTargetMap userId={userId} />
+        </div>
       </div>
-    </div>
+
+      {/* 選頭像 bottom sheet — rendered outside animate-fade-up to avoid fixed-position offset */}
+      {showPicker && (
+        <AvatarPicker
+          current={avatar}
+          onSelect={handleSelectAvatar}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+
+      {/* 上次測驗結果 — full-screen page overlay */}
+      {showPrevious && previousScores && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-5 py-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+                Previous result
+              </p>
+              <h3 className="text-lg font-extrabold text-foreground">上次測驗結果</h3>
+              {previousScores.created_at && (
+                <p className="text-xs text-muted-foreground">
+                  {String(previousScores.created_at).slice(0, 10)}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowPrevious(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition active:scale-95"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="overflow-y-auto px-6 pb-12 pt-4 md:px-10">
+            <PermaRadar scores={previousScores} />
+            <div className="mt-4 flex flex-col gap-4">
+              {PERMA_DIMENSIONS.map(({ key, letter, label, tile }) => (
+                <div key={key}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
+                      {letter}
+                    </span>
+                    <span className="text-sm font-bold text-foreground">{label}</span>
+                  </div>
+                  <ScoreBar score={previousScores[key]} tile={tile} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

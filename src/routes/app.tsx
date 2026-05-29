@@ -33,7 +33,7 @@ function TopHeader() {
 
         {/* 中間 Logo */}
         <span className="text-sm font-extrabold tracking-[0.15em] text-foreground uppercase">
-          InMind
+          MindGym
         </span>
 
         {/* 右側 icons */}
@@ -94,10 +94,9 @@ function TopHeader() {
             onClick={() => setDrawerOpen(false)}
           />
           <DrawerExternalLink
-            href="#"
+            href="https://line.me/ti/g2/s8BmdrBAelUmNj858hi5iHzhJ-vhTQVCqTSokQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
             icon="🧠"
             label="PSYbyPSY 社群"
-            note="即將開放"
           />
           <DrawerExternalLink
             href="https://www.instagram.com/psy_by_psy/"

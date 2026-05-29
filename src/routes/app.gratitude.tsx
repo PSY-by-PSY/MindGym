@@ -579,6 +579,7 @@ function WritingStage({
   const allFilled = filledCount === 3
 
   return (
+    <>
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-40 md:px-10">
       {/* Back button */}
       <button
@@ -604,56 +605,6 @@ function WritingStage({
           已連續紀錄 {streak} 天 🔥
         </p>
       </div>
-
-      {/* 4-B ①-b 修改日期 bottom sheet */}
-      {showDateSheet && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-          onClick={() => setShowDateSheet(false)}
-        >
-          <div
-            className="animate-fade-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-8 shadow-soft"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-extrabold text-foreground">選擇紀錄日期</p>
-              <button
-                onClick={() => setShowDateSheet(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {[
-                { label: '今天', date: today },
-                { label: '昨天', date: yesterday },
-              ].map(({ label, date }) => {
-                const active = selectedIso === isoDate(date)
-                return (
-                  <button
-                    key={label}
-                    onClick={() => {
-                      onChangeSelectedDate(date)
-                      setShowDateSheet(false)
-                    }}
-                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left transition active:scale-[0.98] ${
-                      active ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50'
-                    }`}
-                  >
-                    <span className="text-sm font-bold text-foreground">
-                      {label}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatSheetDate(date)}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 4-B ② Circular progress */}
       <div className="mt-6 flex justify-center">
@@ -691,6 +642,57 @@ function WritingStage({
         </PrimaryCta>
       </div>
     </div>
+
+    {/* 修改日期 bottom sheet — outside animate-fade-up to fix fixed-position offset */}
+    {showDateSheet && (
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+        onClick={() => setShowDateSheet(false)}
+      >
+        <div
+          className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-8 shadow-soft"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-extrabold text-foreground">選擇紀錄日期</p>
+            <button
+              onClick={() => setShowDateSheet(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {[
+              { label: '今天', date: today },
+              { label: '昨天', date: yesterday },
+            ].map(({ label, date }) => {
+              const active = selectedIso === isoDate(date)
+              return (
+                <button
+                  key={label}
+                  onClick={() => {
+                    onChangeSelectedDate(date)
+                    setShowDateSheet(false)
+                  }}
+                  className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left transition active:scale-[0.98] ${
+                    active ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50'
+                  }`}
+                >
+                  <span className="text-sm font-bold text-foreground">
+                    {label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatSheetDate(date)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -1090,7 +1092,6 @@ function ShareCard({
 
       <div
         style={{
-          marginTop: 'auto',
           background: 'rgba(255,255,255,0.55)',
           borderRadius: 32,
           padding: '28px 32px',
@@ -1139,7 +1140,7 @@ function ShareCard({
       </div>
 
       {/* PSYbyPSY logo */}
-      <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 8 }}>
+      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 8 }}>
         <img
           src="/assets/psy-by-psy-logo.png"
           alt="PSYbyPSY"
