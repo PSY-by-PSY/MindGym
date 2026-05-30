@@ -417,7 +417,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
 
       {showInfoModal && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
           onClick={() => setShowInfoModal(false)}
         >
           <div
@@ -628,7 +628,7 @@ function GratitudeCalendar({
       {/* 感恩日記 Modal */}
       {modalEntry && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 px-4 pb-8 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] backdrop-blur-sm"
           onClick={() => setModalEntry(null)}
         >
           <div
@@ -688,11 +688,11 @@ function AvatarPicker({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
       onClick={onClose}
     >
       <div
-        className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-10 pt-6 shadow-soft"
+        className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-6 shadow-soft"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
@@ -934,7 +934,7 @@ function ProfilePage() {
 
       {/* 上次測驗結果 — full-screen page overlay */}
       {showPrevious && previousScores && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+        <div className="fixed inset-0 z-[60] flex flex-col bg-background">
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-5 py-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
