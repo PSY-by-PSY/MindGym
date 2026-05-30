@@ -646,11 +646,11 @@ function WritingStage({
     {/* 修改日期 bottom sheet — outside animate-fade-up to fix fixed-position offset */}
     {showDateSheet && (
       <div
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+        className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
         onClick={() => setShowDateSheet(false)}
       >
         <div
-          className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-8 shadow-soft"
+          className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-soft"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-4 flex items-center justify-between">
