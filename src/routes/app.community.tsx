@@ -276,9 +276,55 @@ function useWelcomeModal(hasEntry: boolean, forceShow: boolean) {
   return { open, close: () => setOpen(false) }
 }
 
-function DailyModal({ entry, onClose }: { entry: GratitudeEntry; onClose: () => void }) {
+function DailyModal({
+  entry,
+  onClose,
+  entryId,
+  userId,
+  anonName,
+  onCommentAdded,
+}: {
+  entry: GratitudeEntry
+  onClose: () => void
+  entryId: string
+  userId: string | null
+  anonName: string | null
+  onCommentAdded: (c: Comment) => void
+}) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   const avatar = avatarFor(entry.anon_name, 0, entry.avatar)
+  const [mode, setMode] = useState<'view' | 'comment'>('view')
+  const [commentText, setCommentText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  function enterCommentMode() {
+    setMode('comment')
+    setTimeout(() => textareaRef.current?.focus(), 80)
+  }
+
+  async function submitComment() {
+    const content = commentText.trim()
+    if (!content || !userId || submitting) return
+    setSubmitting(true)
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({ entry_id: entryId, user_id: userId, anon_name: anonName, content })
+      .select('id, anon_name, content, created_at')
+      .single()
+    if (!error && data) {
+      onCommentAdded(data as Comment)
+      onClose()
+    }
+    setSubmitting(false)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submitComment()
+    }
+  }
 
   return (
     <div
@@ -324,24 +370,61 @@ function DailyModal({ entry, onClose }: { entry: GratitudeEntry; onClose: () => 
           ))}
         </ul>
 
-        <p className="mt-5 text-center text-sm font-semibold text-foreground">
-          請給對方一些回饋吧 💬
-        </p>
-
-        <div className="mt-4 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
-          >
-            先看看
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-2xl bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
-          >
-            去留言
-          </button>
-        </div>
+        {mode === 'view' ? (
+          <>
+            <p className="mt-5 text-center text-sm font-semibold text-foreground">
+              請給對方一些回饋吧 💬
+            </p>
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
+              >
+                先看看
+              </button>
+              <button
+                onClick={enterCommentMode}
+                className="flex-1 rounded-2xl bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
+              >
+                去留言
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="mt-5 flex flex-col gap-3">
+            <p className="text-center text-sm font-semibold text-foreground">留下你的鼓勵 💬</p>
+            {userId ? (
+              <>
+                <textarea
+                  ref={textareaRef}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="留下鼓勵的話… (Enter 送出)"
+                  rows={3}
+                  className="w-full resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setMode('view')}
+                    className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
+                  >
+                    返回
+                  </button>
+                  <button
+                    onClick={submitComment}
+                    disabled={!commentText.trim() || submitting}
+                    className="flex-1 rounded-2xl bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
+                  >
+                    送出
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">請先登入才能留言</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -406,7 +489,16 @@ function CommunityPage() {
 
   return (
     <>
-      {open && modalEntry && <DailyModal entry={modalEntry} onClose={close} />}
+      {open && modalEntry && (
+        <DailyModal
+          entry={modalEntry}
+          onClose={close}
+          entryId={modalEntry.id}
+          userId={userId}
+          anonName={anonName}
+          onCommentAdded={(c) => handleCommentAdded(modalEntry.id, c)}
+        />
+      )}
 
       <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
         <Header onRefresh={refreshEntries} refreshing={refreshing} />
