@@ -11,6 +11,7 @@ type GratitudeEntry = {
   item_3: string | null
   entry_date: string | null
   avatar: string | null
+  current_streak: number | null
 }
 
 type Comment = {
@@ -39,7 +40,7 @@ const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { emoji: string; color
 async function fetchEntriesPage(offset: number) {
   return supabase
     .from('gratitude_entries')
-    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar')
+    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar, profiles(current_streak)')
     .eq('is_shared', true)
     .order('created_at', { ascending: false })
     .range(offset, offset + 3)
@@ -48,7 +49,7 @@ async function fetchEntriesPage(offset: number) {
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
   let query = supabase
     .from('gratitude_entries')
-    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar')
+    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar, profiles(current_streak)')
     .eq('is_shared', true)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -126,7 +127,10 @@ export const Route = createFileRoute('/app/community')({
       supabase.auth.getSession(),
     ])
 
-    const entries = (entriesRes.data ?? []) as GratitudeEntry[]
+    const entries = (entriesRes.data ?? []).map((e: Record<string, unknown>) => ({
+      ...e,
+      current_streak: (e.profiles as { current_streak: number } | null)?.current_streak ?? null,
+    })) as GratitudeEntry[]
     const session = sessionRes.data.session
     const userId = session?.user.id ?? null
 
@@ -453,12 +457,22 @@ function CommunityPage() {
     try {
       const nextPage = page + 1
       let res = await fetchEntriesPage(nextPage * 4)
-      let newEntries = (res.data ?? []) as GratitudeEntry[]
+      const mapEntries = (data: unknown[]) =>
+        data.map((e) => {
+          const row = e as Record<string, unknown>
+          return {
+            ...row,
+            current_streak:
+              (row.profiles as { current_streak: number } | null)?.current_streak ?? null,
+          } as GratitudeEntry
+        })
+
+      let newEntries = mapEntries(res.data ?? [])
       let newPage = nextPage
 
       if (newEntries.length === 0 && nextPage > 0) {
         res = await fetchEntriesPage(0)
-        newEntries = (res.data ?? []) as GratitudeEntry[]
+        newEntries = mapEntries(res.data ?? [])
         newPage = 0
       }
 
@@ -621,7 +635,12 @@ function EntryCard({
           <p className="truncate font-extrabold text-foreground">
             {entry.anon_name ?? '匿名使用者'}
           </p>
-          <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
+            {entry.current_streak != null && entry.current_streak > 0 && (
+              <span className="text-xs font-semibold text-orange-500">🔥 連續 {entry.current_streak} 天</span>
+            )}
+          </div>
         </div>
         <span className="shrink-0 rounded-full bg-tile-mint px-3 py-1 text-[11px] font-bold text-foreground">
           感恩日記

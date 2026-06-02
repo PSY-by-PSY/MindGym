@@ -14,16 +14,18 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS current_streak integer DEFAULT 0;
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "profiles: 本人可讀"   ON profiles;
-DROP POLICY IF EXISTS "profiles: 本人可建立" ON profiles;
-DROP POLICY IF EXISTS "profiles: 本人可更新" ON profiles;
+DROP POLICY IF EXISTS "profiles: 本人可讀"         ON profiles;
+DROP POLICY IF EXISTS "profiles: 已登入可讀所有人"  ON profiles;
+DROP POLICY IF EXISTS "profiles: 本人可建立"        ON profiles;
+DROP POLICY IF EXISTS "profiles: 本人可更新"        ON profiles;
 
-CREATE POLICY "profiles: 本人可讀"   ON profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "profiles: 本人可建立" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "profiles: 本人可更新" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "profiles: 已登入可讀所有人" ON profiles FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "profiles: 本人可建立"       ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "profiles: 本人可更新"       ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- ============================================================
 -- perma_scores
