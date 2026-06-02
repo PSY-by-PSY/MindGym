@@ -71,13 +71,13 @@ function LoginPage() {
       {/* 教練手寫招呼 */}
       <div className="animate-fade-up mb-3 w-full max-w-sm">
         <div className="relative rounded-3xl bg-card px-6 py-5 shadow-soft">
-          <p className="font-handwriting text-3xl leading-snug text-foreground">
+          <p className="font-handwriting text-2xl leading-snug text-foreground">
             嗨，很高興認識你！歡迎來到 MindGym 心理健身房。
           </p>
           <SpeechTail />
         </div>
       </div>
-      <p className="animate-fade-up mb-8 max-w-xs text-center font-handwriting text-2xl leading-snug text-muted-foreground">
+      <p className="animate-fade-up mb-8 max-w-xs text-center font-handwriting text-xl leading-snug text-muted-foreground">
         照顧心理，就像照顧身體一樣自然，先從登入開始吧。
       </p>
 
