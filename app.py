@@ -910,11 +910,11 @@ async def generate_report(
                 headers=SUPABASE_HEADERS,
                 json={
                     "user_id": user_id,
-                    "p_score": round(scores_dict["P"]),
-                    "e_score": round(scores_dict["E"]),
-                    "r_score": round(scores_dict["R"]),
-                    "m_score": round(scores_dict["M"]),
-                    "a_score": round(scores_dict["A"]),
+                    "p_score": scores_dict["P"],
+                    "e_score": scores_dict["E"],
+                    "r_score": scores_dict["R"],
+                    "m_score": scores_dict["M"],
+                    "a_score": scores_dict["A"],
                 },
             )
             if perma_resp.status_code not in (200, 201):
