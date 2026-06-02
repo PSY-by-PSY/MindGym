@@ -1203,7 +1203,7 @@ function ShareCard({
       {/* PSYbyPSY logo */}
       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
         <img
-          src="/assets/psy-by-psy-logo.png"
+          src="/assets/logo-full-color.png"
           alt="PSYbyPSY"
           style={{ height: 48, objectFit: 'contain', opacity: 0.75 }}
           crossOrigin="anonymous"

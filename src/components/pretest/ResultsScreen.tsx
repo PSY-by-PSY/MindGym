@@ -488,7 +488,7 @@ export default function InMindReportPage({ report, onRestart, onComplete }: Prop
     <div ref={pageRef} style={{ background: '#fff' }}>
       {/* Top mini brand */}
       <div style={{ textAlign: 'center', padding: '14px 0 0' }}>
-        <img src="/assets/psy-by-psy-logo.png" alt="PSY by PSY" style={{ height: 84, width: 'auto', objectFit: 'contain' }} />
+        <img src="/assets/logo-full-color.png" alt="PSY by PSY" style={{ height: 84, width: 'auto', objectFit: 'contain' }} />
       </div>
 
       {/* HUGE InMind hero */}
