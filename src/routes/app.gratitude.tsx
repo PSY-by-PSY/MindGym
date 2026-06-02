@@ -872,6 +872,8 @@ function SummaryStage({
   const [sharing, setSharing] = useState(false)
   const date = useMemo(() => formatDate(todayDate()), [])
 
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
+
   const handleShare = async () => {
     if (!shareCardRef.current || sharing) return
     setSharing(true)
@@ -894,16 +896,18 @@ function SummaryStage({
         },
       })
       const filename = `gratitude-${isoDate(todayDate())}.png`
-      const blob = await fetch(dataUrl).then((r) => r.blob())
-      const file = new File([blob], filename, { type: 'image/png' })
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: '今天的感恩日記' })
-      } else {
-        const link = document.createElement('a')
-        link.download = filename
-        link.href = dataUrl
-        link.click()
+      if (isMobile) {
+        const blob = await fetch(dataUrl).then((r) => r.blob())
+        const file = new File([blob], filename, { type: 'image/png' })
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: '今天的感恩日記' })
+          return
+        }
       }
+      const link = document.createElement('a')
+      link.download = filename
+      link.href = dataUrl
+      link.click()
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') {
         console.error('[share image]', e)
@@ -996,7 +1000,7 @@ function SummaryStage({
 
       <div className="flex flex-col gap-3 pb-4">
         <PrimaryCta onClick={handleShare} disabled={sharing || !summaryResult} variant="done">
-          {sharing ? '正在生成分享圖…' : '分享'}
+          {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
         </PrimaryCta>
         <button
           onClick={onContinue}
