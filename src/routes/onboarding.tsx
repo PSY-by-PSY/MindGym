@@ -173,34 +173,46 @@ function OnboardingPage() {
   }
 
   if (screen === 'intro') {
-    return <LandingPage onStart={() => setScreen('quiz')} />
+    return (
+      <div className="mx-auto max-w-[430px]">
+        <LandingPage onStart={() => setScreen('quiz')} />
+      </div>
+    )
   }
 
   if (screen === 'loading') {
-    return <LoadingScreen />
+    return (
+      <div className="mx-auto max-w-[430px]">
+        <LoadingScreen />
+      </div>
+    )
   }
 
   if (screen === 'report' && report) {
     return (
-      <InMindReportPage
-        report={report}
-        onRestart={() => {
-          setAnswers({ P: '', E: '', R: '', M: '', A: '' })
-          setReport(null)
-          setScreen('intro')
-        }}
-        onComplete={handleComplete}
-      />
+      <div className="mx-auto max-w-[430px]">
+        <InMindReportPage
+          report={report}
+          onRestart={() => {
+            setAnswers({ P: '', E: '', R: '', M: '', A: '' })
+            setReport(null)
+            setScreen('intro')
+          }}
+          onComplete={handleComplete}
+        />
+      </div>
     )
   }
 
   // quiz（含 API 錯誤後返回）
   return (
-    <NarrativeQuiz
-      initialAnswers={answers}
-      startAtLast={apiError !== ''}
-      apiError={apiError}
-      onSubmit={handleSubmit}
-    />
+    <div className="mx-auto max-w-[430px]">
+      <NarrativeQuiz
+        initialAnswers={answers}
+        startAtLast={apiError !== ''}
+        apiError={apiError}
+        onSubmit={handleSubmit}
+      />
+    </div>
   )
 }
