@@ -49,13 +49,25 @@ function normalizeEntry(row: unknown): GratitudeEntry {
   return { ...r, current_streak: normalizeStreak(r) } as unknown as GratitudeEntry
 }
 
-async function fetchEntriesPage(offset: number) {
-  return supabase
+const FEED_POOL_SIZE = 60
+const FEED_SHOW_COUNT = 4
+
+// 從近期已分享的貼文中，隨機抽出 FEED_SHOW_COUNT 篇（每次刷新都不同）
+async function fetchRandomEntries() {
+  const res = await supabase
     .from('gratitude_entries')
     .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar, profiles(current_streak)')
     .eq('is_shared', true)
     .order('created_at', { ascending: false })
-    .range(offset, offset + 3)
+    .limit(FEED_POOL_SIZE)
+
+  const pool = (res.data ?? []).map(normalizeEntry)
+  // Fisher–Yates 洗牌後取前 N 篇
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  return pool.slice(0, FEED_SHOW_COUNT)
 }
 
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
@@ -134,12 +146,11 @@ export const Route = createFileRoute('/app/community')({
     return raw === 1 || raw === '1' ? { showEntry: 1 } : {}
   },
   loader: async () => {
-    const [entriesRes, sessionRes] = await Promise.all([
-      fetchEntriesPage(0),
+    const [entries, sessionRes] = await Promise.all([
+      fetchRandomEntries(),
       supabase.auth.getSession(),
     ])
 
-    const entries = (entriesRes.data ?? []).map(normalizeEntry)
     const session = sessionRes.data.session
     const userId = session?.user.id ?? null
 
@@ -454,7 +465,6 @@ function CommunityPage() {
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
   const [tags, setTags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [refreshing, setRefreshing] = useState(false)
-  const [page, setPage] = useState(0)
 
   const userId = loaderData.userId ?? null
   const anonName = loaderData.anonName
@@ -464,17 +474,7 @@ function CommunityPage() {
     setRefreshing(true)
 
     try {
-      const nextPage = page + 1
-      let res = await fetchEntriesPage(nextPage * 4)
-      let newEntries = (res.data ?? []).map(normalizeEntry)
-      let newPage = nextPage
-
-      if (newEntries.length === 0 && nextPage > 0) {
-        res = await fetchEntriesPage(0)
-        newEntries = (res.data ?? []).map(normalizeEntry)
-        newPage = 0
-      }
-
+      const newEntries = await fetchRandomEntries()
       if (newEntries.length === 0) return
 
       const supporting = await fetchSupporting(newEntries, userId)
@@ -483,7 +483,6 @@ function CommunityPage() {
       setLikes(supporting.likes)
       setComments(supporting.comments)
       setTags(supporting.tags)
-      setPage(newPage)
     } finally {
       setRefreshing(false)
     }
