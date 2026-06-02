@@ -153,6 +153,7 @@ function GratitudePage() {
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(todayDate())
   const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null)
+  const [summaryStreak, setSummaryStreak] = useState<number | null>(null)
   const navigate = useNavigate()
   const router = useRouter()
 
@@ -177,6 +178,10 @@ function GratitudePage() {
     fetchTags(items)
       .then((t) => { if (!cancelled) setTags(t) })
       .catch((e) => { console.error('[gratitude-tags]', e) })
+
+    loadStreak()
+      .then((s) => { if (!cancelled) setSummaryStreak(s + 1) })
+      .catch(() => {})
 
     return () => { cancelled = true }
   }, [stage, items, difficulty])
@@ -242,6 +247,31 @@ function GratitudePage() {
 
     const entryId = inserted?.id ?? null
     setSavedEntryId(entryId)
+
+    // 計算並更新連續打卡天數
+    void (async () => {
+      const { data: allDates } = await supabase
+        .from('gratitude_entries')
+        .select('entry_date')
+        .eq('user_id', userId)
+        .order('entry_date', { ascending: false })
+      const entryDateSet = new Set(
+        (allDates ?? []).map((e) => String(e.entry_date).slice(0, 10)),
+      )
+      const toDS = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      let streak = 0
+      const checkDate = new Date()
+      if (!entryDateSet.has(toDS(checkDate))) checkDate.setDate(checkDate.getDate() - 1)
+      while (entryDateSet.has(toDS(checkDate))) {
+        streak++
+        checkDate.setDate(checkDate.getDate() - 1)
+      }
+      await supabase
+        .from('profiles')
+        .upsert({ id: userId, current_streak: streak }, { onConflict: 'id' })
+    })()
+
     return entryId
   }
 
@@ -278,6 +308,7 @@ function GratitudePage() {
           summaryResult={summaryResult}
           summaryError={summaryError}
           tags={tags}
+          streak={summaryStreak}
           onContinue={async () => {
             try {
               await saveEntry()
@@ -860,12 +891,14 @@ function SummaryStage({
   summaryResult,
   summaryError,
   tags,
+  streak,
   onContinue,
 }: {
   items: GratitudeItems
   summaryResult: SummaryResult | null
   summaryError: string | null
   tags: TagResult[]
+  streak: number | null
   onContinue: () => void
 }) {
   const shareCardRef = useRef<HTMLDivElement>(null)
@@ -995,6 +1028,7 @@ function SummaryStage({
           emotionalSummary={summaryResult?.emotional_summary ?? null}
           actionSuggestion={summaryResult?.action_suggestion ?? null}
           date={date}
+          streak={streak}
         />
       </div>
 
@@ -1028,25 +1062,32 @@ function ShareCard({
   emotionalSummary,
   actionSuggestion,
   date,
+  streak,
 }: {
   items: GratitudeItems
   emotionalSummary: string | null
   actionSuggestion: string | null
   date: string
+  streak: number | null
 }) {
+  const totalChars = (items.item_1?.length ?? 0) + (items.item_2?.length ?? 0) + (items.item_3?.length ?? 0)
+  const itemFontSize = totalChars < 60 ? 26 : totalChars < 120 ? 22 : 18
+  const itemPadding = totalChars < 60 ? '32px 36px' : totalChars < 120 ? '26px 32px' : '20px 28px'
+  const itemGap = totalChars < 60 ? 28 : totalChars < 120 ? 22 : 16
+
   return (
     <div
       style={{
         width: '1080px',
         height: '1440px',
         background: 'linear-gradient(150deg,#dfe7f5 0%,#e8d6e8 55%,#f1d6c2 100%)',
-        padding: '80px 72px',
+        padding: '72px 72px 60px',
         boxSizing: 'border-box',
         fontFamily: 'PingFang TC, Microsoft JhengHei, sans-serif',
         color: '#1f2742',
         display: 'flex',
         flexDirection: 'column',
-        gap: 36,
+        gap: 32,
       }}
     >
       <div>
@@ -1059,14 +1100,14 @@ function ShareCard({
         <div style={{ fontSize: 22, opacity: 0.65, marginTop: 10 }}>{date}</div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: itemGap }}>
         {[items.item_1, items.item_2, items.item_3].map((text, i) => (
           <div
             key={i}
             style={{
               background: 'rgba(255,255,255,0.72)',
               borderRadius: 32,
-              padding: '28px 32px',
+              padding: itemPadding,
               display: 'flex',
               gap: 22,
               alignItems: 'flex-start',
@@ -1089,7 +1130,7 @@ function ShareCard({
             >
               {i + 1}
             </div>
-            <div style={{ fontSize: 26, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{text}</div>
+            <div style={{ fontSize: itemFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{text}</div>
           </div>
         ))}
       </div>
@@ -1112,7 +1153,7 @@ function ShareCard({
         >
           COACH&apos;S NOTE
         </div>
-        <div style={{ fontSize: 22, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+        <div style={{ fontSize: 20, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
           {emotionalSummary ?? '——'}
         </div>
         {actionSuggestion && (
@@ -1136,15 +1177,31 @@ function ShareCard({
             >
               行動建議
             </div>
-            <div style={{ fontSize: 21, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontSize: 19, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
               {actionSuggestion}
             </div>
           </div>
         )}
       </div>
 
+      {streak !== null && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg,#3b56a8 0%,#6b7fd4 100%)',
+            borderRadius: 32,
+            padding: '26px 36px',
+            textAlign: 'center',
+            color: '#fff',
+          }}
+        >
+          <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
+            恭喜完成第 {streak} 天感恩日記 🎉
+          </div>
+        </div>
+      )}
+
       {/* PSYbyPSY logo */}
-      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 8 }}>
+      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
         <img
           src="/assets/psy-by-psy-logo.png"
           alt="PSYbyPSY"
