@@ -37,6 +37,18 @@ const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { emoji: string; color
   custom:      { emoji: '🏷️', color: 'bg-muted text-muted-foreground' },
 }
 
+function normalizeStreak(row: Record<string, unknown>): number | null {
+  const p = row.profiles
+  const profile = Array.isArray(p) ? p[0] : p
+  const cs = (profile as { current_streak?: number } | null)?.current_streak
+  return typeof cs === 'number' ? cs : null
+}
+
+function normalizeEntry(row: unknown): GratitudeEntry {
+  const r = row as Record<string, unknown>
+  return { ...r, current_streak: normalizeStreak(r) } as unknown as GratitudeEntry
+}
+
 async function fetchEntriesPage(offset: number) {
   return supabase
     .from('gratitude_entries')
@@ -55,7 +67,7 @@ async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | 
     .limit(50)
   if (userId) query = query.neq('user_id', userId)
   const { data } = await query
-  const rows = (data ?? []) as GratitudeEntry[]
+  const rows = (data ?? []).map(normalizeEntry)
   if (rows.length === 0) return null
   return rows[Math.floor(Math.random() * rows.length)]
 }
@@ -127,10 +139,7 @@ export const Route = createFileRoute('/app/community')({
       supabase.auth.getSession(),
     ])
 
-    const entries = (entriesRes.data ?? []).map((e: Record<string, unknown>) => ({
-      ...e,
-      current_streak: (e.profiles as { current_streak: number } | null)?.current_streak ?? null,
-    })) as GratitudeEntry[]
+    const entries = (entriesRes.data ?? []).map(normalizeEntry)
     const session = sessionRes.data.session
     const userId = session?.user.id ?? null
 
@@ -457,22 +466,12 @@ function CommunityPage() {
     try {
       const nextPage = page + 1
       let res = await fetchEntriesPage(nextPage * 4)
-      const mapEntries = (data: unknown[]) =>
-        data.map((e) => {
-          const row = e as Record<string, unknown>
-          return {
-            ...row,
-            current_streak:
-              (row.profiles as { current_streak: number } | null)?.current_streak ?? null,
-          } as GratitudeEntry
-        })
-
-      let newEntries = mapEntries(res.data ?? [])
+      let newEntries = (res.data ?? []).map(normalizeEntry)
       let newPage = nextPage
 
       if (newEntries.length === 0 && nextPage > 0) {
         res = await fetchEntriesPage(0)
-        newEntries = mapEntries(res.data ?? [])
+        newEntries = (res.data ?? []).map(normalizeEntry)
         newPage = 0
       }
 
