@@ -195,6 +195,12 @@ function OnboardingPage() {
   const [report, setReport] = useState<InMindReport | null>(latestReport ?? null)
   const [apiError, setApiError] = useState('')
 
+  // 4B: 立即儲存 — 當 report 出現時寫入 inmind_sessions，不等使用者按按鈕
+  useEffect(() => {
+    if (screen !== 'report' || !session) return
+    supabase.from('inmind_sessions').insert({ user_id: session.user.id }).then(() => {})
+  }, [screen, session])
+
   async function handleSubmit(finalAnswers: NarrativeAnswers) {
     setAnswers(finalAnswers)
     setScreen('loading')
