@@ -52,16 +52,34 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 const FEED_POOL_SIZE = 60
 const FEED_SHOW_COUNT = 4
 
+const ENTRY_COLS = 'id, anon_name, item_1, item_2, item_3, entry_date, avatar'
+// 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
+const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS}, profiles(current_streak)`
+
+// 查詢已分享貼文，盡力帶上 streak；若 join 失敗（例如 profiles 缺 current_streak 欄位）
+// 則退回不帶 streak 的查詢，確保貼文一定能顯示。
+async function selectSharedEntries(limit: number, excludeUserId?: string | null) {
+  const build = (cols: string) => {
+    let q = supabase
+      .from('gratitude_entries')
+      .select(cols)
+      .eq('is_shared', true)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (excludeUserId) q = q.neq('user_id', excludeUserId)
+    return q
+  }
+
+  const withStreak = await build(ENTRY_COLS_WITH_STREAK)
+  if (!withStreak.error) return (withStreak.data ?? []).map(normalizeEntry)
+
+  const plain = await build(ENTRY_COLS)
+  return (plain.data ?? []).map(normalizeEntry)
+}
+
 // 從近期已分享的貼文中，隨機抽出 FEED_SHOW_COUNT 篇（每次刷新都不同）
 async function fetchRandomEntries() {
-  const res = await supabase
-    .from('gratitude_entries')
-    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar, profiles(current_streak)')
-    .eq('is_shared', true)
-    .order('created_at', { ascending: false })
-    .limit(FEED_POOL_SIZE)
-
-  const pool = (res.data ?? []).map(normalizeEntry)
+  const pool = await selectSharedEntries(FEED_POOL_SIZE)
   // Fisher–Yates 洗牌後取前 N 篇
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -71,15 +89,7 @@ async function fetchRandomEntries() {
 }
 
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
-  let query = supabase
-    .from('gratitude_entries')
-    .select('id, anon_name, item_1, item_2, item_3, entry_date, avatar, profiles(current_streak)')
-    .eq('is_shared', true)
-    .order('created_at', { ascending: false })
-    .limit(50)
-  if (userId) query = query.neq('user_id', userId)
-  const { data } = await query
-  const rows = (data ?? []).map(normalizeEntry)
+  const rows = await selectSharedEntries(50, userId)
   if (rows.length === 0) return null
   return rows[Math.floor(Math.random() * rows.length)]
 }
