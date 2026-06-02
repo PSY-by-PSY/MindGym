@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
-import coachWelcome from '../assets/coach-welcome.png'
+import coachWelcome from '../assets/brain-lifter.png'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
@@ -11,7 +12,16 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
+// 'idle' = 還沒送驗證碼，'code' = 已送出、等待輸入驗證碼
+type EmailStep = 'idle' | 'code'
+
 function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [step, setStep] = useState<EmailStep>('idle')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -21,8 +31,43 @@ function LoginPage() {
     })
   }
 
+  const handleSendCode = async () => {
+    const trimmed = email.trim()
+    if (!trimmed) return
+    setLoading(true)
+    setError(null)
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmed,
+      options: { shouldCreateUser: true },
+    })
+    setLoading(false)
+    if (error) {
+      setError('寄送失敗，請確認 email 後再試一次。')
+      return
+    }
+    setStep('code')
+  }
+
+  const handleVerifyCode = async () => {
+    const trimmedCode = code.trim()
+    if (!trimmedCode) return
+    setLoading(true)
+    setError(null)
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: trimmedCode,
+      type: 'email',
+    })
+    setLoading(false)
+    if (error) {
+      setError('驗證碼錯誤或已過期，請重新輸入。')
+      return
+    }
+    // 成功後 onAuthStateChange 會更新 session，beforeLoad 自動導向 /app/home
+  }
+
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-40 pt-12">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-44 pt-12">
       {/* 教練手寫招呼 */}
       <div className="animate-fade-up mb-3 w-full max-w-sm">
         <div className="relative rounded-3xl bg-card px-6 py-5 shadow-soft">
@@ -46,13 +91,81 @@ function LoginPage() {
       {/* 底部固定 CTA */}
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-6 pb-10 pt-12">
         <div className="mx-auto w-full max-w-sm space-y-3">
-          <button
-            onClick={handleGoogleLogin}
-            className="flex h-16 w-full items-center justify-center gap-3 rounded-full bg-card text-base font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
-          >
-            <GoogleIcon />
-            用 Google 登入
-          </button>
+          {step === 'idle' ? (
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="輸入 email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-14 w-full rounded-full bg-card px-6 text-center text-base font-semibold text-foreground shadow-soft outline-none placeholder:text-muted-foreground/60"
+            />
+          ) : (
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              placeholder="輸入 6 位數驗證碼"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              className="h-14 w-full rounded-full bg-card px-6 text-center text-xl font-bold tracking-[0.4em] text-foreground shadow-soft outline-none placeholder:text-base placeholder:font-semibold placeholder:tracking-normal placeholder:text-muted-foreground/60"
+            />
+          )}
+
+          {error && (
+            <p className="text-center text-xs font-semibold text-red-500">{error}</p>
+          )}
+
+          {step === 'idle' ? (
+            <button
+              onClick={handleSendCode}
+              disabled={loading || !email.trim()}
+              className="flex h-16 w-full items-center justify-center rounded-full bg-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
+            >
+              {loading ? '寄送中…' : '用 Email 登入'}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleVerifyCode}
+                disabled={loading || code.trim().length < 6}
+                className="flex h-16 w-full items-center justify-center rounded-full bg-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {loading ? '驗證中…' : '確認驗證碼'}
+              </button>
+              <button
+                onClick={() => {
+                  setStep('idle')
+                  setCode('')
+                  setError(null)
+                }}
+                className="w-full text-center text-xs font-semibold text-muted-foreground underline"
+              >
+                重新輸入 email
+              </button>
+            </>
+          )}
+
+          {/* 分隔線 */}
+          {step === 'idle' && (
+            <>
+              <div className="flex items-center gap-3 py-1">
+                <span className="h-px flex-1 bg-muted-foreground/20" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">或</span>
+                <span className="h-px flex-1 bg-muted-foreground/20" />
+              </div>
+              <button
+                onClick={handleGoogleLogin}
+                className="flex h-16 w-full items-center justify-center gap-3 rounded-full bg-card text-base font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
+              >
+                <GoogleIcon />
+                用 Google 登入
+              </button>
+            </>
+          )}
+
           <p className="text-center text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
             MindGym · Train your mind
           </p>
