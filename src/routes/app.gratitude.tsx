@@ -297,6 +297,7 @@ function GratitudePage() {
           onToggleShared={setIsShared}
           onNavigate={handleFinalSave}
           streakOverride={celebrateStreak}
+          savedEntryId={savedEntryId}
         />
       )
   }
@@ -1222,17 +1223,23 @@ function CelebrateStage({
   onToggleShared,
   onNavigate,
   streakOverride,
+  savedEntryId,
 }: {
   isShared: boolean
   onToggleShared: (v: boolean) => void
   onNavigate: (target: 'comment' | 'wall' | 'close') => void
   streakOverride?: number | null
+  savedEntryId?: string | null
 }) {
   const [streak, setStreak] = useState<number | null>(streakOverride ?? null)
   const [todayCount, setTodayCount] = useState<number | null>(null)
   const [targetSegments, setTargetSegments] = useState<{ code: TargetCode; count: number; pct: number }[]>([])
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showCommentModal, setShowCommentModal] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [commentDone, setCommentDone] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -1300,6 +1307,28 @@ function CelebrateStage({
     if (saving) return
     setSaving(true)
     await onNavigate(target)
+  }
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || !savedEntryId || commentSubmitting) return
+    setCommentSubmitting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+      const { error } = await supabase.from('comments').insert({
+        entry_id: savedEntryId,
+        user_id: session.user.id,
+        content: commentText.trim(),
+      })
+      if (error) throw error
+      setCommentDone(true)
+      setCommentText('')
+    } catch (e) {
+      console.error('[comment submit]', e)
+      alert('留言送出失敗，請稍後再試。')
+    } finally {
+      setCommentSubmitting(false)
+    }
   }
 
   return (
@@ -1449,7 +1478,69 @@ function CelebrateStage({
         >
           ✅ 結束今天練習
         </button>
+        {savedEntryId && (
+          <button
+            onClick={() => setShowCommentModal(true)}
+            disabled={saving}
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-card text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+          >
+            💬 去留言
+          </button>
+        )}
       </div>
+
+      {/* 留言 Modal */}
+      {showCommentModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          onClick={() => { if (!commentSubmitting) setShowCommentModal(false) }}
+        >
+          <div
+            className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-extrabold text-foreground">留言給大家</p>
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+                disabled={commentSubmitting}
+              >
+                ✕
+              </button>
+            </div>
+            {commentDone ? (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <span className="text-3xl">🎉</span>
+                <p className="text-sm font-bold text-foreground">留言送出成功！</p>
+                <button
+                  onClick={() => setShowCommentModal(false)}
+                  className="mt-2 h-11 w-full rounded-full bg-primary text-sm font-extrabold text-white"
+                >
+                  關閉
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="分享你今天的感受或想法…"
+                  rows={4}
+                  className="w-full resize-none rounded-2xl bg-muted/50 p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={!commentText.trim() || commentSubmitting}
+                  className="mt-3 h-12 w-full rounded-full bg-primary text-sm font-extrabold text-white transition active:scale-[0.98] disabled:opacity-50"
+                >
+                  {commentSubmitting ? '送出中…' : '送出留言'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* "?" 說明 Modal */}
       {showInfoModal && (
