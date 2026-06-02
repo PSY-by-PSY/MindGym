@@ -792,7 +792,7 @@ function ProfilePage() {
           </button>
           <div className="flex-1">
             <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Member
+              Name
             </p>
             {editingName ? (
               <div className="flex items-center gap-2">
@@ -894,6 +894,17 @@ function ProfilePage() {
             <span className="mb-2 text-3xl">📋</span>
             <p className="text-sm font-medium">尚未完成 PERMA 評估</p>
           </div>
+        )}
+
+        {/* 觀看最近一次測驗結果 */}
+        {scores && (
+          <Link
+            to="/onboarding"
+            search={{ showResult: true }}
+            className="flex w-full items-center justify-center rounded-full bg-primary-soft py-4 text-sm font-extrabold tracking-wide text-primary transition active:scale-[0.98]"
+          >
+            觀看最近一次測驗結果
+          </Link>
         )}
 
         {/* 觀看上次測驗結果 */}

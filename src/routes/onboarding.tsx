@@ -8,15 +8,52 @@ import type { NarrativeAnswers, InMindReport } from '../components/pretest/types
 
 // ── Route ─────────────────────────────────────────────────────────────────
 
+type OnboardingSearch = { reassess?: boolean; showResult?: boolean }
+
+function buildReportFromScores(row: {
+  p_score: number; e_score: number; r_score: number; m_score: number; a_score: number
+}): import('../components/pretest/types').InMindReport {
+  const scores = { P: row.p_score, E: row.e_score, R: row.r_score, M: row.m_score, A: row.a_score }
+  const vals = Object.values(scores) as number[]
+  const total_score = vals.reduce((s, v) => s + v, 0)
+  const max_dim = (Object.entries(scores) as [import('../components/pretest/types').DimensionKey, number][])
+    .reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+  const min_dim = (Object.entries(scores) as [import('../components/pretest/types').DimensionKey, number][])
+    .reduce((a, b) => (b[1] < a[1] ? b : a))[0]
+  const delta = scores[max_dim] - scores[min_dim]
+  const body_type: 'C' | 'I' | 'D' = total_score >= 20 ? 'D' : total_score >= 14 ? 'I' : 'C'
+  const empty_analysis = { score_reason: '', comment: '', exercise_suggestion: '' }
+  return {
+    scores,
+    individual_analysis: { P: empty_analysis, E: empty_analysis, R: empty_analysis, M: empty_analysis, A: empty_analysis },
+    total_score,
+    body_type,
+    body_type_label: body_type === 'D' ? '貝果' : body_type === 'I' ? '吐司' : '棉花糖',
+    body_type_context: '',
+    balance: {
+      max_dim, min_dim, delta,
+      level: delta <= 1 ? 'balanced' : delta <= 2 ? 'moderate' : 'unbalanced',
+      assessment: '', advice: '',
+    },
+    percentile: { general: 0, youth: 0 },
+    summary_sentence: '',
+    celeb_match: { name: '', archetype: '', description: '', reason: '' },
+    constitution_advice: { weak_dim: '', short_term_plan: '', long_term_plan: '', daily_practice: '' },
+    advanced_analysis: { complementary_dim: '', synergy_explanation: '', next_step_action: '', partnership_profile: '' },
+    take_action: { daily_habit: '', after_3_days: '', after_1_week: '', after_2_weeks: '', after_1_month: '' },
+  }
+}
+
 export const Route = createFileRoute('/onboarding')({
-  validateSearch: (search: Record<string, unknown>): { reassess?: boolean } => (
-    search.reassess === true || search.reassess === 'true' ? { reassess: true } : {}
-  ),
+  validateSearch: (search: Record<string, unknown>): OnboardingSearch => ({
+    ...(search.reassess === true || search.reassess === 'true' ? { reassess: true } : {}),
+    ...(search.showResult === true || search.showResult === 'true' ? { showResult: true } : {}),
+  }),
   beforeLoad: async ({ context, search }) => {
     if (!context.session) {
       throw redirect({ to: '/login' })
     }
-    if (search.reassess) return
+    if (search.reassess || search.showResult) return
     // 已做過評估 → 直接去首頁
     const { data } = await supabase
       .from('perma_scores')
@@ -26,6 +63,19 @@ export const Route = createFileRoute('/onboarding')({
     if (data && data.length > 0) {
       throw redirect({ to: '/app/home' })
     }
+  },
+  loaderDeps: ({ search }) => ({ showResult: search.showResult }),
+  loader: async ({ context, deps }) => {
+    if (!deps.showResult || !context.session) return { latestReport: null }
+    const { data } = await supabase
+      .from('perma_scores')
+      .select('p_score, e_score, r_score, m_score, a_score')
+      .eq('user_id', context.session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data) return { latestReport: null }
+    return { latestReport: buildReportFromScores(data) }
   },
   component: OnboardingPage,
 })
@@ -136,12 +186,13 @@ type InMindScreen = 'intro' | 'quiz' | 'loading' | 'report'
 
 function OnboardingPage() {
   const { session } = Route.useRouteContext()
-  const { reassess } = Route.useSearch()
+  const { reassess, showResult } = Route.useSearch()
+  const { latestReport } = Route.useLoaderData()
   const navigate = useNavigate()
 
-  const [screen, setScreen] = useState<InMindScreen>('intro')
+  const [screen, setScreen] = useState<InMindScreen>(showResult && latestReport ? 'report' : 'intro')
   const [answers, setAnswers] = useState<NarrativeAnswers>({ P: '', E: '', R: '', M: '', A: '' })
-  const [report, setReport] = useState<InMindReport | null>(null)
+  const [report, setReport] = useState<InMindReport | null>(latestReport ?? null)
   const [apiError, setApiError] = useState('')
 
   async function handleSubmit(finalAnswers: NarrativeAnswers) {
@@ -169,7 +220,7 @@ function OnboardingPage() {
   }
 
   function handleComplete() {
-    navigate({ to: reassess ? '/app/home' : '/app/gratitude' })
+    navigate({ to: (reassess || showResult) ? '/app/home' : '/app/gratitude' })
   }
 
   if (screen === 'intro') {
