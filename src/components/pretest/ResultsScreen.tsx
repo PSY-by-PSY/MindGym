@@ -689,15 +689,15 @@ export default function InMindReportPage({ report, onRestart, onComplete }: Prop
             width: '100%',
             height: 56,
             borderRadius: 99,
-            background: sharing ? '#5A6280' : '#292F56',
-            color: '#fff',
-            border: 'none',
+            background: sharing ? '#F0F0F0' : '#fff',
+            color: sharing ? '#959595' : '#292F56',
+            border: '1.5px solid #D4D4D4',
             fontSize: 15.5,
             fontWeight: 800,
             fontFamily: 'inherit',
             cursor: sharing ? 'default' : 'pointer',
             letterSpacing: 0.4,
-            boxShadow: '0 8px 20px -8px rgba(41,47,86,.5)',
+            boxShadow: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -708,7 +708,7 @@ export default function InMindReportPage({ report, onRestart, onComplete }: Prop
             <>產生分享圖中…</>
           ) : (
             <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#292F56" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3v13" />
                 <path d="M7 8l5-5 5 5" />
                 <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
