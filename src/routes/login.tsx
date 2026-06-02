@@ -67,7 +67,7 @@ function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-44 pt-12">
+    <div className="relative flex h-screen flex-col items-center justify-end overflow-hidden px-6 pb-[360px]">
       {/* 教練手寫招呼 */}
       <div className="animate-fade-up mb-3 w-full max-w-sm">
         <div className="relative rounded-3xl bg-card px-6 py-5 shadow-soft">
@@ -77,7 +77,7 @@ function LoginPage() {
           <SpeechTail />
         </div>
       </div>
-      <p className="animate-fade-up mb-10 max-w-xs text-center font-handwriting text-2xl leading-snug text-muted-foreground">
+      <p className="animate-fade-up mb-8 max-w-xs text-center font-handwriting text-2xl leading-snug text-muted-foreground">
         照顧心理，就像照顧身體一樣自然，先從登入開始吧。
       </p>
 
@@ -85,11 +85,11 @@ function LoginPage() {
       <div className="relative animate-float">
         <div className="absolute inset-0 -z-10 translate-x-5 translate-y-7 rounded-[45%] bg-primary-soft" />
         <div className="absolute inset-0 -z-10 -translate-x-4 translate-y-3 rounded-[45%] bg-primary-glow opacity-50" />
-        <img src={coachWelcome} alt="MindGym 教練" className="relative h-64 w-auto drop-shadow-sm" />
+        <img src={coachWelcome} alt="MindGym 教練" className="relative h-52 w-auto drop-shadow-sm" />
       </div>
 
       {/* 底部固定 CTA */}
-      <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-6 pb-10 pt-12">
+      <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-6 pb-10 pt-10">
         <div className="mx-auto w-full max-w-sm space-y-3">
           {step === 'idle' ? (
             <input
