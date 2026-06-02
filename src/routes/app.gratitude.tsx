@@ -384,7 +384,6 @@ function IntroStage({
                   <strong className="font-bold text-foreground">環境營造</strong>
                   <div className="mt-0.5">建議開始前：</div>
                   <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>◦ 開啟 APP 安神背景音樂（選擇無歌詞的舒適、溫柔背景音樂）</li>
                     <li>◦ 暫停所有訊息通知</li>
                     <li>◦ 找一個舒服且安靜的空間</li>
                     <li>◦ 將注意力回到自己身上</li>
