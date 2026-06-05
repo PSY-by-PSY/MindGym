@@ -134,7 +134,7 @@ function HomePage() {
 
       {/* 訓練模組格狀菜單 */}
       <h2 className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        Training modules
+        健心訓練模組 MindGym Training Modules
       </h2>
       <div className="grid grid-cols-2 gap-3">
         {modules.slice(0, 4).map((mod) =>
@@ -576,7 +576,7 @@ function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
   return (
     <section className="mt-10 pb-16">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-extrabold text-foreground">訓練中心</h2>
+        <h2 className="text-2xl font-extrabold text-foreground">健心訓練中心 MindGym Training Center</h2>
         <span className="text-sm text-muted-foreground">2 套菜單</span>
       </div>
 
