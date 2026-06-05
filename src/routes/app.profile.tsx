@@ -264,9 +264,9 @@ function Header() {
     <div className="relative min-h-44">
       <div className="absolute inset-x-0 top-0 h-44 rounded-b-[40%] bg-gradient-soft" />
       <div className="relative px-6 pt-10 md:px-10">
-        <p className="font-handwriting text-2xl text-muted-foreground">你的健心檔案</p>
+        <p className="font-handwriting text-2xl text-muted-foreground">我的健心檔案</p>
         <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-          本週進度，看得見
+          本週進度，小改變促進大改變
         </h1>
       </div>
     </div>
@@ -532,9 +532,9 @@ function GratitudeCalendar({
     <>
       <div className="rounded-3xl bg-card p-5 shadow-soft">
         <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-          Training log
+          Mental Training Log
         </p>
-        <h2 className="mb-4 text-lg font-extrabold text-foreground">健心紀錄日曆</h2>
+        <h2 className="mb-4 text-lg font-extrabold text-foreground">我的健心日記</h2>
 
         {/* 月份導覽 */}
         <div className="mb-4 flex items-center justify-between">
@@ -859,9 +859,9 @@ function ProfilePage() {
           <img src={petCat} alt="夥伴貓" className="h-20 w-20 animate-float" />
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Training partner
+              Mental Training Partner
             </p>
-            <p className="mt-1 font-extrabold text-foreground">星河藍貓</p>
+            <p className="mt-1 font-extrabold text-foreground">我的健心夥伴</p>
             <p className="mt-0.5 text-sm text-muted-foreground">「今天也跟著你一起變強了！」</p>
           </div>
         </div>
@@ -870,9 +870,9 @@ function ProfilePage() {
         {scores ? (
           <div className="rounded-3xl bg-card p-5 shadow-soft">
             <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              MENTAL RADAR
+              Mental Muscle Radar
             </p>
-            <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌群雷達圖</h2>
+            <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌肉雷達圖</h2>
             <p className="mb-2 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
             <PermaRadar scores={scores} />
             <div className="mt-4 flex flex-col gap-4">
