@@ -257,9 +257,9 @@ function Header({
   return (
     <header className="mb-6 flex items-start justify-between">
       <div>
-        <p className="font-handwriting text-2xl text-muted-foreground">健身房動態</p>
+        <p className="font-handwriting text-2xl text-muted-foreground">大家今天感謝了什麼？</p>
         <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-          大家今天感謝了什麼？
+          健心房動態 MindGym Feed
         </h1>
       </div>
       <button
