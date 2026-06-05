@@ -957,7 +957,7 @@ function SummaryStage({
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 md:px-10">
       <p className="font-handwriting text-2xl text-muted-foreground">今天的回顧</p>
       <h2 className="mb-1 mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-        你今天的感恩回顧 ✨
+        寫下你的感恩日記 ✨
       </h2>
       <p className="text-xs text-muted-foreground">{date}</p>
 
