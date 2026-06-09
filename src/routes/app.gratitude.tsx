@@ -967,8 +967,6 @@ function SummaryStage({
       {/* Entries with target tag badges */}
       <div className="mb-6 mt-6 flex flex-col gap-3">
         {entries.map((text, i) => {
-          const tag = tags.find((t) => t.item === i + 1)
-          const meta = tag ? TARGET_META[tag.target] : null
           return (
             <div key={i} className="rounded-3xl bg-card p-4 shadow-soft">
               <div className="flex items-start gap-3">
