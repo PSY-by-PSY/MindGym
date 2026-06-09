@@ -308,7 +308,6 @@ function GratitudePage() {
           items={items}
           summaryResult={summaryResult}
           summaryError={summaryError}
-          tags={tags}
           streak={summaryStreak}
           onContinue={async () => {
             try {
@@ -893,14 +892,12 @@ function SummaryStage({
   items,
   summaryResult,
   summaryError,
-  tags,
   streak,
   onContinue,
 }: {
   items: GratitudeItems
   summaryResult: SummaryResult | null
   summaryError: string | null
-  tags: TagResult[]
   streak: number | null
   onContinue: () => void
 }) {
