@@ -346,7 +346,6 @@ function IntroStage({
   onStart: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const energyValue = difficulty === 'basic' ? 5 : 10
   const difficultyLabel = difficulty === 'basic' ? '初階' : '進階'
 
   return (
