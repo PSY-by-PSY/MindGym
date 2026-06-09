@@ -232,7 +232,10 @@ function OnboardingPage() {
   if (screen === 'intro') {
     return (
       <div className="mx-auto max-w-[430px]">
-        <LandingPage onStart={() => setScreen('quiz')} />
+        <LandingPage
+          onStart={() => setScreen('quiz')}
+          onGoHome={reassess || showResult ? () => navigate({ to: '/app/home' }) : undefined}
+        />
       </div>
     )
   }
