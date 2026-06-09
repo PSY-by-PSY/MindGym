@@ -977,14 +977,6 @@ function SummaryStage({
                 </span>
                 <div className="flex-1">
                   <p className="text-sm leading-relaxed text-foreground/85">{text}</p>
-                  {meta && (
-                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                      {meta.emoji} {tag!.label || meta.label}
-                    </span>
-                  )}
-                  {!meta && tags.length === 0 && (
-                    <span className="mt-2 inline-block h-5 w-16 animate-pulse rounded-full bg-muted" />
-                  )}
                 </div>
               </div>
             </div>
