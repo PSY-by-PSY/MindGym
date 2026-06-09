@@ -50,7 +50,7 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 }
 
 const FEED_POOL_SIZE = 60
-const FEED_SHOW_COUNT = 4
+const PAGE_SIZE = 5
 
 const ENTRY_COLS = 'id, anon_name, item_1, item_2, item_3, entry_date, avatar'
 // 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
@@ -77,15 +77,15 @@ async function selectSharedEntries(limit: number, excludeUserId?: string | null)
   return (plain.data ?? []).map(normalizeEntry)
 }
 
-// 從近期已分享的貼文中，隨機抽出 FEED_SHOW_COUNT 篇（每次刷新都不同）
-async function fetchRandomEntries() {
+// 從近期已分享的貼文中，隨機洗牌後全部回傳（最多 FEED_POOL_SIZE 篇）
+async function fetchAllShuffledEntries() {
   const pool = await selectSharedEntries(FEED_POOL_SIZE)
-  // Fisher–Yates 洗牌後取前 N 篇
+  // Fisher–Yates 洗牌
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[pool[i], pool[j]] = [pool[j], pool[i]]
   }
-  return pool.slice(0, FEED_SHOW_COUNT)
+  return pool
 }
 
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
@@ -157,7 +157,7 @@ export const Route = createFileRoute('/app/community')({
   },
   loader: async () => {
     const [entries, sessionRes] = await Promise.all([
-      fetchRandomEntries(),
+      fetchAllShuffledEntries(),
       supabase.auth.getSession(),
     ])
 
@@ -229,47 +229,13 @@ function avatarFor(
   return { emoji: AVATAR_OPTIONS[idx].emoji, tile: AVATAR_OPTIONS[idx].tile }
 }
 
-function RefreshIcon({ spinning }: { spinning: boolean }) {
+function Header() {
   return (
-    <svg
-      className={`h-5 w-5 text-muted-foreground transition-transform ${spinning ? 'animate-spin' : ''}`}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
-    </svg>
-  )
-}
-
-function Header({
-  onRefresh,
-  refreshing,
-}: {
-  onRefresh: () => void
-  refreshing: boolean
-}) {
-  return (
-    <header className="mb-6 flex items-start justify-between">
-      <div>
-        <p className="font-handwriting text-2xl text-muted-foreground">大家今天感謝了什麼？</p>
-        <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-          健心房動態 MindGym Feed
-        </h1>
-      </div>
-      <button
-        onClick={onRefresh}
-        disabled={refreshing}
-        aria-label="重整"
-        className="mt-1 flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-muted disabled:opacity-50"
-      >
-        <RefreshIcon spinning={refreshing} />
-      </button>
+    <header className="mb-6">
+      <p className="font-handwriting text-2xl text-muted-foreground">大家今天感謝了什麼？</p>
+      <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
+        健心房動態 MindGym Feed
+      </h1>
     </header>
   )
 }
@@ -277,7 +243,7 @@ function Header({
 function LoadingState() {
   return (
     <div className="mx-auto max-w-3xl px-6 pt-10 md:px-10">
-      <Header onRefresh={() => {}} refreshing={false} />
+      <Header />
       <div className="flex flex-col gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="h-40 animate-pulse rounded-3xl bg-primary-soft" />
@@ -470,33 +436,32 @@ function CommunityPage() {
   const modalEntry = loaderData.modalEntry
   const { open, close } = useWelcomeModal(!!modalEntry, showEntry === 1)
 
-  const [entries, setEntries] = useState<GratitudeEntry[]>(loaderData.entries)
+  const [allEntries] = useState<GratitudeEntry[]>(loaderData.entries)
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
-  const [tags, setTags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
-  const [refreshing, setRefreshing] = useState(false)
+  const [tags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const userId = loaderData.userId ?? null
   const anonName = loaderData.anonName
 
-  async function refreshEntries() {
-    if (refreshing) return
-    setRefreshing(true)
+  const hasMore = displayCount < allEntries.length
+  const visibleEntries = allEntries.slice(0, displayCount)
 
-    try {
-      const newEntries = await fetchRandomEntries()
-      if (newEntries.length === 0) return
-
-      const supporting = await fetchSupporting(newEntries, userId)
-
-      setEntries(newEntries)
-      setLikes(supporting.likes)
-      setComments(supporting.comments)
-      setTags(supporting.tags)
-    } finally {
-      setRefreshing(false)
-    }
-  }
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) return
+    const observer = new IntersectionObserver(
+      (observerEntries) => {
+        if (observerEntries[0].isIntersecting) {
+          setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, allEntries.length))
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, allEntries.length])
 
   function handleLikeChange(entryId: string, newInfo: LikeInfo) {
     setLikes((prev) => ({ ...prev, [entryId]: newInfo }))
@@ -522,36 +487,46 @@ function CommunityPage() {
         />
       )}
 
-      <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
-        <Header onRefresh={refreshEntries} refreshing={refreshing} />
+      <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 pb-16 md:px-10">
+        <Header />
 
         <div className="mb-6 rounded-3xl bg-card px-6 pb-6 pt-5 shadow-soft">
           <p className="mb-1 text-sm font-semibold text-foreground">感恩文字雲</p>
           <WordCloud height={480} />
         </div>
 
-        {entries.length === 0 ? (
+        {allEntries.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
             <span className="text-4xl">💫</span>
             <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            {entries.map((entry, i) => (
-              <EntryCard
-                key={entry.id}
-                entry={entry}
-                index={i}
-                likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
-                comments={comments[entry.id] ?? []}
-                tags={tags[entry.id] ?? []}
-                userId={userId}
-                anonName={anonName}
-                onLikeChange={(info) => handleLikeChange(entry.id, info)}
-                onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col gap-4">
+              {visibleEntries.map((entry, i) => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  index={i}
+                  likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
+                  comments={comments[entry.id] ?? []}
+                  tags={tags[entry.id] ?? []}
+                  userId={userId}
+                  anonName={anonName}
+                  onLikeChange={(info) => handleLikeChange(entry.id, info)}
+                  onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
+                />
+              ))}
+            </div>
+
+            <div ref={sentinelRef} className="h-4" />
+
+            {!hasMore && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                已經看完所有打卡紀錄囉！
+              </p>
+            )}
+          </>
         )}
       </div>
     </>
