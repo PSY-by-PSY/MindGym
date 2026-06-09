@@ -480,9 +480,13 @@ function IntroStage({
       </p>
       <div className="mt-1 flex items-baseline justify-between">
         <h3 className="text-base font-extrabold text-foreground">依今天的能量挑一個強度</h3>
-        <span className="whitespace-nowrap text-xs text-muted-foreground">
-          本次 <strong className="text-foreground">{energyValue}</strong> 分
-        </span>
+        <div className="whitespace-nowrap text-xs text-muted-foreground">
+          {PERMA_BOOSTS.map(({ label, delta }) => (
+            <span key={label} className="mr-3">
+              {label} <strong className="text-foreground">+{delta}</strong>
+            </span>
+          ))}
+        </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <button
