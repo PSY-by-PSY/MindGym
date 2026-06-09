@@ -440,9 +440,9 @@ function IntroStage({
               <p className="font-extrabold text-foreground mb-1.5">研究指出的效益</p>
               <p className="text-foreground/75 mb-2">持續性的感恩練習有助於提升：</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3 mb-3">
-                <li>・正向情緒（Positive Emotion）</li>
-                <li>・人際連結（Relationships）</li>
-                <li>・意義感（Meaning）</li>
+                <li>・情緒力（Positive Emotion）</li>
+                <li>・連結力（Relationships）</li>
+                <li>・意義力（Meaning）</li>
                 <li>・心理韌性與幸福感</li>
                 <li>・壓力調節與睡眠品質</li>
               </ul>

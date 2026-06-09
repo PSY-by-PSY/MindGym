@@ -158,11 +158,11 @@ export const Route = createFileRoute('/app/profile')({
 })
 
 const PERMA_DIMENSIONS = [
-  { key: 'p_score' as const, letter: 'P', label: '正向情緒', short: '正向', tile: 'bg-tile-pink' },
-  { key: 'e_score' as const, letter: 'E', label: '全心投入', short: '投入', tile: 'bg-tile-blue' },
-  { key: 'r_score' as const, letter: 'R', label: '與他人關係', short: '關係', tile: 'bg-tile-peach' },
-  { key: 'm_score' as const, letter: 'M', label: '生活意義', short: '意義', tile: 'bg-tile-mint' },
-  { key: 'a_score' as const, letter: 'A', label: '成就感', short: '成就', tile: 'bg-tile-blue' },
+  { key: 'p_score' as const, letter: 'P', label: '情緒力', short: '情緒', tile: 'bg-tile-pink' },
+  { key: 'e_score' as const, letter: 'E', label: '投入力', short: '投入', tile: 'bg-tile-blue' },
+  { key: 'r_score' as const, letter: 'R', label: '連結力', short: '連結', tile: 'bg-tile-peach' },
+  { key: 'm_score' as const, letter: 'M', label: '意義力', short: '意義', tile: 'bg-tile-mint' },
+  { key: 'a_score' as const, letter: 'A', label: '成就力', short: '成就', tile: 'bg-tile-blue' },
 ]
 
 const MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']

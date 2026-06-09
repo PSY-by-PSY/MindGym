@@ -63,7 +63,7 @@ const modules = [
     tile: 'bg-tile-peach',
     to: '/app/placeholder' as const,
     searchName: '三件好事',
-    perma: [{ letter: 'P', label: '正向情緒' }],
+    perma: [{ letter: 'P', label: '情緒力' }],
   },
   {
     emoji: '⭐',
@@ -83,7 +83,7 @@ const modules = [
     tile: 'bg-tile-pink',
     to: '/app/placeholder' as const,
     searchName: '自我慈悲',
-    perma: [{ letter: 'E', label: '全心投入' }],
+    perma: [{ letter: 'E', label: '投入力' }],
   },
   {
     emoji: '👁️',
@@ -93,7 +93,7 @@ const modules = [
     searchName: '過程目標覺察',
     perma: [
       { letter: 'M', label: '意義力' },
-      { letter: 'A', label: '成就感' },
+      { letter: 'A', label: '成就力' },
     ],
   },
   {
@@ -102,7 +102,7 @@ const modules = [
     tile: 'bg-tile-blue',
     to: '/app/placeholder' as const,
     searchName: '正念冥想',
-    perma: [{ letter: 'E', label: '全心投入' }],
+    perma: [{ letter: 'E', label: '投入力' }],
   },
 ]
 
@@ -279,7 +279,7 @@ type PermaRow = {
 
 const PERMA_ROWS: PermaRow[] = [
   {
-    letter: 'P', zh: '正向情緒', en: 'Positive Emotion',
+    letter: 'P', zh: '情緒力', en: 'Positive Emotion',
     practices: [
       { name: '三件好事', primary: true },
       { name: '感恩日記', primary: true },
@@ -290,7 +290,7 @@ const PERMA_ROWS: PermaRow[] = [
     badge: { text: '覆蓋良好', style: 'good' },
   },
   {
-    letter: 'E', zh: '投入感', en: 'Engagement',
+    letter: 'E', zh: '投入力', en: 'Engagement',
     practices: [
       { name: '正念冥想', primary: true },
       { name: '過程目標覺察', primary: true },
@@ -300,7 +300,7 @@ const PERMA_ROWS: PermaRow[] = [
     badge: { text: '可加強', style: 'improve' },
   },
   {
-    letter: 'R', zh: '正向關係', en: 'Relationships',
+    letter: 'R', zh: '連結力', en: 'Relationships',
     practices: [
       { name: '感恩日記', primary: true },
       { name: '自我慈悲', primary: false },
@@ -310,7 +310,7 @@ const PERMA_ROWS: PermaRow[] = [
     badge: { text: '修正後合理', style: 'adjusted' },
   },
   {
-    letter: 'M', zh: '意義感', en: 'Meaning',
+    letter: 'M', zh: '意義力', en: 'Meaning',
     practices: [
       { name: '過程目標覺察', primary: true },
       { name: '自我慈悲', primary: false },
@@ -321,7 +321,7 @@ const PERMA_ROWS: PermaRow[] = [
     badge: { text: '可加強', style: 'improve' },
   },
   {
-    letter: 'A', zh: '成就感', en: 'Accomplishment',
+    letter: 'A', zh: '成就力', en: 'Accomplishment',
     practices: [
       { name: '三件好事', primary: true },
       { name: '過程目標覺察', primary: true },
@@ -535,7 +535,7 @@ function GratitudeExerciseCard() {
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-tile-mint text-2xl">⭐</span>
       <div className="min-w-0 flex-1">
         <p className="font-extrabold text-foreground">感恩日記</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">初階 · 5 分鐘 · 正向情緒</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">初階 · 5 分鐘 · 情緒力</p>
       </div>
       <svg
         xmlns="http://www.w3.org/2000/svg"
