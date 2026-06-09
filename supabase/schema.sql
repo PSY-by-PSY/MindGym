@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS perma_scores (
   created_at  timestamptz DEFAULT now()
 );
 
+ALTER TABLE perma_scores ADD COLUMN IF NOT EXISTS report_json jsonb;
+
 ALTER TABLE perma_scores ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "perma_scores: 本人可讀" ON perma_scores;

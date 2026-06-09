@@ -69,12 +69,13 @@ export const Route = createFileRoute('/onboarding')({
     if (!deps.showResult || !context.session) return { latestReport: null }
     const { data } = await supabase
       .from('perma_scores')
-      .select('p_score, e_score, r_score, m_score, a_score')
+      .select('p_score, e_score, r_score, m_score, a_score, report_json')
       .eq('user_id', context.session.user.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
     if (!data) return { latestReport: null }
+    if (data.report_json) return { latestReport: data.report_json as InMindReport }
     return { latestReport: buildReportFromScores(data) }
   },
   component: OnboardingPage,

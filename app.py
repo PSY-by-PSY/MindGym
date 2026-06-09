@@ -915,6 +915,7 @@ async def generate_report(
                     "r_score": scores_dict["R"],
                     "m_score": scores_dict["M"],
                     "a_score": scores_dict["A"],
+                    "report_json": response_data,
                 },
             )
             if perma_resp.status_code not in (200, 201):
