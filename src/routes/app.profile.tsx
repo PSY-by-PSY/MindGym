@@ -70,6 +70,7 @@ type GratitudeEntry = {
   item_1: string
   item_2: string
   item_3: string
+  ai_feedback?: string | null
 }
 
 export const Route = createFileRoute('/app/profile')({
@@ -101,7 +102,7 @@ export const Route = createFileRoute('/app/profile')({
         .limit(2),
       supabase
         .from('gratitude_entries')
-        .select('id, entry_date, item_1, item_2, item_3')
+        .select('id, entry_date, item_1, item_2, item_3, ai_feedback')
         .eq('user_id', userId)
         .gte('entry_date', startOfMonth)
         .lte('entry_date', endOfMonth),
@@ -481,7 +482,7 @@ function GratitudeCalendar({
 
     supabase
       .from('gratitude_entries')
-      .select('id, entry_date, item_1, item_2, item_3')
+      .select('id, entry_date, item_1, item_2, item_3, ai_feedback')
       .eq('user_id', userId)
       .gte('entry_date', startDate)
       .lte('entry_date', endDate)
@@ -660,6 +661,14 @@ function GratitudeCalendar({
                 </div>
               ))}
             </div>
+            {modalEntry.ai_feedback && (
+              <div className="mt-3 rounded-2xl bg-primary-soft p-4">
+                <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
+                  安安回饋
+                </p>
+                <p className="text-sm leading-relaxed text-foreground">{modalEntry.ai_feedback}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
