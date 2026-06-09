@@ -19,6 +19,7 @@ type Comment = {
   anon_name: string | null
   content: string
   created_at: string
+  parent_id?: string | null
 }
 
 type LikeInfo = { count: number; liked: boolean }
@@ -123,7 +124,7 @@ async function fetchSupporting(
     supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
     supabase
       .from('comments')
-      .select('id, entry_id, anon_name, content, created_at')
+      .select('id, entry_id, anon_name, content, created_at, parent_id')
       .in('entry_id', entryIds)
       .order('created_at', { ascending: true }),
     fetchTargetTags(entryIds),
@@ -144,7 +145,7 @@ async function fetchSupporting(
   for (const entryId of entryIds) {
     comments[entryId] = allComments
       .filter((c) => c.entry_id === entryId)
-      .map(({ id, anon_name, content, created_at }) => ({ id, anon_name, content, created_at }))
+      .map(({ id, anon_name, content, created_at, parent_id }) => ({ id, anon_name, content, created_at, parent_id }))
   }
 
   return { likes, comments, tags }
@@ -560,7 +561,57 @@ function EntryCard({
   const [liking, setLiking] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [commentLikes, setCommentLikes] = useState<Record<string, { count: number; liked: boolean }>>({})
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const replyInputRef = useRef<HTMLTextAreaElement>(null)
+
+  const topLevelComments = comments.filter((c) => !c.parent_id)
+  const repliesFor = (parentId: string) => comments.filter((c) => c.parent_id === parentId)
+
+  function toggleCommentLike(commentId: string) {
+    setCommentLikes((prev) => {
+      const current = prev[commentId] ?? { count: 0, liked: false }
+      return {
+        ...prev,
+        [commentId]: {
+          count: current.liked ? current.count - 1 : current.count + 1,
+          liked: !current.liked,
+        },
+      }
+    })
+  }
+
+  async function submitReply() {
+    const content = replyText.trim()
+    if (!content || !userId || !replyingTo || submitting) return
+    setSubmitting(true)
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo })
+      .select('id, anon_name, content, created_at, parent_id')
+      .single()
+    if (!error && data) {
+      onCommentAdded(data as Comment)
+      setReplyText('')
+      setReplyingTo(null)
+    }
+    setSubmitting(false)
+  }
+
+  function handleReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submitReply()
+    }
+  }
+
+  function startReplying(commentId: string) {
+    setReplyingTo(commentId)
+    setReplyText('')
+    setTimeout(() => replyInputRef.current?.focus(), 80)
+  }
 
   async function toggleLike() {
     if (!userId || liking) return
@@ -689,21 +740,96 @@ function EntryCard({
       {/* Comment section */}
       {showComments && (
         <div className="mt-3 flex flex-col gap-2">
-          {comments.length > 0 && (
+          {topLevelComments.length > 0 && (
             <ul className="flex flex-col gap-2">
-              {comments.map((c) => (
-                <li key={c.id} className="flex items-start gap-2.5 rounded-2xl bg-muted px-3.5 py-2.5">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-tile-blue text-xs font-bold text-foreground">
-                    {(c.anon_name ?? '匿')[0]}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-muted-foreground">
-                      {c.anon_name ?? '匿名使用者'}
-                    </p>
-                    <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{c.content}</p>
-                  </div>
-                </li>
-              ))}
+              {topLevelComments.map((c) => {
+                const replies = repliesFor(c.id)
+                const cLike = commentLikes[c.id] ?? { count: 0, liked: false }
+                return (
+                  <li key={c.id}>
+                    {/* Top-level comment */}
+                    <div className="flex items-start gap-2.5 rounded-2xl bg-muted px-3.5 py-2.5">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-tile-blue text-xs font-bold text-foreground">
+                        {(c.anon_name ?? '匿')[0]}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold text-muted-foreground">
+                          {c.anon_name ?? '匿名使用者'}
+                        </p>
+                        <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{c.content}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 self-start pt-0.5">
+                        <button
+                          onClick={() => toggleCommentLike(c.id)}
+                          className="flex items-center gap-0.5 text-[11px] text-muted-foreground transition hover:text-foreground"
+                        >
+                          <span className="text-sm leading-none">{cLike.liked ? '❤️' : '🤍'}</span>
+                          {cLike.count > 0 && <span>{cLike.count}</span>}
+                        </button>
+                        {userId && (
+                          <button
+                            onClick={() => (replyingTo === c.id ? setReplyingTo(null) : startReplying(c.id))}
+                            className="text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+                          >
+                            回覆
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Nested replies */}
+                    {replies.length > 0 && (
+                      <ul className="ml-8 mt-1 flex flex-col gap-1">
+                        {replies.map((r) => {
+                          const rLike = commentLikes[r.id] ?? { count: 0, liked: false }
+                          return (
+                            <li key={r.id} className="flex items-start gap-2 rounded-2xl border border-border bg-background px-3 py-2">
+                              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-tile-mint text-[10px] font-bold text-foreground">
+                                {(r.anon_name ?? '匿')[0]}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-semibold text-muted-foreground">
+                                  {r.anon_name ?? '匿名使用者'}
+                                </p>
+                                <p className="mt-0.5 text-xs leading-relaxed text-foreground/80">{r.content}</p>
+                              </div>
+                              <button
+                                onClick={() => toggleCommentLike(r.id)}
+                                className="flex shrink-0 items-center gap-0.5 self-start pt-0.5 text-[11px] text-muted-foreground transition hover:text-foreground"
+                              >
+                                <span className="text-xs leading-none">{rLike.liked ? '❤️' : '🤍'}</span>
+                                {rLike.count > 0 && <span>{rLike.count}</span>}
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+
+                    {/* Reply input */}
+                    {replyingTo === c.id && userId && (
+                      <div className="ml-8 mt-1 flex items-end gap-2">
+                        <textarea
+                          ref={replyInputRef}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={handleReplyKeyDown}
+                          placeholder={`回覆 ${c.anon_name ?? '匿名使用者'}… (Enter 送出)`}
+                          rows={1}
+                          className="flex-1 resize-none rounded-2xl border border-primary bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                        />
+                        <button
+                          onClick={submitReply}
+                          disabled={!replyText.trim() || submitting}
+                          className="shrink-0 rounded-2xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
+                        >
+                          送出
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
 
