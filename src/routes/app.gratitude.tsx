@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
+import VoiceInput from '../components/pretest/VoiceInput'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -851,6 +852,15 @@ function GratitudeCard({
               rows={5}
               className="w-full resize-none bg-transparent text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
             />
+            <div className="mt-2">
+              <VoiceInput
+                accent="hsl(var(--primary))"
+                onTranscript={(text) => {
+                  const sep = value && !/\s$/.test(value) ? ' ' : ''
+                  onChange(value + sep + text)
+                }}
+              />
+            </div>
             {difficulty === 'advanced' && (
               <p className="mt-2 border-t border-border pt-2 text-xs leading-relaxed text-primary/70">
                 💡 {DIFFICULTY_PROMPTS[difficulty]}
