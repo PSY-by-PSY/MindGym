@@ -7,6 +7,7 @@ interface Props {
   report: InMindReport
   onRestart: () => void
   onComplete: () => void
+  onGoHome?: () => void
 }
 
 // ── PERMA design palette ────────────────────────────────────
@@ -303,7 +304,7 @@ function RoadmapRow({ when, body, dot, last }: { when: string; body: string; dot
 }
 
 // ── Main report screen ──────────────────────────────────────
-export default function InMindReportPage({ report, onRestart, onComplete }: Props) {
+export default function InMindReportPage({ report, onRestart, onComplete, onGoHome }: Props) {
   const {
     scores,
     individual_analysis,
@@ -818,8 +819,8 @@ export default function InMindReportPage({ report, onRestart, onComplete }: Prop
         </button>
       </section>
 
-      {/* 重新檢測 */}
-      <div style={{ padding: '8px 20px 16px', textAlign: 'center' }}>
+      {/* 重新檢測 / 返回首頁 */}
+      <div style={{ padding: '8px 20px 16px', textAlign: 'center', display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
         <button
           onClick={onRestart}
           style={{
@@ -838,6 +839,26 @@ export default function InMindReportPage({ report, onRestart, onComplete }: Prop
         >
           重新檢測
         </button>
+        {onGoHome && (
+          <button
+            onClick={onGoHome}
+            style={{
+              height: 44,
+              padding: '0 28px',
+              borderRadius: 99,
+              background: 'transparent',
+              color: '#5C95FF',
+              border: '1px solid #5C95FF',
+              fontSize: 13,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              letterSpacing: 0.3,
+            }}
+          >
+            返回首頁
+          </button>
+        )}
       </div>
 
       <div

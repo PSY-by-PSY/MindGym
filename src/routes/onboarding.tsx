@@ -256,6 +256,7 @@ function OnboardingPage() {
             setScreen('intro')
           }}
           onComplete={handleComplete}
+          onGoHome={() => navigate({ to: '/app/home' })}
         />
       </div>
     )

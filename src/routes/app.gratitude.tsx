@@ -995,7 +995,7 @@ function SummaryStage({
       {/* AI Coach feedback - 2-part */}
       <div className="mb-6 rounded-3xl bg-gradient-soft p-5 shadow-soft">
         <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
-          Coach&apos;s note
+          安安回饋
         </p>
         {isLoading ? (
           <SummarySkeleton />
@@ -1154,7 +1154,7 @@ function ShareCard({
             marginBottom: 14,
           }}
         >
-          COACH&apos;S NOTE
+          安安回饋
         </div>
         <div style={{ fontSize: 20, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
           {emotionalSummary ?? '——'}

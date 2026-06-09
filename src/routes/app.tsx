@@ -39,18 +39,6 @@ function TopHeader() {
         {/* 右側 icons */}
         <div className="flex w-20 items-center justify-end gap-3">
           <button
-            aria-label="搜尋"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
-          >
-            <SearchIcon />
-          </button>
-          <button
-            aria-label="通知"
-            className="relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
-          >
-            <BellIcon />
-          </button>
-          <button
             aria-label="選單"
             onClick={() => setDrawerOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"

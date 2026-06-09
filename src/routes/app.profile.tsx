@@ -907,15 +907,6 @@ function ProfilePage() {
           </Link>
         )}
 
-        {/* 觀看上次測驗結果 */}
-        {previousScores && (
-          <button
-            onClick={() => setShowPrevious(true)}
-            className="flex w-full items-center justify-center rounded-full bg-primary-soft py-4 text-sm font-extrabold tracking-wide text-primary transition active:scale-[0.98]"
-          >
-            觀看上次測驗結果
-          </button>
-        )}
 
         {/* 重新評估 */}
         <Link

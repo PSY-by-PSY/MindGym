@@ -575,9 +575,10 @@ function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
 
   return (
     <section className="mt-10 pb-16">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-extrabold text-foreground">健心訓練中心 MindGym Training Center</h2>
-        <span className="text-sm text-muted-foreground">2 套菜單</span>
+      <div className="mb-4">
+        <h2 className="text-2xl font-extrabold text-foreground leading-tight">
+          健心訓練中心<br />MindGym Training Center
+        </h2>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-2">
