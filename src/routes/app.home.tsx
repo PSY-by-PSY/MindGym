@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
+import { track } from '../lib/analytics'
 
 export const Route = createFileRoute('/app/home')({
   beforeLoad: async ({ context }) => {
@@ -201,6 +202,7 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
   return (
     <Link
       {...(linkProps as Parameters<typeof Link>[0])}
+      onClick={() => track('module_opened', { module: name })}
       className={`flex w-full flex-col items-center gap-2.5 rounded-3xl p-4 shadow-soft transition active:scale-[0.97] ${tile}`}
     >
       <span className="text-4xl leading-none">{emoji}</span>

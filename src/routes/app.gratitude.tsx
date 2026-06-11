@@ -4,6 +4,7 @@ import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
+import { track } from '../lib/analytics'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -287,7 +288,10 @@ function GratitudePage() {
         <IntroStage
           difficulty={difficulty}
           onChangeDifficulty={setDifficulty}
-          onStart={() => setStage('WRITING')}
+          onStart={() => {
+            track('gratitude_started', { difficulty })
+            setStage('WRITING')
+          }}
         />
       )
     case 'WRITING':
@@ -314,6 +318,7 @@ function GratitudePage() {
               await saveEntry()
               const s = await loadStreak().catch(() => null)
               setCelebrateStreak(s)
+              track('gratitude_completed', { difficulty, streak: s })
               setStage('CELEBRATE')
             } catch {
               // saveEntry already showed alert; stay on SUMMARY

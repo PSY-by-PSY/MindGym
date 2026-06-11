@@ -4,7 +4,11 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import type { Session } from '@supabase/supabase-js'
 import { routeTree } from './routeTree.gen'
 import { supabase } from './lib/supabase'
+import { initAnalytics, identifyUser, resetUser, trackPageview } from './lib/analytics'
 import './index.css'
+
+// 啟動 PostHog 行為分析
+initAnalytics()
 
 export interface RouterContext {
   session: Session | null
@@ -13,6 +17,11 @@ export interface RouterContext {
 const router = createRouter({
   routeTree,
   context: { session: null } satisfies RouterContext,
+})
+
+// 每次換頁都上報一次頁面瀏覽，讓後台能看到使用者走過哪些畫面
+router.subscribe('onResolved', () => {
+  trackPageview(router.state.location.pathname)
 })
 
 declare module '@tanstack/react-router' {
@@ -31,6 +40,12 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
+      // 綁定／解除 PostHog 身分，讓每筆行為都對應到真實使用者
+      if (s?.user) {
+        identifyUser(s.user.id, { email: s.user.email })
+      } else {
+        resetUser()
+      }
     })
     return () => subscription.unsubscribe()
   }, [])

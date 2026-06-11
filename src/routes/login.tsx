@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
+import { track } from '../lib/analytics'
 import coachWelcome from '../assets/brain-lifter.png'
 
 export const Route = createFileRoute('/login')({
@@ -63,6 +64,7 @@ function LoginPage() {
       setError('驗證碼錯誤或已過期，請重新輸入。')
       return
     }
+    track('login_completed', { method: 'email' })
     // 成功後 onAuthStateChange 會更新 session，beforeLoad 自動導向 /app/home
   }
 

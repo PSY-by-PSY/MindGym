@@ -6,6 +6,7 @@ import NarrativeQuiz from '../components/pretest/QuestionnaireScreen'
 import InMindReportPage from '../components/pretest/ResultsScreen'
 import type { NarrativeAnswers, InMindReport } from '../components/pretest/types'
 import { reconstructReportFromScores } from '../lib/reconstructReport'
+import { track } from '../lib/analytics'
 
 // ── Route ─────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,11 @@ function OnboardingPage() {
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
       setReport(data)
       setScreen('report')
+      track('quiz_completed', {
+        reassess: Boolean(reassess),
+        total_score: data.total_score,
+        body_type: data.body_type_label,
+      })
     } catch (err) {
       setApiError(err instanceof Error ? err.message : '未知錯誤')
       setScreen('quiz')
@@ -201,7 +207,10 @@ function OnboardingPage() {
     return (
       <div className="mx-auto max-w-[430px]">
         <LandingPage
-          onStart={() => setScreen('quiz')}
+          onStart={() => {
+            track('quiz_started', { reassess: Boolean(reassess) })
+            setScreen('quiz')
+          }}
           onGoHome={reassess || showResult ? () => navigate({ to: '/app/home' }) : undefined}
         />
       </div>
