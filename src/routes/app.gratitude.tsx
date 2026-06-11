@@ -1082,7 +1082,7 @@ function ShareCard({
     >
       <div>
         <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.55 }}>
-          MINDGYM · GRATITUDE
+          PSY BY PSY · GRATITUDE
         </div>
         <div style={{ fontSize: 52, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>
           今天的三件感恩

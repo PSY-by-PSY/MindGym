@@ -18,8 +18,8 @@ export default defineConfig({
       selfDestroying: true,
       registerType: 'autoUpdate',
       manifest: {
-        name: 'MindGym',
-        short_name: 'MindGym',
+        name: 'PSY by PSY',
+        short_name: 'PSY by PSY',
         theme_color: '#6366f1',
         background_color: '#ffffff',
         display: 'standalone',

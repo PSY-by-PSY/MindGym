@@ -72,7 +72,7 @@ function LoginPage() {
       <div className="animate-fade-up mb-3 w-full max-w-sm">
         <div className="relative rounded-3xl bg-card px-6 py-5 shadow-soft">
           <p className="font-handwriting text-2xl leading-snug text-foreground">
-            嗨，很高興認識你！歡迎來到 MindGym 心理健身房。
+            嗨，很高興認識你！歡迎來到 PSY by PSY 心理健身房。
           </p>
           <SpeechTail />
         </div>
@@ -85,7 +85,7 @@ function LoginPage() {
       <div className="relative animate-float">
         <div className="absolute inset-0 -z-10 translate-x-5 translate-y-7 rounded-[45%] bg-primary-soft" />
         <div className="absolute inset-0 -z-10 -translate-x-4 translate-y-3 rounded-[45%] bg-primary-glow opacity-50" />
-        <img src={coachWelcome} alt="MindGym 教練" className="relative h-52 w-auto drop-shadow-sm" />
+        <img src={coachWelcome} alt="PSY by PSY 教練" className="relative h-52 w-auto drop-shadow-sm" />
       </div>
 
       {/* 底部固定 CTA */}
@@ -167,7 +167,7 @@ function LoginPage() {
           )}
 
           <p className="text-center text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-            MindGym · Train your mind
+            PSY by PSY · Train your mind
           </p>
         </div>
       </div>

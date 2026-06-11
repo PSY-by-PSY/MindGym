@@ -235,7 +235,7 @@ function Header() {
     <header className="mb-6">
       <p className="font-handwriting text-2xl text-muted-foreground">大家今天感謝了什麼？</p>
       <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-        健心房動態 MindGym Feed
+        健心房動態 PSY by PSY Feed
       </h1>
     </header>
   )

@@ -33,7 +33,7 @@ function TopHeader() {
 
         {/* 中間 Logo */}
         <span className="text-sm font-extrabold tracking-[0.15em] text-foreground uppercase">
-          MindGym
+          PSY by PSY
         </span>
 
         {/* 右側 icons */}
