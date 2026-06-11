@@ -108,7 +108,7 @@ const modules = [
 ]
 
 function HomePage() {
-  const { userName, hasGratitudeToday } = Route.useRouteContext()
+  const { userName } = Route.useRouteContext()
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
@@ -172,7 +172,7 @@ function HomePage() {
       </Link>
 
       {/* 訓練中心 */}
-      <TrainingCenter hasGratitudeToday={hasGratitudeToday} />
+      <TrainingCenter />
     </div>
   )
 }
@@ -521,7 +521,7 @@ const TABS: { key: TrainingTab; label: string }[] = [
   { key: 'perma', label: 'PERMA' },
 ]
 
-function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
+function TrainingCenter() {
   const [activeTab, setActiveTab] = useState<TrainingTab>('schedule')
   const [selectedDay, setSelectedDay] = useState<Date>(() => {
     const d = new Date()
