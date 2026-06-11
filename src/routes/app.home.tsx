@@ -413,7 +413,7 @@ function PermaMenuTable() {
 
       {/* Footer */}
       <div className="border-t border-border px-4 py-3 text-[10px] leading-relaxed text-muted-foreground/60">
-        ● 主要對應　◐ 部分對應　｜　覆蓋強度以五個練習對該維度的累計貢獻估算，非實驗數據
+        ● 主要對應 ・ ◐ 部分對應 ｜ 覆蓋強度以五個練習對該維度的累計貢獻估算，非實驗數據
       </div>
     </div>
   )

@@ -128,6 +128,9 @@ CREATE TABLE IF NOT EXISTS comments (
   created_at  timestamptz DEFAULT now()
 );
 
+-- 巢狀回覆用（冪等補欄位；正式庫已有此欄，schema 檔同步記載）
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES comments(id) ON DELETE CASCADE;
+
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "comments: 所有人可讀" ON comments;

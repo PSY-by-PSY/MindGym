@@ -12,6 +12,9 @@ type GratitudeEntry = {
   entry_date: string | null
   avatar: string | null
   current_streak: number | null
+  target_1: string | null
+  target_2: string | null
+  target_3: string | null
 }
 
 type Comment = {
@@ -38,6 +41,29 @@ const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { emoji: string; color
   custom:      { emoji: '🏷️', color: 'bg-muted text-muted-foreground' },
 }
 
+const TARGET_LABELS: Record<GratitudeTargetTag['target'], string> = {
+  others:      '身邊他人',
+  self:        '自己',
+  environment: '環境',
+  experience:  '體驗',
+  custom:      '自訂',
+}
+
+// 標籤直接由貼文本身的 target_1~3 欄位產生（儲存時由 AI 標記寫入），
+// 同類別去重後回傳。
+function tagsFromEntry(entry: GratitudeEntry): GratitudeTargetTag[] {
+  const seen = new Set<string>()
+  const tags: GratitudeTargetTag[] = []
+  ;[entry.target_1, entry.target_2, entry.target_3].forEach((t, i) => {
+    if (!t || seen.has(t)) return
+    if (!(t in TARGET_LABELS)) return
+    seen.add(t)
+    const code = t as GratitudeTargetTag['target']
+    tags.push({ item: i + 1, target: code, label: TARGET_LABELS[code] })
+  })
+  return tags
+}
+
 function normalizeStreak(row: Record<string, unknown>): number | null {
   const p = row.profiles
   const profile = Array.isArray(p) ? p[0] : p
@@ -53,7 +79,7 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 const FEED_POOL_SIZE = 60
 const PAGE_SIZE = 5
 
-const ENTRY_COLS = 'id, anon_name, item_1, item_2, item_3, entry_date, avatar'
+const ENTRY_COLS = 'id, anon_name, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3'
 // 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
 const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS}, profiles(current_streak)`
 
@@ -95,21 +121,6 @@ async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | 
   return rows[Math.floor(Math.random() * rows.length)]
 }
 
-async function fetchTargetTags(entryIds: string[]): Promise<Record<string, GratitudeTargetTag[]>> {
-  if (entryIds.length === 0) return {}
-  const { data } = await supabase
-    .from('gratitude_item_tags')
-    .select('entry_id, item, target, label')
-    .in('entry_id', entryIds)
-
-  const result: Record<string, GratitudeTargetTag[]> = {}
-  for (const row of (data ?? []) as (GratitudeTargetTag & { entry_id: string })[]) {
-    if (!result[row.entry_id]) result[row.entry_id] = []
-    result[row.entry_id].push({ item: row.item, target: row.target, label: row.label })
-  }
-  return result
-}
-
 async function fetchSupporting(
   entries: GratitudeEntry[],
   userId: string | null,
@@ -120,14 +131,18 @@ async function fetchSupporting(
 }> {
   const entryIds = entries.map((e) => e.id)
 
-  const [likesRes, commentsRes, tags] = await Promise.all([
+  const tags: Record<string, GratitudeTargetTag[]> = {}
+  for (const entry of entries) {
+    tags[entry.id] = tagsFromEntry(entry)
+  }
+
+  const [likesRes, commentsRes] = await Promise.all([
     supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
     supabase
       .from('comments')
       .select('id, entry_id, anon_name, content, created_at, parent_id')
       .in('entry_id', entryIds)
       .order('created_at', { ascending: true }),
-    fetchTargetTags(entryIds),
   ])
 
   const allLikes = likesRes.data ?? []
@@ -662,9 +677,17 @@ function EntryCard({
     <article className="rounded-3xl bg-card p-5 shadow-soft">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
-          {avatar.emoji}
-        </div>
+        {avatar.photoUrl ? (
+          <img
+            src={avatar.photoUrl}
+            alt="頭像"
+            className="h-11 w-11 rounded-full object-cover"
+          />
+        ) : (
+          <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
+            {avatar.emoji}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate font-extrabold text-foreground">
             {entry.anon_name ?? '匿名使用者'}

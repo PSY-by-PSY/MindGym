@@ -277,7 +277,40 @@ function GratitudePage() {
     return entryId
   }
 
-  const handleFinalSave = async (_navTarget: 'comment' | 'wall' | 'close') => {
+  // CELEBRATE 階段的「實名/匿名」開關：日記在進入此階段前就已寫入 DB，
+  // 所以切換時必須同步更新該筆資料，否則開關只是裝飾（隱私問題）。
+  const handleToggleShared = async (useRealName: boolean) => {
+    setIsShared(useRealName)
+    if (!savedEntryId) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      let anonName: string
+      if (useRealName) {
+        const prof = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', session.user.id)
+          .maybeSingle()
+        anonName =
+          prof.data?.name ||
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          pickAnonName()
+      } else {
+        anonName = pickAnonName()
+      }
+      const { error } = await supabase
+        .from('gratitude_entries')
+        .update({ use_real_name: useRealName, anon_name: anonName })
+        .eq('id', savedEntryId)
+      if (error) console.error('[share toggle update]', error)
+    } catch (e) {
+      console.error('[share toggle update]', e)
+    }
+  }
+
+  const handleFinalSave = async () => {
     await router.invalidate()
     navigate({ to: '/app/community', search: { showEntry: 1 } })
   }
@@ -330,7 +363,7 @@ function GratitudePage() {
       return (
         <CelebrateStage
           isShared={isShared}
-          onToggleShared={setIsShared}
+          onToggleShared={handleToggleShared}
           onNavigate={handleFinalSave}
           streakOverride={celebrateStreak}
           savedEntryId={savedEntryId}
@@ -1283,7 +1316,7 @@ function CelebrateStage({
 }: {
   isShared: boolean
   onToggleShared: (v: boolean) => void
-  onNavigate: (target: 'comment' | 'wall' | 'close') => void
+  onNavigate: () => void | Promise<void>
   streakOverride?: number | null
   savedEntryId?: string | null
 }) {
@@ -1354,15 +1387,15 @@ function CelebrateStage({
       }
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [streakOverride])
 
   const topCode = targetSegments[0]?.code ?? null
   const insight = topCode ? TARGET_INSIGHT[topCode] : null
 
-  const handleNavigate = async (target: 'comment' | 'wall' | 'close') => {
+  const handleNavigate = async () => {
     if (saving) return
     setSaving(true)
-    await onNavigate(target)
+    await onNavigate()
   }
 
   const handleSubmitComment = async () => {
@@ -1528,7 +1561,7 @@ function CelebrateStage({
       {/* 6-D 三個導航按鈕 */}
       <div className="flex w-full flex-col gap-3">
         <button
-          onClick={() => handleNavigate('wall')}
+          onClick={() => handleNavigate()}
           disabled={saving}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >

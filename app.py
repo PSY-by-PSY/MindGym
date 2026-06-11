@@ -116,7 +116,6 @@ async def get_user_id(token: str) -> str:
 # ── Models ─────────────────────────────────────────────────────────────────
 
 class PermaRequest(BaseModel):
-    user_id: str
     p: int = Field(ge=1, le=5)
     e: int = Field(ge=1, le=5)
     r: int = Field(ge=1, le=5)
@@ -505,13 +504,19 @@ async def health():
 
 
 @app.post("/api/perma")
-async def save_perma(req: PermaRequest):
+async def save_perma(
+    req: PermaRequest,
+    authorization: str = Header(...),
+):
     try:
+        # user_id 一律取自登入 token，不信任 request body（防止替他人寫入分數）
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
         resp = await db().post(
             f"{SUPABASE_REST}/perma_scores",
             headers=SUPABASE_HEADERS,
             json={
-                "user_id": req.user_id,
+                "user_id": user_id,
                 "p_score": req.p,
                 "e_score": req.e,
                 "r_score": req.r,
@@ -766,7 +771,13 @@ async def gratitude_save(
 
 
 @app.post("/api/extract-keywords")
-async def extract_keywords(req: ExtractKeywordsRequest):
+async def extract_keywords(
+    req: ExtractKeywordsRequest,
+    authorization: str = Header(...),
+):
+    # 需登入才能呼叫，避免匿名流量消耗 Claude API 額度
+    token = authorization.removeprefix("Bearer ").strip()
+    await get_user_id(token)
     if not req.entries:
         return {"tags": {}}
 
@@ -905,21 +916,24 @@ async def generate_report(
         }
 
         try:
+            # p_score 等欄位是 int（1–5），LLM 分數帶 0.1 小數，直接插入會被
+            # Postgres 以 22P02 拒絕、整筆遺失 → 寫入前四捨五入，
+            # 完整浮點分數保留在 report_json.scores。
             perma_resp = await db().post(
                 f"{SUPABASE_REST}/perma_scores",
                 headers=SUPABASE_HEADERS,
                 json={
                     "user_id": user_id,
-                    "p_score": scores_dict["P"],
-                    "e_score": scores_dict["E"],
-                    "r_score": scores_dict["R"],
-                    "m_score": scores_dict["M"],
-                    "a_score": scores_dict["A"],
+                    "p_score": min(5, max(1, round(scores_dict["P"]))),
+                    "e_score": min(5, max(1, round(scores_dict["E"]))),
+                    "r_score": min(5, max(1, round(scores_dict["R"]))),
+                    "m_score": min(5, max(1, round(scores_dict["M"]))),
+                    "a_score": min(5, max(1, round(scores_dict["A"]))),
                     "report_json": response_data,
                 },
             )
             if perma_resp.status_code not in (200, 201):
-                logger.warning("perma_scores insert non-2xx: %s", perma_resp.text)
+                logger.error("perma_scores insert non-2xx: %s", perma_resp.text)
         except Exception as db_err:
             logger.error("perma_scores insert failed: %s", db_err)
 

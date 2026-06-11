@@ -99,7 +99,8 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 60_000)
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || ''
+      // 與其他 API 呼叫一致：未設定 VITE_API_URL 時退回本機後端
+      const baseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
       const res = await fetch(`${baseUrl}/api/transcribe`, {
         method: 'POST',
         body: form,
