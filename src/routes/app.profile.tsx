@@ -875,6 +875,9 @@ function ProfilePage() {
           </div>
         </div>
 
+        {/* 健心紀錄日曆 */}
+        <GratitudeCalendar initialEntries={initialEntries} userId={userId} />
+
         {/* PERMA 雷達圖 + 分數 */}
         {scores ? (
           <div className="rounded-3xl bg-card p-5 shadow-soft">
@@ -916,7 +919,6 @@ function ProfilePage() {
           </Link>
         )}
 
-
         {/* 重新評估 */}
         <Link
           to="/onboarding"
@@ -925,9 +927,6 @@ function ProfilePage() {
         >
           重新評估
         </Link>
-
-        {/* 健心紀錄日曆 */}
-        <GratitudeCalendar initialEntries={initialEntries} userId={userId} />
 
         {/* 感恩對象地圖 */}
         <GratitudeTargetMap userId={userId} />
