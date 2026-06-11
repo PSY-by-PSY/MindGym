@@ -119,20 +119,6 @@ function HomePage() {
         </h1>
       </header>
 
-      {/* 今日暖身 — 暗夜漸層卡 */}
-      <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-night p-6 shadow-soft">
-        <StarField />
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-white/60">
-          Today&apos;s warm-up
-        </p>
-        <p className="mt-2 text-lg font-extrabold leading-snug text-white">
-          先深呼吸三次，讓今天的開機更順暢
-        </p>
-        <p className="mt-1.5 text-sm leading-relaxed text-white/70">
-          心理肌群和身體一樣，需要每天陪自己練一組。
-        </p>
-      </div>
-
       {/* 訓練模組格狀菜單 */}
       <h2 className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
         健心訓練模組 PSY by PSY Training Modules
@@ -496,38 +482,6 @@ function WeekCalendar({
   )
 }
 
-function StatsCard({
-  hasGratitudeToday,
-  selectedDay,
-}: {
-  hasGratitudeToday: boolean
-  selectedDay: Date
-}) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const isToday = selectedDay.getTime() === today.getTime()
-  const completionPct = isToday && hasGratitudeToday ? 100 : 0
-
-  return (
-    <div className="mb-4 rounded-2xl bg-card p-4 shadow-soft">
-      <div className="grid grid-cols-2 divide-x divide-border">
-        <div className="pr-4">
-          <p className="text-xs text-muted-foreground">預計強度</p>
-          <p className="mt-1 text-xl font-extrabold text-foreground">
-            5 <span className="text-sm font-bold">分鐘</span>
-          </p>
-        </div>
-        <div className="pl-4">
-          <p className="text-xs text-muted-foreground">完成進度</p>
-          <p className="mt-1 text-xl font-extrabold text-foreground">
-            {completionPct} <span className="text-sm font-bold">%</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function GratitudeExerciseCard() {
   return (
     <Link
@@ -603,7 +557,6 @@ function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
       {activeTab === 'schedule' && (
         <div>
           <WeekCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
-          <StatsCard hasGratitudeToday={hasGratitudeToday} selectedDay={selectedDay} />
           <div className="flex flex-col gap-2">
             <GratitudeExerciseCard />
           </div>
@@ -657,20 +610,5 @@ function TrainingCenter({ hasGratitudeToday }: { hasGratitudeToday: boolean }) {
 
       {activeTab === 'perma' && <PermaMenuTable />}
     </section>
-  )
-}
-
-function StarField() {
-  return (
-    <svg className="absolute right-0 top-0 h-full w-32 opacity-70" viewBox="0 0 128 160" fill="none" aria-hidden="true">
-      <g fill="var(--primary-glow)">
-        <circle cx="96" cy="28" r="2.5" />
-        <circle cx="116" cy="56" r="1.8" />
-        <circle cx="80" cy="64" r="1.5" />
-        <circle cx="108" cy="100" r="2.2" />
-        <circle cx="90" cy="124" r="1.6" />
-      </g>
-      <path d="M104 38l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="var(--primary-foreground)" opacity="0.85" />
-    </svg>
   )
 }
