@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { streakFromDates } from '../lib/streak'
 import petCat from '../assets/pet-cat.png'
 
 type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
@@ -77,7 +78,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, avatar: null, scores: null, previousScores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
+    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
 
     const fallbackName =
       (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -99,7 +100,7 @@ export const Route = createFileRoute('/app/profile')({
         .select('p_score, e_score, r_score, m_score, a_score, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(2),
+        .limit(1),
       supabase
         .from('gratitude_entries')
         .select('id, entry_date, item_1, item_2, item_3, ai_feedback')
@@ -113,20 +114,8 @@ export const Route = createFileRoute('/app/profile')({
         .order('entry_date', { ascending: false }),
     ])
 
-    const toDS = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const allDates = allDatesRes.data ?? []
-    const entryDateSet = new Set(allDates.map((e) => String(e.entry_date).slice(0, 10)))
-
-    let streak = 0
-    const checkDate = new Date(today)
-    if (!entryDateSet.has(toDS(checkDate))) {
-      checkDate.setDate(checkDate.getDate() - 1)
-    }
-    while (entryDateSet.has(toDS(checkDate))) {
-      streak++
-      checkDate.setDate(checkDate.getDate() - 1)
-    }
+    const streak = streakFromDates(allDates.map((e) => String(e.entry_date)))
 
     const monthlyCount = (entriesRes.data ?? []).length
     const totalCount = allDates.length
@@ -146,7 +135,6 @@ export const Route = createFileRoute('/app/profile')({
       name: finalName,
       avatar: (profileRes.data?.avatar ?? null) as string | null,
       scores: (permaRows[0] ?? null) as (PermaScores & { created_at?: string }) | null,
-      previousScores: (permaRows[1] ?? null) as (PermaScores & { created_at?: string }) | null,
       userId,
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
       streak,
@@ -732,10 +720,10 @@ function AvatarPicker({
 }
 
 function ProfilePage() {
-  const { name, avatar: initialAvatar, scores, previousScores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const router = useRouter()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
   const [showPicker, setShowPicker] = useState(false)
-  const [showPrevious, setShowPrevious] = useState(false)
   const [nameValue, setNameValue] = useState<string>(name ?? '')
   const [editingName, setEditingName] = useState(false)
   const [savingName, setSavingName] = useState(false)
@@ -758,6 +746,8 @@ function ProfilePage() {
     setNameValue(trimmed)
     setSavingName(false)
     setEditingName(false)
+    // 重跑 loader，讓新名字立即同步到本頁與社群等其他畫面
+    void router.invalidate()
   }
 
   const persistAvatar = async (value: string) => {
@@ -949,47 +939,6 @@ function ProfilePage() {
           onSelect={handleSelectAvatar}
           onClose={() => setShowPicker(false)}
         />
-      )}
-
-      {/* 上次測驗結果 — full-screen page overlay */}
-      {showPrevious && previousScores && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-background">
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-5 py-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-                Previous result
-              </p>
-              <h3 className="text-lg font-extrabold text-foreground">上次測驗結果</h3>
-              {previousScores.created_at && (
-                <p className="text-xs text-muted-foreground">
-                  {String(previousScores.created_at).slice(0, 10)}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => setShowPrevious(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition active:scale-95"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="overflow-y-auto px-6 pb-12 pt-4 md:px-10">
-            <PermaRadar scores={previousScores} />
-            <div className="mt-4 flex flex-col gap-4">
-              {PERMA_DIMENSIONS.map(({ key, letter, label, tile }) => (
-                <div key={key}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
-                      {letter}
-                    </span>
-                    <span className="text-sm font-bold text-foreground">{label}</span>
-                  </div>
-                  <ScoreBar score={previousScores[key]} tile={tile} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       )}
     </>
   )

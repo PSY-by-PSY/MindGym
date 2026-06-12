@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase } from '../../lib/supabase'
 
 type Status = 'idle' | 'recording' | 'transcribing' | 'error'
 
@@ -101,9 +102,12 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
     try {
       // 與其他 API 呼叫一致：未設定 VITE_API_URL 時退回本機後端
       const baseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+      // 帶上登入 token（後端會驗證，避免匿名流量消耗 OpenAI 額度）
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(`${baseUrl}/api/transcribe`, {
         method: 'POST',
         body: form,
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
         signal: controller.signal,
       })
       const data = await res.json()

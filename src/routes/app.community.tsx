@@ -155,6 +155,7 @@ async function fetchSupporting(
 ): Promise<{
   likes: Record<string, LikeInfo>
   comments: Record<string, Comment[]>
+  commentLikes: Record<string, LikeInfo>
   tags: Record<string, GratitudeTargetTag[]>
 }> {
   const entryIds = entries.map((e) => e.id)
@@ -191,7 +192,25 @@ async function fetchSupporting(
       .map(({ id, anon_name, content, created_at, parent_id }) => ({ id, anon_name, content, created_at, parent_id }))
   }
 
-  return { likes, comments, tags }
+  // 留言愛心改為從 comment_likes 表載入（過去是純前端 state，重整就歸零）
+  const commentLikes: Record<string, LikeInfo> = {}
+  const commentIds = allComments.map((c) => c.id)
+  if (commentIds.length > 0) {
+    const { data } = await supabase
+      .from('comment_likes')
+      .select('comment_id, user_id')
+      .in('comment_id', commentIds)
+    const rows = data ?? []
+    for (const commentId of commentIds) {
+      const cLikes = rows.filter((l) => l.comment_id === commentId)
+      commentLikes[commentId] = {
+        count: cLikes.length,
+        liked: userId ? cLikes.some((l) => l.user_id === userId) : false,
+      }
+    }
+  }
+
+  return { likes, comments, commentLikes, tags }
 }
 
 export const Route = createFileRoute('/app/community')({
@@ -231,6 +250,7 @@ export const Route = createFileRoute('/app/community')({
         myEntries,
         likes: {} as Record<string, LikeInfo>,
         comments: {} as Record<string, Comment[]>,
+        commentLikes: {} as Record<string, LikeInfo>,
         tags: {} as Record<string, GratitudeTargetTag[]>,
         anonName,
         userId,
@@ -551,6 +571,7 @@ function CommunityPage() {
   const [myEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
+  const [commentLikes, setCommentLikes] = useState<Record<string, LikeInfo>>(loaderData.commentLikes)
   const [tags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
   const [myDisplayCount, setMyDisplayCount] = useState(PAGE_SIZE)
@@ -629,6 +650,10 @@ function CommunityPage() {
     }))
   }
 
+  function handleCommentLikeChange(commentId: string, info: LikeInfo) {
+    setCommentLikes((prev) => ({ ...prev, [commentId]: info }))
+  }
+
   return (
     <>
       {open && modalEntry && (
@@ -669,12 +694,14 @@ function CommunityPage() {
                       index={i}
                       likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
                       comments={comments[entry.id] ?? []}
+                      commentLikes={commentLikes}
                       tags={tags[entry.id] ?? []}
                       userId={userId}
                       anonName={anonName}
                       isOwn={true}
                       onLikeChange={(info) => handleLikeChange(entry.id, info)}
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
+                      onCommentLikeChange={handleCommentLikeChange}
                     />
                   ))}
                 </div>
@@ -704,12 +731,14 @@ function CommunityPage() {
                       index={i}
                       likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
                       comments={comments[entry.id] ?? []}
+                      commentLikes={commentLikes}
                       tags={tags[entry.id] ?? []}
                       userId={userId}
                       anonName={anonName}
                       isOwn={entry.user_id === userId && userId !== null}
                       onLikeChange={(info) => handleLikeChange(entry.id, info)}
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
+                      onCommentLikeChange={handleCommentLikeChange}
                     />
                   ))}
                 </div>
@@ -733,23 +762,27 @@ function EntryCard({
   index,
   likeInfo,
   comments,
+  commentLikes,
   tags,
   userId,
   anonName,
   isOwn,
   onLikeChange,
   onCommentAdded,
+  onCommentLikeChange,
 }: {
   entry: GratitudeEntry
   index: number
   likeInfo: LikeInfo
   comments: Comment[]
+  commentLikes: Record<string, LikeInfo>
   tags: GratitudeTargetTag[]
   userId: string | null
   anonName: string | null
   isOwn: boolean
   onLikeChange: (info: LikeInfo) => void
   onCommentAdded: (c: Comment) => void
+  onCommentLikeChange: (commentId: string, info: LikeInfo) => void
 }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
@@ -774,24 +807,33 @@ function EntryCard({
   const [submitting, setSubmitting] = useState(false)
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
-  const [commentLikes, setCommentLikes] = useState<Record<string, { count: number; liked: boolean }>>({})
+  const [likingComment, setLikingComment] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const replyInputRef = useRef<HTMLTextAreaElement>(null)
 
   const topLevelComments = comments.filter((c) => !c.parent_id)
   const repliesFor = (parentId: string) => comments.filter((c) => c.parent_id === parentId)
 
-  function toggleCommentLike(commentId: string) {
-    setCommentLikes((prev) => {
-      const current = prev[commentId] ?? { count: 0, liked: false }
-      return {
-        ...prev,
-        [commentId]: {
-          count: current.liked ? current.count - 1 : current.count + 1,
-          liked: !current.liked,
-        },
-      }
+  // 留言愛心：寫入 comment_likes 表並樂觀更新 UI（過去是純前端 state，重整就歸零）
+  async function toggleCommentLike(commentId: string) {
+    if (!userId || likingComment) return
+    setLikingComment(commentId)
+    const current = commentLikes[commentId] ?? { count: 0, liked: false }
+    const liked = !current.liked
+    onCommentLikeChange(commentId, {
+      count: current.count + (liked ? 1 : -1),
+      liked,
     })
+    if (liked) {
+      await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: userId })
+    } else {
+      await supabase
+        .from('comment_likes')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('user_id', userId)
+    }
+    setLikingComment(null)
   }
 
   async function submitReply() {
@@ -1011,7 +1053,8 @@ function EntryCard({
                       <div className="flex shrink-0 items-center gap-2 self-start pt-0.5">
                         <button
                           onClick={() => toggleCommentLike(c.id)}
-                          className="flex items-center gap-0.5 text-[11px] text-muted-foreground transition hover:text-foreground"
+                          disabled={!userId || likingComment === c.id}
+                          className={`flex items-center gap-0.5 text-[11px] text-muted-foreground transition hover:text-foreground ${!userId ? 'cursor-default opacity-50' : ''}`}
                         >
                           <span className="text-sm leading-none">{cLike.liked ? '❤️' : '🤍'}</span>
                           {cLike.count > 0 && <span>{cLike.count}</span>}
@@ -1045,7 +1088,8 @@ function EntryCard({
                               </div>
                               <button
                                 onClick={() => toggleCommentLike(r.id)}
-                                className="flex shrink-0 items-center gap-0.5 self-start pt-0.5 text-[11px] text-muted-foreground transition hover:text-foreground"
+                                disabled={!userId || likingComment === r.id}
+                                className={`flex shrink-0 items-center gap-0.5 self-start pt-0.5 text-[11px] text-muted-foreground transition hover:text-foreground ${!userId ? 'cursor-default opacity-50' : ''}`}
                               >
                                 <span className="text-xs leading-none">{rLike.liked ? '❤️' : '🤍'}</span>
                                 {rLike.count > 0 && <span>{rLike.count}</span>}

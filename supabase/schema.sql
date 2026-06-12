@@ -108,11 +108,13 @@ CREATE TABLE IF NOT EXISTS likes (
 
 ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "likes: 所有人可讀" ON likes;
-DROP POLICY IF EXISTS "likes: 本人可建立" ON likes;
-DROP POLICY IF EXISTS "likes: 本人可刪除" ON likes;
+DROP POLICY IF EXISTS "likes: 所有人可讀"   ON likes;
+DROP POLICY IF EXISTS "likes: 已登入可讀"   ON likes;
+DROP POLICY IF EXISTS "likes: 本人可建立"   ON likes;
+DROP POLICY IF EXISTS "likes: 本人可刪除"   ON likes;
 
-CREATE POLICY "likes: 所有人可讀" ON likes FOR SELECT USING (true);
+-- 只開放給已登入者讀取（anon key 撈不到），社群是登入後才能互動的功能。
+CREATE POLICY "likes: 已登入可讀" ON likes FOR SELECT USING (auth.uid() IS NOT NULL);
 CREATE POLICY "likes: 本人可建立" ON likes FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "likes: 本人可刪除" ON likes FOR DELETE USING (auth.uid() = user_id);
 
@@ -134,12 +136,36 @@ ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES comments
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "comments: 所有人可讀" ON comments;
+DROP POLICY IF EXISTS "comments: 已登入可讀" ON comments;
 DROP POLICY IF EXISTS "comments: 本人可建立" ON comments;
 DROP POLICY IF EXISTS "comments: 本人可刪除" ON comments;
 
-CREATE POLICY "comments: 所有人可讀" ON comments FOR SELECT USING (true);
+-- 只開放給已登入者讀取（anon key 撈不到留言內容）。
+CREATE POLICY "comments: 已登入可讀" ON comments FOR SELECT USING (auth.uid() IS NOT NULL);
 CREATE POLICY "comments: 本人可建立" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "comments: 本人可刪除" ON comments FOR DELETE USING (auth.uid() = user_id);
+
+-- ============================================================
+-- comment_likes（留言按讚）
+-- 把原本只存在前端 state（重新整理就歸零）的留言愛心改為持久化。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS comment_likes (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  comment_id  uuid REFERENCES comments(id) ON DELETE CASCADE,
+  user_id     uuid REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at  timestamptz DEFAULT now(),
+  UNIQUE (comment_id, user_id)
+);
+
+ALTER TABLE comment_likes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "comment_likes: 已登入可讀" ON comment_likes;
+DROP POLICY IF EXISTS "comment_likes: 本人可建立" ON comment_likes;
+DROP POLICY IF EXISTS "comment_likes: 本人可刪除" ON comment_likes;
+
+CREATE POLICY "comment_likes: 已登入可讀" ON comment_likes FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "comment_likes: 本人可建立" ON comment_likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "comment_likes: 本人可刪除" ON comment_likes FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- first_feedback（首次完成練習後的三題回饋）

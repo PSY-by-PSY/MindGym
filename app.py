@@ -968,7 +968,15 @@ _ALLOWED_AUDIO_TYPES = {
 
 @app.post("/api/transcribe")
 @limiter.limit("20/minute")
-async def transcribe(request: Request, audio: UploadFile = File(...)):
+async def transcribe(
+    request: Request,
+    audio: UploadFile = File(...),
+    authorization: str = Header(...),
+):
+    # 需登入才能呼叫，避免匿名流量消耗 OpenAI 額度（比照其他端點）
+    token = authorization.removeprefix("Bearer ").strip()
+    await get_user_id(token)
+
     if openai_client is None:
         return JSONResponse(
             content={"error": "語音辨識服務未啟用，請設定 OPENAI_API_KEY"},

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
+import { computeStreak, streakFromDates } from '../lib/streak'
 import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
@@ -275,25 +275,9 @@ function GratitudePage() {
     const entryId = inserted?.id ?? null
     setSavedEntryId(entryId)
 
-    // 計算並更新連續打卡天數
+    // 計算並更新連續打卡天數（統一用 lib/streak）
     void (async () => {
-      const { data: allDates } = await supabase
-        .from('gratitude_entries')
-        .select('entry_date')
-        .eq('user_id', userId)
-        .order('entry_date', { ascending: false })
-      const entryDateSet = new Set(
-        (allDates ?? []).map((e) => String(e.entry_date).slice(0, 10)),
-      )
-      const toDS = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      let streak = 0
-      const checkDate = new Date()
-      if (!entryDateSet.has(toDS(checkDate))) checkDate.setDate(checkDate.getDate() - 1)
-      while (entryDateSet.has(toDS(checkDate))) {
-        streak++
-        checkDate.setDate(checkDate.getDate() - 1)
-      }
+      const streak = await computeStreak(userId)
       await supabase
         .from('profiles')
         .upsert({ id: userId, current_streak: streak }, { onConflict: 'id' })
@@ -607,25 +591,7 @@ async function loadStreak(): Promise<number> {
     data: { session },
   } = await supabase.auth.getSession()
   if (!session) return 0
-  const { data } = await supabase
-    .from('gratitude_entries')
-    .select('entry_date')
-    .eq('user_id', session.user.id)
-    .order('entry_date', { ascending: false })
-    .limit(365)
-  if (!data || data.length === 0) return 0
-  const dateSet = new Set(
-    data.map((r: { entry_date: string }) => String(r.entry_date).slice(0, 10))
-  )
-  const today = isoDate(todayDate())
-  const cursor = new Date(todayDate())
-  if (!dateSet.has(today)) cursor.setDate(cursor.getDate() - 1)
-  let count = 0
-  while (dateSet.has(isoDate(cursor))) {
-    count++
-    cursor.setDate(cursor.getDate() - 1)
-  }
-  return count
+  return computeStreak(session.user.id)
 }
 
 function formatSheetDate(date: Date): string {
@@ -986,6 +952,8 @@ function SummaryStage({
     try {
       const node = shareCardRef.current
       await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      // 動態載入 html-to-image，讓它從主包切出去（只有按下分享才載入）
+      const { toPng } = await import('html-to-image')
       const dataUrl = await toPng(node, {
         width: 1080,
         height: 1440,
@@ -1392,15 +1360,7 @@ function CelebrateStage({
       if (cancelled) return
 
       if (streakOverride == null) {
-        const dateSet = new Set(allDatesRes.data?.map((e) => e.entry_date) ?? [])
-        let s = 0
-        const d = new Date()
-        if (!dateSet.has(isoDate(d))) d.setDate(d.getDate() - 1)
-        while (dateSet.has(isoDate(d))) {
-          s++
-          d.setDate(d.getDate() - 1)
-        }
-        setStreak(s)
+        setStreak(streakFromDates((allDatesRes.data ?? []).map((e) => String(e.entry_date))))
       }
       setTodayCount(todayRes.count ?? 0)
 

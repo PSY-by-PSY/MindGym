@@ -5,8 +5,12 @@
 // 其他頁面只要呼叫 track('事件名稱') 就好，不用碰 PostHog 細節。
 //
 // 後台查看數據：https://us.posthog.com
+//
+// 注意：posthog-js 體積不小，改用「動態 import」載入，讓它從主包切出去成為
+// 獨立 chunk，不拖慢首屏。載入完成前呼叫的 track/identify 會先進 queue，
+// 等 SDK 就緒後一次補送，事件不會遺失。
 // ─────────────────────────────────────────────────────────────────────────
-import posthog from 'posthog-js'
+import type { PostHog } from 'posthog-js'
 
 // Project token 是「可公開」的 write-only key（PostHog 官方說明：Safe to use in
 // public apps）。優先讀環境變數，沒設定時用內建值，確保部署後一定能運作。
@@ -33,38 +37,53 @@ export type AnalyticsEvent =
   | 'gratitude_completed'  // 完成感恩日記
   | 'module_opened'        // 點開訓練中心的某個模組
 
-/** App 啟動時呼叫一次，初始化 PostHog。 */
+// 已就緒的 posthog 實例；尚未載入完成時為 null。
+let ph: PostHog | null = null
+// SDK 載入完成前累積的呼叫，就緒後依序補送。
+const queue: ((p: PostHog) => void)[] = []
+
+function withPostHog(fn: (p: PostHog) => void) {
+  if (ph) fn(ph)
+  else queue.push(fn)
+}
+
+/** App 啟動時呼叫一次，動態載入並初始化 PostHog。 */
 export function initAnalytics() {
   if (!analyticsEnabled) return
-  posthog.init(POSTHOG_KEY, {
-    api_host: POSTHOG_HOST,
-    ui_host: 'https://us.posthog.com',
-    person_profiles: 'identified_only',
-    capture_pageview: false, // 頁面瀏覽改由 router 手動上報（見 main.tsx）
-    capture_pageleave: true,
+  void import('posthog-js').then(({ default: posthog }) => {
+    posthog.init(POSTHOG_KEY, {
+      api_host: POSTHOG_HOST,
+      ui_host: 'https://us.posthog.com',
+      person_profiles: 'identified_only',
+      capture_pageview: false, // 頁面瀏覽改由 router 手動上報（見 main.tsx）
+      capture_pageleave: true,
+    })
+    ph = posthog
+    for (const fn of queue) fn(posthog)
+    queue.length = 0
   })
 }
 
 /** 記錄一個行為事件。props 是這個事件的額外資訊（例如測驗分數）。 */
 export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
   if (!analyticsEnabled) return
-  posthog.capture(event, props)
+  withPostHog((p) => p.capture(event, props))
 }
 
 /** 使用者登入後呼叫，把之後所有行為對應到這個人。 */
 export function identifyUser(id: string, props?: Record<string, unknown>) {
   if (!analyticsEnabled) return
-  posthog.identify(id, props)
+  withPostHog((p) => p.identify(id, props))
 }
 
 /** 使用者登出後呼叫，斷開身分綁定。 */
 export function resetUser() {
   if (!analyticsEnabled) return
-  posthog.reset()
+  withPostHog((p) => p.reset())
 }
 
 /** 上報一次頁面瀏覽（單頁式 App 換頁時手動呼叫）。 */
 export function trackPageview(path: string) {
   if (!analyticsEnabled) return
-  posthog.capture('$pageview', { $current_url: window.location.origin + path })
+  withPostHog((p) => p.capture('$pageview', { $current_url: window.location.origin + path }))
 }

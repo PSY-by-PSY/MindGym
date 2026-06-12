@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Outlet, Link, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, redirect, Outlet, Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 
 export const Route = createFileRoute('/app')({
@@ -24,6 +24,21 @@ function AppShell() {
 
 function TopHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const router = useRouter()
+  const [refreshing, setRefreshing] = useState(false)
+
+  // 安裝成 Web App（standalone）後沒有瀏覽器網址列可重整，這顆按鈕讓使用者
+  // 隨時刷新目前畫面的資料（例如改完名字後）。用 router.invalidate() 重跑
+  // 所有 loader，比整頁 reload 更順、也不會白屏。
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await router.invalidate()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   return (
     <>
@@ -37,7 +52,15 @@ function TopHeader() {
         </span>
 
         {/* 右側 icons */}
-        <div className="flex w-20 items-center justify-end gap-3">
+        <div className="flex w-20 items-center justify-end gap-2">
+          <button
+            aria-label="重新整理"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90 disabled:opacity-60"
+          >
+            <RefreshIcon spinning={refreshing} />
+          </button>
           <button
             aria-label="選單"
             onClick={() => setDrawerOpen(true)}
@@ -201,6 +224,23 @@ function MenuIcon() {
       <line x1="3" y1="6" x2="21" y2="6" />
       <line x1="3" y1="12" x2="21" y2="12" />
       <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  )
+}
+
+function RefreshIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      className={`h-5 w-5 ${spinning ? 'animate-spin' : ''}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
     </svg>
   )
 }
