@@ -443,11 +443,21 @@ function IntroStage({
                 </li>
                 <li>
                   <strong className="font-bold text-foreground">時段推薦</strong>
-                  <div className="mt-0.5">建議在 19:00–24:00 之間練習，幫助自己回顧當天事件、整理思緒情緒、建立睡前感恩儀式感。</div>
+                  <div className="mt-0.5">建議在 19:00–24:00 之間練習，幫助自己：</div>
+                  <ul className="pl-3 mt-1 flex flex-col gap-1">
+                    <li>◦ 回顧一天發生的事件</li>
+                    <li>◦ 整理自己的思緒與情緒</li>
+                    <li>◦ 建立睡前的感恩儀式感</li>
+                  </ul>
                 </li>
                 <li>
                   <strong className="font-bold text-foreground">環境營造</strong>
-                  <div className="mt-0.5">建議開始前暫停所有訊息通知、找一個舒服且安靜的空間、將注意力回到自己身上。</div>
+                  <div className="mt-0.5">建議開始前：</div>
+                  <ul className="pl-3 mt-1 flex flex-col gap-1">
+                    <li>◦ 暫停所有訊息通知</li>
+                    <li>◦ 找一個舒服且安靜的空間</li>
+                    <li>◦ 將注意力回到自己身上</li>
+                  </ul>
                 </li>
               </ul>
             </div>
