@@ -5,7 +5,9 @@ import WordCloud from '../components/WordCloud'
 
 type GratitudeEntry = {
   id: string
+  user_id: string | null
   anon_name: string | null
+  use_real_name: boolean | null
   item_1: string | null
   item_2: string | null
   item_3: string | null
@@ -79,7 +81,7 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 const FEED_POOL_SIZE = 60
 const PAGE_SIZE = 5
 
-const ENTRY_COLS = 'id, anon_name, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3'
+const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3'
 // 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
 const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS}, profiles(current_streak)`
 
@@ -124,6 +126,21 @@ async function fetchUserGratitudeMap(userId: string | null): Promise<Record<stri
     }
   }
   return counts
+}
+
+async function fetchMyEntries(userId: string): Promise<GratitudeEntry[]> {
+  const build = (cols: string) =>
+    supabase
+      .from('gratitude_entries')
+      .select(cols)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+  const withStreak = await build(ENTRY_COLS_WITH_STREAK)
+  if (!withStreak.error) return (withStreak.data ?? []).map(normalizeEntry)
+
+  const plain = await build(ENTRY_COLS)
+  return (plain.data ?? []).map(normalizeEntry)
 }
 
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
@@ -191,21 +208,8 @@ export const Route = createFileRoute('/app/community')({
     const session = sessionRes.data.session
     const userId = session?.user.id ?? null
 
-    if (entries.length === 0) {
-      return {
-        entries,
-        likes: {} as Record<string, LikeInfo>,
-        comments: {} as Record<string, Comment[]>,
-        tags: {} as Record<string, GratitudeTargetTag[]>,
-        anonName: null,
-        userId,
-        modalEntry: null as GratitudeEntry | null,
-        userMap: {} as Record<string, number>,
-      }
-    }
-
-    const [supporting, profileRes, modalEntry, userMap] = await Promise.all([
-      fetchSupporting(entries, userId),
+    const [myEntries, profileRes, modalEntry, userMap] = await Promise.all([
+      userId ? fetchMyEntries(userId) : Promise.resolve([] as GratitudeEntry[]),
       userId
         ? supabase.from('profiles').select('name').eq('id', userId).single()
         : Promise.resolve({ data: null }),
@@ -213,15 +217,37 @@ export const Route = createFileRoute('/app/community')({
       fetchUserGratitudeMap(userId),
     ])
 
+    // Combine unique entries from both feeds for a single supporting data fetch
+    const entrySet = new Map<string, GratitudeEntry>()
+    entries.forEach((e) => entrySet.set(e.id, e))
+    myEntries.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
+    const allForSupport = [...entrySet.values()]
+
     const anonName = (profileRes.data?.name ?? null) as string | null
 
-    return { entries, ...supporting, anonName, userId, modalEntry, userMap }
+    if (allForSupport.length === 0) {
+      return {
+        entries,
+        myEntries,
+        likes: {} as Record<string, LikeInfo>,
+        comments: {} as Record<string, Comment[]>,
+        tags: {} as Record<string, GratitudeTargetTag[]>,
+        anonName,
+        userId,
+        modalEntry: null as GratitudeEntry | null,
+        userMap: {} as Record<string, number>,
+      }
+    }
+
+    const supporting = await fetchSupporting(allForSupport, userId)
+
+    return { entries, myEntries, ...supporting, anonName, userId, modalEntry, userMap }
   },
   pendingComponent: LoadingState,
   component: CommunityPage,
 })
 
-type FeedMode = 'recommended' | 'latest'
+type FeedMode = 'recommended' | 'latest' | 'my'
 
 // 計算單篇貼文與使用者感恩地圖的相關度：
 // 貼文每個類別標籤，加上使用者該類別在自身感恩地圖中的占比。
@@ -480,13 +506,16 @@ function DailyModal({
 function FeedModeToggle({
   mode,
   onChange,
+  userId,
 }: {
   mode: FeedMode
   onChange: (m: FeedMode) => void
+  userId: string | null
 }) {
   const options: { value: FeedMode; label: string }[] = [
     { value: 'recommended', label: '推薦貼文' },
     { value: 'latest', label: '最新貼文' },
+    ...(userId ? [{ value: 'my' as FeedMode, label: '我的貼文' }] : []),
   ]
   return (
     <div className="mb-4 flex justify-center">
@@ -519,26 +548,25 @@ function CommunityPage() {
   const { open, close } = useWelcomeModal(!!modalEntry, showEntry === 1)
 
   const [allEntries] = useState<GratitudeEntry[]>(loaderData.entries)
+  const [myEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
   const [tags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
+  const [myDisplayCount, setMyDisplayCount] = useState(PAGE_SIZE)
   const [mode, setMode] = useState<FeedMode>('recommended')
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const mySentinelRef = useRef<HTMLDivElement>(null)
 
   const userId = loaderData.userId ?? null
   const anonName = loaderData.anonName
   const userMap = loaderData.userMap ?? {}
 
-  // 使用者感恩地圖是否有資料（否則推薦無從比對，退回最新排序）
   const mapTotal = useMemo(
     () => Object.values(userMap).reduce((s, v) => s + v, 0),
     [userMap],
   )
 
-  // 依模式排序貼文：
-  // - latest：維持 loader 的最新在前順序
-  // - recommended：依與使用者感恩地圖的相關度由高到低，相關度相同時最新在前
   const orderedEntries = useMemo(() => {
     if (mode === 'latest' || mapTotal === 0) return allEntries
     return allEntries
@@ -554,10 +582,13 @@ function CommunityPage() {
   // 切換模式時回到頁首批次
   useEffect(() => {
     setDisplayCount(PAGE_SIZE)
+    setMyDisplayCount(PAGE_SIZE)
   }, [mode])
 
   const hasMore = displayCount < orderedEntries.length
   const visibleEntries = orderedEntries.slice(0, displayCount)
+  const myHasMore = myDisplayCount < myEntries.length
+  const visibleMyEntries = myEntries.slice(0, myDisplayCount)
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore) return
@@ -572,6 +603,20 @@ function CommunityPage() {
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
   }, [hasMore, orderedEntries.length])
+
+  useEffect(() => {
+    if (!mySentinelRef.current || !myHasMore) return
+    const observer = new IntersectionObserver(
+      (observerEntries) => {
+        if (observerEntries[0].isIntersecting) {
+          setMyDisplayCount((prev) => Math.min(prev + PAGE_SIZE, myEntries.length))
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(mySentinelRef.current)
+    return () => observer.disconnect()
+  }, [myHasMore, myEntries.length])
 
   function handleLikeChange(entryId: string, newInfo: LikeInfo) {
     setLikes((prev) => ({ ...prev, [entryId]: newInfo }))
@@ -605,40 +650,76 @@ function CommunityPage() {
           <WordCloud height={480} />
         </div>
 
-        {allEntries.length > 0 && (
-          <FeedModeToggle mode={mode} onChange={setMode} />
-        )}
+        <FeedModeToggle mode={mode} onChange={setMode} userId={userId} />
 
-        {allEntries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
-            <span className="text-4xl">💫</span>
-            <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
-          </div>
+        {mode === 'my' ? (
+          <>
+            {myEntries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
+                <span className="text-4xl">🏋️</span>
+                <p className="mt-3 text-sm font-medium">還沒有打卡紀錄，快按下訓練中心，開始第一次訓練！</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-4">
+                  {visibleMyEntries.map((entry, i) => (
+                    <EntryCard
+                      key={entry.id}
+                      entry={entry}
+                      index={i}
+                      likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
+                      comments={comments[entry.id] ?? []}
+                      tags={tags[entry.id] ?? []}
+                      userId={userId}
+                      anonName={anonName}
+                      isOwn={true}
+                      onLikeChange={(info) => handleLikeChange(entry.id, info)}
+                      onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
+                    />
+                  ))}
+                </div>
+                <div ref={mySentinelRef} className="h-4" />
+                {!myHasMore && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    已經看完所有打卡紀錄囉！
+                  </p>
+                )}
+              </>
+            )}
+          </>
         ) : (
           <>
-            <div className="flex flex-col gap-4">
-              {visibleEntries.map((entry, i) => (
-                <EntryCard
-                  key={entry.id}
-                  entry={entry}
-                  index={i}
-                  likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
-                  comments={comments[entry.id] ?? []}
-                  tags={tags[entry.id] ?? []}
-                  userId={userId}
-                  anonName={anonName}
-                  onLikeChange={(info) => handleLikeChange(entry.id, info)}
-                  onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
-                />
-              ))}
-            </div>
-
-            <div ref={sentinelRef} className="h-4" />
-
-            {!hasMore && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                已經看完所有打卡紀錄囉！
-              </p>
+            {allEntries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
+                <span className="text-4xl">💫</span>
+                <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-4">
+                  {visibleEntries.map((entry, i) => (
+                    <EntryCard
+                      key={entry.id}
+                      entry={entry}
+                      index={i}
+                      likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
+                      comments={comments[entry.id] ?? []}
+                      tags={tags[entry.id] ?? []}
+                      userId={userId}
+                      anonName={anonName}
+                      isOwn={entry.user_id === userId && userId !== null}
+                      onLikeChange={(info) => handleLikeChange(entry.id, info)}
+                      onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
+                    />
+                  ))}
+                </div>
+                <div ref={sentinelRef} className="h-4" />
+                {!hasMore && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    已經看完所有打卡紀錄囉！
+                  </p>
+                )}
+              </>
             )}
           </>
         )}
@@ -655,6 +736,7 @@ function EntryCard({
   tags,
   userId,
   anonName,
+  isOwn,
   onLikeChange,
   onCommentAdded,
 }: {
@@ -665,13 +747,29 @@ function EntryCard({
   tags: GratitudeTargetTag[]
   userId: string | null
   anonName: string | null
+  isOwn: boolean
   onLikeChange: (info: LikeInfo) => void
   onCommentAdded: (c: Comment) => void
 }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
-  const avatar = avatarFor(entry.anon_name, index, entry.avatar)
+  const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
+  const [localUseRealName, setLocalUseRealName] = useState<boolean>(entry.use_real_name ?? false)
+  const [showMenu, setShowMenu] = useState(false)
+  const avatar = avatarFor(localAnonName, index, entry.avatar)
   const [showComments, setShowComments] = useState(false)
   const [liking, setLiking] = useState(false)
+
+  async function toggleAnonymity() {
+    const newUseRealName = !localUseRealName
+    const newAnonName = newUseRealName ? anonName : null
+    setLocalUseRealName(newUseRealName)
+    setLocalAnonName(newAnonName)
+    setShowMenu(false)
+    await supabase
+      .from('gratitude_entries')
+      .update({ use_real_name: newUseRealName, anon_name: newAnonName })
+      .eq('id', entry.id)
+  }
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -788,7 +886,7 @@ function EntryCard({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate font-extrabold text-foreground">
-            {entry.anon_name ?? '匿名使用者'}
+            {localAnonName ?? '匿名使用者'}
           </p>
           <div className="flex items-center gap-2">
             <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
@@ -800,6 +898,37 @@ function EntryCard({
         <span className="shrink-0 rounded-full bg-tile-mint px-3 py-1 text-[11px] font-bold text-foreground">
           感恩日記
         </span>
+        {isOwn && (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowMenu((prev) => !prev)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+              aria-label="更多選項"
+            >
+              <span className="text-xl font-bold leading-none tracking-widest">···</span>
+            </button>
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 top-9 z-20 min-w-[172px] rounded-2xl border border-border bg-card p-3 shadow-soft">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-semibold text-foreground">匿名貼文</span>
+                    <button
+                      onClick={toggleAnonymity}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                        !localUseRealName ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                        !localUseRealName ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Items */}
