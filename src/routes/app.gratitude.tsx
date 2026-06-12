@@ -152,6 +152,9 @@ function GratitudePage() {
   const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null)
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [tags, setTags] = useState<TagResult[]>([])
+  // 保存進入 SUMMARY 時觸發的分類請求 promise，讓 saveEntry 能直接 await，
+  // 避免使用者在 AI 分類回來前就按下繼續、導致 target_* 沒寫入（社群貼文缺標籤）。
+  const tagsPromiseRef = useRef<Promise<TagResult[]> | null>(null)
   const [isShared, setIsShared] = useState(true)
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(todayDate())
@@ -178,7 +181,9 @@ function GratitudePage() {
         }
       })
 
-    fetchTags(items)
+    const tagsPromise = fetchTags(items)
+    tagsPromiseRef.current = tagsPromise
+    tagsPromise
       .then((t) => { if (!cancelled) setTags(t) })
       .catch((e) => { console.error('[gratitude-tags]', e) })
 
@@ -202,9 +207,28 @@ function GratitudePage() {
     const aiFeedback = summaryResult
       ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
       : null
-    const t1 = tags.find((t) => t.item === 1)
-    const t2 = tags.find((t) => t.item === 2)
-    const t3 = tags.find((t) => t.item === 3)
+    // 確保分類標籤已就緒再寫入：先用已載入的 state，否則 await 背景請求；
+    // 若背景請求失敗，最後再即時重試一次，把缺標籤的機率降到最低。
+    let resolvedTags = tags
+    if (resolvedTags.length === 0) {
+      try {
+        resolvedTags = (await tagsPromiseRef.current) ?? []
+      } catch (e) {
+        console.error('[gratitude-tags await]', e)
+      }
+      if (resolvedTags.length === 0) {
+        try {
+          resolvedTags = await fetchTags(items)
+        } catch (e) {
+          console.error('[gratitude-tags retry]', e)
+        }
+      }
+      if (resolvedTags.length > 0) setTags(resolvedTags)
+    }
+
+    const t1 = resolvedTags.find((t) => t.item === 1)
+    const t2 = resolvedTags.find((t) => t.item === 2)
+    const t3 = resolvedTags.find((t) => t.item === 3)
 
     const profileRes = await supabase
       .from('profiles')
