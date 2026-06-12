@@ -104,7 +104,7 @@ function LoginPage() {
   }
 
   return (
-    <div className="relative flex h-screen flex-col items-center justify-end overflow-hidden px-6 pb-[360px]">
+    <div className="relative flex h-screen flex-col items-center justify-end overflow-hidden px-6 pb-[200px]">
       {inAppNotice && (
         <InAppBrowserNotice
           browser={inAppNotice}
