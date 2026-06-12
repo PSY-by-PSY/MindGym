@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import WordCloud from '../components/WordCloud'
 
@@ -104,15 +104,26 @@ async function selectSharedEntries(limit: number, excludeUserId?: string | null)
   return (plain.data ?? []).map(normalizeEntry)
 }
 
-// 從近期已分享的貼文中，隨機洗牌後全部回傳（最多 FEED_POOL_SIZE 篇）
-async function fetchAllShuffledEntries() {
-  const pool = await selectSharedEntries(FEED_POOL_SIZE)
-  // Fisher–Yates 洗牌
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+// 從近期已分享的貼文中取回（最新在前，最多 FEED_POOL_SIZE 篇）
+async function fetchLatestEntries() {
+  return selectSharedEntries(FEED_POOL_SIZE)
+}
+
+// 取得使用者本人的「感恩地圖」— 各感恩對象類別的累積次數。
+// 推薦貼文會以此為基準，計算每篇貼文與使用者偏好的相關度。
+async function fetchUserGratitudeMap(userId: string | null): Promise<Record<string, number>> {
+  if (!userId) return {}
+  const { data } = await supabase
+    .from('gratitude_entries')
+    .select('target_1, target_2, target_3')
+    .eq('user_id', userId)
+  const counts: Record<string, number> = {}
+  for (const row of data ?? []) {
+    for (const val of [row.target_1, row.target_2, row.target_3]) {
+      if (val) counts[val] = (counts[val] ?? 0) + 1
+    }
   }
-  return pool
+  return counts
 }
 
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
@@ -173,7 +184,7 @@ export const Route = createFileRoute('/app/community')({
   },
   loader: async () => {
     const [entries, sessionRes] = await Promise.all([
-      fetchAllShuffledEntries(),
+      fetchLatestEntries(),
       supabase.auth.getSession(),
     ])
 
@@ -189,24 +200,44 @@ export const Route = createFileRoute('/app/community')({
         anonName: null,
         userId,
         modalEntry: null as GratitudeEntry | null,
+        userMap: {} as Record<string, number>,
       }
     }
 
-    const [supporting, profileRes, modalEntry] = await Promise.all([
+    const [supporting, profileRes, modalEntry, userMap] = await Promise.all([
       fetchSupporting(entries, userId),
       userId
         ? supabase.from('profiles').select('name').eq('id', userId).single()
         : Promise.resolve({ data: null }),
       fetchModalEntry(userId),
+      fetchUserGratitudeMap(userId),
     ])
 
     const anonName = (profileRes.data?.name ?? null) as string | null
 
-    return { entries, ...supporting, anonName, userId, modalEntry }
+    return { entries, ...supporting, anonName, userId, modalEntry, userMap }
   },
   pendingComponent: LoadingState,
   component: CommunityPage,
 })
+
+type FeedMode = 'recommended' | 'latest'
+
+// 計算單篇貼文與使用者感恩地圖的相關度：
+// 貼文每個類別標籤，加上使用者該類別在自身感恩地圖中的占比。
+// 使用者越常感恩的類別，含該類別的貼文分數越高。
+function relevanceScore(
+  tags: GratitudeTargetTag[],
+  userMap: Record<string, number>,
+  total: number,
+): number {
+  if (total === 0) return 0
+  let score = 0
+  for (const tag of tags) {
+    score += (userMap[tag.target] ?? 0) / total
+  }
+  return score
+}
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -446,6 +477,41 @@ function DailyModal({
   )
 }
 
+function FeedModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: FeedMode
+  onChange: (m: FeedMode) => void
+}) {
+  const options: { value: FeedMode; label: string }[] = [
+    { value: 'recommended', label: '推薦貼文' },
+    { value: 'latest', label: '最新貼文' },
+  ]
+  return (
+    <div className="mb-4 flex justify-center">
+      <div className="inline-flex items-center gap-1 rounded-full bg-muted p-1 shadow-soft">
+        {options.map((opt) => {
+          const active = mode === opt.value
+          return (
+            <button
+              key={opt.value}
+              onClick={() => onChange(opt.value)}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition
+                ${active
+                  ? 'bg-foreground text-background shadow-soft'
+                  : 'text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function CommunityPage() {
   const loaderData = Route.useLoaderData()
   const { showEntry } = Route.useSearch()
@@ -457,27 +523,55 @@ function CommunityPage() {
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
   const [tags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
+  const [mode, setMode] = useState<FeedMode>('recommended')
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   const userId = loaderData.userId ?? null
   const anonName = loaderData.anonName
+  const userMap = loaderData.userMap ?? {}
 
-  const hasMore = displayCount < allEntries.length
-  const visibleEntries = allEntries.slice(0, displayCount)
+  // 使用者感恩地圖是否有資料（否則推薦無從比對，退回最新排序）
+  const mapTotal = useMemo(
+    () => Object.values(userMap).reduce((s, v) => s + v, 0),
+    [userMap],
+  )
+
+  // 依模式排序貼文：
+  // - latest：維持 loader 的最新在前順序
+  // - recommended：依與使用者感恩地圖的相關度由高到低，相關度相同時最新在前
+  const orderedEntries = useMemo(() => {
+    if (mode === 'latest' || mapTotal === 0) return allEntries
+    return allEntries
+      .map((entry, i) => ({
+        entry,
+        i,
+        score: relevanceScore(tags[entry.id] ?? [], userMap, mapTotal),
+      }))
+      .sort((a, b) => (b.score - a.score) || (a.i - b.i))
+      .map((x) => x.entry)
+  }, [mode, allEntries, tags, userMap, mapTotal])
+
+  // 切換模式時回到頁首批次
+  useEffect(() => {
+    setDisplayCount(PAGE_SIZE)
+  }, [mode])
+
+  const hasMore = displayCount < orderedEntries.length
+  const visibleEntries = orderedEntries.slice(0, displayCount)
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore) return
     const observer = new IntersectionObserver(
       (observerEntries) => {
         if (observerEntries[0].isIntersecting) {
-          setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, allEntries.length))
+          setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, orderedEntries.length))
         }
       },
       { rootMargin: '200px' },
     )
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
-  }, [hasMore, allEntries.length])
+  }, [hasMore, orderedEntries.length])
 
   function handleLikeChange(entryId: string, newInfo: LikeInfo) {
     setLikes((prev) => ({ ...prev, [entryId]: newInfo }))
@@ -510,6 +604,10 @@ function CommunityPage() {
           <p className="mb-1 text-sm font-semibold text-foreground">感恩文字雲</p>
           <WordCloud height={480} />
         </div>
+
+        {allEntries.length > 0 && (
+          <FeedModeToggle mode={mode} onChange={setMode} />
+        )}
 
         {allEntries.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
