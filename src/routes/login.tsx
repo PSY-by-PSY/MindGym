@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
+import {
+  detectInAppBrowser,
+  openInExternalBrowser,
+  getShareableUrl,
+  type InAppBrowser,
+} from '../lib/inAppBrowser'
 import coachWelcome from '../assets/brain-lifter.png'
 
 export const Route = createFileRoute('/login')({
@@ -22,14 +28,40 @@ function LoginPage() {
   const [step, setStep] = useState<EmailStep>('idle')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 從 LINE / FB / IG… App 內建瀏覽器打開時，Google 會擋下登入，
+  // 這裡記錄是哪一種 App，好顯示對應的引導畫面（null = 不顯示）。
+  const [inAppNotice, setInAppNotice] = useState<InAppBrowser>(null)
+  const [copied, setCopied] = useState(false)
 
   const handleGoogleLogin = async () => {
+    // 在 App 內建瀏覽器（LINE/FB/IG…）裡，Google 會直接擋下 OAuth，
+    // 跳出「disallowed_useragent」錯誤。先攔截下來引導使用者改用外部瀏覽器。
+    const browser = detectInAppBrowser()
+    if (browser) {
+      track('login_blocked_in_app_browser', { browser })
+      setInAppNotice(browser)
+      // LINE 支援一鍵跳出到外部瀏覽器
+      if (browser === 'line') {
+        openInExternalBrowser()
+      }
+      return
+    }
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/app/home`,
       },
     })
+  }
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(getShareableUrl())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
   }
 
   const handleSendCode = async () => {
@@ -70,6 +102,15 @@ function LoginPage() {
 
   return (
     <div className="relative flex h-screen flex-col items-center justify-end overflow-hidden px-6 pb-[360px]">
+      {inAppNotice && (
+        <InAppBrowserNotice
+          browser={inAppNotice}
+          copied={copied}
+          onCopy={handleCopyUrl}
+          onOpenExternal={openInExternalBrowser}
+          onClose={() => setInAppNotice(null)}
+        />
+      )}
       {/* 教練手寫招呼 */}
       <div className="animate-fade-up mb-3 w-full max-w-sm">
         <div className="relative rounded-3xl bg-card px-6 py-5 shadow-soft">
@@ -172,6 +213,73 @@ function LoginPage() {
             PSY by PSY · Train your mind
           </p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function InAppBrowserNotice({
+  browser,
+  copied,
+  onCopy,
+  onOpenExternal,
+  onClose,
+}: {
+  browser: InAppBrowser
+  copied: boolean
+  onCopy: () => void
+  onOpenExternal: () => void
+  onClose: () => void
+}) {
+  const isLine = browser === 'line'
+
+  // 各 App「在外部瀏覽器開啟」的位置提示
+  const manualHint =
+    browser === 'facebook' || browser === 'messenger'
+      ? '請點右下角／右上角的「⋯」選單，選擇「用外部瀏覽器開啟」。'
+      : browser === 'instagram'
+        ? '請點右上角的「⋯」選單，選擇「在瀏覽器中開啟」。'
+        : '請點畫面上的選單按鈕（通常是「⋯」），選擇「在瀏覽器開啟」。'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+      <div className="w-full max-w-sm space-y-4 rounded-3xl bg-card p-6 shadow-soft">
+        <h2 className="text-lg font-extrabold text-foreground">
+          請用外部瀏覽器開啟
+        </h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          為了安全，Google 不允許在 App 內建的瀏覽器裡登入。
+          {isLine
+            ? '請按下方按鈕，用手機的瀏覽器重新開啟後再登入。'
+            : `${manualHint}開啟後再用 Google 登入即可。`}
+        </p>
+
+        {isLine && (
+          <button
+            onClick={onOpenExternal}
+            className="flex h-14 w-full items-center justify-center rounded-full bg-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            用外部瀏覽器開啟
+          </button>
+        )}
+
+        <button
+          onClick={onCopy}
+          className="flex h-12 w-full items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground transition active:scale-[0.98]"
+        >
+          {copied ? '已複製網址 ✓' : '複製網址，自行貼到瀏覽器'}
+        </button>
+
+        <p className="text-center text-xs text-muted-foreground">
+          也可以直接用上方的「Email 登入」，不受影響。
+        </p>
+
+        <button
+          onClick={onClose}
+          className="w-full text-center text-xs font-semibold text-muted-foreground underline"
+        >
+          關閉
+        </button>
       </div>
     </div>
   )

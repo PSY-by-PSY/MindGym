@@ -25,7 +25,8 @@ export const analyticsEnabled = Boolean(POSTHOG_KEY)
  * 要新增追蹤項目時，先在這裡加一個名稱，再到對應頁面呼叫 track()。
  */
 export type AnalyticsEvent =
-  | 'login_completed'      // 完成登入
+  | 'login_completed'                // 完成登入
+  | 'login_blocked_in_app_browser'   // 在 App 內建瀏覽器被擋下 Google 登入
   | 'quiz_started'         // 開始心理測驗
   | 'quiz_completed'       // 完成心理測驗
   | 'gratitude_started'    // 開始寫感恩日記
