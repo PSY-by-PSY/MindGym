@@ -746,9 +746,14 @@ function ProfilePage() {
     const trimmed = nameValue.trim()
     if (!trimmed || !userId) { setEditingName(false); return }
     setSavingName(true)
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({ id: userId, name: trimmed }, { onConflict: 'id' })
+    const [{ error }] = await Promise.all([
+      supabase.from('profiles').upsert({ id: userId, name: trimmed }, { onConflict: 'id' }),
+      supabase
+        .from('gratitude_entries')
+        .update({ anon_name: trimmed })
+        .eq('user_id', userId)
+        .eq('use_real_name', true),
+    ])
     if (error) console.error('[name save]', error)
     setNameValue(trimmed)
     setSavingName(false)
