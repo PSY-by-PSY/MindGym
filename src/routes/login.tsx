@@ -19,6 +19,9 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
+// 暫時隱藏 Email 登入，待團隊討論後決定是否恢復
+const SHOW_EMAIL_LOGIN = false
+
 // 'idle' = 還沒送驗證碼，'code' = 已送出、等待輸入驗證碼
 type EmailStep = 'idle' | 'code'
 
@@ -134,7 +137,7 @@ function LoginPage() {
       {/* 底部固定 CTA */}
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-6 pb-10 pt-10">
         <div className="mx-auto w-full max-w-sm space-y-3">
-          {step === 'idle' ? (
+          {SHOW_EMAIL_LOGIN && step === 'idle' && (
             <input
               type="email"
               inputMode="email"
@@ -144,7 +147,8 @@ function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="h-14 w-full rounded-full bg-card px-6 text-center text-base font-semibold text-foreground shadow-soft outline-none placeholder:text-muted-foreground/60"
             />
-          ) : (
+          )}
+          {SHOW_EMAIL_LOGIN && step === 'code' && (
             <input
               type="text"
               inputMode="numeric"
@@ -157,11 +161,11 @@ function LoginPage() {
             />
           )}
 
-          {error && (
+          {SHOW_EMAIL_LOGIN && error && (
             <p className="text-center text-xs font-semibold text-red-500">{error}</p>
           )}
 
-          {step === 'idle' ? (
+          {SHOW_EMAIL_LOGIN && step === 'idle' && (
             <button
               onClick={handleSendCode}
               disabled={loading || !email.trim()}
@@ -169,7 +173,8 @@ function LoginPage() {
             >
               {loading ? '寄送中…' : '用 Email 登入'}
             </button>
-          ) : (
+          )}
+          {SHOW_EMAIL_LOGIN && step === 'code' && (
             <>
               <button
                 onClick={handleVerifyCode}
@@ -191,23 +196,22 @@ function LoginPage() {
             </>
           )}
 
-          {/* 分隔線 */}
-          {step === 'idle' && (
-            <>
-              <div className="flex items-center gap-3 py-1">
-                <span className="h-px flex-1 bg-muted-foreground/20" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">或</span>
-                <span className="h-px flex-1 bg-muted-foreground/20" />
-              </div>
-              <button
-                onClick={handleGoogleLogin}
-                className="flex h-16 w-full items-center justify-center gap-3 rounded-full bg-card text-base font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
-              >
-                <GoogleIcon />
-                用 Google 登入
-              </button>
-            </>
+          {/* 分隔線只在 email 登入顯示時才需要 */}
+          {SHOW_EMAIL_LOGIN && step === 'idle' && (
+            <div className="flex items-center gap-3 py-1">
+              <span className="h-px flex-1 bg-muted-foreground/20" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">或</span>
+              <span className="h-px flex-1 bg-muted-foreground/20" />
+            </div>
           )}
+
+          <button
+            onClick={handleGoogleLogin}
+            className="flex h-16 w-full items-center justify-center gap-3 rounded-full bg-card text-base font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            <GoogleIcon />
+            用 Google 登入
+          </button>
 
           <p className="text-center text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
             PSY by PSY · Train your mind
@@ -248,10 +252,10 @@ function InAppBrowserNotice({
           請用外部瀏覽器開啟
         </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          為了安全，Google 不允許在 App 內建的瀏覽器裡登入。
+          為讓使用者有更佳心理健身體驗，完整保存您的心理健身紀錄，本App僅限使用外部瀏覽器開啟。
           {isLine
-            ? '請按下方按鈕，用手機的瀏覽器重新開啟後再登入。'
-            : `${manualHint}開啟後再用 Google 登入即可。`}
+            ? '請按下方按鈕，用手機的瀏覽器重新開啟。'
+            : manualHint}
         </p>
 
         {isLine && (
@@ -269,10 +273,6 @@ function InAppBrowserNotice({
         >
           {copied ? '已複製網址 ✓' : '複製網址，自行貼到瀏覽器'}
         </button>
-
-        <p className="text-center text-xs text-muted-foreground">
-          也可以直接用上方的「Email 登入」，不受影響。
-        </p>
 
         <button
           onClick={onClose}
