@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import WordCloud from '../components/WordCloud'
+import wordCloudImg from '../assets/WordCloud.jpg'
 
 type GratitudeEntry = {
   id: string
@@ -647,7 +647,7 @@ function CommunityPage() {
 
         <div className="mb-6 rounded-3xl bg-card px-6 pb-6 pt-5 shadow-soft">
           <p className="mb-1 text-sm font-semibold text-foreground">感恩文字雲</p>
-          <WordCloud height={480} />
+          <img src={wordCloudImg} alt="感恩文字雲" className="w-full rounded-2xl" />
         </div>
 
         <FeedModeToggle mode={mode} onChange={setMode} userId={userId} />
