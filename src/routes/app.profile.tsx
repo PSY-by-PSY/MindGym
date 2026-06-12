@@ -764,9 +764,13 @@ function ProfilePage() {
     setAvatar(value)
     setShowPicker(false)
     if (userId) {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({ id: userId, avatar: value }, { onConflict: 'id' })
+      const [{ error }] = await Promise.all([
+        supabase.from('profiles').upsert({ id: userId, avatar: value }, { onConflict: 'id' }),
+        supabase
+          .from('gratitude_entries')
+          .update({ avatar: value })
+          .eq('user_id', userId),
+      ])
       if (error) console.error('[avatar save]', error)
     }
   }
