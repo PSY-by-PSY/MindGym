@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 import logging
@@ -11,6 +12,8 @@ import anthropic
 import httpx
 import openai
 from dotenv import load_dotenv
+
+import usage_metering
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -101,6 +104,55 @@ def db() -> httpx.AsyncClient:
 def claude() -> anthropic.AsyncAnthropic:
     assert _claude is not None
     return _claude
+
+
+# ── AI 成本記帳（軌道一：自行計量）──────────────────────────────
+# 每次 AI 呼叫後把該次花費寫進 ai_usage_log。設計為 fire-and-forget：
+# 用 asyncio.create_task 背景送出、整段包 try/except，無論失敗或延遲都
+# 絕不影響使用者拿到回應。需先套用 supabase/usage_monitor.sql 建表。
+
+async def _post_ai_usage(row: dict) -> None:
+    try:
+        await db().post(
+            f"{SUPABASE_REST}/ai_usage_log",
+            headers=SUPABASE_HEADERS,
+            json=row,
+        )
+    except Exception as exc:  # 記帳失敗只記 log，不影響主流程
+        logger.warning("ai_usage_log write failed [%s]: %s", type(exc).__name__, exc)
+
+
+def meter_claude(source: str, model: str, usage, user_id: str | None = None) -> None:
+    """記錄一次 Claude 呼叫的花費（背景執行，不阻塞）。"""
+    try:
+        cost, tokens = usage_metering.claude_cost(model, usage)
+        row = {
+            "provider": "anthropic",
+            "source": source,
+            "model": model,
+            "user_id": user_id,
+            "cost_usd": cost,
+            **tokens,
+        }
+        asyncio.create_task(_post_ai_usage(row))
+    except Exception as exc:
+        logger.warning("meter_claude failed [%s]: %s", type(exc).__name__, exc)
+
+
+def meter_whisper(source: str, model: str, seconds: float, user_id: str | None = None) -> None:
+    """記錄一次 Whisper 呼叫的花費（背景執行，不阻塞）。"""
+    try:
+        row = {
+            "provider": "openai",
+            "source": source,
+            "model": model,
+            "user_id": user_id,
+            "audio_seconds": round(float(seconds), 2),
+            "cost_usd": usage_metering.whisper_cost(seconds),
+        }
+        asyncio.create_task(_post_ai_usage(row))
+    except Exception as exc:
+        logger.warning("meter_whisper failed [%s]: %s", type(exc).__name__, exc)
 
 
 async def get_user_id(token: str) -> str:
@@ -571,6 +623,7 @@ async def save_gratitude(
                 ),
             }],
         )
+        meter_claude("gratitude", "claude-sonnet-4-6", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -618,7 +671,7 @@ async def tag_gratitude_targets(
 ):
     try:
         token = authorization.removeprefix("Bearer ").strip()
-        await get_user_id(token)
+        user_id = await get_user_id(token)
 
         msg = await claude().messages.create(
             model="claude-sonnet-4-6",
@@ -643,6 +696,7 @@ async def tag_gratitude_targets(
                 ),
             }],
         )
+        meter_claude("tag-targets", "claude-sonnet-4-6", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -663,7 +717,7 @@ async def gratitude_summary(
 ):
     try:
         token = authorization.removeprefix("Bearer ").strip()
-        await get_user_id(token)
+        user_id = await get_user_id(token)
 
         tone = (
             "使用者選擇了「進階」模式，請更深入地反映其覺察與內在意義。"
@@ -692,6 +746,7 @@ async def gratitude_summary(
                 ),
             }],
         )
+        meter_claude("gratitude-summary", "claude-sonnet-4-6", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -777,7 +832,7 @@ async def extract_keywords(
 ):
     # 需登入才能呼叫，避免匿名流量消耗 Claude API 額度
     token = authorization.removeprefix("Bearer ").strip()
-    await get_user_id(token)
+    user_id = await get_user_id(token)
     if not req.entries:
         return {"tags": {}}
 
@@ -817,6 +872,7 @@ async def extract_keywords(
                 ),
             }],
         )
+        meter_claude("extract-keywords", "claude-sonnet-4-6", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -878,6 +934,7 @@ async def generate_report(
             messages=[{"role": "user", "content": user_content}],
             output_format=InMindLLMResponse,
         )
+        meter_claude("report", "claude-sonnet-4-5", response.usage, user_id)
 
         result = response.parsed_output
         if result is None:
@@ -975,7 +1032,7 @@ async def transcribe(
 ):
     # 需登入才能呼叫，避免匿名流量消耗 OpenAI 額度（比照其他端點）
     token = authorization.removeprefix("Bearer ").strip()
-    await get_user_id(token)
+    user_id = await get_user_id(token)
 
     if openai_client is None:
         return JSONResponse(
@@ -1003,12 +1060,15 @@ async def transcribe(
     buf.name = audio.filename or "recording.webm"
 
     try:
+        # verbose_json 會多回傳 duration（音訊秒數），用來精準換算 Whisper 花費。
         result = openai_client.audio.transcriptions.create(
             model="whisper-1",
             file=buf,
             language="zh",
             prompt="以下是繁體中文的內容。",
+            response_format="verbose_json",
         )
+        meter_whisper("whisper", "whisper-1", getattr(result, "duration", 0) or 0, user_id)
         return {"text": (result.text or "").strip()}
     except openai.AuthenticationError:
         return JSONResponse(

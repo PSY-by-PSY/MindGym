@@ -1,0 +1,35 @@
+name: 用量監測
+
+# 每天 UTC 01:00（台灣 09:00）跑一次，把快照寫進 usage_snapshots。
+# 也可在 Actions 頁面手動觸發。
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安裝相依套件
+        run: pip install httpx python-dotenv
+
+      - name: 執行監測並寫入快照
+        env:
+          ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
+          OPENAI_ADMIN_KEY: ${{ secrets.OPENAI_ADMIN_KEY }}
+          OPENAI_ORG_ID: ${{ secrets.OPENAI_ORG_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        # 退出碼 1 代表「有告警」而非失敗；用 || true 讓 step 不因告警標紅，
+        # 報告內容仍會完整印在 Actions log。要改成「告警即 fail」就拿掉 || true。
+        run: python3 scripts/usage_monitor.py --save || true

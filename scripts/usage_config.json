@@ -1,0 +1,38 @@
+{
+  "_comment": "用量監測設定。免費方案額度官方常調整，數字以各平台 billing 頁面為準，發現不符就改這裡即可，不必動程式。",
+
+  "free_tier_limits": {
+    "vercel": {
+      "bandwidth_gb": 100,
+      "build_hours": 100
+    },
+    "render": {
+      "instance_hours": 750,
+      "bandwidth_gb": 100
+    },
+    "supabase": {
+      "db_mb": 500,
+      "egress_gb": 5,
+      "edge_invocations": 500000,
+      "mau": 50000
+    },
+    "posthog": {
+      "events": 1000000
+    }
+  },
+
+  "alerts": {
+    "free_tier_warn_pct": 80,
+    "ai_daily_usd_warn": 5.0,
+    "ai_monthly_usd_warn": 100.0
+  },
+
+  "dashboards": {
+    "anthropic": "https://console.anthropic.com/settings/usage",
+    "openai": "https://platform.openai.com/usage",
+    "vercel": "https://vercel.com/dashboard/usage",
+    "render": "https://dashboard.render.com/",
+    "supabase": "https://supabase.com/dashboard/project/_/settings/billing/usage",
+    "posthog": "https://us.posthog.com/"
+  }
+}

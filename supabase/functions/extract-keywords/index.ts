@@ -1,4 +1,5 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0'
+import { meterClaude } from '../_shared/metering.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,6 +75,8 @@ ${entriesText}`,
         },
       ],
     })
+
+    await meterClaude('extract-keywords-edge', 'claude-sonnet-4-6', message.usage)
 
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected response type')
