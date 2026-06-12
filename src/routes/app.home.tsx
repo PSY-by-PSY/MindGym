@@ -120,8 +120,8 @@ function HomePage() {
       </header>
 
       {/* 訓練模組格狀菜單 */}
-      <h2 className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        健心訓練模組 PSY by PSY Training Modules
+      <h2 className="mb-4 text-2xl font-extrabold text-foreground leading-tight">
+        健心訓練模組<br />PSY by PSY Training Modules
       </h2>
       <div className="grid grid-cols-2 gap-3">
         {modules.slice(0, 4).map((mod) =>
