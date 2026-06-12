@@ -275,6 +275,11 @@ function GratitudePage() {
     const entryId = inserted?.id ?? null
     setSavedEntryId(entryId)
 
+    // 安排機器人按讚（非同步，不阻塞主流程）
+    if (entryId) {
+      void supabase.rpc('schedule_bot_likes', { p_entry_id: entryId })
+    }
+
     // 計算並更新連續打卡天數（統一用 lib/streak）
     void (async () => {
       const streak = await computeStreak(userId)

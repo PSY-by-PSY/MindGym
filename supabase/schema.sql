@@ -189,3 +189,71 @@ DROP POLICY IF EXISTS "first_feedback: 本人可更新" ON first_feedback;
 CREATE POLICY "first_feedback: 本人可讀"   ON first_feedback FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "first_feedback: 本人可建立" ON first_feedback FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "first_feedback: 本人可更新" ON first_feedback FOR UPDATE USING (auth.uid() = user_id);
+
+-- ============================================================
+-- bot_like_queue（機器人按讚排程佇列）
+-- ============================================================
+ALTER TABLE likes ADD COLUMN IF NOT EXISTS is_bot boolean DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS bot_like_queue (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id     uuid REFERENCES gratitude_entries(id) ON DELETE CASCADE NOT NULL,
+  scheduled_at timestamptz NOT NULL,
+  processed_at timestamptz,
+  created_at   timestamptz DEFAULT now()
+);
+
+-- 安排機器人按讚：新貼文建立後由前端呼叫，隨機安排 5~10 個讚分散在 1~90 分鐘後
+CREATE OR REPLACE FUNCTION schedule_bot_likes(p_entry_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_already int;
+  v_count   int;
+  i         int;
+  v_delay   int;
+BEGIN
+  -- 避免同一則貼文重複安排
+  SELECT count(*) INTO v_already FROM bot_like_queue WHERE entry_id = p_entry_id;
+  IF v_already > 0 THEN RETURN; END IF;
+
+  v_count := 5 + floor(random() * 6)::int; -- 5 到 10 個讚
+  FOR i IN 1..v_count LOOP
+    v_delay := 60 + floor(random() * 5340)::int; -- 1~90 分鐘（秒數）
+    INSERT INTO bot_like_queue (entry_id, scheduled_at)
+    VALUES (p_entry_id, now() + (v_delay || ' seconds')::interval);
+  END LOOP;
+END;
+$$;
+
+-- 執行到期的機器人按讚：由 pg_cron 每 2 分鐘呼叫
+CREATE OR REPLACE FUNCTION process_bot_likes()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  rec RECORD;
+BEGIN
+  FOR rec IN
+    SELECT id, entry_id
+    FROM bot_like_queue
+    WHERE scheduled_at <= now()
+      AND processed_at IS NULL
+    LIMIT 50
+  LOOP
+    BEGIN
+      -- user_id 為 NULL（FK 不檢查 NULL），UNIQUE(entry_id, user_id) 允許多個 NULL
+      INSERT INTO likes (entry_id, is_bot) VALUES (rec.entry_id, true);
+    EXCEPTION WHEN OTHERS THEN
+      NULL; -- entry 已刪除或其他錯誤，略過
+    END;
+
+    UPDATE bot_like_queue SET processed_at = now() WHERE id = rec.id;
+  END LOOP;
+END;
+$$;
