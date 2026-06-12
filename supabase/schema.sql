@@ -140,3 +140,26 @@ DROP POLICY IF EXISTS "comments: 本人可刪除" ON comments;
 CREATE POLICY "comments: 所有人可讀" ON comments FOR SELECT USING (true);
 CREATE POLICY "comments: 本人可建立" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "comments: 本人可刪除" ON comments FOR DELETE USING (auth.uid() = user_id);
+
+-- ============================================================
+-- first_feedback（首次完成練習後的三題回饋）
+-- 一人一列（user_id 為主鍵），用來確保問卷只在第一次出現、之後不再顯示。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS first_feedback (
+  user_id     uuid PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  impression  text,   -- 哪個環節讓你印象最深？
+  moment      text,   -- 如果這變成 App，你希望它出現在你生活的什麼時刻？
+  friend      text,   -- 你會想帶哪個朋友來？為什麼？
+  created_at  timestamptz DEFAULT now(),
+  updated_at  timestamptz DEFAULT now()
+);
+
+ALTER TABLE first_feedback ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "first_feedback: 本人可讀"   ON first_feedback;
+DROP POLICY IF EXISTS "first_feedback: 本人可建立" ON first_feedback;
+DROP POLICY IF EXISTS "first_feedback: 本人可更新" ON first_feedback;
+
+CREATE POLICY "first_feedback: 本人可讀"   ON first_feedback FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "first_feedback: 本人可建立" ON first_feedback FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "first_feedback: 本人可更新" ON first_feedback FOR UPDATE USING (auth.uid() = user_id);

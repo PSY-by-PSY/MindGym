@@ -4,6 +4,7 @@ import { toPng } from 'html-to-image'
 import { supabase } from '../lib/supabase'
 import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
+import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
 import { track } from '../lib/analytics'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
@@ -1329,6 +1330,9 @@ function CelebrateStage({
   const [commentText, setCommentText] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentDone, setCommentDone] = useState(false)
+  // 首次回饋問卷：尚未填過 → 結束練習時先跳問卷
+  const [feedbackNeeded, setFeedbackNeeded] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -1389,11 +1393,39 @@ function CelebrateStage({
     return () => { cancelled = true }
   }, [streakOverride])
 
+  // 是否需要顯示首次回饋問卷：查 first_feedback 有沒有這個人的紀錄。
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const { data } = await supabase
+        .from('first_feedback')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+      if (!cancelled) setFeedbackNeeded(!data)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   const topCode = targetSegments[0]?.code ?? null
   const insight = topCode ? TARGET_INSIGHT[topCode] : null
 
   const handleNavigate = async () => {
     if (saving) return
+    // 第一次完成練習：先跳三題回饋問卷，答完再離開。
+    if (feedbackNeeded) {
+      setShowFeedback(true)
+      return
+    }
+    setSaving(true)
+    await onNavigate()
+  }
+
+  const handleFeedbackDone = async () => {
+    setShowFeedback(false)
+    setFeedbackNeeded(false)
     setSaving(true)
     await onNavigate()
   }
@@ -1577,6 +1609,9 @@ function CelebrateStage({
           </button>
         )}
       </div>
+
+      {/* 首次回饋問卷（一題一題問，答完才離開） */}
+      {showFeedback && <FirstFeedbackSurvey onDone={handleFeedbackDone} />}
 
       {/* 留言 Modal */}
       {showCommentModal && (
