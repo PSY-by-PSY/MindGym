@@ -452,9 +452,9 @@ function IntroStage({
                 <li>・建立覺察生活中的美好以及練習表達感恩的習慣</li>
                 <li>・透過簡單、低負擔的書寫，引導我們開始留意：</li>
                 <ul className="pl-3 mt-1 flex flex-col gap-1">
-                  <li>◦ 今天有哪些事情值得被感謝？</li>
-                  <li>◦ 哪些人、環境與體驗支持了自己？</li>
-                  <li>◦ 自己是否也值得被感謝？</li>
+                  <li>・今天有哪些事情值得被感謝？</li>
+                  <li>・哪些人、環境與體驗支持了自己？</li>
+                  <li>・自己是否也值得被感謝？</li>
                 </ul>
               </ul>
             </div>
@@ -469,18 +469,18 @@ function IntroStage({
                   <strong className="font-bold text-foreground">時段推薦</strong>
                   <div className="mt-0.5">建議在 19:00–24:00 之間練習，幫助自己：</div>
                   <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>◦ 回顧一天發生的事件</li>
-                    <li>◦ 整理自己的思緒與情緒</li>
-                    <li>◦ 建立睡前的感恩儀式感</li>
+                    <li>・回顧一天發生的事件</li>
+                    <li>・整理自己的思緒與情緒</li>
+                    <li>・建立睡前的感恩儀式感</li>
                   </ul>
                 </li>
                 <li>
                   <strong className="font-bold text-foreground">環境營造</strong>
                   <div className="mt-0.5">建議開始前：</div>
                   <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>◦ 暫停所有訊息通知</li>
-                    <li>◦ 找一個舒服且安靜的空間</li>
-                    <li>◦ 將注意力回到自己身上</li>
+                    <li>・暫停所有訊息通知</li>
+                    <li>・找一個舒服且安靜的空間</li>
+                    <li>・將注意力回到自己身上</li>
                   </ul>
                 </li>
               </ul>
@@ -511,7 +511,7 @@ function IntroStage({
               <p className="font-extrabold text-foreground mb-1.5 mt-3">相關文獻</p>
               <ul className="flex flex-col gap-1.5 text-foreground/60 text-xs pl-3">
                 <li>Choi, H., Cha, Y., McCullough, M. E., Coles, N. A., & Oishi, S. (2025). A meta-analysis of the effectiveness of gratitude interventions on well-being across cultures. <em>Proceedings of the National Academy of Sciences, 122</em>(28), e2425193122.</li>
-                <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707. https://doi.org/10.1038/s41562-023-01651-4</li>
+                <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707.</li>
               </ul>
             </div>
             <button
