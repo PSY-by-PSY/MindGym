@@ -155,6 +155,11 @@ function GratitudePage() {
   // 保存進入 SUMMARY 時觸發的分類請求 promise，讓 saveEntry 能直接 await，
   // 避免使用者在 AI 分類回來前就按下繼續、導致 target_* 沒寫入（社群貼文缺標籤）。
   const tagsPromiseRef = useRef<Promise<TagResult[]> | null>(null)
+  // 記錄上一次「成功生成 AI 回饋」所對應的內容簽章（items + difficulty）。
+  // 用來判斷返回 SUMMARY 時要不要重新生成：
+  //  - 內容有改 → 簽章不同 → 重新生成（編輯後重生成）
+  //  - 內容沒改（含從結束頁返回查看）→ 簽章相同 → 直接沿用，不重生成
+  const lastGenSigRef = useRef<string | null>(null)
   const [isShared, setIsShared] = useState(true)
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(todayDate())
@@ -167,13 +172,23 @@ function GratitudePage() {
 
   useEffect(() => {
     if (stage !== 'SUMMARY') return
+    // 內容未變（返回查看 / 從結束頁返回）就沿用既有結果，避免重複生成與新舊資料衝突。
+    const sig = JSON.stringify({ items, difficulty })
+    if (lastGenSigRef.current === sig) return
+
     let cancelled = false
     setSummaryResult(null)
     setSummaryError(null)
     setTags([])
 
     fetchSummary(items, difficulty)
-      .then((r) => { if (!cancelled) setSummaryResult(r) })
+      .then((r) => {
+        if (!cancelled) {
+          setSummaryResult(r)
+          // 只有成功才記錄簽章：失敗時保持 null，讓再次進入能重試。
+          lastGenSigRef.current = sig
+        }
+      })
       .catch((e) => {
         if (!cancelled) {
           console.error('[gratitude-summary]', e)
@@ -360,6 +375,10 @@ function GratitudePage() {
           summaryResult={summaryResult}
           summaryError={summaryError}
           streak={summaryStreak}
+          // 已存檔（從結束頁返回查看）→ 唯讀，返回結束頁；
+          // 未存檔（剛寫完）→ 可返回編輯，回上一頁改日記內容。
+          mode={savedEntryId ? 'view' : 'edit'}
+          onBack={() => setStage(savedEntryId ? 'CELEBRATE' : 'WRITING')}
           onContinue={async () => {
             try {
               await saveEntry()
@@ -379,6 +398,7 @@ function GratitudePage() {
           isShared={isShared}
           onToggleShared={handleToggleShared}
           onNavigate={handleFinalSave}
+          onBack={() => setStage('SUMMARY')}
           streakOverride={celebrateStreak}
           savedEntryId={savedEntryId}
         />
@@ -937,12 +957,16 @@ function SummaryStage({
   summaryResult,
   summaryError,
   streak,
+  mode,
+  onBack,
   onContinue,
 }: {
   items: GratitudeItems
   summaryResult: SummaryResult | null
   summaryError: string | null
   streak: number | null
+  mode: 'edit' | 'view'
+  onBack: () => void
   onContinue: () => void
 }) {
   const shareCardRef = useRef<HTMLDivElement>(null)
@@ -1001,6 +1025,15 @@ function SummaryStage({
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 md:px-10">
+      {/* 返回鍵：編輯模式回上一頁改日記、唯讀模式回結束頁 */}
+      <button
+        onClick={onBack}
+        className="mb-5 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        aria-label={mode === 'edit' ? '返回編輯日記' : '返回'}
+      >
+        <BackIcon />
+      </button>
+
       <p className="font-handwriting text-2xl text-muted-foreground">今天的回顧</p>
       <h2 className="mb-1 mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
         寫下你的感恩日記 ✨
@@ -1072,12 +1105,21 @@ function SummaryStage({
         <PrimaryCta onClick={handleShare} disabled={sharing || !summaryResult} variant="done">
           {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
         </PrimaryCta>
-        <button
-          onClick={onContinue}
-          className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98]"
-        >
-          下一步：完成這次練習
-        </button>
+        {mode === 'edit' ? (
+          <button
+            onClick={onContinue}
+            className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            下一步：完成這次練習
+          </button>
+        ) : (
+          <button
+            onClick={onBack}
+            className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            返回完成頁面
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1319,12 +1361,14 @@ function CelebrateStage({
   isShared,
   onToggleShared,
   onNavigate,
+  onBack,
   streakOverride,
   savedEntryId,
 }: {
   isShared: boolean
   onToggleShared: (v: boolean) => void
   onNavigate: () => void | Promise<void>
+  onBack: () => void
   streakOverride?: number | null
   savedEntryId?: string | null
 }) {
@@ -1452,7 +1496,16 @@ function CelebrateStage({
   }
 
   return (
-    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-12 pb-12 md:px-10">
+    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-8 pb-12 md:px-10">
+      {/* 返回鍵：回到 AI 日記頁面查看（唯讀，不重新生成） */}
+      <button
+        onClick={onBack}
+        className="mb-3 flex h-9 w-9 items-center justify-center self-start rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        aria-label="返回查看 AI 日記"
+      >
+        <BackIcon />
+      </button>
+
       <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-primary text-5xl shadow-soft">
         🎉
       </div>
