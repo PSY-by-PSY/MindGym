@@ -6,6 +6,7 @@ import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
 import { track } from '../lib/analytics'
+import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -160,7 +161,7 @@ function GratitudePage() {
   //  - 內容有改 → 簽章不同 → 重新生成（編輯後重生成）
   //  - 內容沒改（含從結束頁返回查看）→ 簽章相同 → 直接沿用，不重生成
   const lastGenSigRef = useRef<string | null>(null)
-  const [isShared, setIsShared] = useState(true)
+  const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(todayDate())
   const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null)
@@ -254,7 +255,8 @@ function GratitudePage() {
     const profileName = profileRes.data?.name ?? null
     const profileAvatar = profileRes.data?.avatar ?? null
 
-    const anonName = isShared
+    const fields = privacyToFields(privacy)
+    const anonName = fields.use_real_name
       ? (profileName || session.user.user_metadata?.full_name || session.user.user_metadata?.name || pickAnonName())
       : pickAnonName()
 
@@ -263,8 +265,8 @@ function GratitudePage() {
       item_1: items.item_1,
       item_2: items.item_2,
       item_3: items.item_3,
-      is_shared: true,
-      use_real_name: isShared,
+      is_shared: fields.is_shared,
+      use_real_name: fields.use_real_name,
       entry_date: isoDate(selectedDate),
       anon_name: anonName,
     }
@@ -306,16 +308,17 @@ function GratitudePage() {
     return entryId
   }
 
-  // CELEBRATE 階段的「實名/匿名」開關：日記在進入此階段前就已寫入 DB，
-  // 所以切換時必須同步更新該筆資料，否則開關只是裝飾（隱私問題）。
-  const handleToggleShared = async (useRealName: boolean) => {
-    setIsShared(useRealName)
+  // CELEBRATE 階段的「隱私設定」：日記在進入此階段前就已寫入 DB，
+  // 所以切換時必須同步更新該筆資料，否則選項只是裝飾（隱私問題）。
+  const handlePrivacyChange = async (next: Privacy) => {
+    setPrivacy(next)
     if (!savedEntryId) return
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
+      const fields = privacyToFields(next)
       let anonName: string
-      if (useRealName) {
+      if (fields.use_real_name) {
         const prof = await supabase
           .from('profiles')
           .select('name')
@@ -331,11 +334,11 @@ function GratitudePage() {
       }
       const { error } = await supabase
         .from('gratitude_entries')
-        .update({ use_real_name: useRealName, anon_name: anonName })
+        .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: anonName })
         .eq('id', savedEntryId)
-      if (error) console.error('[share toggle update]', error)
+      if (error) console.error('[privacy update]', error)
     } catch (e) {
-      console.error('[share toggle update]', e)
+      console.error('[privacy update]', e)
     }
   }
 
@@ -395,8 +398,8 @@ function GratitudePage() {
     case 'CELEBRATE':
       return (
         <CelebrateStage
-          isShared={isShared}
-          onToggleShared={handleToggleShared}
+          privacy={privacy}
+          onPrivacyChange={handlePrivacyChange}
           onNavigate={handleFinalSave}
           onBack={() => setStage('SUMMARY')}
           streakOverride={celebrateStreak}
@@ -1358,15 +1361,15 @@ function DonutChart({ segments }: { segments: { code: TargetCode; count: number;
 }
 
 function CelebrateStage({
-  isShared,
-  onToggleShared,
+  privacy,
+  onPrivacyChange,
   onNavigate,
   onBack,
   streakOverride,
   savedEntryId,
 }: {
-  isShared: boolean
-  onToggleShared: (v: boolean) => void
+  privacy: Privacy
+  onPrivacyChange: (v: Privacy) => void
   onNavigate: () => void | Promise<void>
   onBack: () => void
   streakOverride?: number | null
@@ -1618,28 +1621,43 @@ function CelebrateStage({
         )}
       </div>
 
-      {/* 6-C 分享設定 */}
-      <div className="mb-7 flex w-full items-center justify-between rounded-3xl bg-card px-5 py-4 shadow-soft">
-        <div className="pr-3">
-          <p className="text-sm font-extrabold text-foreground">以實名在社群分享你今天的感恩</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            {isShared ? '你的名字將顯示在打卡牆上' : `以「能量代號」匿名出現在打卡牆`}
-          </p>
+      {/* 6-C 隱私設定 */}
+      <div className="mb-7 w-full rounded-3xl bg-card px-5 py-4 shadow-soft">
+        <p className="text-sm font-extrabold text-foreground">隱私設定</p>
+        <div className="mt-3 flex flex-col gap-2">
+          {PRIVACY_OPTIONS.map((opt) => {
+            const active = privacy === opt.value
+            return (
+              <button
+                key={opt.value}
+                onClick={() => onPrivacyChange(opt.value)}
+                aria-pressed={active}
+                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                  active
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-muted/40 hover:bg-muted'
+                }`}
+              >
+                <span className="text-lg leading-none">{opt.emoji}</span>
+                <span className="flex-1">
+                  <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
+                    {opt.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                    {opt.hint}
+                  </span>
+                </span>
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                    active ? 'border-primary' : 'border-border'
+                  }`}
+                >
+                  {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                </span>
+              </button>
+            )
+          })}
         </div>
-        <button
-          role="switch"
-          aria-checked={isShared}
-          onClick={() => onToggleShared(!isShared)}
-          className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-            isShared ? 'bg-primary' : 'bg-border'
-          }`}
-        >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-card shadow transition-transform ${
-              isShared ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
       </div>
 
       {/* 6-D 三個導航按鈕 */}

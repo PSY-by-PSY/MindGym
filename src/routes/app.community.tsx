@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { type Privacy, PRIVACY_OPTIONS, privacyToFields, privacyFromFields } from '../lib/privacy'
 import wordCloudImg from '../assets/WordCloud.jpg'
 
 type GratitudeEntry = {
@@ -8,6 +9,7 @@ type GratitudeEntry = {
   user_id: string | null
   anon_name: string | null
   use_real_name: boolean | null
+  is_shared: boolean | null
   item_1: string | null
   item_2: string | null
   item_3: string | null
@@ -81,7 +83,7 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 const FEED_POOL_SIZE = 60
 const PAGE_SIZE = 5
 
-const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3'
+const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, is_shared, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3'
 // 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
 const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS}, profiles(current_streak)`
 
@@ -786,21 +788,27 @@ function EntryCard({
 }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
-  const [localUseRealName, setLocalUseRealName] = useState<boolean>(entry.use_real_name ?? false)
+  const [localPrivacy, setLocalPrivacy] = useState<Privacy>(
+    privacyFromFields({ is_shared: entry.is_shared, use_real_name: entry.use_real_name }),
+  )
   const [showMenu, setShowMenu] = useState(false)
   const avatar = avatarFor(localAnonName, index, entry.avatar)
   const [showComments, setShowComments] = useState(false)
   const [liking, setLiking] = useState(false)
 
-  async function toggleAnonymity() {
-    const newUseRealName = !localUseRealName
-    const newAnonName = newUseRealName ? anonName : null
-    setLocalUseRealName(newUseRealName)
+  async function changePrivacy(next: Privacy) {
+    if (next === localPrivacy) {
+      setShowMenu(false)
+      return
+    }
+    const fields = privacyToFields(next)
+    const newAnonName = fields.use_real_name ? anonName : (localAnonName ?? anonName)
+    setLocalPrivacy(next)
     setLocalAnonName(newAnonName)
     setShowMenu(false)
     await supabase
       .from('gratitude_entries')
-      .update({ use_real_name: newUseRealName, anon_name: newAnonName })
+      .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: newAnonName })
       .eq('id', entry.id)
   }
   const [commentText, setCommentText] = useState('')
@@ -935,6 +943,9 @@ function EntryCard({
             {entry.current_streak != null && entry.current_streak > 0 && (
               <span className="text-xs font-semibold text-orange-500">🔥 連續 {entry.current_streak} 天</span>
             )}
+            {isOwn && localPrivacy === 'private' && (
+              <span className="text-xs font-semibold text-muted-foreground">🔒 僅限本人</span>
+            )}
           </div>
         </div>
         <span className="shrink-0 rounded-full bg-tile-mint px-3 py-1 text-[11px] font-bold text-foreground">
@@ -952,20 +963,32 @@ function EntryCard({
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-9 z-20 min-w-[172px] rounded-2xl border border-border bg-card p-3 shadow-soft">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-semibold text-foreground">匿名貼文</span>
-                    <button
-                      onClick={toggleAnonymity}
-                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                        !localUseRealName ? 'bg-primary' : 'bg-muted'
-                      }`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                        !localUseRealName ? 'translate-x-6' : 'translate-x-1'
-                      }`} />
-                    </button>
-                  </div>
+                <div className="absolute right-0 top-9 z-20 min-w-[208px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                  <p className="px-2 pb-1 pt-1 text-xs font-bold text-muted-foreground">隱私設定</p>
+                  {PRIVACY_OPTIONS.map((opt) => {
+                    const active = localPrivacy === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => changePrivacy(opt.value)}
+                        aria-pressed={active}
+                        className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition ${
+                          active ? 'bg-primary/10' : 'hover:bg-muted'
+                        }`}
+                      >
+                        <span className="text-base leading-none">{opt.emoji}</span>
+                        <span className="flex-1">
+                          <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
+                            {opt.label}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                            {opt.hint}
+                          </span>
+                        </span>
+                        {active && <span className="text-primary">✓</span>}
+                      </button>
+                    )
+                  })}
                 </div>
               </>
             )}
