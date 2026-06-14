@@ -110,10 +110,25 @@ function isoDate(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+// 行動網路偶爾會讓連線卡住卻不結束，fetch 預設沒有逾時 → promise 永遠不 resolve，
+// 使用者就「等不到回應」。用 AbortController 設上限，逾時就丟錯，讓呼叫端走既有的
+// 失敗 fallback（顯示友善訊息 / 以 null ai_feedback 存檔），而不是無限轉圈。
+const AI_FETCH_TIMEOUT_MS = 30000
+
+async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = AI_FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Promise<SummaryResult> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
-  const resp = await fetch(`${API_URL}/api/gratitude-summary`, {
+  const resp = await fetchWithTimeout(`${API_URL}/api/gratitude-summary`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -133,7 +148,7 @@ async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Prom
 async function fetchTags(items: GratitudeItems): Promise<TagResult[]> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
-  const resp = await fetch(`${API_URL}/api/tag-gratitude-targets`, {
+  const resp = await fetchWithTimeout(`${API_URL}/api/tag-gratitude-targets`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -156,6 +171,14 @@ function GratitudePage() {
   // 保存進入 SUMMARY 時觸發的分類請求 promise，讓 saveEntry 能直接 await，
   // 避免使用者在 AI 分類回來前就按下繼續、導致 target_* 沒寫入（社群貼文缺標籤）。
   const tagsPromiseRef = useRef<Promise<TagResult[]> | null>(null)
+  // 同理保存「安安回饋」請求的 promise。使用者常在 AI 還沒回來就按「下一步」，
+  // 若只看 summaryResult（state）會是 null，貼文就會缺 ai_feedback（後臺看到沒回應的貼文）。
+  // saveEntry 會 await 這個 promise，確保 AI 回饋寫得進去。
+  const summaryPromiseRef = useRef<Promise<SummaryResult> | null>(null)
+  // 送出鎖：saveEntry 牽涉多個 await（getSession / AI 標籤 / AI 回饋 / DB 寫入），
+  // 期間 savedEntryId（state）尚未更新，使用者連點按鈕就會送出多筆。
+  // 用 ref 存放進行中的 promise，第二次呼叫直接回傳同一個 promise，杜絕重複寫入。
+  const savePromiseRef = useRef<Promise<string | null> | null>(null)
   // 記錄上一次「成功生成 AI 回饋」所對應的內容簽章（items + difficulty）。
   // 用來判斷返回 SUMMARY 時要不要重新生成：
   //  - 內容有改 → 簽章不同 → 重新生成（編輯後重生成）
@@ -182,7 +205,9 @@ function GratitudePage() {
     setSummaryError(null)
     setTags([])
 
-    fetchSummary(items, difficulty)
+    const summaryPromise = fetchSummary(items, difficulty)
+    summaryPromiseRef.current = summaryPromise
+    summaryPromise
       .then((r) => {
         if (!cancelled) {
           setSummaryResult(r)
@@ -210,9 +235,7 @@ function GratitudePage() {
     return () => { cancelled = true }
   }, [stage, items, difficulty])
 
-  const saveEntry = async (): Promise<string | null> => {
-    if (savedEntryId) return savedEntryId
-
+  const performSave = async (): Promise<string | null> => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       alert('登入狀態已失效，請重新登入後再儲存')
@@ -220,8 +243,27 @@ function GratitudePage() {
     }
 
     const userId = session.user.id
-    const aiFeedback = summaryResult
-      ? `${summaryResult.emotional_summary} ${summaryResult.action_suggestion}`.trim()
+    // 確保 AI 回饋已就緒再寫入：summaryResult（state）可能還沒更新，
+    // 因為使用者常在生成回來前就按下「下一步」。先 await 進行中的請求，
+    // 必要時再即時重試一次，把「貼文缺 ai_feedback」的機率降到最低。
+    let resolvedSummary = summaryResult
+    if (!resolvedSummary) {
+      try {
+        resolvedSummary = (await summaryPromiseRef.current) ?? null
+      } catch (e) {
+        console.error('[gratitude-summary await]', e)
+      }
+      if (!resolvedSummary) {
+        try {
+          resolvedSummary = await fetchSummary(items, difficulty)
+        } catch (e) {
+          console.error('[gratitude-summary retry]', e)
+        }
+      }
+      if (resolvedSummary) setSummaryResult(resolvedSummary)
+    }
+    const aiFeedback = resolvedSummary
+      ? `${resolvedSummary.emotional_summary} ${resolvedSummary.action_suggestion}`.trim()
       : null
     // 確保分類標籤已就緒再寫入：先用已載入的 state，否則 await 背景請求；
     // 若背景請求失敗，最後再即時重試一次，把缺標籤的機率降到最低。
@@ -306,6 +348,21 @@ function GratitudePage() {
     })()
 
     return entryId
+  }
+
+  const saveEntry = async (): Promise<string | null> => {
+    if (savedEntryId) return savedEntryId
+    // 已在進行中就回傳同一個 promise，避免連點造成重複寫入。
+    // savedEntryId 是非同步 state，光靠它擋不住同一輪的併發呼叫。
+    if (savePromiseRef.current) return savePromiseRef.current
+    const p = performSave()
+    savePromiseRef.current = p
+    try {
+      return await p
+    } finally {
+      // 成功時 savedEntryId 已設定，會擋下後續呼叫；失敗時清掉以允許重試。
+      savePromiseRef.current = null
+    }
   }
 
   // CELEBRATE 階段的「隱私設定」：日記在進入此階段前就已寫入 DB，
@@ -974,7 +1031,20 @@ function SummaryStage({
 }) {
   const shareCardRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
+  // 送出中狀態：按下「下一步」後立即鎖住按鈕，避免使用者見畫面沒反應就連點，
+  // 造成同一篇日記被寫入多筆（後臺看到重複貼文）。
+  const [submitting, setSubmitting] = useState(false)
   const date = useMemo(() => formatDate(todayDate()), [])
+
+  const handleContinue = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await onContinue()
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
 
@@ -1031,7 +1101,8 @@ function SummaryStage({
       {/* 返回鍵：編輯模式回上一頁改日記、唯讀模式回結束頁 */}
       <button
         onClick={onBack}
-        className="mb-5 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        disabled={submitting}
+        className="mb-5 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90 disabled:opacity-50"
         aria-label={mode === 'edit' ? '返回編輯日記' : '返回'}
       >
         <BackIcon />
@@ -1110,10 +1181,11 @@ function SummaryStage({
         </PrimaryCta>
         {mode === 'edit' ? (
           <button
-            onClick={onContinue}
-            className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98]"
+            onClick={handleContinue}
+            disabled={submitting}
+            className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            下一步：完成這次練習
+            {submitting ? '處理中…' : '下一步：完成這次練習'}
           </button>
         ) : (
           <button
