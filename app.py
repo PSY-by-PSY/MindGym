@@ -596,7 +596,7 @@ async def save_gratitude(
         user_id = await get_user_id(token)
 
         msg = await claude().messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=256,
             system="你是一位心理學分析助手，回應請使用繁體中文，且只回傳 JSON，不要加任何前言或 markdown。",
             messages=[{
@@ -623,7 +623,7 @@ async def save_gratitude(
                 ),
             }],
         )
-        meter_claude("gratitude", "claude-sonnet-4-6", msg.usage, user_id)
+        meter_claude("gratitude", "claude-haiku-4-5-20251001", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -674,7 +674,7 @@ async def tag_gratitude_targets(
         user_id = await get_user_id(token)
 
         msg = await claude().messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=256,
             system="你是心理學分析助手，只回傳 JSON，不要加任何前言或 markdown。",
             messages=[{
@@ -696,7 +696,7 @@ async def tag_gratitude_targets(
                 ),
             }],
         )
-        meter_claude("tag-targets", "claude-sonnet-4-6", msg.usage, user_id)
+        meter_claude("tag-targets", "claude-haiku-4-5-20251001", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -726,7 +726,7 @@ async def gratitude_summary(
         )
 
         msg = await claude().messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=512,
             system="你是一位心理學取向的健心教練，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳 JSON，不要加任何前言或 markdown。",
             messages=[{
@@ -746,7 +746,7 @@ async def gratitude_summary(
                 ),
             }],
         )
-        meter_claude("gratitude-summary", "claude-sonnet-4-6", msg.usage, user_id)
+        meter_claude("gratitude-summary", "claude-haiku-4-5-20251001", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -843,7 +843,7 @@ async def extract_keywords(
 
     try:
         msg = await claude().messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=1024,
             messages=[{
                 "role": "user",
@@ -872,7 +872,7 @@ async def extract_keywords(
                 ),
             }],
         )
-        meter_claude("extract-keywords", "claude-sonnet-4-6", msg.usage, user_id)
+        meter_claude("extract-keywords", "claude-haiku-4-5-20251001", msg.usage, user_id)
 
         raw = msg.content[0].text if msg.content else ""
         match = re.search(r'\{.*\}', raw, re.DOTALL)

@@ -56,6 +56,38 @@ const DIFFICULTY_PROMPTS: Record<Difficulty, string> = {
   advanced: '這件事的哪個部分讓你感到感謝？它對你的意義是什麼？',
 }
 
+const FALLBACK_SUMMARIES: SummaryResult[] = [
+  {
+    emotional_summary: '你今天記下了珍貴的感恩，這份覺察本身就是一種溫柔的力量。',
+    action_suggestion: '試著在今天再回味這三件事一次，讓正向感受在心中多停留一會兒。',
+  },
+  {
+    emotional_summary: '能寫下感恩的事，代表你正在練習把目光放在生活中的光亮處。',
+    action_suggestion: '今天找一個安靜的時刻，深呼吸，把這份溫暖帶進你的身體。',
+  },
+  {
+    emotional_summary: '每一次記下感恩，大腦就多一次尋找美好事物的練習。',
+    action_suggestion: '明天試著更具體描述其中一件事，問自己「它讓我感受到什麼？」',
+  },
+  {
+    emotional_summary: '今天的三件感恩，是你送給明天自己的一份小禮物。',
+    action_suggestion: '如果其中有一件感恩涉及到某個人，不妨讓對方知道你的感謝。',
+  },
+  {
+    emotional_summary: '感恩練習最珍貴的地方，在於它讓你習慣把注意力放在值得珍惜的事。',
+    action_suggestion: '今天睡前再想想：這三件事有沒有讓你想到一個值得感謝的人？',
+  },
+]
+
+function pickFallbackSummary(items: GratitudeItems): SummaryResult {
+  const key = items.item_1 + items.item_2 + items.item_3
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0
+  }
+  return FALLBACK_SUMMARIES[Math.abs(hash) % FALLBACK_SUMMARIES.length]
+}
+
 const PERMA_BOOSTS = [
   {
     key: 'P',
@@ -1095,6 +1127,9 @@ function SummaryStage({
 
   const entries = [items.item_1, items.item_2, items.item_3]
   const isLoading = summaryResult === null && !summaryError
+  const fallbackResult = summaryError ? pickFallbackSummary(items) : null
+  const displayResult = summaryResult ?? fallbackResult
+  const isFallback = !summaryResult && !!fallbackResult
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 md:px-10">
@@ -1139,22 +1174,23 @@ function SummaryStage({
         </p>
         {isLoading ? (
           <SummarySkeleton />
-        ) : summaryError ? (
-          <p className="text-sm leading-relaxed text-muted-foreground">{summaryError}</p>
-        ) : summaryResult ? (
+        ) : displayResult ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm leading-relaxed text-foreground">
-              {summaryResult.emotional_summary}
+              {displayResult.emotional_summary}
             </p>
-            {summaryResult.action_suggestion && (
+            {displayResult.action_suggestion && (
               <div className="rounded-2xl bg-white/40 px-3.5 py-2.5">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary/60 mb-1">
                   行動建議
                 </p>
                 <p className="text-sm leading-relaxed text-foreground/80">
-                  {summaryResult.action_suggestion}
+                  {displayResult.action_suggestion}
                 </p>
               </div>
+            )}
+            {isFallback && (
+              <p className="text-[10px] text-muted-foreground/50">※ 安安今天稍忙，以通用回饋陪伴你</p>
             )}
           </div>
         ) : null}
@@ -1168,15 +1204,15 @@ function SummaryStage({
       >
         <ShareCard
           items={items}
-          emotionalSummary={summaryResult?.emotional_summary ?? null}
-          actionSuggestion={summaryResult?.action_suggestion ?? null}
+          emotionalSummary={displayResult?.emotional_summary ?? null}
+          actionSuggestion={displayResult?.action_suggestion ?? null}
           date={date}
           streak={streak}
         />
       </div>
 
       <div className="flex flex-col gap-3 pb-4">
-        <PrimaryCta onClick={handleShare} disabled={sharing || !summaryResult} variant="done">
+        <PrimaryCta onClick={handleShare} disabled={sharing || !displayResult} variant="done">
           {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
         </PrimaryCta>
         {mode === 'edit' ? (

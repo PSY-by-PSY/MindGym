@@ -60,14 +60,20 @@ const SCORING_PHASES = [
 
 function LoadingScreen() {
   const [phase, setPhase] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
   const frameRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     frameRef.current = setInterval(
       () => setPhase((p) => (p + 1) % SCORING_PHASES.length),
       1400,
     )
-    return () => { if (frameRef.current) clearInterval(frameRef.current) }
+    elapsedRef.current = setInterval(() => setElapsed((e) => e + 1), 1000)
+    return () => {
+      if (frameRef.current) clearInterval(frameRef.current)
+      if (elapsedRef.current) clearInterval(elapsedRef.current)
+    }
   }, [])
 
   return (
@@ -130,7 +136,13 @@ function LoadingScreen() {
       >
         {SCORING_PHASES[phase]}
       </div>
-      <div style={{ fontSize: 12, color: '#959595' }}>大約再等 10 秒…</div>
+      <div style={{ fontSize: 12, color: '#959595' }}>
+        {elapsed < 12
+          ? '大約再等 10 秒…'
+          : elapsed < 35
+          ? 'AI 正在深度思考，快好了…'
+          : '伺服器剛喚醒中，再給一點時間 ☕'}
+      </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 24 }}>
         {[0, 1, 2, 3].map((i) => (
           <div
@@ -149,9 +161,60 @@ function LoadingScreen() {
   )
 }
 
+function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () => void }) {
+  return (
+    <div
+      style={{
+        minHeight: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+        background: '#fff',
+        textAlign: 'center',
+      }}
+    >
+      <div style={{ fontSize: 48, marginBottom: 16 }}>{isTimeout ? '☕' : '😓'}</div>
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 800,
+          color: '#151515',
+          marginBottom: 10,
+          letterSpacing: -0.2,
+        }}
+      >
+        {isTimeout ? '伺服器剛睡醒了' : '出了點小狀況'}
+      </div>
+      <div style={{ fontSize: 14, color: '#666', lineHeight: 1.6, marginBottom: 32, maxWidth: 280 }}>
+        {isTimeout
+          ? '已成功喚醒伺服器，再試一次通常就能順利完成。'
+          : '網路或 AI 服務暫時有問題，稍後再試試看。'}
+      </div>
+      <button
+        onClick={onRetry}
+        style={{
+          background: '#E26D5C',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 100,
+          padding: '14px 40px',
+          fontSize: 15,
+          fontWeight: 700,
+          cursor: 'pointer',
+          letterSpacing: 0.4,
+        }}
+      >
+        重新嘗試
+      </button>
+    </div>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 
-type InMindScreen = 'intro' | 'quiz' | 'loading' | 'report'
+type InMindScreen = 'intro' | 'quiz' | 'loading' | 'report' | 'error'
 
 function OnboardingPage() {
   const { session } = Route.useRouteContext()
@@ -163,11 +226,16 @@ function OnboardingPage() {
   const [answers, setAnswers] = useState<NarrativeAnswers>({ P: '', E: '', R: '', M: '', A: '' })
   const [report, setReport] = useState<InMindReport | null>(latestReport ?? null)
   const [apiError, setApiError] = useState('')
+  const [isTimeoutError, setIsTimeoutError] = useState(false)
 
   async function handleSubmit(finalAnswers: NarrativeAnswers) {
     setAnswers(finalAnswers)
     setScreen('loading')
     setApiError('')
+    setIsTimeoutError(false)
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 90_000)
     try {
       const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
       const res = await fetch(`${apiUrl}/api/report`, {
@@ -177,6 +245,7 @@ function OnboardingPage() {
           'Authorization': `Bearer ${session!.access_token}`,
         },
         body: JSON.stringify(finalAnswers),
+        signal: controller.signal,
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -188,8 +257,12 @@ function OnboardingPage() {
         body_type: data.body_type_label,
       })
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : '未知錯誤')
-      setScreen('quiz')
+      const timedOut = err instanceof DOMException && err.name === 'AbortError'
+      setIsTimeoutError(timedOut)
+      setApiError(timedOut ? 'TIMEOUT' : (err instanceof Error ? err.message : '未知錯誤'))
+      setScreen('error')
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -215,6 +288,17 @@ function OnboardingPage() {
     return (
       <div className="mx-auto max-w-[430px]">
         <LoadingScreen />
+      </div>
+    )
+  }
+
+  if (screen === 'error') {
+    return (
+      <div className="mx-auto max-w-[430px]">
+        <ErrorScreen
+          isTimeout={isTimeoutError}
+          onRetry={() => handleSubmit(answers)}
+        />
       </div>
     )
   }
