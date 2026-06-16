@@ -107,6 +107,14 @@ const modules = [
   },
 ]
 
+// 工作坊專屬練習：配合線上工作坊的限定模塊，首次點擊需輸入工作坊密碼
+// （密碼閘門由各模塊路由的 WorkshopGate 處理，這裡只是入口卡片）。
+const workshopModules = [
+  { emoji: '🃏', name: '暖身卡牌', tile: 'bg-tile-peach', to: '/app/workshop/warmup' as const },
+  { emoji: '🪞', name: '找尋真實自我', tile: 'bg-tile-mint', to: '/app/workshop/authentic-self' as const },
+  { emoji: '🌅', name: '生命最後一天', tile: 'bg-tile-blue', to: '/app/workshop/last-day' as const },
+]
+
 function HomePage() {
   const { userName } = Route.useRouteContext()
 
@@ -171,6 +179,9 @@ function HomePage() {
         </svg>
       </Link>
 
+      {/* 工作坊專屬練習 */}
+      <WorkshopSection />
+
       {/* 訓練中心 */}
       <TrainingCenter />
     </div>
@@ -226,6 +237,44 @@ function LockedGridTile({ emoji, name, tile, perma }: GridTileProps) {
         ))}
       </div>
     </div>
+  )
+}
+
+// ─── Workshop Section ─────────────────────────────────────────────────────────
+
+function WorkshopSection() {
+  return (
+    <section className="mt-10">
+      <h2 className="mb-1.5 text-2xl font-extrabold leading-tight text-foreground">
+        工作坊專屬練習<br />Workshop Exclusive Practice
+      </h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        配合線上工作坊的限定練習，首次進入需輸入工作坊密碼。
+      </p>
+      <div className="grid grid-cols-3 gap-3">
+        {workshopModules.map((mod) => (
+          <WorkshopTile key={mod.name} {...mod} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+type WorkshopTileProps = (typeof workshopModules)[number]
+
+function WorkshopTile({ emoji, name, tile, to }: WorkshopTileProps) {
+  return (
+    <Link
+      to={to}
+      onClick={() => track('module_opened', { module: name })}
+      className={`relative flex w-full flex-col items-center gap-2 rounded-3xl p-4 shadow-soft transition active:scale-[0.97] ${tile}`}
+    >
+      <span className="absolute right-2 top-2 rounded-full bg-black/15 px-1.5 py-0.5 text-[9px] font-extrabold text-white">
+        🔒 限定
+      </span>
+      <span className="text-4xl leading-none">{emoji}</span>
+      <p className="text-center text-xs font-extrabold leading-tight text-foreground">{name}</p>
+    </Link>
   )
 }
 
