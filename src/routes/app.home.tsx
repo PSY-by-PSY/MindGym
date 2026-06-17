@@ -57,15 +57,8 @@ const permaColors: Record<string, string> = {
   A: 'bg-tile-peach',
 }
 
+// 順序：感恩日記 → 三件好事 → 過程目標覺察 → 自我慈悲 → 正念冥想
 const modules = [
-  {
-    emoji: '☑️',
-    name: '三件好事',
-    tile: 'bg-tile-peach',
-    to: '/app/placeholder' as const,
-    searchName: '三件好事',
-    perma: [{ letter: 'P', label: '情緒力' }],
-  },
   {
     emoji: '⭐',
     name: '感恩日記',
@@ -79,12 +72,12 @@ const modules = [
     ],
   },
   {
-    emoji: '❤️',
-    name: '自我慈悲',
-    tile: 'bg-tile-pink',
+    emoji: '☑️',
+    name: '三件好事',
+    tile: 'bg-tile-peach',
     to: '/app/placeholder' as const,
-    searchName: '自我慈悲',
-    perma: [{ letter: 'E', label: '投入力' }],
+    searchName: '三件好事',
+    perma: [{ letter: 'P', label: '情緒力' }],
   },
   {
     emoji: '👁️',
@@ -96,6 +89,14 @@ const modules = [
       { letter: 'M', label: '意義力' },
       { letter: 'A', label: '成就力' },
     ],
+  },
+  {
+    emoji: '❤️',
+    name: '自我慈悲',
+    tile: 'bg-tile-pink',
+    to: '/app/placeholder' as const,
+    searchName: '自我慈悲',
+    perma: [{ letter: 'E', label: '投入力' }],
   },
   {
     emoji: '🕐',
@@ -127,24 +128,22 @@ function HomePage() {
         </h1>
       </header>
 
-      {/* 訓練模組格狀菜單 */}
+      {/* 訓練模組—大按鈕、左右滑動瀏覽 */}
       <h2 className="mb-4 text-2xl font-extrabold text-foreground leading-tight">
         健心訓練模組<br />PSY by PSY Training Modules
       </h2>
-      <div className="grid grid-cols-2 gap-3">
-        {modules.slice(0, 4).map((mod) =>
-          mod.name === '感恩日記' ? (
-            <GridTile key={mod.name} {...mod} />
-          ) : (
-            <LockedGridTile key={mod.name} {...mod} />
-          ),
-        )}
-        <div className="col-span-2 flex justify-center">
-          <div className="w-[calc(50%-6px)]">
-            <LockedGridTile {...modules[4]} />
+      <div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 no-scrollbar md:-mx-10 md:px-10">
+        {modules.map((mod) => (
+          <div key={mod.name} className="w-[70%] max-w-[260px] shrink-0 snap-center">
+            {mod.name === '感恩日記' ? (
+              <GridTile {...mod} />
+            ) : (
+              <LockedGridTile {...mod} />
+            )}
           </div>
-        </div>
+        ))}
       </div>
+      <p className="mt-2 text-center text-xs text-muted-foreground">← 左右滑動瀏覽更多模組 →</p>
 
       {/* 感恩日記快速啟動橫幅 */}
       <Link
@@ -153,14 +152,9 @@ function HomePage() {
       >
         <div className="flex items-center gap-3.5">
           <span className="text-3xl leading-none">⭐</span>
-          <div>
-            <p className="text-sm font-extrabold leading-tight text-primary-foreground">
-              感恩日記練習
-            </p>
-            <p className="mt-0.5 text-xs text-primary-foreground/70">
-              點擊直接開始今日練習
-            </p>
-          </div>
+          <p className="text-lg font-extrabold leading-tight text-white">
+            開始今日練習
+          </p>
         </div>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -200,10 +194,10 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
     <Link
       {...(linkProps as Parameters<typeof Link>[0])}
       onClick={() => track('module_opened', { module: name })}
-      className={`flex w-full flex-col items-center gap-2.5 rounded-3xl p-4 shadow-soft transition active:scale-[0.97] ${tile}`}
+      className={`flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl p-7 shadow-soft transition active:scale-[0.97] ${tile}`}
     >
-      <span className="text-4xl leading-none">{emoji}</span>
-      <p className="text-center text-sm font-extrabold leading-tight text-foreground">{name}</p>
+      <span className="text-6xl leading-none">{emoji}</span>
+      <p className="text-center text-lg font-extrabold leading-tight text-foreground">{name}</p>
       <div className="flex flex-wrap justify-center gap-1">
         {perma.map(({ letter, label }) => (
           <span
@@ -220,12 +214,12 @@ function GridTile({ emoji, name, tile, to, searchName, perma }: GridTileProps) {
 
 function LockedGridTile({ emoji, name, tile, perma }: GridTileProps) {
   return (
-    <div className={`relative flex w-full flex-col items-center gap-2.5 rounded-3xl p-4 shadow-soft grayscale opacity-50 cursor-not-allowed ${tile}`}>
+    <div className={`relative flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl p-7 shadow-soft grayscale opacity-50 cursor-not-allowed ${tile}`}>
       <span className="absolute right-3 top-3 rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
         🔒 施工中
       </span>
-      <span className="text-4xl leading-none">{emoji}</span>
-      <p className="text-center text-sm font-extrabold leading-tight text-foreground">{name}</p>
+      <span className="text-6xl leading-none">{emoji}</span>
+      <p className="text-center text-lg font-extrabold leading-tight text-foreground">{name}</p>
       <div className="flex flex-wrap justify-center gap-1">
         {perma.map(({ letter, label }) => (
           <span
