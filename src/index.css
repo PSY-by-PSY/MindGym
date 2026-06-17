@@ -41,6 +41,17 @@ body {
   color: var(--foreground);
 }
 
+/* 字體大小設定（無障礙大字模式）。所有 rem 字級會隨 html font-size 一起放大。 */
+html {
+  font-size: 16px;
+}
+html[data-font-scale='large'] {
+  font-size: 18px;
+}
+html[data-font-scale='xlarge'] {
+  font-size: 20px;
+}
+
 @keyframes float-soft {
   0%,
   100% {

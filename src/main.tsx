@@ -5,7 +5,11 @@ import type { Session } from '@supabase/supabase-js'
 import { routeTree } from './routeTree.gen'
 import { supabase } from './lib/supabase'
 import { initAnalytics, identifyUser, resetUser, trackPageview } from './lib/analytics'
+import { getFontScale, applyFontScale } from './lib/fontScale'
 import './index.css'
+
+// 套用使用者先前選的字體大小（渲染前套用，避免閃爍）
+applyFontScale(getFontScale())
 
 // 啟動 PostHog 行為分析
 initAnalytics()

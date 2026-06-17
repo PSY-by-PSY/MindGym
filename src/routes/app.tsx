@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, Outlet, Link, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
+import { type FontScale, FONT_SCALE_OPTIONS, getFontScale, setFontScale } from '../lib/fontScale'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -25,6 +26,12 @@ function AppShell() {
 function TopHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [fontScale, setFontScaleState] = useState<FontScale>(() => getFontScale())
+
+  const changeFontScale = (scale: FontScale) => {
+    setFontScale(scale)
+    setFontScaleState(scale)
+  }
 
   // 安裝成 Web App（standalone）後沒有瀏覽器網址列可重整。先前用 router.invalidate()
   // 只重跑 loader，但元件內以 useState 快取的 loader 資料不會更新，畫面仍是舊的。
@@ -123,6 +130,38 @@ function TopHeader() {
             icon="📸"
             label="IG 追蹤我們"
           />
+
+          <div className="my-2 border-t border-border" />
+
+          {/* 字體大小（無障礙大字模式） */}
+          <div className="rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">🔠</span>
+              <span className="font-bold text-foreground">字體大小</span>
+            </div>
+            <div className="mt-3 flex gap-2">
+              {FONT_SCALE_OPTIONS.map((opt) => {
+                const active = fontScale === opt.value
+                const sizeClass =
+                  opt.value === 'standard' ? 'text-sm' : opt.value === 'large' ? 'text-base' : 'text-lg'
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => changeFontScale(opt.value)}
+                    aria-pressed={active}
+                    className={`flex-1 rounded-xl px-2 py-2 font-extrabold transition active:scale-95 ${sizeClass} ${
+                      active ? 'bg-foreground text-background' : 'bg-muted text-foreground/70'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              放大全站文字，方便閱讀。
+            </p>
+          </div>
         </nav>
       </aside>
     </>
