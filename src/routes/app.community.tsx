@@ -388,14 +388,38 @@ function DailyModal({
 }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   const avatar = avatarFor(entry.anon_name, 0, entry.avatar)
-  const [mode, setMode] = useState<'view' | 'comment'>('view')
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [sentCount, setSentCount] = useState(0)
+  const [like, setLike] = useState<LikeInfo>({ count: 0, liked: false })
+  const [liking, setLiking] = useState(false)
 
-  function enterCommentMode() {
-    setMode('comment')
-    setTimeout(() => textareaRef.current?.focus(), 80)
+  // 載入這篇貼文目前的按讚狀態（讓 modal 內可直接按讚）
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('likes').select('user_id').eq('entry_id', entryId)
+      if (cancelled) return
+      const rows = data ?? []
+      setLike({
+        count: rows.length,
+        liked: userId ? rows.some((r) => r.user_id === userId) : false,
+      })
+    })()
+    return () => { cancelled = true }
+  }, [entryId, userId])
+
+  async function toggleLike() {
+    if (!userId || liking) return
+    setLiking(true)
+    if (like.liked) {
+      setLike({ count: like.count - 1, liked: false })
+      await supabase.from('likes').delete().eq('entry_id', entryId).eq('user_id', userId)
+    } else {
+      setLike({ count: like.count + 1, liked: true })
+      await supabase.from('likes').insert({ entry_id: entryId, user_id: userId })
+    }
+    setLiking(false)
   }
 
   async function submitComment() {
@@ -409,7 +433,8 @@ function DailyModal({
       .single()
     if (!error && data) {
       onCommentAdded(data as Comment)
-      onClose()
+      setCommentText('')
+      setSentCount((c) => c + 1)
     }
     setSubmitting(false)
   }
@@ -422,14 +447,18 @@ function DailyModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 shadow-soft"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // 背景點擊不關閉：使用者必須按右上角的叉叉才能離開
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+      <div className="relative max-h-[90vh] w-full max-w-sm animate-fade-up overflow-y-auto rounded-3xl bg-card p-6 shadow-soft">
+        {/* 右上角關閉叉叉 */}
+        <button
+          onClick={onClose}
+          aria-label="關閉"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted-foreground transition hover:bg-muted active:scale-90"
+        >
+          ✕
+        </button>
+
         <p className="mb-4 text-center text-sm font-medium text-muted-foreground">
           今日社群動態
         </p>
@@ -465,61 +494,54 @@ function DailyModal({
           ))}
         </ul>
 
-        {mode === 'view' ? (
-          <>
-            <p className="mt-5 text-center text-sm font-semibold text-foreground">
-              請給對方一些回饋吧 💬
-            </p>
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
-              >
-                先看看
-              </button>
-              <button
-                onClick={enterCommentMode}
-                className="flex-1 rounded-2xl bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
-              >
-                去留言
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="mt-5 flex flex-col gap-3">
-            <p className="text-center text-sm font-semibold text-foreground">留下你的鼓勵 💬</p>
-            {userId ? (
-              <>
+        {/* 直接按讚 */}
+        <div className="mt-4 flex items-center gap-3 border-t border-border pt-3">
+          <button
+            onClick={toggleLike}
+            disabled={!userId || liking}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition
+              ${like.liked ? 'bg-tile-pink text-foreground' : 'text-muted-foreground hover:bg-muted'}
+              ${!userId ? 'cursor-default opacity-50' : ''}`}
+          >
+            <span className={`text-base leading-none transition-transform ${liking ? 'scale-110' : ''}`}>
+              {like.liked ? '❤️' : '🤍'}
+            </span>
+            <span>{like.count > 0 ? like.count : '按讚'}</span>
+          </button>
+        </div>
+
+        {/* 直接留言（不需要先按任何按鈕） */}
+        <div className="mt-3 flex flex-col gap-2">
+          <p className="text-sm font-semibold text-foreground">留下你的鼓勵 💬</p>
+          {userId ? (
+            <>
+              {sentCount > 0 && (
+                <p className="text-xs font-semibold text-primary">
+                  已送出 {sentCount} 則留言，謝謝你的鼓勵 🎉
+                </p>
+              )}
+              <div className="flex items-end gap-2">
                 <textarea
-                  ref={textareaRef}
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="留下鼓勵的話… (Enter 送出)"
-                  rows={3}
-                  className="w-full resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  rows={2}
+                  className="flex-1 resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setMode('view')}
-                    className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
-                  >
-                    返回
-                  </button>
-                  <button
-                    onClick={submitComment}
-                    disabled={!commentText.trim() || submitting}
-                    className="flex-1 rounded-2xl bg-gradient-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
-                  >
-                    送出
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="text-center text-xs text-muted-foreground">請先登入才能留言</p>
-            )}
-          </div>
-        )}
+                <button
+                  onClick={submitComment}
+                  disabled={!commentText.trim() || submitting}
+                  className="shrink-0 rounded-2xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
+                >
+                  送出
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">請先登入才能留言</p>
+          )}
+        </div>
       </div>
     </div>
   )
