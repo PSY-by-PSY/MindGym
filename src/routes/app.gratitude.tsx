@@ -464,6 +464,7 @@ function GratitudePage() {
       return (
         <SummaryStage
           items={items}
+          selectedDate={selectedDate}
           summaryResult={summaryResult}
           summaryError={summaryError}
           streak={summaryStreak}
@@ -492,7 +493,6 @@ function GratitudePage() {
           onNavigate={handleFinalSave}
           onBack={() => setStage('SUMMARY')}
           streakOverride={celebrateStreak}
-          savedEntryId={savedEntryId}
         />
       )
   }
@@ -1046,6 +1046,7 @@ function BackIcon() {
 
 function SummaryStage({
   items,
+  selectedDate,
   summaryResult,
   summaryError,
   streak,
@@ -1054,6 +1055,7 @@ function SummaryStage({
   onContinue,
 }: {
   items: GratitudeItems
+  selectedDate: Date
   summaryResult: SummaryResult | null
   summaryError: string | null
   streak: number | null
@@ -1066,7 +1068,8 @@ function SummaryStage({
   // 送出中狀態：按下「下一步」後立即鎖住按鈕，避免使用者見畫面沒反應就連點，
   // 造成同一篇日記被寫入多筆（後臺看到重複貼文）。
   const [submitting, setSubmitting] = useState(false)
-  const date = useMemo(() => formatDate(todayDate()), [])
+  // 日期跟著使用者在書寫頁選的「紀錄日期」走，而非永遠用今天（修正分享圖／回顧頁日期不一致）
+  const date = useMemo(() => formatDate(selectedDate), [selectedDate])
 
   const handleContinue = async () => {
     if (submitting) return
@@ -1103,7 +1106,7 @@ function SummaryStage({
           margin: '0',
         },
       })
-      const filename = `gratitude-${isoDate(todayDate())}.png`
+      const filename = `gratitude-${isoDate(selectedDate)}.png`
       if (isMobile) {
         const blob = await fetch(dataUrl).then((r) => r.blob())
         const file = new File([blob], filename, { type: 'image/png' })
@@ -1173,7 +1176,7 @@ function SummaryStage({
           安安回饋
         </p>
         {isLoading ? (
-          <SummarySkeleton />
+          <FeedbackLoading />
         ) : displayResult ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm leading-relaxed text-foreground">
@@ -1211,37 +1214,78 @@ function SummaryStage({
         />
       </div>
 
-      <div className="flex flex-col gap-3 pb-4">
-        <PrimaryCta onClick={handleShare} disabled={sharing || !displayResult} variant="done">
-          {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
-        </PrimaryCta>
-        {mode === 'edit' ? (
+      {/* 回饋生成前：不顯示「下載圖片／下一步」，只提示請耐心等候 */}
+      {isLoading ? (
+        <p className="pb-6 text-center text-sm font-bold leading-relaxed text-muted-foreground">
+          ⏳ 等回饋生成完之後，才能進行下一步喔！
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3 pb-4">
+          {/* 下載圖片：白底黑字 */}
           <button
-            onClick={handleContinue}
-            disabled={submitting}
-            className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+            onClick={handleShare}
+            disabled={sharing || !displayResult}
+            className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {submitting ? '處理中…' : '下一步：完成這次練習'}
+            {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
           </button>
-        ) : (
-          <button
-            onClick={onBack}
-            className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98]"
-          >
-            返回完成頁面
-          </button>
-        )}
-      </div>
+          {mode === 'edit' ? (
+            /* 下一步：藍底白字 */
+            <button
+              onClick={handleContinue}
+              disabled={submitting}
+              className="h-14 w-full rounded-full bg-gradient-primary text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+            >
+              {submitting ? '處理中…' : '下一步'}
+            </button>
+          ) : (
+            <button
+              onClick={onBack}
+              className="h-14 w-full rounded-full bg-card text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98]"
+            >
+              返回完成頁面
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-function SummarySkeleton() {
+const FEEDBACK_LOADING_MESSAGES = [
+  '正在分析你的感恩日記…',
+  '安安正在為你生成專屬回饋…',
+  '正在喚醒 AI 教練…',
+  '正在啟動伺服器（首次回應可能需要多等幾秒）…',
+  '快好了，謝謝你的耐心等待 💛',
+]
+
+// AI 回饋生成期間的等待畫面：循環播放訊息，讓使用者不會覺得卡住或無聊。
+function FeedbackLoading() {
+  const [msgIndex, setMsgIndex] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMsgIndex((i) => (i + 1) % FEEDBACK_LOADING_MESSAGES.length)
+    }, 2200)
+    return () => clearInterval(timer)
+  }, [])
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="h-3 w-full animate-pulse rounded-full bg-primary-soft" />
-      <div className="h-3 w-11/12 animate-pulse rounded-full bg-primary-soft" />
-      <div className="h-3 w-9/12 animate-pulse rounded-full bg-primary-soft" />
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="flex gap-1">
+          <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-primary" />
+        </span>
+        <p key={msgIndex} className="animate-fade-up text-sm font-bold leading-relaxed text-foreground">
+          {FEEDBACK_LOADING_MESSAGES[msgIndex]}
+        </p>
+      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        等回饋生成完之後，才能進行下一步喔！
+      </p>
     </div>
   )
 }
@@ -1474,24 +1518,18 @@ function CelebrateStage({
   onNavigate,
   onBack,
   streakOverride,
-  savedEntryId,
 }: {
   privacy: Privacy
   onPrivacyChange: (v: Privacy) => void
   onNavigate: () => void | Promise<void>
   onBack: () => void
   streakOverride?: number | null
-  savedEntryId?: string | null
 }) {
   const [streak, setStreak] = useState<number | null>(streakOverride ?? null)
   const [todayCount, setTodayCount] = useState<number | null>(null)
   const [targetSegments, setTargetSegments] = useState<{ code: TargetCode; count: number; pct: number }[]>([])
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [showCommentModal, setShowCommentModal] = useState(false)
-  const [commentText, setCommentText] = useState('')
-  const [commentSubmitting, setCommentSubmitting] = useState(false)
-  const [commentDone, setCommentDone] = useState(false)
   // 首次回饋問卷：尚未填過 → 結束練習時先跳問卷
   const [feedbackNeeded, setFeedbackNeeded] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
@@ -1582,28 +1620,6 @@ function CelebrateStage({
     setFeedbackNeeded(false)
     setSaving(true)
     await onNavigate()
-  }
-
-  const handleSubmitComment = async () => {
-    if (!commentText.trim() || !savedEntryId || commentSubmitting) return
-    setCommentSubmitting(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Not authenticated')
-      const { error } = await supabase.from('comments').insert({
-        entry_id: savedEntryId,
-        user_id: session.user.id,
-        content: commentText.trim(),
-      })
-      if (error) throw error
-      setCommentDone(true)
-      setCommentText('')
-    } catch (e) {
-      console.error('[comment submit]', e)
-      alert('留言送出失敗，請稍後再試。')
-    } finally {
-      setCommentSubmitting(false)
-    }
   }
 
   return (
@@ -1768,7 +1784,7 @@ function CelebrateStage({
         </div>
       </div>
 
-      {/* 6-D 三個導航按鈕 */}
+      {/* 6-D 結束練習按鈕 */}
       <div className="flex w-full flex-col gap-3">
         <button
           onClick={() => handleNavigate()}
@@ -1777,72 +1793,10 @@ function CelebrateStage({
         >
           ✅ 結束今天練習
         </button>
-        {savedEntryId && (
-          <button
-            onClick={() => setShowCommentModal(true)}
-            disabled={saving}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-card text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
-          >
-            💬 去留言
-          </button>
-        )}
       </div>
 
       {/* 首次回饋問卷（一題一題問，答完才離開） */}
       {showFeedback && <FirstFeedbackSurvey onDone={handleFeedbackDone} />}
-
-      {/* 留言 Modal */}
-      {showCommentModal && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
-          onClick={() => { if (!commentSubmitting) setShowCommentModal(false) }}
-        >
-          <div
-            className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-soft"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-extrabold text-foreground">留言給大家</p>
-              <button
-                onClick={() => setShowCommentModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-                disabled={commentSubmitting}
-              >
-                ✕
-              </button>
-            </div>
-            {commentDone ? (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <span className="text-3xl">🎉</span>
-                <p className="text-sm font-bold text-foreground">留言送出成功！</p>
-                <button
-                  onClick={() => setShowCommentModal(false)}
-                  className="mt-2 h-11 w-full rounded-full bg-primary text-sm font-extrabold text-white"
-                >
-                  關閉
-                </button>
-              </div>
-            ) : (
-              <>
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="分享你今天的感受或想法…"
-                  rows={4}
-                  className="w-full resize-none rounded-2xl bg-muted/50 p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <button
-                  onClick={handleSubmitComment}
-                  disabled={!commentText.trim() || commentSubmitting}
-                  className="mt-3 h-12 w-full rounded-full bg-primary text-sm font-extrabold text-white transition active:scale-[0.98] disabled:opacity-50"
-                >
-                  {commentSubmitting ? '送出中…' : '送出留言'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* "?" 說明 Modal */}
       {showInfoModal && (
