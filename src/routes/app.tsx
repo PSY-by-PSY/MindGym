@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { type FontScale, FONT_SCALE_OPTIONS, getFontScale, setFontScale } from '../lib/fontScale'
 import { fetchNotifications, getLastSeen, setLastSeen, type NotificationItem } from '../lib/notifications'
@@ -191,6 +191,8 @@ function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([])
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeenState] = useState<string>('1970-01-01T00:00:00.000Z')
+  // 上次輪詢時最新一筆通知的時間；用來判斷哪些是「新」互動，避免首次載入就狂跳系統通知
+  const baselineRef = useRef<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -206,7 +208,26 @@ function NotificationBell() {
     const load = async () => {
       try {
         const list = await fetchNotifications(userId)
-        if (!cancelled) setItems(list)
+        if (cancelled) return
+        setItems(list)
+
+        // 取得使用者同意後，App 開著時若有新的按讚/留言，主動發系統通知
+        const maxTime = list.length > 0 ? list[0].createdAt : null
+        if (baselineRef.current === null) {
+          baselineRef.current = maxTime ?? '1970-01-01T00:00:00.000Z'
+        } else if (maxTime && maxTime > baselineRef.current) {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            list
+              .filter((i) => i.createdAt > (baselineRef.current as string))
+              .slice(0, 3)
+              .forEach((i) => {
+                try {
+                  new Notification('PSY by PSY', { body: i.title })
+                } catch { /* 部分平台需 SW，忽略 */ }
+              })
+          }
+          baselineRef.current = maxTime
+        }
       } catch (e) {
         console.error('[notifications]', e)
       }

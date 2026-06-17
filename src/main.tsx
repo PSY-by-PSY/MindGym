@@ -6,6 +6,7 @@ import { routeTree } from './routeTree.gen'
 import { supabase } from './lib/supabase'
 import { initAnalytics, identifyUser, resetUser, trackPageview } from './lib/analytics'
 import { getFontScale, applyFontScale } from './lib/fontScale'
+import { NotificationConsent } from './components/NotificationConsent'
 import './index.css'
 
 // 套用使用者先前選的字體大小（渲染前套用，避免閃爍）
@@ -67,7 +68,12 @@ function App() {
     )
   }
 
-  return <RouterProvider router={router} context={{ session }} />
+  return (
+    <>
+      <RouterProvider router={router} context={{ session }} />
+      <NotificationConsent />
+    </>
+  )
 }
 
 createRoot(document.getElementById('root')!).render(
