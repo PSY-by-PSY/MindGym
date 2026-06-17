@@ -1,0 +1,4 @@
+# 後端套件已移至 backend/，但 Render 的 build 指令在 repo 根目錄執行
+# （pip install -r requirements.txt）。這支轉接檔指向 backend/requirements.txt，
+# 讓部署不必更動 Render 設定。實際清單請編輯 backend/requirements.txt。
+-r backend/requirements.txt
