@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Outlet, Link, useRouter, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, redirect, Outlet, Link, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 
 export const Route = createFileRoute('/app')({
@@ -24,19 +24,28 @@ function AppShell() {
 
 function TopHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const router = useRouter()
   const [refreshing, setRefreshing] = useState(false)
 
-  // 安裝成 Web App（standalone）後沒有瀏覽器網址列可重整，這顆按鈕讓使用者
-  // 隨時刷新目前畫面的資料（例如改完名字後）。用 router.invalidate() 重跑
-  // 所有 loader，比整頁 reload 更順、也不會白屏。
+  // 安裝成 Web App（standalone）後沒有瀏覽器網址列可重整。先前用 router.invalidate()
+  // 只重跑 loader，但元件內以 useState 快取的 loader 資料不會更新，畫面仍是舊的。
+  // 改成真正「洗掉」舊內容：先解除 PWA service worker、清掉所有快取，再整頁重新載入，
+  // 確保抓到最新前端與資料。
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     try {
-      await router.invalidate()
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map((r) => r.unregister()))
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map((k) => caches.delete(k)))
+      }
+    } catch (e) {
+      console.error('[refresh]', e)
     } finally {
-      setRefreshing(false)
+      window.location.reload()
     }
   }
 
@@ -113,13 +122,6 @@ function TopHeader() {
             href="https://www.instagram.com/psy_by_psy/"
             icon="📸"
             label="IG 追蹤我們"
-          />
-          <div className="my-2 border-t border-border" />
-          <DrawerLink
-            to="/app/profile"
-            icon="👤"
-            label="個人資料編輯"
-            onClick={() => setDrawerOpen(false)}
           />
         </nav>
       </aside>
