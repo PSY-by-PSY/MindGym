@@ -216,9 +216,12 @@ async function fetchSupporting(
 }
 
 export const Route = createFileRoute('/app/community')({
-  validateSearch: (search: Record<string, unknown>): { showEntry?: number } => {
+  validateSearch: (search: Record<string, unknown>): { showEntry?: number; focus?: string } => {
     const raw = search.showEntry
-    return raw === 1 || raw === '1' ? { showEntry: 1 } : {}
+    const out: { showEntry?: number; focus?: string } = {}
+    if (raw === 1 || raw === '1') out.showEntry = 1
+    if (typeof search.focus === 'string' && search.focus) out.focus = search.focus
+    return out
   },
   loader: async () => {
     const [entries, sessionRes] = await Promise.all([
@@ -587,9 +590,10 @@ function FeedModeToggle({
 
 function CommunityPage() {
   const loaderData = Route.useLoaderData()
-  const { showEntry } = Route.useSearch()
+  const { showEntry, focus } = Route.useSearch()
   const modalEntry = loaderData.modalEntry
-  const { open, close } = useWelcomeModal(!!modalEntry, showEntry === 1)
+  // 從通知點進來時帶 focus（要看的貼文）就不再彈出每日動態 modal
+  const { open, close } = useWelcomeModal(!!modalEntry && !focus, showEntry === 1)
 
   const [allEntries] = useState<GratitudeEntry[]>(loaderData.entries)
   const [myEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
@@ -629,6 +633,14 @@ function CommunityPage() {
     setDisplayCount(PAGE_SIZE)
     setMyDisplayCount(PAGE_SIZE)
   }, [mode])
+
+  // 從通知點進來：切到「我的貼文」並確保目標貼文有被渲染（必要時放寬分頁）
+  useEffect(() => {
+    if (!focus) return
+    setMode('my')
+    const idx = myEntries.findIndex((e) => e.id === focus)
+    if (idx >= 0) setMyDisplayCount((c) => Math.max(c, idx + 1))
+  }, [focus, myEntries])
 
   const hasMore = displayCount < orderedEntries.length
   const visibleEntries = orderedEntries.slice(0, displayCount)
@@ -722,6 +734,7 @@ function CommunityPage() {
                       tags={tags[entry.id] ?? []}
                       userId={userId}
                       anonName={anonName}
+                      autoFocus={focus === entry.id}
                       isOwn={true}
                       onLikeChange={(info) => handleLikeChange(entry.id, info)}
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
@@ -791,6 +804,7 @@ function EntryCard({
   userId,
   anonName,
   isOwn,
+  autoFocus = false,
   onLikeChange,
   onCommentAdded,
   onCommentLikeChange,
@@ -804,11 +818,13 @@ function EntryCard({
   userId: string | null
   anonName: string | null
   isOwn: boolean
+  autoFocus?: boolean
   onLikeChange: (info: LikeInfo) => void
   onCommentAdded: (c: Comment) => void
   onCommentLikeChange: (commentId: string, info: LikeInfo) => void
 }) {
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
+  const articleRef = useRef<HTMLElement>(null)
   const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
   const [localPrivacy, setLocalPrivacy] = useState<Privacy>(
     privacyFromFields({ is_shared: entry.is_shared, use_real_name: entry.use_real_name }),
@@ -817,6 +833,16 @@ function EntryCard({
   const avatar = avatarFor(localAnonName, index, entry.avatar)
   const [showComments, setShowComments] = useState(false)
   const [liking, setLiking] = useState(false)
+
+  // 從通知點進來：自動展開留言並捲動到這篇貼文
+  useEffect(() => {
+    if (!autoFocus) return
+    setShowComments(true)
+    const t = setTimeout(() => {
+      articleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [autoFocus])
 
   async function changePrivacy(next: Privacy) {
     if (next === localPrivacy) {
@@ -942,7 +968,12 @@ function EntryCard({
   }
 
   return (
-    <article className="rounded-3xl bg-card p-5 shadow-soft">
+    <article
+      ref={articleRef}
+      className={`rounded-3xl bg-card p-5 shadow-soft transition ${
+        autoFocus ? 'ring-2 ring-primary' : ''
+      }`}
+    >
       {/* Header */}
       <div className="flex items-center gap-3">
         {avatar.photoUrl ? (

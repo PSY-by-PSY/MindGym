@@ -1,6 +1,8 @@
-import { createFileRoute, redirect, Outlet, Link, useRouterState } from '@tanstack/react-router'
-import { useState } from 'react'
+import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { type FontScale, FONT_SCALE_OPTIONS, getFontScale, setFontScale } from '../lib/fontScale'
+import { fetchNotifications, getLastSeen, setLastSeen, type NotificationItem } from '../lib/notifications'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -60,7 +62,7 @@ function TopHeader() {
     <>
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-[oklch(1_0_0_/_0.95)] px-4 backdrop-blur-md pt-[env(safe-area-inset-top)]">
         {/* 左側佔位（維持 logo 置中） */}
-        <div className="w-20" />
+        <div className="w-28" />
 
         {/* 中間 Logo */}
         <span className="text-sm font-extrabold tracking-[0.15em] text-foreground uppercase">
@@ -68,7 +70,8 @@ function TopHeader() {
         </span>
 
         {/* 右側 icons */}
-        <div className="flex w-20 items-center justify-end gap-2">
+        <div className="flex w-28 items-center justify-end gap-1">
+          <NotificationBell />
           <button
             aria-label="重新整理"
             onClick={handleRefresh}
@@ -165,6 +168,150 @@ function TopHeader() {
         </nav>
       </aside>
     </>
+  )
+}
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '剛剛'
+  if (min < 60) return `${min} 分鐘前`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} 小時前`
+  const day = Math.floor(hr / 24)
+  if (day < 7) return `${day} 天前`
+  return new Date(iso).toLocaleDateString('zh-TW')
+}
+
+// 通知鈴鐺：只在「有人按讚使用者的貼文」或「有人留言」時顯示未讀。
+// 點選後跳到社群「我的貼文」並聚焦該則貼文。
+function NotificationBell() {
+  const navigate = useNavigate()
+  const [userId, setUserId] = useState<string | null>(null)
+  const [items, setItems] = useState<NotificationItem[]>([])
+  const [open, setOpen] = useState(false)
+  const [lastSeen, setLastSeenState] = useState<string>('1970-01-01T00:00:00.000Z')
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const uid = data.session?.user.id ?? null
+      setUserId(uid)
+      if (uid) setLastSeenState(getLastSeen(uid))
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const list = await fetchNotifications(userId)
+        if (!cancelled) setItems(list)
+      } catch (e) {
+        console.error('[notifications]', e)
+      }
+    }
+    load()
+    const timer = setInterval(load, 60000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [userId])
+
+  if (!userId) return null
+
+  const unread = items.filter((i) => i.createdAt > lastSeen).length
+
+  const openPanel = () => {
+    setOpen(true)
+    const now = new Date().toISOString()
+    setLastSeen(userId, now)
+    setLastSeenState(now)
+  }
+
+  const handleClick = (item: NotificationItem) => {
+    setOpen(false)
+    navigate({ to: '/app/community', search: { focus: item.entryId } })
+  }
+
+  return (
+    <>
+      <button
+        aria-label="通知"
+        onClick={() => (open ? setOpen(false) : openPanel())}
+        className="relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
+      >
+        <BellIcon />
+        {unread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-2 top-[calc(env(safe-area-inset-top)+3.25rem)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-soft">
+            <div className="flex items-center justify-between px-2 py-2">
+              <p className="text-sm font-extrabold text-foreground">通知</p>
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="關閉"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            {items.length === 0 ? (
+              <p className="px-3 py-8 text-center text-sm text-muted-foreground">目前還沒有通知</p>
+            ) : (
+              <ul className="flex flex-col">
+                {items.map((item) => {
+                  const isUnread = item.createdAt > lastSeen
+                  return (
+                    <li key={item.id}>
+                      <button
+                        onClick={() => handleClick(item)}
+                        className={`flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-muted ${
+                          isUnread ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <span className="mt-0.5 text-lg leading-none">
+                          {item.type === 'like' ? '❤️' : '💬'}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-foreground">{item.title}</span>
+                          {item.snippet && (
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              你的貼文：{item.snippet}
+                            </span>
+                          )}
+                          <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                            {formatRelativeTime(item.createdAt)}
+                          </span>
+                        </span>
+                        {isUnread && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+function BellIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
   )
 }
 
