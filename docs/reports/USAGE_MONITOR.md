@@ -10,7 +10,7 @@
 ## 檔案一覽
 
 | 檔案 | 作用 |
-|------------------------------------|------------------------------------|
+|----|----|
 | `scripts/usage_monitor.py` | 主腳本：抓各平台用量／花費 → 算百分比 → 印報告 →（可選）寫快照 → 評估告警 |
 | `scripts/usage_config.json` | 免費上限、告警門檻、dashboard 連結（**你可自行調整,不必動程式**） |
 | `supabase/usage_monitor.sql` | 建立 `usage_snapshots`、`ai_usage_log` 兩張表 + `get_db_size_bytes()`、`ai_usage_summary()` 兩個函式 |
@@ -25,15 +25,15 @@
 
 因為 **Anthropic 的 Usage & Cost API 屬於 Admin API,個人帳戶無法使用**(OpenAI 同樣需要 Admin Key),AI 花費改採雙軌:
 
-- **軌道一(主)— 自行計量**:每次 Messages API 回應都帶 `usage`(token 數),用**一般 API key 就拿得到**。後端當場依價目表換算金額,寫進 `ai_usage_log`。這條路線不需任何 Admin 權限,且帶有「哪個功能、哪位使用者」,比官方的組織總額更適合做容量規劃。**這是預設且必定可用的路線。**
-- **軌道二(輔)— 官方成本 API**:若你願意(Anthropic 需先建組織才能簽發 Admin Key),腳本會一併抓官方數字,在報告中與自行計量並列「對帳」,驗證沒有漏記。**不設也完全不影響軌道一。**
+-   **軌道一(主)— 自行計量**:每次 Messages API 回應都帶 `usage`(token 數),用**一般 API key 就拿得到**。後端當場依價目表換算金額,寫進 `ai_usage_log`。這條路線不需任何 Admin 權限,且帶有「哪個功能、哪位使用者」,比官方的組織總額更適合做容量規劃。**這是預設且必定可用的路線。**
+-   **軌道二(輔)— 官方成本 API**:若你願意(Anthropic 需先建組織才能簽發 Admin Key),腳本會一併抓官方數字,在報告中與自行計量並列「對帳」,驗證沒有漏記。**不設也完全不影響軌道一。**
 
 ------------------------------------------------------------------------
 
 ## 監測內容與各平台 API 狀況
 
 | 來源 | 計費性質 | 自動抓取？ | 抓什麼 |
-|------------------|------------------|------------------|------------------|
+|----|----|----|----|
 | Anthropic | 純付費 | ✅ 自行計量(主) | 今日 / 本月花費($)、依功能拆分 |
 | OpenAI Whisper | 純付費 | ✅ 自行計量(主) | 今日 / 本月花費($)、依音訊秒數 |
 | Anthropic / OpenAI 官方 | 純付費 | ◐ 對帳(需 Admin Key) | 官方本月總額,與自行計量並列 |
@@ -54,14 +54,12 @@ Supabase Dashboard → SQL Editor → 貼上 `supabase/usage_monitor.sql` 全文
 
 ### 步驟 2 — 部署後端讓記帳生效（軌道一,主要路線）
 
-`app.py` 與兩個 Edge Function 已加上記帳。把這些改動部署上去後,使用者每次用到 AI 功能就會自動寫一列到 `ai_usage_log`——**這條路線不需要任何 Admin Key**。
-- 後端(Render):推上 git 後重新部署。
-- Edge Functions:`supabase functions deploy extract-keywords gratitude-summary`(或你慣用的部署方式)。
+`app.py` 與兩個 Edge Function 已加上記帳。把這些改動部署上去後,使用者每次用到 AI 功能就會自動寫一列到 `ai_usage_log`——**這條路線不需要任何 Admin Key**。 - 後端(Render):推上 git 後重新部署。 - Edge Functions:`supabase functions deploy extract-keywords gratitude-summary`(或你慣用的部署方式)。
 
 ### 步驟 3 — 申請金鑰（皆為選用,缺了不影響軌道一）
 
 | 金鑰 | 去哪裡拿 | 必要性 |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | **PostHog Personal API Key** | PostHog → Settings → **Personal API keys**;另記下專案的數字 **Project ID** | 建議(事件額度 + 之後算 DAU) |
 | **Anthropic Admin Key** | console.anthropic.com → 先到 **Settings → Organization 建立組織**(個人帳戶不開放 Admin API,建組織免費、不必加成員)→ 再簽發 **Admin Key** | 選用(軌道二對帳) |
 | **OpenAI Admin Key** | platform.openai.com → Settings → Organization → **Admin keys**;另記下 **Organization ID**(`org-…`) | 選用(軌道二對帳) |
