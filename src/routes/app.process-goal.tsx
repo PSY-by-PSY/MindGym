@@ -1209,7 +1209,10 @@ function PgCelebrateStage({
     if (saving) return
     setSaving(true)
     await router.invalidate()
-    navigate({ to: '/app/community', search: { showEntry: 1 } })
+    // focus=<entryId> 讓社群頁切換到「我的貼文」並讓這篇貼文進入視窗
+    const search: { showEntry: number; focus?: string } = { showEntry: 1 }
+    if (savedEntryId) search.focus = savedEntryId
+    navigate({ to: '/app/community', search })
   }
 
   return (
