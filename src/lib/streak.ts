@@ -6,11 +6,7 @@
 // 其他地方一律呼叫這兩個，避免再出現第二套邏輯。
 // ─────────────────────────────────────────────────────────────────────────
 import { supabase } from './supabase'
-
-/** 某個 Date 的本地 YYYY-MM-DD（與 gratitude_entries.entry_date 同語意）。 */
-function isoLocalDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+import { isoLocalDate } from './date'
 
 /**
  * 從一組「有打卡的日期字串」算出目前的連續天數。

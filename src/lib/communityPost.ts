@@ -11,6 +11,7 @@
 import { supabase } from './supabase'
 import { type Privacy, privacyToFields } from './privacy'
 import { computeUnifiedStreak } from './streak'
+import { isoLocalDate } from './date'
 
 const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
 
@@ -18,9 +19,8 @@ export function pickAnonName(): string {
   return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
 }
 
-export function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+/** @deprecated 改用 lib/date 的 isoLocalDate；此處保留別名讓既有 import 不致斷裂。 */
+export const isoDate = isoLocalDate
 
 export interface ShareContent {
   /** 退回版（payload 欄位不存在時）顯示的條列第一項；也滿足 item_1 的 NOT NULL。 */
