@@ -3,7 +3,7 @@
 //
 // 原則（對應產品需求）：
 //   - 每天優先推薦雷達圖中較缺乏的維度所對應的練習。
-//   - 情緒力(P)低 → 三件好事 / 感恩日記；成就力(A)低 → 過程目標覺察；
+//   - 情緒力(P)低 → 三件好事 / 感恩日記；投入力(E)低 → 過程目標覺察；
 //     意義力(M)低 → 感恩日記 / 過程目標覺察。
 //   - 其他練習不是不推，而是出現頻率較低；原則上每天一個練習。
 //   - 以日期做輕量輪替，讓一週內較有機會練到不同練習（完整的「一週覆蓋」
@@ -69,7 +69,7 @@ const PRACTICES: PracticeMeta[] = [
     name: '感恩日記',
     emoji: '⭐',
     to: '/app/gratitude',
-    targets: { P: 1, R: 1, M: 0.5 },
+    targets: { P: 1, R: 1, M: 1 },
     available: true,
   },
   {
@@ -77,7 +77,7 @@ const PRACTICES: PracticeMeta[] = [
     name: '過程目標覺察',
     emoji: '👁️',
     to: '/app/process-goal',
-    targets: { A: 1, M: 1, E: 0.5 },
+    targets: { E: 1, M: 1, A: 1 },
     available: true,
   },
   {

@@ -63,7 +63,7 @@ const permaColors: Record<string, string> = {
   A: 'bg-tile-peach',
 }
 
-// 順序：感恩日記 → 三件好事 → 過程目標覺察 → 自我慈悲 → 正念冥想
+// 順序：感恩日記 → 過程目標覺察 → 三件好事 → 自我慈悲 → 正念冥想
 const modules = [
   {
     emoji: '⭐',
@@ -79,15 +79,6 @@ const modules = [
     ],
   },
   {
-    emoji: '☑️',
-    name: '三件好事',
-    tile: 'bg-tile-peach',
-    to: '/app/placeholder' as const,
-    searchName: '三件好事',
-    locked: true,
-    perma: [{ letter: 'P', label: '情緒力' }],
-  },
-  {
     emoji: '👁️',
     name: '過程目標覺察',
     tile: 'bg-tile-blue',
@@ -95,7 +86,20 @@ const modules = [
     searchName: null,
     locked: false,
     perma: [
+      { letter: 'E', label: '投入力' },
       { letter: 'M', label: '意義力' },
+      { letter: 'A', label: '成就力' },
+    ],
+  },
+  {
+    emoji: '☑️',
+    name: '三件好事',
+    tile: 'bg-tile-peach',
+    to: '/app/placeholder' as const,
+    searchName: '三件好事',
+    locked: true,
+    perma: [
+      { letter: 'P', label: '情緒力' },
       { letter: 'A', label: '成就力' },
     ],
   },
@@ -106,7 +110,10 @@ const modules = [
     to: '/app/placeholder' as const,
     searchName: '自我慈悲',
     locked: true,
-    perma: [{ letter: 'E', label: '投入力' }],
+    perma: [
+      { letter: 'R', label: '連結力' },
+      { letter: 'M', label: '意義力' },
+    ],
   },
   {
     emoji: '🕐',
@@ -115,7 +122,10 @@ const modules = [
     to: '/app/placeholder' as const,
     searchName: '正念冥想',
     locked: true,
-    perma: [{ letter: 'E', label: '投入力' }],
+    perma: [
+      { letter: 'P', label: '情緒力' },
+      { letter: 'E', label: '投入力' },
+    ],
   },
 ]
 
@@ -339,41 +349,41 @@ const PERMA_ROWS: PermaRow[] = [
     practices: [
       { name: '三件好事', primary: true },
       { name: '感恩日記', primary: true },
-      { name: '正念冥想', primary: false },
+      { name: '正念冥想', primary: true },
     ],
     strength: 4, strengthLabel: '強',
-    description: '三件好事與感恩日記直接累積正向情感體驗；正念冥想透過情緒調節間接貢獻。',
+    description: '三件好事與感恩日記直接累積正向情感體驗；正念冥想透過情緒調節強化正向情緒。',
     badge: { text: '覆蓋良好', style: 'good' },
   },
   {
     letter: 'E', zh: '投入力', en: 'Engagement',
     practices: [
-      { name: '正念冥想', primary: true },
       { name: '過程目標覺察', primary: true },
+      { name: '正念冥想', primary: true },
     ],
     strength: 3, strengthLabel: '中',
-    description: '正念訓練專注與當下投入；過程目標覺察的「享受到的樂趣」直接對應 flow 狀態的反思。',
+    description: '過程目標覺察直接記錄投入狀態並對應 flow 反思；正念冥想訓練當下專注與覺察。',
     badge: { text: '可加強', style: 'improve' },
   },
   {
     letter: 'R', zh: '連結力', en: 'Relationships',
     practices: [
       { name: '感恩日記', primary: true },
-      { name: '自我慈悲', primary: false },
+      { name: '自我慈悲', primary: true },
     ],
     strength: 3, strengthLabel: '中',
-    description: '感恩日記的書寫對象多為他人，強化對人際連結的覺察與珍視；自我慈悲的「共同人性」成分（common humanity）也間接涉及關係感。',
+    description: '感恩日記的書寫對象多為他人，強化對人際連結的覺察與珍視；自我慈悲的「共同人性」成分（common humanity）直接涉及關係感。',
     badge: { text: '修正後合理', style: 'adjusted' },
   },
   {
     letter: 'M', zh: '意義力', en: 'Meaning',
     practices: [
+      { name: '感恩日記', primary: true },
       { name: '過程目標覺察', primary: true },
-      { name: '自我慈悲', primary: false },
-      { name: '感恩日記', primary: false },
+      { name: '自我慈悲', primary: true },
     ],
     strength: 3, strengthLabel: '中',
-    description: '過程目標覺察的「成長心得」最直接引導意義建構；感恩讓使用者辨認生命中有價值的事物。可加入更明確的價值觀連結引導。',
+    description: '感恩日記讓使用者辨認生命中有價值的事物；過程目標覺察的「成長心得」引導意義建構；自我慈悲協助使用者找到更深層的人生意義。',
     badge: { text: '可加強', style: 'improve' },
   },
   {
@@ -665,7 +675,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
               emoji="👁️"
               tile="bg-tile-blue"
               name="過程目標覺察"
-              meta="初階 · 3 分鐘 · 意義力 · 成就力"
+              meta="初階 · 3 分鐘 · 投入力 · 意義力 · 成就力"
               badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
             />
           </div>
