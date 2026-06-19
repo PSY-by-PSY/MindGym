@@ -6,14 +6,25 @@ import { routeTree } from './routeTree.gen'
 import { supabase } from './lib/supabase'
 import { initAnalytics, identifyUser, resetUser, trackPageview } from './lib/analytics'
 import { getFontScale, applyFontScale } from './lib/fontScale'
+import { isNativeApp, setupNativeAuthListener } from './lib/nativeAuth'
 import { NotificationConsent } from './components/NotificationConsent'
 import './index.css'
+
+// 原生 App（iOS）才加上 native-app class：讓「更像原生」的 CSS（去除點擊高亮、
+// 關閉過度滾動回彈…）只作用在 App 內，網頁版完全不受影響。
+if (isNativeApp()) {
+  document.documentElement.classList.add('native-app')
+}
 
 // 套用使用者先前選的字體大小（渲染前套用，避免閃爍）
 applyFontScale(getFontScale())
 
 // 啟動 PostHog 行為分析
 initAnalytics()
+
+// 原生 App（iOS）：監聽 Google 登入完成後導回 App 的 deep link。
+// 網頁版會自動跳過（isNativeApp() 為 false），不影響任何網頁行為。
+void setupNativeAuthListener()
 
 export interface RouterContext {
   session: Session | null

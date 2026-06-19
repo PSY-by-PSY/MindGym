@@ -42,6 +42,28 @@ body {
   color: var(--foreground);
 }
 
+/* ── 原生 App（Capacitor/iOS）專屬：讓 WebView 體驗更接近原生 ──
+   只在 html.native-app 下生效（由 main.tsx 判斷 isNativeApp 後加上），
+   網頁版完全不受影響。 */
+html.native-app,
+html.native-app body {
+  /* 關閉整頁過度滾動的橡皮筋回彈，少了「網頁感」 */
+  overscroll-behavior: none;
+}
+html.native-app {
+  /* 點擊時不要出現灰色高亮方塊 */
+  -webkit-tap-highlight-color: transparent;
+  /* 預設不可選取文字（避免長按整頁反白）；輸入框與內文另外開放 */
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.native-app input,
+html.native-app textarea,
+html.native-app [contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* 字體大小設定（無障礙大字模式）。所有 rem 字級會隨 html font-size 一起放大。 */
 html {
   font-size: 16px;

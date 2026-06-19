@@ -8,6 +8,7 @@ import {
   getShareableUrl,
   type InAppBrowser,
 } from '../lib/inAppBrowser'
+import { isNativeApp, signInWithGoogleNative } from '../lib/nativeAuth'
 import coachWelcome from '../assets/brain-lifter.png'
 
 export const Route = createFileRoute('/login')({
@@ -37,6 +38,20 @@ function LoginPage() {
   const [copied, setCopied] = useState(false)
 
   const handleGoogleLogin = async () => {
+    // 原生 App（iOS）：Google 會擋嵌入式 WebView，改用系統瀏覽器 + deep link。
+    // 詳見 src/lib/nativeAuth.ts。網頁版不走這條路（isNativeApp() 為 false）。
+    if (isNativeApp()) {
+      try {
+        track('login_started', { method: 'google', platform: 'native' })
+        await signInWithGoogleNative()
+      } catch (err) {
+        track('login_error', { method: 'google', platform: 'native' })
+        console.error('[login] native google login failed', err)
+        setInAppNotice(null)
+      }
+      return
+    }
+
     // 在 App 內建瀏覽器（LINE/FB/IG…）裡，Google 會直接擋下 OAuth，
     // 跳出「disallowed_useragent」錯誤。先攔截下來引導使用者改用外部瀏覽器。
     const browser = detectInAppBrowser()

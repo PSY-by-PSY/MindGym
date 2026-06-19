@@ -1,0 +1,47 @@
+import type { CapacitorConfig } from '@capacitor/cli'
+
+// ─────────────────────────────────────────────────────────────────────────
+// Capacitor 設定（iOS 殼）
+//
+// 核心策略：server.url 指向 Vercel 線上版。
+//   → App 啟動時直接載入線上網站，內容/UI/練習模組改 web → push 即時生效，
+//     99% 的更新「不需重新送審」。只有殼本身（icon、權限、plugin、版本）改動才需重打包。
+//
+// ⚠️ 注意：因為 WebView 載入的是「遠端 Vercel bundle」，任何要在 App 內生效的
+//   前端 JS 變更（含呼叫 Capacitor plugin 的程式碼）都必須先 deploy 到 Vercel。
+//   本地 ios/ 專案只負責「殼 + 原生 plugin + URL scheme 註冊」。
+// ─────────────────────────────────────────────────────────────────────────
+
+const config: CapacitorConfig = {
+  appId: 'com.mindgym.app',
+  appName: 'PSY by PSY',
+  // 即使用 server.url 載入遠端，Capacitor 仍要求 webDir 存在（離線 fallback 用）。
+  webDir: 'dist',
+  server: {
+    url: 'https://mind-gym-kappa.vercel.app',
+    cleartext: false,
+  },
+  ios: {
+    // 讓 WebView 自動處理 safe-area inset，內容不被瀏海/home bar 蓋住。
+    contentInset: 'always',
+    // 背景色：載入遠端網站前的底色，與品牌主色一致避免閃白。
+    backgroundColor: '#ffffff',
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 1200,
+      launchAutoHide: true,
+      backgroundColor: '#ffffff',
+      showSpinner: false,
+      iosSpinnerStyle: 'small',
+      splashFullScreen: true,
+      splashImmersive: false,
+    },
+    Keyboard: {
+      // 鍵盤彈出時用原生方式擠壓畫面，避免 WebView 內容被蓋住。
+      resize: 'native',
+    },
+  },
+}
+
+export default config
