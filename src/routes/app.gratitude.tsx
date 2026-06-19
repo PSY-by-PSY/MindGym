@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { computeStreak, streakFromDates } from '../lib/streak'
+import { computeStreak, computeUnifiedStreak, streakFromDates } from '../lib/streak'
 import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
@@ -371,9 +371,9 @@ function GratitudePage() {
       void supabase.rpc('schedule_bot_likes', { p_entry_id: entryId })
     }
 
-    // 計算並更新連續打卡天數（統一用 lib/streak）
+    // 計算並更新連續打卡天數（跨練習統一計算，社群顯示才會一致）
     void (async () => {
-      const streak = await computeStreak(userId)
+      const streak = await computeUnifiedStreak(userId)
       await supabase
         .from('profiles')
         .upsert({ id: userId, current_streak: streak }, { onConflict: 'id' })

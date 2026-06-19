@@ -110,7 +110,7 @@ export const Route = createFileRoute('/app/profile')({
     const lastDay = new Date(y, m, 0).getDate()
     const endOfMonth = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
 
-    const [profileRes, permaRes, entriesRes, allDatesRes] = await Promise.all([
+    const [profileRes, permaRes, entriesRes, allDatesRes, focusAllRes, morningAllRes, focusMonthRes, morningMonthRes] = await Promise.all([
       supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle(),
       supabase
         .from('perma_scores')
@@ -118,24 +118,38 @@ export const Route = createFileRoute('/app/profile')({
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1),
+      // 感恩日記日曆只取感恩日記本身（過程目標覺察的社群貼文也在這張表，需排除）
       supabase
         .from('gratitude_entries')
         .select('id, entry_date, item_1, item_2, item_3, ai_feedback')
         .eq('user_id', userId)
+        .eq('practice_type', 'gratitude')
         .gte('entry_date', startOfMonth)
         .lte('entry_date', endOfMonth),
       supabase
         .from('gratitude_entries')
         .select('entry_date')
         .eq('user_id', userId)
+        .eq('practice_type', 'gratitude')
         .order('entry_date', { ascending: false }),
+      // 過程目標覺察的打卡日（晚間 / 早晨）也算「健心」，併入連續與統計
+      supabase.from('focus_logs').select('log_date').eq('user_id', userId),
+      supabase.from('morning_logs').select('log_date').eq('user_id', userId),
+      supabase.from('focus_logs').select('log_date').eq('user_id', userId).gte('log_date', startOfMonth).lte('log_date', endOfMonth),
+      supabase.from('morning_logs').select('log_date').eq('user_id', userId).gte('log_date', startOfMonth).lte('log_date', endOfMonth),
     ])
 
-    const allDates = allDatesRes.data ?? []
-    const streak = streakFromDates(allDates.map((e) => String(e.entry_date)))
+    // 連續打卡與統計跨練習計算（感恩日記 + 過程目標覺察）
+    const unifiedDates = [
+      ...(allDatesRes.data ?? []).map((e) => String(e.entry_date)),
+      ...(focusAllRes.data ?? []).map((r) => String(r.log_date)),
+      ...(morningAllRes.data ?? []).map((r) => String(r.log_date)),
+    ]
+    const streak = streakFromDates(unifiedDates)
 
-    const monthlyCount = (entriesRes.data ?? []).length
-    const totalCount = allDates.length
+    const monthlyCount =
+      (entriesRes.data?.length ?? 0) + (focusMonthRes.data?.length ?? 0) + (morningMonthRes.data?.length ?? 0)
+    const totalCount = new Set(unifiedDates.map((d) => d.slice(0, 10))).size
 
     const dbName = (profileRes.data?.name ?? null) as string | null
     const finalName = dbName ?? fallbackName
@@ -345,6 +359,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
         .from('gratitude_entries')
         .select('target_1, target_2, target_3')
         .eq('user_id', userId)
+        .eq('practice_type', 'gratitude')
       if (cancelled || !data) return
 
       const counts: Partial<Record<TargetCode, number>> = {}
@@ -491,6 +506,7 @@ function GratitudeCalendar({
       .from('gratitude_entries')
       .select('id, entry_date, item_1, item_2, item_3, ai_feedback')
       .eq('user_id', userId)
+      .eq('practice_type', 'gratitude')
       .gte('entry_date', startDate)
       .lte('entry_date', endDate)
       .then(({ data, error }) => {

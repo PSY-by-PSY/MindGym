@@ -92,3 +92,14 @@ DROP POLICY IF EXISTS "morning_logs: 本人可更新" ON morning_logs;
 CREATE POLICY "morning_logs: 本人可讀"   ON morning_logs FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "morning_logs: 本人可建立" ON morning_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "morning_logs: 本人可更新" ON morning_logs FOR UPDATE USING (auth.uid() = user_id);
+
+-- ============================================================
+-- gratitude_entries：新增 practice_type 欄位
+-- 讓「過程目標覺察」的打卡也能以同一張表進入社群打卡牆，沿用既有的
+-- 按讚 / 留言 / 機器人讚 / 通知（這些都以 entry_id 指向 gratitude_entries）。
+--   'gratitude'    既有感恩日記（預設，舊資料自動歸這類）
+--   'process_goal' 過程目標覺察的分享貼文
+-- 感恩日記的統計／日曆／streak 會過濾 practice_type='gratitude'，避免混入。
+-- ============================================================
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS practice_type text DEFAULT 'gratitude';
+CREATE INDEX IF NOT EXISTS gratitude_entries_practice_type_idx ON gratitude_entries (practice_type);

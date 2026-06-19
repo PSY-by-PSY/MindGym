@@ -43,6 +43,7 @@ export const Route = createFileRoute('/app/home')({
       .from('gratitude_entries')
       .select('id')
       .eq('user_id', userId)
+      .eq('practice_type', 'gratitude')
       .gte('created_at', todayStart.toISOString())
       .limit(1)
 

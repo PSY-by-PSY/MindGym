@@ -1077,7 +1077,7 @@ async def _pg_claude_json(source: str, user_id: str, system: str, user_content: 
 
 @app.post("/api/pg/why-questions")
 async def pg_why_questions(req: WhyQuestionsRequest, authorization: str = Header(...)):
-    """Step 3：針對人/時/地/物各生成一個追問。"""
+    """Step 3：針對人/時/地/物各生成一個追問；同時把人時地物精煉成關鍵詞。"""
     try:
         token = authorization.removeprefix("Bearer ").strip()
         user_id = await get_user_id(token)
@@ -1090,22 +1090,38 @@ async def pg_why_questions(req: WhyQuestionsRequest, authorization: str = Header
             f"地：{req.where_place}\n"
             f"物：{req.with_what}\n"
             f"感受：{feelings}\n\n"
-            "請針對「人」、「時」、「地」、「物」各生成一個追問，目的是幫助使用者理解"
-            "「為什麼這個條件對他有效」，挖掘條件背後真正滿足的心理需求。\n"
-            "追問要口語、溫和、有好奇心，不要像問卷。每個問題一句話。\n"
+            "請做兩件事：\n"
+            "1. 針對「人」、「時」、「地」、「物」各生成一個追問，目的是幫助使用者理解"
+            "「為什麼這個條件對他有效」，挖掘條件背後真正滿足的心理需求。"
+            "追問要口語、溫和、有好奇心，不要像問卷，每個問題一句話。\n"
+            "2. 把使用者填的人時地物各自精煉成『最精簡的關鍵詞』（例：『在實驗室裡面』→『實驗室』、"
+            "『當時是一個人在那邊操作』→『一個人』、『大概是週六的晚上』→『週六晚上』），放在 tidy；"
+            "並用一句話精簡描述他做的事（scene_summary，15 字內）；"
+            "再從這些條件裡挑 2~4 個最能代表他專注狀態的標籤放在 condition_tags。\n"
             "以 JSON 格式回傳：\n"
-            '{"who_why":"...","when_why":"...","where_why":"...","what_why":"..."}'
+            '{"who_why":"...","when_why":"...","where_why":"...","what_why":"...",'
+            '"tidy":{"who":"...","when_time":"...","where_place":"...","with_what":"..."},'
+            '"scene_summary":"...","condition_tags":["...","..."]}'
         )
         data = await _pg_claude_json(
             "pg-why-questions", user_id,
             "你是溫柔的心理引導師，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
             content,
         )
+        tidy = data.get("tidy") or {}
         return {
             "who_why": data.get("who_why", ""),
             "when_why": data.get("when_why", ""),
             "where_why": data.get("where_why", ""),
             "what_why": data.get("what_why", ""),
+            "tidy": {
+                "who": tidy.get("who", "") or req.who,
+                "when_time": tidy.get("when_time", "") or req.when_time,
+                "where_place": tidy.get("where_place", "") or req.where_place,
+                "with_what": tidy.get("with_what", "") or req.with_what,
+            },
+            "scene_summary": data.get("scene_summary", "") or req.scene_description,
+            "condition_tags": data.get("condition_tags") or [],
         }
     except HTTPException:
         raise

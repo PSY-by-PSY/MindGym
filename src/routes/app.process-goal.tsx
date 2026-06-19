@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeUnifiedStreak } from '../lib/streak'
 import { track } from '../lib/analytics'
+import VoiceInput from '../components/pretest/VoiceInput'
+import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -11,6 +13,18 @@ const AMBER = { backgroundColor: '#FAEEDA', color: '#412402' } // 條件標籤
 const TEAL = { backgroundColor: '#E1F5EE', color: '#085041' } // 感受標籤
 const PURPLE_BG = { backgroundColor: '#EEEDFE', color: '#26215C' } // AI 回饋
 const PURPLE = '#534AB7' // CTA 主按鈕
+
+const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
+function pickAnonName() {
+  return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
+}
+
+// 過程目標覺察對應的能力點數加成（示意值，與感恩日記同樣的呈現方式）
+const PG_BOOSTS = [
+  { label: '意義力', delta: 2 },
+  { label: '成就力', delta: 3 },
+  { label: '投入力', delta: 2 },
+]
 
 export const Route = createFileRoute('/app/process-goal')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -26,8 +40,7 @@ export const Route = createFileRoute('/app/process-goal')({
 type Phase =
   | 'LOADING'
   | 'INTRO'
-  | 'SCENE'
-  | 'DISSECT'
+  | 'EVENT'
   | 'WHY_Q'
   | 'WHY_SUMMARY'
   | 'FEELINGS'
@@ -61,6 +74,13 @@ interface DailyCtx {
   dayCount: number
   yesterdayIfThen: string
   recentSummary: string
+}
+
+interface ShareContent {
+  item_1: string
+  item_2?: string | null
+  item_3?: string | null
+  ai_feedback?: string | null
 }
 
 const FEELING_PRESETS = [
@@ -103,6 +123,48 @@ async function markStreak(userId: string) {
   } catch (e) {
     console.error('[process-goal streak]', e)
   }
+}
+
+// 把打卡內容分享到社群（沿用 gratitude_entries 那張表，practice_type='process_goal'，
+// 因此社群的按讚 / 留言 / 機器人讚 / 通知都能直接運作）。
+async function insertCommunityPost(userId: string, content: ShareContent, privacy: Privacy): Promise<string | null> {
+  const fields = privacyToFields(privacy)
+  const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle()
+  const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
+  const { data, error } = await supabase
+    .from('gratitude_entries')
+    .insert({
+      user_id: userId,
+      practice_type: 'process_goal',
+      item_1: content.item_1,
+      item_2: content.item_2 ?? null,
+      item_3: content.item_3 ?? null,
+      ai_feedback: content.ai_feedback ?? null,
+      is_shared: fields.is_shared,
+      use_real_name: fields.use_real_name,
+      anon_name: anonName,
+      avatar: profile?.avatar ?? null,
+      entry_date: isoDate(new Date()),
+    })
+    .select('id')
+    .single()
+  if (error) {
+    console.error('[process-goal community]', error)
+    return null
+  }
+  const id = data?.id ?? null
+  if (id && fields.is_shared) void supabase.rpc('schedule_bot_likes', { p_entry_id: id })
+  return id
+}
+
+async function updateCommunityPrivacy(entryId: string, userId: string, privacy: Privacy) {
+  const fields = privacyToFields(privacy)
+  const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
+  const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
+  await supabase
+    .from('gratitude_entries')
+    .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: anonName })
+    .eq('id', entryId)
 }
 
 // ── 共用 UI ──────────────────────────────────────────────────────────────
@@ -154,30 +216,77 @@ function GhostButton({ children, onClick }: { children: React.ReactNode; onClick
   )
 }
 
+// 自動長高的多行輸入框 + 語音輸入（每個輸入點都用它，框會隨字數變高）
+function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+  voice = true,
+  minHeight = 48,
+  style,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  autoFocus?: boolean
+  voice?: boolean
+  minHeight?: number
+  style?: React.CSSProperties
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`
+  }, [value, minHeight])
+
+  const appendTranscript = (text: string) => {
+    const sep = value && !/\s$/.test(value) ? ' ' : ''
+    onChange(value + sep + text)
+  }
+
+  return (
+    <div>
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        rows={1}
+        className="w-full resize-none overflow-hidden rounded-2xl border border-border bg-card px-4 py-3 text-[15px] leading-relaxed text-foreground shadow-sm outline-none transition focus:border-[#534AB7]"
+        style={{ minHeight, ...style }}
+      />
+      {voice && (
+        <div className="mt-2">
+          <VoiceInput accent={PURPLE} onTranscript={appendTranscript} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Field({
   label,
   value,
   onChange,
   placeholder,
   autoFocus,
+  voice = true,
 }: {
-  label: string
+  label?: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
   autoFocus?: boolean
+  voice?: boolean
 }) {
   return (
     <label className="block animate-fade-up">
       {label && <span className="mb-1.5 block text-sm font-bold text-foreground">{label}</span>}
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        rows={2}
-        className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[15px] leading-relaxed text-foreground shadow-sm outline-none transition focus:border-[#534AB7]"
-      />
+      <AutoTextarea value={value} onChange={onChange} placeholder={placeholder} autoFocus={autoFocus} voice={voice} />
     </label>
   )
 }
@@ -209,7 +318,7 @@ function Chip({
   )
 }
 
-// 可多選 + 自填的標籤群
+// 可多選 + 自填（含語音）的標籤群
 function TagPicker({
   options,
   selected,
@@ -234,8 +343,8 @@ function TagPicker({
     if (selected.includes(label)) onChange(selected.filter((s) => s !== label))
     else onChange([...selected, label])
   }
-  const add = () => {
-    const v = draft.trim()
+  const add = (val: string) => {
+    const v = val.trim()
     if (v && !selected.includes(v)) onChange([...selected, v])
     setDraft('')
   }
@@ -251,18 +360,21 @@ function TagPicker({
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add(draft))}
           placeholder={addPlaceholder}
           className="flex-1 rounded-full border border-border bg-card px-4 py-2 text-sm outline-none focus:border-[#534AB7]"
         />
         <button
           type="button"
-          onClick={add}
+          onClick={() => add(draft)}
           className="rounded-full px-4 py-2 text-sm font-bold text-white"
           style={{ backgroundColor: PURPLE }}
         >
           加入
         </button>
+      </div>
+      <div className="mt-2">
+        <VoiceInput accent={PURPLE} onTranscript={(t) => add(t)} />
       </div>
     </div>
   )
@@ -302,10 +414,11 @@ function ProcessGoalPage() {
   const search = Route.useSearch()
   const [userId, setUserId] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('LOADING')
+  const [hasMap, setHasMap] = useState(false)
   const [map, setMap] = useState<ImmersionMap | null>(null)
   const [ctx, setCtx] = useState<DailyCtx>({ dayCount: 0, yesterdayIfThen: '', recentSummary: '' })
 
-  // 初始化：載入沈浸地圖與近期記錄，決定要進入哪個流程
+  // 初始化：載入沈浸地圖與近期記錄
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -324,31 +437,27 @@ function ProcessGoalPage() {
         .eq('user_id', uid)
         .maybeSingle()
 
-      if (!mapRow) {
-        if (!cancelled) setPhase('INTRO')
-        return
+      if (mapRow) {
+        setMap({
+          scene_description: mapRow.scene_description ?? '',
+          who: mapRow.who ?? '',
+          what: mapRow.what ?? '',
+          when_time: mapRow.when_time ?? '',
+          where_place: mapRow.where_place ?? '',
+          with_what: mapRow.with_what ?? '',
+          feelings: mapRow.feelings ?? [],
+          why_summary: mapRow.why_summary ?? '',
+          one_sentence: mapRow.one_sentence ?? '',
+          condition_tags: mapRow.condition_tags ?? [],
+        })
+        setHasMap(true)
+        setCtx(await loadDailyCtx(uid))
       }
-      const m: ImmersionMap = {
-        scene_description: mapRow.scene_description ?? '',
-        who: mapRow.who ?? '',
-        what: mapRow.what ?? '',
-        when_time: mapRow.when_time ?? '',
-        where_place: mapRow.where_place ?? '',
-        with_what: mapRow.with_what ?? '',
-        feelings: mapRow.feelings ?? [],
-        why_summary: mapRow.why_summary ?? '',
-        one_sentence: mapRow.one_sentence ?? '',
-        condition_tags: mapRow.condition_tags ?? [],
-      }
-
-      const dailyCtx = await loadDailyCtx(uid)
       if (cancelled) return
-      setMap(m)
-      setCtx(dailyCtx)
-      // 從首頁帶 track 參數可直接進入早晨／晚間
-      if (search.track === 'morning') setPhase('M_INPUT')
-      else if (search.track === 'evening') setPhase('E_MOMENT')
-      else setPhase('HUB')
+      // 從首頁帶 track 參數、且已有地圖 → 直接進入對應軌道；否則先看介紹頁
+      if (mapRow && search.track === 'morning') setPhase('M_INPUT')
+      else if (mapRow && search.track === 'evening') setPhase('E_MOMENT')
+      else setPhase('INTRO')
     })()
     return () => {
       cancelled = true
@@ -367,10 +476,14 @@ function ProcessGoalPage() {
     )
   }
 
+  if (phase === 'INTRO') {
+    return <Intro hasMap={hasMap} onStart={() => setPhase(hasMap ? 'HUB' : 'EVENT')} />
+  }
+
   // ── 初始引導流程 ──────────────────────────────────────────────────────
   if (
-    phase === 'INTRO' || phase === 'SCENE' || phase === 'DISSECT' || phase === 'WHY_Q' ||
-    phase === 'WHY_SUMMARY' || phase === 'FEELINGS' || phase === 'ONE_SENTENCE' || phase === 'MAP_DONE'
+    phase === 'EVENT' || phase === 'WHY_Q' || phase === 'WHY_SUMMARY' ||
+    phase === 'FEELINGS' || phase === 'ONE_SENTENCE' || phase === 'MAP_DONE'
   ) {
     return (
       <Onboarding
@@ -379,6 +492,7 @@ function ProcessGoalPage() {
         userId={userId!}
         onComplete={(m) => {
           setMap(m)
+          setHasMap(true)
           setPhase('MAP_DONE')
         }}
         finalMap={map}
@@ -390,7 +504,6 @@ function ProcessGoalPage() {
     )
   }
 
-  // ── 每日互動 ──────────────────────────────────────────────────────────
   if (phase === 'HUB') {
     return <Hub map={map!} onMorning={() => setPhase('M_INPUT')} onEvening={() => setPhase('E_MOMENT')} onHome={() => navigate({ to: '/app/home' })} />
   }
@@ -420,7 +533,7 @@ function ProcessGoalPage() {
   )
 }
 
-// 近期記錄摘要：天數、昨晚 if-then、近七天摘要句（供早晨 AI 使用）
+// 近期記錄摘要
 async function loadDailyCtx(userId: string): Promise<DailyCtx> {
   const since = new Date()
   since.setDate(since.getDate() - 14)
@@ -439,7 +552,6 @@ async function loadDailyCtx(userId: string): Promise<DailyCtx> {
   const yest = isoDate(new Date(Date.now() - 86400000))
   const yesterdayIfThen = focus.find((r) => String(r.log_date) === yest && r.if_then_plan)?.if_then_plan ?? ''
 
-  // 近七天摘要
   const last7 = focus.filter((r) => String(r.log_date) >= isoDate(new Date(Date.now() - 7 * 86400000)))
   const momentDays = last7.filter((r) => r.had_focus_moment).length
   const condCount: Record<string, number> = {}
@@ -457,7 +569,108 @@ async function loadDailyCtx(userId: string): Promise<DailyCtx> {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 初始引導流程（Step 0–6）
+// 介紹頁（仿感恩日記進入頁）
+// ════════════════════════════════════════════════════════════════════════
+function Intro({ hasMap, onStart }: { hasMap: boolean; onStart: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pb-36 pt-8 md:px-10">
+      <h1 className="text-[1.9rem] font-extrabold leading-tight text-foreground">過程目標覺察練習</h1>
+
+      <div className="mt-5 flex items-end gap-8">
+        <div>
+          <p className="text-3xl font-extrabold text-foreground">3</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">分鐘</p>
+        </div>
+        <div>
+          <p className="text-3xl font-extrabold text-foreground">初階</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">難度</p>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-2xl bg-card p-4 text-sm leading-relaxed text-foreground/80 shadow-soft">
+        過程目標覺察（Process Goal Awareness）幫助你找到並記下自己進入「專注／心流」的條件，畫出一張專屬的「沈浸地圖」。之後每天用它來回顧專注時刻、把難以開始的事，轉化成一個今天就能執行的小計畫。
+      </div>
+
+      <div className="mt-3">
+        {!expanded ? (
+          <button onClick={() => setExpanded(true)} className="text-xs font-bold text-primary">查看更多 ▾</button>
+        ) : (
+          <div className="flex flex-col gap-4 rounded-2xl bg-card p-4 text-sm leading-relaxed shadow-soft">
+            <div>
+              <p className="mb-1.5 font-extrabold text-foreground">核心目標</p>
+              <ul className="flex flex-col gap-1 pl-3 text-foreground/75">
+                <li>・看見自己最容易專注的條件（人、時、地、物）</li>
+                <li>・理解這些條件背後真正滿足的心理需求</li>
+                <li>・把「想做卻進不去」的事，化為 if-then 的具體行動</li>
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1.5 font-extrabold text-foreground">怎麼進行</p>
+              <ul className="flex flex-col gap-1 pl-3 text-foreground/75">
+                <li>・首次：花幾分鐘建立你的「沈浸地圖」</li>
+                <li>・每天早上：用你的條件，決定今天怎麼開始一件難事</li>
+                <li>・每天晚上：回顧今天的專注時刻，為明天預演障礙</li>
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1.5 font-extrabold text-foreground">研究指出的效益</p>
+              <ul className="flex flex-col gap-1 pl-3 text-foreground/75">
+                <li>・成就力（Accomplishment）與意義力（Meaning）</li>
+                <li>・投入力（Engagement）與心流體驗</li>
+                <li>・降低拖延、提升行動的啟動力</li>
+              </ul>
+            </div>
+            <button onClick={() => setExpanded(false)} className="text-left text-xs font-bold text-primary">收合 ▴</button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-col gap-2.5">
+        {(hasMap
+          ? ['選擇早晨啟動或晚間回顧', '用你的沈浸地圖思考今天', '閱讀 AI 教練回饋']
+          : ['描述你的專注時刻', '拆解人、時、地、物', '找到你的 Why、寫下沈浸座標']
+        ).map((item) => (
+          <div key={item} className="flex items-center gap-2.5 text-sm text-foreground/80">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary/70 text-[10px] font-extrabold text-primary">✓</span>
+            {item}
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-7 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">CHOOSE INTENSITY</p>
+      <div className="mt-1 flex items-baseline justify-between">
+        <h3 className="text-base font-extrabold text-foreground">依今天的能量挑一個強度</h3>
+        <div className="whitespace-nowrap text-xs text-muted-foreground">
+          {PG_BOOSTS.map(({ label, delta }) => (
+            <span key={label} className="mr-3">{label} <strong className="text-foreground">+{delta}</strong></span>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <button
+          className="relative flex flex-col items-start rounded-2xl bg-tile-blue p-4 text-left ring-2 ring-orange-400 transition active:scale-[0.98]"
+        >
+          <span className="absolute right-3 top-3 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-bold text-blue-700">輕量</span>
+          <span className="mt-5 text-[0.95rem] font-extrabold text-blue-900">初階練習</span>
+          <span className="mt-1 text-xs font-medium text-blue-700">3 分 能量值</span>
+        </button>
+        <div className="relative flex cursor-not-allowed select-none flex-col items-start rounded-2xl bg-muted/50 p-4 text-left opacity-50 grayscale">
+          <span className="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">施工中</span>
+          <span className="mt-5 text-[0.95rem] font-extrabold text-muted-foreground">進階練習</span>
+          <span className="mt-1 text-xs font-medium text-muted-foreground">10 分 能量值</span>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <PurpleCta onClick={onStart}>開始練習</PurpleCta>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 初始引導流程
 // ════════════════════════════════════════════════════════════════════════
 function Onboarding({
   phase,
@@ -474,44 +687,31 @@ function Onboarding({
   finalMap: ImmersionMap | null
   startDaily: () => void
 }) {
-  // Step 1 四問
-  const [sceneDesc, setSceneDesc] = useState('')
-  const [undisturbed, setUndisturbed] = useState('')
-  const [mindFeel, setMindFeel] = useState('')
-  const [afterFeel, setAfterFeel] = useState('')
-  const [sceneIdx, setSceneIdx] = useState(0)
-  // Step 2 人時地物
+  // 事件描述（含當下狀態與感受，一個框完成）
+  const [event, setEvent] = useState('')
+  // 人時地物（使用者原始輸入）
   const [who, setWho] = useState('')
   const [whenTime, setWhenTime] = useState('')
   const [wherePlace, setWherePlace] = useState('')
   const [withWhat, setWithWhat] = useState('')
-  // Step 3 why
+  // AI 整理後的精簡版本（用於地圖顯示與儲存）
+  const [tidy, setTidy] = useState({ who: '', when_time: '', where_place: '', with_what: '', scene_summary: '' })
+  const [conditionTags, setConditionTags] = useState<string[]>([])
+  // why
   const [whyQ, setWhyQ] = useState({ who_why: '', when_why: '', where_why: '', what_why: '' })
   const [whyA, setWhyA] = useState({ who_why: '', when_why: '', where_why: '', what_why: '' })
   const [whyIdx, setWhyIdx] = useState(0)
   const [loadingWhy, setLoadingWhy] = useState(false)
-  // Step 4
+  // 收斂
   const [whySummary, setWhySummary] = useState('')
   const [loadingSummary, setLoadingSummary] = useState(false)
-  // Step 5
+  // 感受
   const [feelings, setFeelings] = useState<string[]>([])
-  // Step 6
+  // 一句話
   const [s1, setS1] = useState('')
   const [s2, setS2] = useState('')
   const [s3, setS3] = useState('')
   const [saving, setSaving] = useState(false)
-
-  const conditionTags = useMemo(
-    () => [who, whenTime, wherePlace, withWhat, undisturbed].map((x) => x.trim()).filter(Boolean),
-    [who, whenTime, wherePlace, withWhat, undisturbed],
-  )
-
-  const sceneQuestions = [
-    { label: '那件事是什麼？', value: sceneDesc, set: setSceneDesc, ph: '例：上週六晚上在實驗室寫程式' },
-    { label: '你最不想被什麼打斷？', value: undisturbed, set: setUndisturbed, ph: '例：有人突然進來、手機響' },
-    { label: '那個時候，你的腦子在做什麼感覺？', value: mindFeel, set: setMindFeel, ph: '例：像在解一個謎、一直往前推' },
-    { label: '結束或被打斷之後，你的感覺是什麼？', value: afterFeel, set: setAfterFeel, ph: '例：有點捨不得停、腦子還在轉' },
-  ]
 
   const whyConfig = [
     { key: 'who_why' as const, fallback: '這個「人」的安排，滿足了你什麼？' },
@@ -520,15 +720,22 @@ function Onboarding({
     { key: 'what_why' as const, fallback: '這個工具或媒介，幫你進入了什麼狀態？' },
   ]
 
-  // Step 2 → 3：呼叫 AI 產生 why 追問
+  const rawConditionFallback = () =>
+    [who, whenTime, wherePlace, withWhat].map((x) => x.trim()).filter(Boolean)
+
+  // EVENT → WHY：呼叫 AI 產生 why 追問 + 精煉人時地物
   const goWhy = async () => {
     setLoadingWhy(true)
     setPhase('WHY_Q')
     try {
-      const data = await fetchJson<typeof whyQ>('/api/pg/why-questions', {
-        scene_description: sceneDesc,
+      const data = await fetchJson<{
+        who_why: string; when_why: string; where_why: string; what_why: string
+        tidy: { who: string; when_time: string; where_place: string; with_what: string }
+        scene_summary: string; condition_tags: string[]
+      }>('/api/pg/why-questions', {
+        scene_description: event,
         who, when_time: whenTime, where_place: wherePlace, with_what: withWhat,
-        feelings: [mindFeel, afterFeel].filter(Boolean),
+        feelings: [],
       })
       setWhyQ({
         who_why: data.who_why || whyConfig[0].fallback,
@@ -536,6 +743,14 @@ function Onboarding({
         where_why: data.where_why || whyConfig[2].fallback,
         what_why: data.what_why || whyConfig[3].fallback,
       })
+      setTidy({
+        who: data.tidy?.who || who,
+        when_time: data.tidy?.when_time || whenTime,
+        where_place: data.tidy?.where_place || wherePlace,
+        with_what: data.tidy?.with_what || withWhat,
+        scene_summary: data.scene_summary || event,
+      })
+      setConditionTags(data.condition_tags?.length ? data.condition_tags : rawConditionFallback())
     } catch {
       setWhyQ({
         who_why: whyConfig[0].fallback,
@@ -543,12 +758,13 @@ function Onboarding({
         where_why: whyConfig[2].fallback,
         what_why: whyConfig[3].fallback,
       })
+      setTidy({ who, when_time: whenTime, where_place: wherePlace, with_what: withWhat, scene_summary: event })
+      setConditionTags(rawConditionFallback())
     } finally {
       setLoadingWhy(false)
     }
   }
 
-  // Step 3 → 4：收斂 why
   const goSummary = async () => {
     setLoadingSummary(true)
     setPhase('WHY_SUMMARY')
@@ -566,7 +782,6 @@ function Onboarding({
     return ans.length ? `你真正需要的是：${ans[0]}` : '你真正需要的是：一個能讓你專注、不被打斷的空間。'
   }
 
-  // Step 5 → 6：預填一句話模板
   const goOneSentence = () => {
     setS1(conditionTags.join('、'))
     setS2(feelings.join('、'))
@@ -577,9 +792,16 @@ function Onboarding({
     setSaving(true)
     const oneSentence = `我最容易進入沈浸的條件是「${s1}」，那個狀態裡我會感覺「${s2}」。就算結果沒有完成，在那個過程中，我會得到「${s3}」。`
     const m: ImmersionMap = {
-      scene_description: sceneDesc,
-      who, what: sceneDesc, when_time: whenTime, where_place: wherePlace, with_what: withWhat,
-      feelings, why_summary: whySummary, one_sentence: oneSentence, condition_tags: conditionTags,
+      scene_description: tidy.scene_summary || event,
+      who: tidy.who,
+      what: tidy.scene_summary || event,
+      when_time: tidy.when_time,
+      where_place: tidy.where_place,
+      with_what: tidy.with_what,
+      feelings,
+      why_summary: whySummary,
+      one_sentence: oneSentence,
+      condition_tags: conditionTags,
     }
     const { error } = await supabase
       .from('immersion_map')
@@ -593,91 +815,45 @@ function Onboarding({
     onComplete(m)
   }
 
-  // ── Step 0 ──
-  if (phase === 'INTRO') {
-    const steps = [
-      { n: '01', t: '喚起場景', d: '回想一個你特別投入的時刻' },
-      { n: '02', t: '拆解條件', d: '把那個時刻的人時地物拆開來看' },
-      { n: '03', t: '找到 Why', d: '理解這些條件為什麼對你有效' },
-      { n: '04', t: '寫下座標', d: '收斂成一句屬於你的句子' },
-    ]
+  // ── EVENT（合併：事件描述 + 人時地物）──
+  if (phase === 'EVENT') {
+    const ready = event.trim() && who.trim() && whenTime.trim() && wherePlace.trim() && withWhat.trim()
     return (
       <Screen>
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-3xl text-4xl" style={{ backgroundColor: '#DBEAFE' }}>👁️</div>
-        <h1 className="text-3xl font-extrabold leading-tight text-foreground">找回你的狀態</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-          我們要做三件事：看見它、拆解它、把它變成你的目標。
-        </p>
-        <div className="mt-6 flex flex-col gap-3">
-          {steps.map((s) => (
-            <div key={s.n} className="flex items-start gap-3 rounded-2xl bg-card p-4 shadow-soft">
-              <span className="text-lg font-extrabold tabular-nums" style={{ color: PURPLE }}>{s.n}</span>
-              <div>
-                <p className="font-extrabold text-foreground">{s.t}</p>
-                <p className="text-sm text-muted-foreground">{s.d}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8">
-          <PurpleCta onClick={() => setPhase('SCENE')}>我準備好了，開始</PurpleCta>
-        </div>
-      </Screen>
-    )
-  }
-
-  // ── Step 1 ──
-  if (phase === 'SCENE') {
-    const q = sceneQuestions[sceneIdx]
-    const canNext = q.value.trim().length > 0
-    const isLast = sceneIdx === sceneQuestions.length - 1
-    return (
-      <Screen>
-        <BackBar onBack={() => (sceneIdx === 0 ? setPhase('INTRO') : setSceneIdx((i) => i - 1))} />
-        <StepLabel step={1} total={6} />
-        <h2 className="text-xl font-extrabold leading-snug text-foreground">喚起場景</h2>
+        <BackBar onBack={() => setPhase('INTRO')} />
+        <StepLabel step={1} total={4} />
+        <h2 className="text-xl font-extrabold leading-snug text-foreground">你當時做了什麼事情呢？</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          先讓自己停下來一秒。回想這一週——在學習、工作、或任何你做了些什麼的時刻——有沒有哪個片段，你感覺自己特別沈浸在當下？時間過得很快、腦子很清晰、或是做起來有種自然的流動感。不用是最厲害的時刻，只要是最有「在」的感覺就好。
+          回想這一週某個你特別「在狀態」的片段——時間過得很快、腦子很清晰、有種自然的流動感。把那件事的經過、你當下腦子的感覺、結束後的心情，一起描述出來就好。
         </p>
-        <div className="mt-6">
-          <Field key={sceneIdx} label={`${sceneIdx + 1}. ${q.label}`} value={q.value} onChange={q.set} placeholder={q.ph} autoFocus />
+        <div className="mt-5">
+          <AutoTextarea
+            value={event}
+            onChange={setEvent}
+            placeholder="例：上週六晚上一個人在實驗室寫程式，像在解謎一直往前推，被打斷會很捨不得停"
+            autoFocus
+            minHeight={120}
+          />
         </div>
-        <div className="mt-6">
-          <PurpleCta
-            disabled={!canNext}
-            onClick={() => (isLast ? setPhase('DISSECT') : setSceneIdx((i) => i + 1))}
-          >
-            {isLast ? '下一步' : '繼續'}
-          </PurpleCta>
-        </div>
-        <p className="mt-3 text-center text-xs text-muted-foreground">{sceneIdx + 1} / {sceneQuestions.length}</p>
-      </Screen>
-    )
-  }
 
-  // ── Step 2 ──
-  if (phase === 'DISSECT') {
-    const ready = who.trim() && whenTime.trim() && wherePlace.trim() && withWhat.trim()
-    return (
-      <Screen>
-        <BackBar onBack={() => setPhase('SCENE')} />
-        <StepLabel step={2} total={6} />
-        <h2 className="text-xl font-extrabold leading-snug text-foreground">拆解人時地物</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">好，現在我們把那個時刻拆開來看。</p>
-        <div className="mt-6 flex flex-col gap-4">
-          <Field label="人 · 一個人，還是有別人在？" value={who} onChange={setWho} placeholder="例：一個人／和誰" />
-          <Field label="時 · 什麼時間點？" value={whenTime} onChange={setWhenTime} placeholder="例：週六晚上、深夜" />
-          <Field label="地 · 在哪裡？" value={wherePlace} onChange={setWherePlace} placeholder="例：實驗室、咖啡廳" />
-          <Field label="物 · 用什麼工具或媒介？" value={withWhat} onChange={setWithWhat} placeholder="例：電腦、筆記本" />
+        <div className="mt-7 rounded-2xl bg-muted/40 p-4">
+          <p className="mb-3 text-sm font-bold text-foreground">把那個時刻拆開來看：</p>
+          <div className="flex flex-col gap-4">
+            <Field label="人 · 一個人，還是有別人在？" value={who} onChange={setWho} placeholder="例：一個人／和誰" />
+            <Field label="時 · 什麼時間點？" value={whenTime} onChange={setWhenTime} placeholder="例：週六晚上、深夜" />
+            <Field label="地 · 在哪裡？" value={wherePlace} onChange={setWherePlace} placeholder="例：實驗室、咖啡廳" />
+            <Field label="物 · 用什麼工具或媒介？" value={withWhat} onChange={setWithWhat} placeholder="例：電腦、筆記本" />
+          </div>
         </div>
+
         <div className="mt-6">
-          <PurpleCta disabled={!ready} onClick={goWhy}>下一步</PurpleCta>
+          <PurpleCta disabled={!ready} onClick={goWhy}>下一步：找到你的 Why</PurpleCta>
         </div>
       </Screen>
     )
   }
 
-  // ── Step 3 ──
+  // ── WHY_Q ──
   if (phase === 'WHY_Q') {
     const cfg = whyConfig[whyIdx]
     const question = whyQ[cfg.key] || cfg.fallback
@@ -686,8 +862,8 @@ function Onboarding({
     const advance = () => (isLast ? goSummary() : setWhyIdx((i) => i + 1))
     return (
       <Screen>
-        <BackBar onBack={() => (whyIdx === 0 ? setPhase('DISSECT') : setWhyIdx((i) => i - 1))} />
-        <StepLabel step={3} total={6} />
+        <BackBar onBack={() => (whyIdx === 0 ? setPhase('EVENT') : setWhyIdx((i) => i - 1))} />
+        <StepLabel step={2} total={4} />
         <h2 className="text-xl font-extrabold leading-snug text-foreground">找到 Why</h2>
         {loadingWhy ? (
           <p className="mt-6 text-sm text-muted-foreground">正在依你的描述，想幾個好問題…</p>
@@ -697,9 +873,8 @@ function Onboarding({
               <p className="text-[15px] font-bold leading-relaxed">{question}</p>
             </div>
             <div className="mt-4">
-              <Field
+              <AutoTextarea
                 key={whyIdx}
-                label=""
                 value={answer}
                 onChange={(v) => setWhyA((a) => ({ ...a, [cfg.key]: v }))}
                 placeholder="想到什麼就寫什麼，也可以跳過"
@@ -717,24 +892,18 @@ function Onboarding({
     )
   }
 
-  // ── Step 4 ──
+  // ── WHY_SUMMARY ──
   if (phase === 'WHY_SUMMARY') {
     return (
       <Screen>
-        <StepLabel step={4} total={6} />
+        <StepLabel step={3} total={4} />
         <h2 className="text-xl font-extrabold leading-snug text-foreground">收斂你的 Why</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">這是我從你的回答裡，聽見的核心需求。你可以直接修改它。</p>
         <div className="mt-6">
           {loadingSummary ? (
             <AiBlock text="" loading />
           ) : (
-            <textarea
-              value={whySummary}
-              onChange={(e) => setWhySummary(e.target.value)}
-              rows={3}
-              className="w-full resize-none rounded-2xl border-2 px-4 py-3 text-[16px] font-bold leading-relaxed shadow-sm outline-none"
-              style={{ ...PURPLE_BG, borderColor: PURPLE }}
-            />
+            <AutoTextarea value={whySummary} onChange={setWhySummary} minHeight={80} style={{ ...PURPLE_BG, borderWidth: 2, borderColor: PURPLE, fontWeight: 700 }} />
           )}
         </div>
         <div className="mt-6">
@@ -744,14 +913,14 @@ function Onboarding({
     )
   }
 
-  // ── Step 5 ──
+  // ── FEELINGS ──
   if (phase === 'FEELINGS') {
     return (
       <Screen>
         <BackBar onBack={() => setPhase('WHY_SUMMARY')} />
-        <StepLabel step={5} total={6} />
+        <StepLabel step={4} total={4} />
         <h2 className="text-xl font-extrabold leading-snug text-foreground">那個狀態裡，你的感覺是什麼？</h2>
-        <p className="mt-2 text-sm text-muted-foreground">選幾個最貼近的，也可以自己加。</p>
+        <p className="mt-2 text-sm text-muted-foreground">選幾個最貼近的，也可以自己加（含語音）。</p>
         <div className="mt-6">
           <TagPicker options={FEELING_PRESETS} selected={feelings} onChange={setFeelings} palette="teal" addPlaceholder="加入你自己的詞…" />
         </div>
@@ -762,23 +931,26 @@ function Onboarding({
     )
   }
 
-  // ── Step 6 ──
+  // ── ONE_SENTENCE ──
   if (phase === 'ONE_SENTENCE') {
-    const blank = 'mx-1 inline-block min-w-[6rem] rounded-lg border-b-2 bg-white/60 px-2 py-0.5 text-center font-bold outline-none'
     return (
       <Screen>
         <BackBar onBack={() => setPhase('FEELINGS')} />
-        <StepLabel step={6} total={6} />
         <h2 className="text-xl font-extrabold leading-snug text-foreground">寫下你的座標</h2>
-        <p className="mt-2 text-sm text-muted-foreground">完成這句話——這是給你自己的座標。前兩格已幫你填好，可修改。</p>
-        <div className="mt-6 rounded-2xl bg-card p-5 text-[15px] leading-loose text-foreground shadow-soft">
-          我最容易進入沈浸的條件是「
-          <input value={s1} onChange={(e) => setS1(e.target.value)} className={blank} style={{ borderColor: '#D9A441' }} />
-          」，那個狀態裡我會感覺「
-          <input value={s2} onChange={(e) => setS2(e.target.value)} className={blank} style={{ borderColor: '#34A78A' }} />
-          」。就算結果沒有完成，在那個過程中，我會得到「
-          <input value={s3} onChange={(e) => setS3(e.target.value)} placeholder="你會得到什麼？" className={blank} style={{ borderColor: PURPLE }} />
-          」。
+        <p className="mt-2 text-sm text-muted-foreground">完成這三句話——這是給你自己的座標。前兩格已幫你填好，可修改。</p>
+        <div className="mt-6 flex flex-col gap-5">
+          <div>
+            <p className="mb-1.5 text-sm font-bold text-foreground">我最容易進入沈浸的條件是…</p>
+            <AutoTextarea value={s1} onChange={setS1} placeholder="例：一個人、晚上、不被打斷" />
+          </div>
+          <div>
+            <p className="mb-1.5 text-sm font-bold text-foreground">那個狀態裡，我會感覺…</p>
+            <AutoTextarea value={s2} onChange={setS2} placeholder="例：忘記時間、腦子一直在轉" />
+          </div>
+          <div>
+            <p className="mb-1.5 text-sm font-bold text-foreground">就算結果沒完成，過程中我會得到…</p>
+            <AutoTextarea value={s3} onChange={setS3} placeholder="你會得到什麼？" autoFocus />
+          </div>
         </div>
         <div className="mt-8">
           <PurpleCta disabled={saving || !s3.trim()} onClick={save}>{saving ? '儲存中…' : '完成沈浸地圖'}</PurpleCta>
@@ -787,7 +959,7 @@ function Onboarding({
     )
   }
 
-  // ── 完成卡片 ──
+  // ── 完成卡片（顯示 AI 整理過的精簡版本）──
   const m = finalMap
   return (
     <Screen>
@@ -900,7 +1072,7 @@ function Hub({
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 晚間回顧（軌道一）
+// 晚間回顧
 // ════════════════════════════════════════════════════════════════════════
 function Evening({
   phase,
@@ -957,6 +1129,23 @@ function Evening({
     }
   }
 
+  const buildShareContent = (): ShareContent => {
+    if (hadMoment) {
+      return {
+        item_1: focusDesc || '今天有一段不錯的專注時刻',
+        item_2: difficultTask ? `今天想克服：${difficultTask}` : null,
+        item_3: ifThen || null,
+        ai_feedback: aiFeedback || null,
+      }
+    }
+    return {
+      item_1: difficultTask ? `今天想克服：${difficultTask}` : '今天先為自己打個卡，明天再來。',
+      item_2: ifThen || null,
+      item_3: null,
+      ai_feedback: aiFeedback || null,
+    }
+  }
+
   const save = async () => {
     if (savedRef.current) {
       setPhase('E_DONE')
@@ -984,11 +1173,6 @@ function Evening({
     await markStreak(userId)
     setStreak(await computeUnifiedStreak(userId))
     setPhase('E_DONE')
-  }
-
-  // 沒有困難任務、直接結束
-  const finishWithoutWoop = async () => {
-    await save()
   }
 
   if (phase === 'E_MOMENT') {
@@ -1053,7 +1237,7 @@ function Evening({
         </div>
         <div className="mt-7 flex flex-col gap-2">
           <PurpleCta disabled={!difficultTask.trim()} onClick={() => setPhase('E_OBSTACLE')}>下一步</PurpleCta>
-          <GhostButton onClick={finishWithoutWoop}>今天先這樣，完成打卡</GhostButton>
+          <GhostButton onClick={save}>今天先這樣，完成打卡</GhostButton>
         </div>
       </Screen>
     )
@@ -1065,7 +1249,7 @@ function Evening({
         <BackBar onBack={() => setPhase('E_DIFFICULT')} />
         <h2 className="text-xl font-extrabold text-foreground">什麼最可能阻止你去做這件事？</h2>
         <div className="mt-6">
-          <Field label="" value={obstacle} onChange={setObstacle} placeholder="例：不知道從哪裡開始、太累、環境太吵、手機一直分心" autoFocus />
+          <Field value={obstacle} onChange={setObstacle} placeholder="例：不知道從哪裡開始、太累、環境太吵、手機一直分心" autoFocus />
         </div>
         <div className="mt-7">
           <PurpleCta disabled={!obstacle.trim()} onClick={runFeedback}>看看我的計畫</PurpleCta>
@@ -1085,13 +1269,7 @@ function Evening({
           ) : (
             <div>
               <p className="mb-2 text-sm font-bold text-foreground">你的 if-then 計畫（可修改）</p>
-              <textarea
-                value={ifThen}
-                onChange={(e) => setIfThen(e.target.value)}
-                rows={3}
-                className="w-full resize-none rounded-2xl border-2 px-4 py-3 text-[15px] font-medium leading-relaxed outline-none"
-                style={{ ...PURPLE_BG, borderColor: PURPLE }}
-              />
+              <AutoTextarea value={ifThen} onChange={setIfThen} minHeight={80} style={{ ...PURPLE_BG, borderWidth: 2, borderColor: PURPLE }} />
             </div>
           )}
         </div>
@@ -1103,11 +1281,11 @@ function Evening({
   }
 
   // E_DONE
-  return <DoneScreen kind="evening" streak={streak} onHome={onHome} />
+  return <DoneScreen kind="evening" streak={streak} userId={userId} shareContent={buildShareContent()} onHome={onHome} />
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 早晨啟動（軌道二）
+// 早晨啟動
 // ════════════════════════════════════════════════════════════════════════
 function pickMorningQuestion(ctx: DailyCtx): string {
   if (ctx.yesterdayIfThen) {
@@ -1170,6 +1348,13 @@ function Morning({
     }
   }
 
+  const buildShareContent = (): ShareContent => ({
+    item_1: todayTask ? `今天要做：${todayTask}` : '為今天設定一個專注的開始。',
+    item_2: suggestion || null,
+    item_3: null,
+    ai_feedback: suggestion || null,
+  })
+
   const save = async () => {
     if (savedRef.current) {
       setPhase('M_DONE')
@@ -1207,7 +1392,7 @@ function Morning({
           <p className="text-[15px] font-bold leading-relaxed">{question}</p>
         </div>
         <div className="mt-4">
-          <Field label="" value={todayTask} onChange={setTodayTask} placeholder="寫下今天要做的難事，或今天的安排" autoFocus />
+          <AutoTextarea value={todayTask} onChange={setTodayTask} placeholder="寫下今天要做的難事，或今天的安排" autoFocus />
         </div>
         <div className="mt-6">
           <PurpleCta onClick={runFeedback}>給我今天的啟動建議</PurpleCta>
@@ -1239,14 +1424,48 @@ function Morning({
   }
 
   // M_DONE
-  return <DoneScreen kind="morning" streak={streak} onHome={onHome} />
+  return <DoneScreen kind="morning" streak={streak} userId={userId} shareContent={buildShareContent()} onHome={onHome} />
 }
 
-// ── 打卡完成 ─────────────────────────────────────────────────────────────
-function DoneScreen({ kind, streak, onHome }: { kind: 'morning' | 'evening'; streak: number | null; onHome: () => void }) {
+// ── 打卡完成（含分享到社群）─────────────────────────────────────────────
+function DoneScreen({
+  kind,
+  streak,
+  userId,
+  shareContent,
+  onHome,
+}: {
+  kind: 'morning' | 'evening'
+  streak: number | null
+  userId: string
+  shareContent: ShareContent
+  onHome: () => void
+}) {
+  const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
+  const entryIdRef = useRef<string | null>(null)
+  const postedRef = useRef(false)
+
+  // 進入完成頁時，預設把打卡分享到社群（之後可改隱私）
+  useEffect(() => {
+    if (postedRef.current) return
+    postedRef.current = true
+    ;(async () => {
+      const id = await insertCommunityPost(userId, shareContent, DEFAULT_PRIVACY)
+      entryIdRef.current = id
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const changePrivacy = async (next: Privacy) => {
+    setPrivacy(next)
+    if (entryIdRef.current) {
+      void updateCommunityPrivacy(entryIdRef.current, userId, next)
+    }
+  }
+
   return (
     <Screen>
-      <div className="mt-10 flex flex-col items-center text-center">
+      <div className="mt-6 flex flex-col items-center text-center">
         <div className="celebrate-pop flex h-24 w-24 items-center justify-center rounded-full text-5xl" style={{ backgroundColor: '#D1FAE5' }}>
           {kind === 'morning' ? '🌅' : '🌙'}
         </div>
@@ -1263,7 +1482,35 @@ function DoneScreen({ kind, streak, onHome }: { kind: 'morning' | 'evening'; str
           </div>
         )}
       </div>
-      <div className="mt-10">
+
+      {/* 分享到社群的隱私設定 */}
+      <div className="mt-8 rounded-3xl bg-card p-4 shadow-soft">
+        <p className="mb-3 text-sm font-bold text-foreground">要把這次打卡分享到社群嗎？</p>
+        <div className="flex flex-col gap-2">
+          {PRIVACY_OPTIONS.map((opt) => {
+            const active = privacy === opt.value
+            return (
+              <button
+                key={opt.value}
+                onClick={() => changePrivacy(opt.value)}
+                aria-pressed={active}
+                className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${
+                  active ? 'border-[#534AB7] bg-[#EEEDFE]' : 'border-border hover:bg-muted'
+                }`}
+              >
+                <span className="text-xl">{opt.emoji}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-foreground">{opt.label}</span>
+                  <span className="block text-[11px] leading-snug text-muted-foreground">{opt.hint}</span>
+                </span>
+                {active && <span style={{ color: PURPLE }}>✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="mt-8">
         <PurpleCta onClick={onHome}>回訓練中心</PurpleCta>
       </div>
     </Screen>

@@ -39,6 +39,7 @@ export async function computeStreak(userId: string): Promise<number> {
     .from('gratitude_entries')
     .select('entry_date')
     .eq('user_id', userId)
+    .eq('practice_type', 'gratitude')
     .order('entry_date', { ascending: false })
   return streakFromDates((data ?? []).map((r) => String(r.entry_date)))
 }

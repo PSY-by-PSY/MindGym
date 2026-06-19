@@ -19,6 +19,7 @@ type GratitudeEntry = {
   target_1: string | null
   target_2: string | null
   target_3: string | null
+  practice_type: string | null
 }
 
 type Comment = {
@@ -83,7 +84,7 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 const FEED_POOL_SIZE = 60
 const PAGE_SIZE = 5
 
-const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, is_shared, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3'
+const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, is_shared, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3, practice_type'
 // 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
 const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS}, profiles(current_streak)`
 
@@ -1001,8 +1002,12 @@ function EntryCard({
             )}
           </div>
         </div>
-        <span className="shrink-0 rounded-full bg-tile-mint px-3 py-1 text-[11px] font-bold text-foreground">
-          感恩日記
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold text-foreground ${
+            entry.practice_type === 'process_goal' ? 'bg-tile-blue' : 'bg-tile-mint'
+          }`}
+        >
+          {entry.practice_type === 'process_goal' ? '過程目標覺察' : '感恩日記'}
         </span>
         {isOwn && (
           <div className="relative shrink-0">
