@@ -16,6 +16,7 @@ import { Route as LoginImport } from './routes/login'
 import { Route as AppImport } from './routes/app'
 import { Route as IndexImport } from './routes/index'
 import { Route as AppProfileImport } from './routes/app.profile'
+import { Route as AppProcessGoalImport } from './routes/app.process-goal'
 import { Route as AppPlaceholderImport } from './routes/app.placeholder'
 import { Route as AppHomeImport } from './routes/app.home'
 import { Route as AppGratitudeImport } from './routes/app.gratitude'
@@ -53,6 +54,12 @@ const IndexRoute = IndexImport.update({
 const AppProfileRoute = AppProfileImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppProcessGoalRoute = AppProcessGoalImport.update({
+  id: '/process-goal',
+  path: '/process-goal',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -158,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPlaceholderImport
       parentRoute: typeof AppImport
     }
+    '/app/process-goal': {
+      id: '/app/process-goal'
+      path: '/process-goal'
+      fullPath: '/app/process-goal'
+      preLoaderRoute: typeof AppProcessGoalImport
+      parentRoute: typeof AppImport
+    }
     '/app/profile': {
       id: '/app/profile'
       path: '/profile'
@@ -196,6 +210,7 @@ interface AppRouteChildren {
   AppGratitudeRoute: typeof AppGratitudeRoute
   AppHomeRoute: typeof AppHomeRoute
   AppPlaceholderRoute: typeof AppPlaceholderRoute
+  AppProcessGoalRoute: typeof AppProcessGoalRoute
   AppProfileRoute: typeof AppProfileRoute
   AppWorkshopAuthenticSelfRoute: typeof AppWorkshopAuthenticSelfRoute
   AppWorkshopLastDayRoute: typeof AppWorkshopLastDayRoute
@@ -207,6 +222,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGratitudeRoute: AppGratitudeRoute,
   AppHomeRoute: AppHomeRoute,
   AppPlaceholderRoute: AppPlaceholderRoute,
+  AppProcessGoalRoute: AppProcessGoalRoute,
   AppProfileRoute: AppProfileRoute,
   AppWorkshopAuthenticSelfRoute: AppWorkshopAuthenticSelfRoute,
   AppWorkshopLastDayRoute: AppWorkshopLastDayRoute,
@@ -224,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
   '/app/placeholder': typeof AppPlaceholderRoute
+  '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -239,6 +256,7 @@ export interface FileRoutesByTo {
   '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
   '/app/placeholder': typeof AppPlaceholderRoute
+  '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -255,6 +273,7 @@ export interface FileRoutesById {
   '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
   '/app/placeholder': typeof AppPlaceholderRoute
+  '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -272,6 +291,7 @@ export interface FileRouteTypes {
     | '/app/gratitude'
     | '/app/home'
     | '/app/placeholder'
+    | '/app/process-goal'
     | '/app/profile'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -286,6 +306,7 @@ export interface FileRouteTypes {
     | '/app/gratitude'
     | '/app/home'
     | '/app/placeholder'
+    | '/app/process-goal'
     | '/app/profile'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -300,6 +321,7 @@ export interface FileRouteTypes {
     | '/app/gratitude'
     | '/app/home'
     | '/app/placeholder'
+    | '/app/process-goal'
     | '/app/profile'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -347,6 +369,7 @@ export const routeTree = rootRoute
         "/app/gratitude",
         "/app/home",
         "/app/placeholder",
+        "/app/process-goal",
         "/app/profile",
         "/app/workshop/authentic-self",
         "/app/workshop/last-day",
@@ -373,6 +396,10 @@ export const routeTree = rootRoute
     },
     "/app/placeholder": {
       "filePath": "app.placeholder.tsx",
+      "parent": "/app"
+    },
+    "/app/process-goal": {
+      "filePath": "app.process-goal.tsx",
       "parent": "/app"
     },
     "/app/profile": {

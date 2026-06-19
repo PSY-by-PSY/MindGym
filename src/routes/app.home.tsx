@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
+import { recommendPractice, type Recommendation } from '../lib/recommend'
 
 export const Route = createFileRoute('/app/home')({
   beforeLoad: async ({ context }) => {
@@ -27,8 +28,9 @@ export const Route = createFileRoute('/app/home')({
 
     const { data: scores } = await supabase
       .from('perma_scores')
-      .select('id')
+      .select('p_score, e_score, r_score, m_score, a_score')
       .eq('user_id', userId)
+      .order('created_at', { ascending: false })
       .limit(1)
 
     if (!scores || scores.length === 0) {
@@ -44,7 +46,10 @@ export const Route = createFileRoute('/app/home')({
       .gte('created_at', todayStart.toISOString())
       .limit(1)
 
-    return { userName, hasGratitudeToday: (todayGratitude?.length ?? 0) > 0 }
+    // 由雷達圖（最新 PERMA 分數）決定今天推薦的練習
+    const recommendation = recommendPractice(scores[0] ?? null)
+
+    return { userName, hasGratitudeToday: (todayGratitude?.length ?? 0) > 0, recommendation }
   },
   component: HomePage,
 })
@@ -65,6 +70,7 @@ const modules = [
     tile: 'bg-tile-mint',
     to: '/app/gratitude' as const,
     searchName: null,
+    locked: false,
     perma: [
       { letter: 'P', label: '情緒力' },
       { letter: 'R', label: '連結力' },
@@ -77,14 +83,16 @@ const modules = [
     tile: 'bg-tile-peach',
     to: '/app/placeholder' as const,
     searchName: '三件好事',
+    locked: true,
     perma: [{ letter: 'P', label: '情緒力' }],
   },
   {
     emoji: '👁️',
     name: '過程目標覺察',
     tile: 'bg-tile-blue',
-    to: '/app/placeholder' as const,
-    searchName: '過程目標覺察',
+    to: '/app/process-goal' as const,
+    searchName: null,
+    locked: false,
     perma: [
       { letter: 'M', label: '意義力' },
       { letter: 'A', label: '成就力' },
@@ -96,6 +104,7 @@ const modules = [
     tile: 'bg-tile-pink',
     to: '/app/placeholder' as const,
     searchName: '自我慈悲',
+    locked: true,
     perma: [{ letter: 'E', label: '投入力' }],
   },
   {
@@ -104,6 +113,7 @@ const modules = [
     tile: 'bg-tile-blue',
     to: '/app/placeholder' as const,
     searchName: '正念冥想',
+    locked: true,
     perma: [{ letter: 'E', label: '投入力' }],
   },
 ]
@@ -117,7 +127,7 @@ const workshopModules = [
 ]
 
 function HomePage() {
-  const { userName } = Route.useRouteContext()
+  const { userName, recommendation } = Route.useRouteContext()
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
@@ -135,50 +145,64 @@ function HomePage() {
       <div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 no-scrollbar md:-mx-10 md:px-10">
         {modules.map((mod) => (
           <div key={mod.name} className="w-[70%] max-w-[260px] shrink-0 snap-center">
-            {mod.name === '感恩日記' ? (
-              <GridTile {...mod} />
-            ) : (
+            {mod.locked ? (
               <LockedGridTile {...mod} />
+            ) : (
+              <GridTile {...mod} />
             )}
           </div>
         ))}
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">← 左右滑動瀏覽更多模組 →</p>
 
-      {/* 感恩日記快速啟動橫幅 */}
-      <Link
-        to="/app/gratitude"
-        className="mt-4 flex items-center justify-between rounded-3xl bg-gradient-primary p-5 shadow-soft transition active:scale-[0.98]"
-      >
-        <div className="flex items-center gap-3.5">
-          <span className="text-3xl leading-none">⭐</span>
-          <p className="text-lg font-extrabold leading-tight text-white">
-            開始今日練習
-          </p>
-        </div>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="shrink-0 text-primary-foreground/80"
-          aria-hidden="true"
-        >
-          <path d="M5 12h14M12 5l7 7-7 7" />
-        </svg>
-      </Link>
+      {/* 今日練習快速啟動橫幅—依雷達圖推薦 */}
+      <TodayPracticeBanner recommendation={recommendation} />
 
       {/* 工作坊專屬練習 */}
       <WorkshopSection />
 
       {/* 訓練中心 */}
-      <TrainingCenter />
+      <TrainingCenter recommendation={recommendation} />
     </div>
+  )
+}
+
+function TodayPracticeBanner({ recommendation }: { recommendation: Recommendation }) {
+  const linkProps = recommendation.search
+    ? { to: recommendation.to, search: recommendation.search }
+    : { to: recommendation.to }
+
+  return (
+    <Link
+      {...(linkProps as Parameters<typeof Link>[0])}
+      onClick={() => track('today_practice_opened', { module: recommendation.name })}
+      className="mt-4 flex items-center justify-between gap-3 rounded-3xl bg-gradient-primary p-5 shadow-soft transition active:scale-[0.98]"
+    >
+      <div className="flex min-w-0 items-center gap-3.5">
+        <span className="text-3xl leading-none">{recommendation.emoji}</span>
+        <div className="min-w-0">
+          <p className="text-lg font-extrabold leading-tight text-white">
+            開始今日練習 · {recommendation.name}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-white/75">{recommendation.reason}</p>
+        </div>
+      </div>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="shrink-0 text-primary-foreground/80"
+        aria-hidden="true"
+      >
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    </Link>
   )
 }
 
@@ -525,32 +549,55 @@ function WeekCalendar({
   )
 }
 
-function GratitudeExerciseCard() {
+function ChevronRight() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0 text-foreground/40"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+type ExerciseCardProps = {
+  to: string
+  search?: Record<string, string>
+  emoji: string
+  tile: string
+  name: string
+  meta: string
+  badge?: string
+}
+
+function ExerciseCard({ to, search, emoji, tile, name, meta, badge }: ExerciseCardProps) {
+  const linkProps = search ? { to, search } : { to }
   return (
     <Link
-      to="/app/gratitude"
+      {...(linkProps as Parameters<typeof Link>[0])}
+      onClick={() => track('module_opened', { module: name })}
       className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft transition active:scale-[0.97]"
     >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-tile-mint text-2xl">⭐</span>
+      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl ${tile}`}>{emoji}</span>
       <div className="min-w-0 flex-1">
-        <p className="font-extrabold text-foreground">感恩日記</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">初階 · 5 分鐘 · 情緒力</p>
+        <div className="flex items-center gap-2">
+          <p className="font-extrabold text-foreground">{name}</p>
+          {badge && (
+            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-extrabold text-primary">{badge}</span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{meta}</p>
       </div>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="shrink-0 text-foreground/40"
-        aria-hidden="true"
-      >
-        <path d="M5 12h14M12 5l7 7-7 7" />
-      </svg>
+      <ChevronRight />
     </Link>
   )
 }
@@ -564,7 +611,7 @@ const TABS: { key: TrainingTab; label: string }[] = [
   { key: 'perma', label: 'PERMA' },
 ]
 
-function TrainingCenter() {
+function TrainingCenter({ recommendation }: { recommendation: Recommendation }) {
   const [activeTab, setActiveTab] = useState<TrainingTab>('schedule')
   const [selectedDay, setSelectedDay] = useState<Date>(() => {
     const d = new Date()
@@ -600,17 +647,48 @@ function TrainingCenter() {
       {activeTab === 'schedule' && (
         <div>
           <WeekCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+          <p className="mb-2 text-xs text-muted-foreground">
+            今天為你安排：<span className="font-bold text-foreground">{recommendation.name}</span>。其他練習也隨時可以做。
+          </p>
           <div className="flex flex-col gap-2">
-            <GratitudeExerciseCard />
+            <ExerciseCard
+              to="/app/gratitude"
+              emoji="⭐"
+              tile="bg-tile-mint"
+              name="感恩日記"
+              meta="初階 · 5 分鐘 · 情緒力"
+              badge={recommendation.key === 'gratitude' ? '今日推薦' : undefined}
+            />
+            <ExerciseCard
+              to="/app/process-goal"
+              emoji="👁️"
+              tile="bg-tile-blue"
+              name="過程目標覺察"
+              meta="進階 · 3 分鐘 · 意義力 · 成就力"
+              badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
+            />
           </div>
         </div>
       )}
 
       {activeTab === 'new' && (
-        <div className="relative overflow-hidden rounded-3xl bg-muted/60 px-6 py-10 text-center shadow-soft">
-          <span className="text-2xl">🔒</span>
-          <p className="mt-2 text-sm font-extrabold text-muted-foreground">敬請期待</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">新課程正在路上</p>
+        <div className="flex flex-col gap-2">
+          <ExerciseCard
+            to="/app/process-goal"
+            emoji="👁️"
+            tile="bg-tile-blue"
+            name="過程目標覺察"
+            meta="新上架 · 找回你的專注狀態"
+            badge="NEW"
+          />
+          <ExerciseCard
+            to="/app/placeholder"
+            search={{ name: '三件好事' }}
+            emoji="☑️"
+            tile="bg-tile-peach"
+            name="三件好事"
+            meta="即將上架 · 情緒力 · 成就力"
+          />
         </div>
       )}
 

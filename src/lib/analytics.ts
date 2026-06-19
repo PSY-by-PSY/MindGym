@@ -36,6 +36,10 @@ export type AnalyticsEvent =
   | 'gratitude_started'    // 開始寫感恩日記
   | 'gratitude_completed'  // 完成感恩日記
   | 'module_opened'        // 點開訓練中心的某個模組
+  | 'today_practice_opened'      // 點開首頁「開始今日練習」橫幅
+  | 'process_goal_map_created'   // 完成過程目標覺察的沈浸地圖
+  | 'process_goal_evening_done'  // 完成過程目標覺察晚間回顧
+  | 'process_goal_morning_done'  // 完成過程目標覺察早晨啟動
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null

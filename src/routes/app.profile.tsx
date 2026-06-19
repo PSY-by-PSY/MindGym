@@ -74,6 +74,23 @@ type GratitudeEntry = {
   ai_feedback?: string | null
 }
 
+// 過程目標覺察的每日紀錄（晚間回顧 / 早晨啟動），用於「我的健心日記」日曆
+type PgItem =
+  | {
+      kind: 'evening'
+      log_date: string
+      focus_description?: string | null
+      difficult_task?: string | null
+      if_then_plan?: string | null
+      ai_feedback?: string | null
+    }
+  | {
+      kind: 'morning'
+      log_date: string
+      today_task?: string | null
+      ai_suggestion?: string | null
+    }
+
 export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -452,9 +469,11 @@ function GratitudeCalendar({
   const [year, setYear] = useState(todayDate.getFullYear())
   const [month, setMonth] = useState(todayDate.getMonth()) // 0-indexed
   const [entries, setEntries] = useState<GratitudeEntry[]>(initialEntries)
+  const [pgItems, setPgItems] = useState<PgItem[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [modalEntry, setModalEntry] = useState<GratitudeEntry | null>(null)
+  const [pgModal, setPgModal] = useState<PgItem | null>(null)
 
   // 永遠用最新的 DB 資料覆蓋（避免 useState 鎖在第一次的 initialEntries）
   useEffect(() => {
@@ -486,6 +505,41 @@ function GratitudeCalendar({
     return () => { cancelled = true }
   }, [year, month, userId])
 
+  // 過程目標覺察：抓本月的晚間回顧 / 早晨啟動紀錄，併入健心日記
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+
+    const m = month + 1
+    const startDate = `${year}-${String(m).padStart(2, '0')}-01`
+    const lastDay = new Date(year, month + 1, 0).getDate()
+    const endDate = `${year}-${String(m).padStart(2, '0')}-${lastDay}`
+
+    Promise.all([
+      supabase
+        .from('focus_logs')
+        .select('log_date, focus_description, difficult_task, if_then_plan, ai_feedback')
+        .eq('user_id', userId)
+        .gte('log_date', startDate)
+        .lte('log_date', endDate),
+      supabase
+        .from('morning_logs')
+        .select('log_date, today_task, ai_suggestion')
+        .eq('user_id', userId)
+        .gte('log_date', startDate)
+        .lte('log_date', endDate),
+    ]).then(([focusRes, morningRes]) => {
+      if (cancelled) return
+      const items: PgItem[] = [
+        ...(focusRes.data ?? []).map((r): PgItem => ({ kind: 'evening', ...r, log_date: String(r.log_date).slice(0, 10) })),
+        ...(morningRes.data ?? []).map((r): PgItem => ({ kind: 'morning', ...r, log_date: String(r.log_date).slice(0, 10) })),
+      ]
+      setPgItems(items)
+    })
+
+    return () => { cancelled = true }
+  }, [year, month, userId])
+
   // 當父層因 router.invalidate() 回傳新的 initialEntries 時，立即同步
   useEffect(() => {
     setEntries(initialEntries)
@@ -496,6 +550,13 @@ function GratitudeCalendar({
   const entryMap = new Map(
     entries.map((e) => [String(e.entry_date).slice(0, 10), { ...e, entry_date: String(e.entry_date).slice(0, 10) }] as const)
   )
+  const pgMap = new Map<string, PgItem[]>()
+  for (const it of pgItems) {
+    const list = pgMap.get(it.log_date) ?? []
+    list.push(it)
+    pgMap.set(it.log_date, list)
+  }
+  const hasAnyEntry = (ds: string) => entryMap.has(ds) || pgMap.has(ds)
 
   const cells: (number | null)[] = [
     ...Array(firstWeekday).fill(null),
@@ -516,6 +577,7 @@ function GratitudeCalendar({
   }
 
   const selectedEntry = selectedDate ? (entryMap.get(selectedDate) ?? null) : null
+  const selectedPg = selectedDate ? (pgMap.get(selectedDate) ?? []) : []
 
   return (
     <>
@@ -558,7 +620,7 @@ function GratitudeCalendar({
           {cells.map((day, i) => {
             if (!day) return <div key={`e-${i}`} />
             const ds = dateStr(day)
-            const hasEntry = entryMap.has(ds)
+            const hasEntry = hasAnyEntry(ds)
             const isSelected = selectedDate === ds
             const isToday = ds === todayStr
 
@@ -589,22 +651,39 @@ function GratitudeCalendar({
         {/* 選取日期詳情 */}
         {selectedDate && (
           <div className="mt-4 rounded-2xl bg-muted p-4">
-            {selectedEntry ? (
-              <>
-                <p className="mb-2 text-xs font-bold text-muted-foreground">
+            {selectedEntry || selectedPg.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <p className="mb-1 text-xs font-bold text-muted-foreground">
                   {selectedDate} 的練習紀錄
                 </p>
-                <button
-                  onClick={() => setModalEntry(selectedEntry)}
-                  className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint text-base">
-                    📔
-                  </span>
-                  <span className="flex-1 text-sm font-bold text-foreground">感恩日記</span>
-                  <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
-                </button>
-              </>
+                {selectedEntry && (
+                  <button
+                    onClick={() => setModalEntry(selectedEntry)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint text-base">
+                      📔
+                    </span>
+                    <span className="flex-1 text-sm font-bold text-foreground">感恩日記</span>
+                    <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
+                  </button>
+                )}
+                {selectedPg.map((it, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPgModal(it)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-blue text-base">
+                      {it.kind === 'morning' ? '🌅' : '🌙'}
+                    </span>
+                    <span className="flex-1 text-sm font-bold text-foreground">
+                      過程目標覺察 · {it.kind === 'morning' ? '早晨啟動' : '晚間回顧'}
+                    </span>
+                    <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
+                  </button>
+                ))}
+              </div>
             ) : (
               <p className="py-1 text-center text-sm text-muted-foreground">
                 這天還沒有紀錄
@@ -657,6 +736,82 @@ function GratitudeCalendar({
                 <p className="text-sm leading-relaxed text-foreground">{modalEntry.ai_feedback}</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 過程目標覺察 Modal */}
+      {pgModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] backdrop-blur-sm"
+          onClick={() => setPgModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+                  Process Goal Awareness
+                </p>
+                <h3 className="text-lg font-extrabold text-foreground">
+                  過程目標覺察 · {pgModal.kind === 'morning' ? '早晨啟動' : '晚間回顧'}
+                </h3>
+                <p className="text-xs text-muted-foreground">{pgModal.log_date}</p>
+              </div>
+              <button
+                onClick={() => setPgModal(null)}
+                className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition active:scale-95"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {pgModal.kind === 'morning' ? (
+                <>
+                  {pgModal.today_task && (
+                    <div className="rounded-2xl bg-tile-blue p-4">
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">今天要做的事</p>
+                      <p className="text-sm leading-relaxed text-foreground">{pgModal.today_task}</p>
+                    </div>
+                  )}
+                  {pgModal.ai_suggestion && (
+                    <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">啟動建議</p>
+                      <p className="text-sm leading-relaxed">{pgModal.ai_suggestion}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {pgModal.focus_description && (
+                    <div className="rounded-2xl bg-tile-blue p-4">
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">今天的專注時刻</p>
+                      <p className="text-sm leading-relaxed text-foreground">{pgModal.focus_description}</p>
+                    </div>
+                  )}
+                  {pgModal.difficult_task && (
+                    <div className="rounded-2xl bg-muted p-4">
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">難以開始的事</p>
+                      <p className="text-sm leading-relaxed text-foreground">{pgModal.difficult_task}</p>
+                    </div>
+                  )}
+                  {pgModal.if_then_plan && (
+                    <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">if-then 計畫</p>
+                      <p className="text-sm leading-relaxed">{pgModal.if_then_plan}</p>
+                    </div>
+                  )}
+                  {pgModal.ai_feedback && (
+                    <div className="rounded-2xl bg-primary-soft p-4">
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">教練回饋</p>
+                      <p className="text-sm leading-relaxed text-foreground">{pgModal.ai_feedback}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

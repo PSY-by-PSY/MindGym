@@ -219,6 +219,45 @@ class ExtractKeywordsRequest(BaseModel):
     entries: list[KeywordEntry]
 
 
+# ── Process Goal Awareness models（過程目標覺察）────────────────────────────
+
+class WhyQuestionsRequest(BaseModel):
+    scene_description: str = ""
+    who: str = ""
+    when_time: str = ""
+    where_place: str = ""
+    with_what: str = ""
+    feelings: list[str] = Field(default_factory=list)
+
+
+class WhySummaryRequest(BaseModel):
+    who_why: str = ""
+    when_why: str = ""
+    where_why: str = ""
+    what_why: str = ""
+
+
+class EveningFeedbackRequest(BaseModel):
+    condition_tags: list[str] = Field(default_factory=list)
+    feelings: list[str] = Field(default_factory=list)
+    why_summary: str = ""
+    had_focus_moment: bool = False
+    focus_description: str = ""
+    today_conditions: list[str] = Field(default_factory=list)
+    difficult_task: str = ""
+    obstacle: str = ""
+
+
+class MorningFeedbackRequest(BaseModel):
+    condition_tags: list[str] = Field(default_factory=list)
+    feelings: list[str] = Field(default_factory=list)
+    why_summary: str = ""
+    one_sentence: str = ""
+    recent_logs_summary: str = ""
+    today_task: str = ""
+    yesterday_if_then: str = ""
+
+
 # ── InMind models ──────────────────────────────────────────────────────────
 
 class NarrativeAnswers(BaseModel):
@@ -1012,6 +1051,174 @@ async def generate_report(
             content={"error": f"分析失敗：{str(exc)}"},
             status_code=500,
         )
+
+
+# ── Process Goal Awareness endpoints（過程目標覺察）─────────────────────────
+# 沿用既有慣例：輕量端點用 Haiku、只回傳 JSON、背景記帳、解析失敗丟 502 讓
+# 前端走 fallback。資料寫入一律由前端直接打 Supabase（RLS），這裡只做 AI。
+
+_PG_MODEL = "claude-haiku-4-5-20251001"
+
+
+async def _pg_claude_json(source: str, user_id: str, system: str, user_content: str, max_tokens: int = 512) -> dict:
+    msg = await claude().messages.create(
+        model=_PG_MODEL,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user_content}],
+    )
+    meter_claude(source, _PG_MODEL, msg.usage, user_id)
+    raw = msg.content[0].text if msg.content else ""
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=502, detail=f"Claude returned non-JSON: {raw[:200]!r}")
+    return json.loads(match.group())
+
+
+@app.post("/api/pg/why-questions")
+async def pg_why_questions(req: WhyQuestionsRequest, authorization: str = Header(...)):
+    """Step 3：針對人/時/地/物各生成一個追問。"""
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+        feelings = "、".join(req.feelings) if req.feelings else "（未填）"
+        content = (
+            "你是一個心理引導師。使用者剛才描述了一個讓他感到沈浸的場景：\n"
+            f"場景描述：{req.scene_description}\n"
+            f"人：{req.who}\n"
+            f"時：{req.when_time}\n"
+            f"地：{req.where_place}\n"
+            f"物：{req.with_what}\n"
+            f"感受：{feelings}\n\n"
+            "請針對「人」、「時」、「地」、「物」各生成一個追問，目的是幫助使用者理解"
+            "「為什麼這個條件對他有效」，挖掘條件背後真正滿足的心理需求。\n"
+            "追問要口語、溫和、有好奇心，不要像問卷。每個問題一句話。\n"
+            "以 JSON 格式回傳：\n"
+            '{"who_why":"...","when_why":"...","where_why":"...","what_why":"..."}'
+        )
+        data = await _pg_claude_json(
+            "pg-why-questions", user_id,
+            "你是溫柔的心理引導師，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            content,
+        )
+        return {
+            "who_why": data.get("who_why", ""),
+            "when_why": data.get("when_why", ""),
+            "where_why": data.get("where_why", ""),
+            "what_why": data.get("what_why", ""),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pg_why_questions failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/pg/why-summary")
+async def pg_why_summary(req: WhySummaryRequest, authorization: str = Header(...)):
+    """Step 4：把四個 why 收斂成一句「你真正需要的是：___」。"""
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+        content = (
+            "使用者回答了以下關於自己沈浸條件的 why：\n"
+            f"人的 why：{req.who_why}\n"
+            f"時的 why：{req.when_why}\n"
+            f"地的 why：{req.where_why}\n"
+            f"物的 why：{req.what_why}\n\n"
+            "請把這些答案收斂成一句話，格式為「你真正需要的是：___」。\n"
+            "這句話要抓住所有 why 的共同核心需求、口語直接有溫度、不超過 30 個中文字。\n"
+            '只回傳 JSON：{"summary":"你真正需要的是：..."}'
+        )
+        data = await _pg_claude_json(
+            "pg-why-summary", user_id,
+            "你是溫柔的健心教練，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            content,
+            max_tokens=256,
+        )
+        return {"summary": data.get("summary", "")}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pg_why_summary failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/pg/evening-feedback")
+async def pg_evening_feedback(req: EveningFeedbackRequest, authorization: str = Header(...)):
+    """晚間回顧：回饋今天的專注時刻 + 產生 if-then 計畫。"""
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+        content = (
+            "你是使用者的專注力教練，語氣溫暖、簡短、有針對性。\n\n"
+            "使用者的沈浸地圖：\n"
+            f"- 核心條件：{'、'.join(req.condition_tags) or '（未填）'}\n"
+            f"- 核心感受：{'、'.join(req.feelings) or '（未填）'}\n"
+            f"- 他真正需要的是：{req.why_summary or '（未填）'}\n\n"
+            "今天的記錄：\n"
+            f"- 今天有沒有專注時刻：{'有' if req.had_focus_moment else '沒有'}\n"
+            f"- 專注時刻描述：{req.focus_description or '（無）'}\n"
+            f"- 今天有效的條件：{'、'.join(req.today_conditions) or '（無）'}\n"
+            f"- 困難的任務：{req.difficult_task or '（無）'}\n"
+            f"- 預期的障礙：{req.obstacle or '（無）'}\n\n"
+            "請做兩件事：\n"
+            "1. 給一句針對今天專注時刻的回饋（如果有的話），要具體呼應他說的內容，不要空洞鼓勵。\n"
+            "2. 根據他的沈浸地圖和今天的障礙，生成一個 if-then 計畫，格式為"
+            "「如果___（障礙發生），那我就___（用你的條件應對）。」\n"
+            '回傳 JSON：{"focus_feedback":"...","if_then_plan":"..."}\n'
+            "（若今天沒有專注時刻，focus_feedback 給空字串）"
+        )
+        data = await _pg_claude_json(
+            "pg-evening-feedback", user_id,
+            "你是溫暖的專注力教練，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            content,
+        )
+        return {
+            "focus_feedback": data.get("focus_feedback", ""),
+            "if_then_plan": data.get("if_then_plan", ""),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pg_evening_feedback failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/api/pg/morning-feedback")
+async def pg_morning_feedback(req: MorningFeedbackRequest, authorization: str = Header(...)):
+    """早晨啟動：給一句具體、今天就能做到的啟動建議。"""
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+        content = (
+            "你是使用者的專注力教練，語氣簡短、有力、像一個了解你的朋友。\n\n"
+            "使用者的沈浸地圖：\n"
+            f"- 核心條件：{'、'.join(req.condition_tags) or '（未填）'}\n"
+            f"- 核心感受：{'、'.join(req.feelings) or '（未填）'}\n"
+            f"- 他真正需要的是：{req.why_summary or '（未填）'}\n"
+            f"- 收斂一句話：{req.one_sentence or '（未填）'}\n\n"
+            f"最近七天的記錄摘要：{req.recent_logs_summary or '（資料還很少，可忽略）'}\n\n"
+            "今天的輸入：\n"
+            f"- 今天要做的事／安排：{req.today_task or '（未填）'}\n"
+            f"- 昨晚的 if-then 計畫（若有）：{req.yesterday_if_then or '（無）'}\n\n"
+            "請根據使用者今天的輸入和他的沈浸地圖，給一句具體的啟動建議：\n"
+            "- 要包含具體的條件（什麼時候、在哪、怎麼開始）\n"
+            "- 要小到「今天就能做到」，不要空洞鼓勵\n"
+            "- 若近七天有值得指出的模式，可以帶一句\n"
+            '只回傳 JSON：{"suggestion":"..."}（suggestion 為一段話，100 字以內，中文，口語）'
+        )
+        data = await _pg_claude_json(
+            "pg-morning-feedback", user_id,
+            "你是了解使用者的專注力教練，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            content,
+        )
+        return {"suggestion": data.get("suggestion", "")}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pg_morning_feedback failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
 # ── Speech-to-text ─────────────────────────────────────────────────────────

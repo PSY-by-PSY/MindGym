@@ -42,3 +42,22 @@ export async function computeStreak(userId: string): Promise<number> {
     .order('entry_date', { ascending: false })
   return streakFromDates((data ?? []).map((r) => String(r.entry_date)))
 }
+
+/**
+ * 跨練習的「共用打卡天數」：感恩日記 + 過程目標覺察（晚間回顧／早晨啟動）。
+ * 任一練習完成都算當天有打卡，符合「打卡 streak 共用同一個計數器」的設計。
+ * 任何一張表查詢失敗都不致整個歸零（容錯：用拿得到的日期計算）。
+ */
+export async function computeUnifiedStreak(userId: string): Promise<number> {
+  const [gratitude, focus, morning] = await Promise.all([
+    supabase.from('gratitude_entries').select('entry_date').eq('user_id', userId),
+    supabase.from('focus_logs').select('log_date').eq('user_id', userId),
+    supabase.from('morning_logs').select('log_date').eq('user_id', userId),
+  ])
+  const dates: string[] = [
+    ...(gratitude.data ?? []).map((r) => String(r.entry_date)),
+    ...(focus.data ?? []).map((r) => String(r.log_date)),
+    ...(morning.data ?? []).map((r) => String(r.log_date)),
+  ]
+  return streakFromDates(dates)
+}
