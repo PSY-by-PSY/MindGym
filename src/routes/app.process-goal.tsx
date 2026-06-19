@@ -1,5 +1,5 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeUnifiedStreak } from '../lib/streak'
 import { track } from '../lib/analytics'
@@ -8,17 +8,42 @@ import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from 
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
-// 模組專用配色（沿用 prompt 規格）
-const TEAL = { backgroundColor: '#E1F5EE', color: '#085041' } // 洞察 / 條件標籤
-const PURPLE_BG = { backgroundColor: '#EEEDFE', color: '#26215C' } // AI 回饋
-const PURPLE = '#534AB7' // CTA 主按鈕
+// 模組專用配色
+const TEAL = { backgroundColor: '#E1F5EE', color: '#085041' }
+const PURPLE_BG = { backgroundColor: '#EEEDFE', color: '#26215C' }
+const PURPLE = '#534AB7'
 
 const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
 function pickAnonName() {
   return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
 }
 
-// 過程目標覺察對應的能力點數加成（示意值，與感恩日記同樣的呈現方式）
+// PERMA 加分項目（用於完成頁）
+const PG_PERMA_BOOSTS = [
+  {
+    key: 'A',
+    label: '成就力',
+    delta: 3,
+    bar: 'bg-tile-blue',
+    description: '看見自己的專注條件，是找回行動力的第一步。',
+  },
+  {
+    key: 'M',
+    label: '意義力',
+    delta: 2,
+    bar: 'bg-tile-peach',
+    description: '理解「為什麼投入」，讓你的努力更有方向感與意義感。',
+  },
+  {
+    key: 'E',
+    label: '投入力',
+    delta: 2,
+    bar: 'bg-tile-mint',
+    description: '觀察心流條件，你離沈浸的狀態又近了一步。',
+  },
+] as const
+
+// 進入頁分鐘/強度說明
 const PG_BOOSTS = [
   { label: '意義力', delta: 2 },
   { label: '成就力', delta: 3 },
@@ -26,7 +51,6 @@ const PG_BOOSTS = [
 ]
 
 export const Route = createFileRoute('/app/process-goal')({
-  // 可從外部深連結直接進某個模組：?mod=record | ?mod=boost
   validateSearch: (search: Record<string, unknown>) => ({
     mod:
       search.mod === 'record' || search.mod === 'boost'
@@ -43,13 +67,12 @@ type Phase =
   // 模組一【專注時刻記錄】
   | 'R_INPUT'
   | 'R_INSIGHT'
-  | 'R_DONE'
+  | 'R_CELEBRATE'
   // 模組二【提升專注錦囊】
   | 'B_INPUT'
   | 'B_RESULT'
-  | 'B_DONE'
+  | 'B_CELEBRATE'
 
-// 過去的「專注時刻記錄」（供模組二檢索）
 interface MomentRecord {
   event: string
   who: string
@@ -69,6 +92,14 @@ interface ShareContent {
 // ── 工具 ─────────────────────────────────────────────────────────────────
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatDate(date: Date): string {
+  const days = ['日', '一', '二', '三', '四', '五', '六']
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y} / ${m} / ${d}（星期${days[date.getDay()]}）`
 }
 
 const AI_TIMEOUT_MS = 30000
@@ -103,9 +134,11 @@ async function markStreak(userId: string) {
   }
 }
 
-// 把打卡內容分享到社群（沿用 gratitude_entries 那張表，practice_type='process_goal'，
-// 因此社群的按讚 / 留言 / 機器人讚 / 通知都能直接運作）。
-async function insertCommunityPost(userId: string, content: ShareContent, privacy: Privacy): Promise<string | null> {
+async function insertCommunityPost(
+  userId: string,
+  content: ShareContent,
+  privacy: Privacy,
+): Promise<string | null> {
   const fields = privacyToFields(privacy)
   const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle()
   const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
@@ -145,7 +178,6 @@ async function updateCommunityPrivacy(entryId: string, userId: string, privacy: 
     .eq('id', entryId)
 }
 
-// 讀取使用者過去的「專注時刻記錄」（log_kind='moment'）→ 供模組二檢索遷移
 async function loadMomentRecords(userId: string): Promise<MomentRecord[]> {
   const { data } = await supabase
     .from('focus_logs')
@@ -205,7 +237,6 @@ function GhostButton({ children, onClick }: { children: React.ReactNode; onClick
   )
 }
 
-// 自動長高的多行輸入框 + 語音輸入（每個輸入點都用它，框會隨字數變高）
 function AutoTextarea({
   value,
   onChange,
@@ -379,7 +410,6 @@ function ProcessGoalPage() {
     )
   }
 
-  // B_*
   return (
     <BoostModule
       phase={phase}
@@ -392,7 +422,7 @@ function ProcessGoalPage() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 介紹頁（仿感恩日記進入頁）— 兩個模組入口 + 核心宣導
+// 介紹頁（仿感恩日記進入頁）
 // ════════════════════════════════════════════════════════════════════════
 function Intro({
   momentCount,
@@ -423,7 +453,6 @@ function Intro({
         過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。
       </div>
 
-      {/* 核心宣導：記得越多越完整，建議就越精準 */}
       <div className="mt-3 flex items-start gap-3 rounded-2xl p-4" style={PURPLE_BG}>
         <span className="text-xl">💡</span>
         <p className="text-sm font-bold leading-relaxed">
@@ -475,7 +504,6 @@ function Intro({
       </div>
 
       <div className="mt-3 flex flex-col gap-3">
-        {/* 模組一：專注時刻記錄 */}
         <button
           type="button"
           onClick={onRecord}
@@ -491,7 +519,6 @@ function Intro({
           </div>
         </button>
 
-        {/* 模組二：提升專注錦囊 */}
         <button
           type="button"
           onClick={onBoost}
@@ -513,13 +540,13 @@ function Intro({
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 模組一【專注時刻記錄】— 數據收集與洞察層
+// 模組一【專注時刻記錄】
 // ════════════════════════════════════════════════════════════════════════
 function RecordModule({
   phase,
   setPhase,
   userId,
-  onHome,
+  onHome: _onHome,
   toIntro,
 }: {
   phase: Phase
@@ -536,8 +563,13 @@ function RecordModule({
   const [category, setCategory] = useState('other')
   const [conditionTags, setConditionTags] = useState<string[]>([])
   const [loadingAi, setLoadingAi] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [streak, setStreak] = useState<number | null>(null)
   const savedRef = useRef(false)
+  const savedEntryIdRef = useRef<string | null>(null)
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const today = useMemo(() => formatDate(new Date()), [])
 
   const fallbackInsight = () =>
     '從你的描述裡，能感覺到你在那個情境特別投入。多記幾次，AI 就能更準地看出你需要的專注條件。'
@@ -562,41 +594,89 @@ function RecordModule({
     }
   }
 
-  const buildShareContent = (): ShareContent => ({
-    item_1: event || '記下了一個專注時刻',
-    item_2: insight || null,
-    item_3: null,
-    ai_feedback: insight || null,
-  })
+  const handleShare = async () => {
+    if (!shareCardRef.current || sharing) return
+    setSharing(true)
+    try {
+      const node = shareCardRef.current
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(node, {
+        width: 1080,
+        height: 1440,
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        skipFonts: true,
+        style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
+      })
+      const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
+      const filename = `focus-moment-${isoDate(new Date())}.png`
+      if (isMobile) {
+        const blob = await fetch(dataUrl).then((r) => r.blob())
+        const file = new File([blob], filename, { type: 'image/png' })
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: '我的專注時刻' })
+          return
+        }
+      }
+      const link = document.createElement('a')
+      link.download = filename
+      link.href = dataUrl
+      link.click()
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const save = async () => {
     if (savedRef.current) {
-      setPhase('R_DONE')
+      setPhase('R_CELEBRATE')
       return
     }
     savedRef.current = true
-    const { error } = await supabase.from('focus_logs').insert({
-      user_id: userId,
-      log_date: isoDate(new Date()),
-      log_kind: 'moment',
-      had_focus_moment: true,
-      focus_description: event || null,
-      moment_who: who || null,
-      moment_when: whenTime || null,
-      moment_where: wherePlace || null,
-      insight: insight || null,
-      category,
-    })
-    if (error) {
+    setSubmitting(true)
+    try {
+      // 1. 寫入 focus_logs
+      const { error } = await supabase.from('focus_logs').insert({
+        user_id: userId,
+        log_date: isoDate(new Date()),
+        log_kind: 'moment',
+        had_focus_moment: true,
+        focus_description: event || null,
+        moment_who: who || null,
+        moment_when: whenTime || null,
+        moment_where: wherePlace || null,
+        insight: insight || null,
+        category,
+      })
+      if (error) throw error
+
+      // 2. 建立社群貼文（預設隱私，之後在完成頁可改）
+      const entryId = await insertCommunityPost(userId, {
+        item_1: event || '記下了一個專注時刻',
+        item_2: insight || null,
+        item_3: null,
+        ai_feedback: insight || null,
+      }, DEFAULT_PRIVACY)
+      savedEntryIdRef.current = entryId
+
+      track('process_goal_moment_recorded')
+      await markStreak(userId)
+      setStreak(await computeUnifiedStreak(userId))
+      setPhase('R_CELEBRATE')
+    } catch (e: unknown) {
       savedRef.current = false
-      alert(`儲存失敗：${error.message}`)
-      return
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`儲存失敗：${msg}`)
+    } finally {
+      setSubmitting(false)
     }
-    track('process_goal_moment_recorded')
-    await markStreak(userId)
-    setStreak(await computeUnifiedStreak(userId))
-    setPhase('R_DONE')
   }
+
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
 
   if (phase === 'R_INPUT') {
     const ready = event.trim() && who.trim() && whenTime.trim() && wherePlace.trim()
@@ -638,63 +718,101 @@ function RecordModule({
 
   if (phase === 'R_INSIGHT') {
     return (
-      <Screen>
-        <h2 className="text-xl font-extrabold leading-snug text-foreground">我從你的描述裡，聽見了…</h2>
-        <p className="mt-2 text-sm text-muted-foreground">這是你這個專注時刻背後，可能真正需要的條件。</p>
-        <div className="mt-6">
-          {loadingAi ? <AiBlock text="" loading /> : (
-            <div className="rounded-2xl p-5" style={PURPLE_BG}>
-              <div className="flex gap-3">
-                <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
-                <p className="text-[16px] font-bold leading-relaxed">{insight}</p>
+      <>
+        {/* 隱藏的分享圖（和感恩日記一樣，放在畫面外） */}
+        <div
+          ref={shareCardRef}
+          aria-hidden
+          className="pointer-events-none fixed -left-[9999px] top-0"
+          style={{ width: '1080px', height: '1440px' }}
+        >
+          <PgShareCard
+            kind="record"
+            mainText={event}
+            aiText={insight}
+            date={today}
+            streak={streak}
+          />
+        </div>
+
+        <Screen>
+          <h2 className="text-xl font-extrabold leading-snug text-foreground">我從你的描述裡，聽見了…</h2>
+          <p className="mt-2 text-sm text-muted-foreground">這是你這個專注時刻背後，可能真正需要的條件。你可以把這張圖儲存下來。</p>
+
+          <div className="mt-6">
+            {loadingAi ? <AiBlock text="" loading /> : (
+              <div className="rounded-2xl p-5" style={PURPLE_BG}>
+                <div className="flex gap-3">
+                  <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
+                  <p className="text-[16px] font-bold leading-relaxed">{insight}</p>
+                </div>
               </div>
+            )}
+          </div>
+
+          {!loadingAi && conditionTags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {conditionTags.map((t) => (
+                <span key={t} className="rounded-full px-3 py-1 text-sm font-bold" style={TEAL}>{t}</span>
+              ))}
             </div>
           )}
-        </div>
-        {!loadingAi && conditionTags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {conditionTags.map((t) => (
-              <span key={t} className="rounded-full px-3 py-1 text-sm font-bold" style={TEAL}>{t}</span>
-            ))}
+
+          <div className="mt-7 flex flex-col gap-3 pb-4">
+            {/* 下載 / 分享圖片：白框樣式 */}
+            <button
+              onClick={handleShare}
+              disabled={sharing || loadingAi}
+              className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+            >
+              {sharing ? '正在生成圖片…' : isMobile ? '📲 分享圖片' : '⬇️ 下載圖片'}
+            </button>
+            {/* 下一步：儲存後進入完成頁 */}
+            <button
+              onClick={save}
+              disabled={submitting || loadingAi}
+              className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+              style={{ backgroundColor: submitting || loadingAi ? '#B9B4E6' : PURPLE }}
+            >
+              {submitting ? '處理中…' : '下一步 →'}
+            </button>
           </div>
-        )}
-        <div className="mt-7">
-          <PurpleCta disabled={loadingAi} onClick={save}>儲存這個專注時刻</PurpleCta>
-        </div>
-      </Screen>
+        </Screen>
+      </>
     )
   }
 
-  // R_DONE
+  // R_CELEBRATE
   return (
-    <DoneScreen
+    <PgCelebrateStage
       emoji="📝"
-      title="專注時刻已記下"
-      subtitle="記得越多、越完整，之後的專注錦囊就越準。"
+      title="今日專注時刻記錄完成！"
+      subtitle="每記一筆，你的專注地圖就更完整一點。"
       streak={streak}
+      savedEntryId={savedEntryIdRef.current}
       userId={userId}
-      shareContent={buildShareContent()}
-      onHome={onHome}
       onAgain={() => {
         savedRef.current = false
+        savedEntryIdRef.current = null
         setEvent(''); setWho(''); setWhenTime(''); setWherePlace('')
         setInsight(''); setCategory('other'); setConditionTags([])
-        setStreak(null)
+        setStreak(null); setSubmitting(false)
         setPhase('R_INPUT')
       }}
       againLabel="再記一個專注時刻"
+      onIntro={toIntro}
     />
   )
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 模組二【提升專注錦囊】— 情境遷移與動態建議層
+// 模組二【提升專注錦囊】
 // ════════════════════════════════════════════════════════════════════════
 function BoostModule({
   phase,
   setPhase,
   userId,
-  onHome,
+  onHome: _onHome,
   toIntro,
 }: {
   phase: Phase
@@ -708,12 +826,17 @@ function BoostModule({
   const [matchedSummary, setMatchedSummary] = useState('')
   const [hasMatch, setHasMatch] = useState(false)
   const [loadingAi, setLoadingAi] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [streak, setStreak] = useState<number | null>(null)
   const savedRef = useRef(false)
+  const savedEntryIdRef = useRef<string | null>(null)
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const today = useMemo(() => formatDate(new Date()), [])
 
   const fallbackSuggestion = (records: MomentRecord[]) => {
     if (!records.length) {
-      return '先別急著逼自己。回想一個你以前很投入的時刻，去【專注時刻記錄】補一筆——記得越多，我就越知道你需要什麼條件。現在，先把這件事拆到「只做最小的第一步」。'
+      return '先別急著逼自己。去【專注時刻記錄】補一筆相近的時刻——記得越多，我就越知道你需要什麼條件。現在，先把這件事拆到「只做最小的第一步」。'
     }
     const r = records[0]
     const cond = [r.where_place, r.who].filter(Boolean).join('、') || '你熟悉的條件'
@@ -740,37 +863,83 @@ function BoostModule({
     }
   }
 
-  const buildShareContent = (): ShareContent => ({
-    item_1: situation ? `卡關：${situation}` : '今天有件事提不起勁。',
-    item_2: suggestion || null,
-    item_3: null,
-    ai_feedback: suggestion || null,
-  })
+  const handleShare = async () => {
+    if (!shareCardRef.current || sharing) return
+    setSharing(true)
+    try {
+      const node = shareCardRef.current
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(node, {
+        width: 1080,
+        height: 1440,
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        skipFonts: true,
+        style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
+      })
+      const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
+      const filename = `focus-boost-${isoDate(new Date())}.png`
+      if (isMobile) {
+        const blob = await fetch(dataUrl).then((r) => r.blob())
+        const file = new File([blob], filename, { type: 'image/png' })
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: '我的專注錦囊' })
+          return
+        }
+      }
+      const link = document.createElement('a')
+      link.download = filename
+      link.href = dataUrl
+      link.click()
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const save = async () => {
     if (savedRef.current) {
-      setPhase('B_DONE')
+      setPhase('B_CELEBRATE')
       return
     }
     savedRef.current = true
-    const { error } = await supabase.from('focus_logs').insert({
-      user_id: userId,
-      log_date: isoDate(new Date()),
-      log_kind: 'boost',
-      had_focus_moment: false,
-      difficult_task: situation || null,
-      ai_feedback: suggestion || null,
-    })
-    if (error) {
+    setSubmitting(true)
+    try {
+      const { error } = await supabase.from('focus_logs').insert({
+        user_id: userId,
+        log_date: isoDate(new Date()),
+        log_kind: 'boost',
+        had_focus_moment: false,
+        difficult_task: situation || null,
+        ai_feedback: suggestion || null,
+      })
+      if (error) throw error
+
+      const entryId = await insertCommunityPost(userId, {
+        item_1: situation ? `卡關：${situation}` : '今天有件事提不起勁。',
+        item_2: suggestion || null,
+        item_3: null,
+        ai_feedback: suggestion || null,
+      }, DEFAULT_PRIVACY)
+      savedEntryIdRef.current = entryId
+
+      track('process_goal_boost_done')
+      await markStreak(userId)
+      setStreak(await computeUnifiedStreak(userId))
+      setPhase('B_CELEBRATE')
+    } catch (e: unknown) {
       savedRef.current = false
-      alert(`儲存失敗：${error.message}`)
-      return
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`儲存失敗：${msg}`)
+    } finally {
+      setSubmitting(false)
     }
-    track('process_goal_boost_done')
-    await markStreak(userId)
-    setStreak(await computeUnifiedStreak(userId))
-    setPhase('B_DONE')
   }
+
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
 
   if (phase === 'B_INPUT') {
     return (
@@ -799,140 +968,367 @@ function BoostModule({
 
   if (phase === 'B_RESULT') {
     return (
-      <Screen>
-        <h2 className="text-xl font-extrabold leading-snug text-foreground">你的專注錦囊</h2>
-        {!loadingAi && hasMatch && matchedSummary && (
-          <p className="mt-2 text-sm text-muted-foreground">參考了你過去的經驗：{matchedSummary}</p>
-        )}
-        <div className="mt-5">
-          {loadingAi ? <AiBlock text="" loading /> : (
-            <div className="rounded-2xl p-5" style={PURPLE_BG}>
-              <div className="flex gap-3">
-                <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
-                <p className="text-[17px] font-bold leading-relaxed">{suggestion}</p>
+      <>
+        {/* 隱藏的分享圖 */}
+        <div
+          ref={shareCardRef}
+          aria-hidden
+          className="pointer-events-none fixed -left-[9999px] top-0"
+          style={{ width: '1080px', height: '1440px' }}
+        >
+          <PgShareCard
+            kind="boost"
+            mainText={situation}
+            aiText={suggestion}
+            date={today}
+            streak={streak}
+          />
+        </div>
+
+        <Screen>
+          <h2 className="text-xl font-extrabold leading-snug text-foreground">你的專注錦囊</h2>
+          {!loadingAi && hasMatch && matchedSummary && (
+            <p className="mt-2 text-sm text-muted-foreground">參考了你過去的經驗：{matchedSummary}</p>
+          )}
+
+          <div className="mt-5">
+            {loadingAi ? <AiBlock text="" loading /> : (
+              <div className="rounded-2xl p-5" style={PURPLE_BG}>
+                <div className="flex gap-3">
+                  <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
+                  <p className="text-[17px] font-bold leading-relaxed">{suggestion}</p>
+                </div>
               </div>
+            )}
+          </div>
+
+          {!loadingAi && !hasMatch && (
+            <div className="mt-4 rounded-2xl bg-muted/50 p-4 text-sm leading-relaxed text-muted-foreground">
+              這類活動還沒有你的專注紀錄。先去【專注時刻記錄】補幾筆相近的時刻，下次的錦囊就會更貼近你。
             </div>
           )}
-        </div>
-        {!loadingAi && !hasMatch && (
-          <div className="mt-4 rounded-2xl bg-muted/50 p-4 text-sm leading-relaxed text-muted-foreground">
-            這類活動還沒有你的專注紀錄。先去【專注時刻記錄】補幾筆相近的時刻，下次的錦囊就會更貼近你。
+
+          <div className="mt-7 flex flex-col gap-3 pb-4">
+            <button
+              onClick={handleShare}
+              disabled={sharing || loadingAi}
+              className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+            >
+              {sharing ? '正在生成圖片…' : isMobile ? '📲 分享圖片' : '⬇️ 下載圖片'}
+            </button>
+            <button
+              onClick={save}
+              disabled={submitting || loadingAi}
+              className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+              style={{ backgroundColor: submitting || loadingAi ? '#B9B4E6' : PURPLE }}
+            >
+              {submitting ? '處理中…' : '下一步 →'}
+            </button>
           </div>
-        )}
-        <div className="mt-7">
-          <PurpleCta disabled={loadingAi} onClick={save}>好，我來試試</PurpleCta>
-        </div>
-      </Screen>
+        </Screen>
+      </>
     )
   }
 
-  // B_DONE
+  // B_CELEBRATE
   return (
-    <DoneScreen
+    <PgCelebrateStage
       emoji="🧭"
-      title="帶著這個方法去試試"
-      subtitle="先做最小的第一步，開始比完成更重要。"
+      title="今日專注錦囊完成！"
+      subtitle="帶著這個方法去試試，開始比完成更重要。"
       streak={streak}
+      savedEntryId={savedEntryIdRef.current}
       userId={userId}
-      shareContent={buildShareContent()}
-      onHome={onHome}
       onAgain={() => setPhase('R_INPUT')}
       againLabel="順手記一個專注時刻"
+      onIntro={toIntro}
     />
   )
 }
 
-// ── 打卡完成（含分享到社群）─────────────────────────────────────────────
-function DoneScreen({
+// ════════════════════════════════════════════════════════════════════════
+// 分享圖卡（仿感恩日記 ShareCard，用於 html-to-image 生成圖片）
+// ════════════════════════════════════════════════════════════════════════
+function PgShareCard({
+  kind,
+  mainText,
+  aiText,
+  date,
+  streak,
+}: {
+  kind: 'record' | 'boost'
+  mainText: string
+  aiText: string
+  date: string
+  streak: number | null
+}) {
+  const isRecord = kind === 'record'
+  const mainLen = mainText.length
+  const mainFontSize = mainLen < 60 ? 26 : mainLen < 120 ? 22 : 18
+
+  return (
+    <div
+      style={{
+        width: '1080px',
+        height: '1440px',
+        background: isRecord
+          ? 'linear-gradient(150deg,#dbeafe 0%,#ede9fe 55%,#e0f2fe 100%)'
+          : 'linear-gradient(150deg,#ede9fe 0%,#dbeafe 55%,#e0f2fe 100%)',
+        padding: '72px 72px 60px',
+        boxSizing: 'border-box',
+        fontFamily: 'PingFang TC, Microsoft JhengHei, sans-serif',
+        color: '#1f2742',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 32,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.55 }}>
+          PSY BY PSY · {isRecord ? 'FOCUS MOMENT' : 'FOCUS BOOST'}
+        </div>
+        <div style={{ fontSize: 52, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>
+          {isRecord ? '今天的專注時刻' : '今天的專注錦囊'}
+        </div>
+        <div style={{ fontSize: 22, opacity: 0.65, marginTop: 10 }}>{date}</div>
+      </div>
+
+      {/* 主體內容（事件 or 困境） */}
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.72)',
+          borderRadius: 32,
+          padding: '28px 36px',
+        }}
+      >
+        <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#534AB7', marginBottom: 14 }}>
+          {isRecord ? '我的專注時刻' : '遇到的困境'}
+        </div>
+        <div style={{ fontSize: mainFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{mainText}</div>
+      </div>
+
+      {/* AI 洞察 or 建議 */}
+      {aiText ? (
+        <div
+          style={{
+            background: 'rgba(255,255,255,0.55)',
+            borderRadius: 32,
+            padding: '28px 32px',
+          }}
+        >
+          <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#534AB7', marginBottom: 14 }}>
+            {isRecord ? 'AI 教練觀察' : '我的專注錦囊'}
+          </div>
+          <div style={{ fontSize: 20, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{aiText}</div>
+        </div>
+      ) : null}
+
+      {/* 連續打卡 */}
+      {streak !== null && streak > 0 && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg,#534AB7 0%,#7c75d4 100%)',
+            borderRadius: 32,
+            padding: '26px 36px',
+            textAlign: 'center',
+            color: '#fff',
+          }}
+        >
+          <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
+            連續健心第 {streak} 天 🔥
+          </div>
+        </div>
+      )}
+
+      {/* Logo */}
+      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
+        <img
+          src="/assets/logo-full-color.png"
+          alt="PSYbyPSY"
+          style={{ height: 48, objectFit: 'contain', opacity: 0.75 }}
+          crossOrigin="anonymous"
+        />
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 完成頁（仿感恩日記 CelebrateStage）
+// 顯示：連續打卡 + 今日完成 → PERMA 幸福力成長 → 隱私設定 → 結束練習
+// ════════════════════════════════════════════════════════════════════════
+function PgCelebrateStage({
   emoji,
   title,
   subtitle,
   streak,
+  savedEntryId,
   userId,
-  shareContent,
-  onHome,
   onAgain,
   againLabel,
+  onIntro,
 }: {
   emoji: string
   title: string
   subtitle: string
   streak: number | null
+  savedEntryId: string | null
   userId: string
-  shareContent: ShareContent
-  onHome: () => void
   onAgain?: () => void
   againLabel?: string
+  onIntro: () => void
 }) {
+  const navigate = useNavigate()
+  const router = useRouter()
   const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
-  const entryIdRef = useRef<string | null>(null)
-  const postedRef = useRef(false)
+  const [todayCount, setTodayCount] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  // 進入完成頁時，預設把打卡分享到社群（之後可改隱私）
   useEffect(() => {
-    if (postedRef.current) return
-    postedRef.current = true
+    let cancelled = false
     ;(async () => {
-      const id = await insertCommunityPost(userId, shareContent, DEFAULT_PRIVACY)
-      entryIdRef.current = id
+      const today = isoDate(new Date())
+      const { count } = await supabase
+        .from('focus_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('log_date', today)
+      if (!cancelled) setTodayCount(count ?? 0)
     })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    return () => { cancelled = true }
+  }, [userId])
 
-  const changePrivacy = async (next: Privacy) => {
+  const handlePrivacyChange = async (next: Privacy) => {
     setPrivacy(next)
-    if (entryIdRef.current) {
-      void updateCommunityPrivacy(entryIdRef.current, userId, next)
+    if (savedEntryId) {
+      void updateCommunityPrivacy(savedEntryId, userId, next)
     }
   }
 
+  const handleFinish = async () => {
+    if (saving) return
+    setSaving(true)
+    await router.invalidate()
+    navigate({ to: '/app/community', search: { showEntry: 1 } })
+  }
+
   return (
-    <Screen>
-      <div className="mt-6 flex flex-col items-center text-center">
-        <div className="celebrate-pop flex h-24 w-24 items-center justify-center rounded-full text-5xl" style={{ backgroundColor: '#D1FAE5' }}>
-          {emoji}
+    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pb-12 pt-8 md:px-10">
+      {/* 完成 emoji */}
+      <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full text-5xl shadow-soft" style={{ backgroundColor: '#D1FAE5' }}>
+        {emoji}
+      </div>
+      <h2 className="mb-2 text-center text-2xl font-extrabold text-foreground">{title}</h2>
+      <p className="mb-6 max-w-md text-center text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
+
+      {/* 統計卡：今日完成 + 連續打卡 */}
+      <div className="mb-6 flex w-full gap-3">
+        <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
+          <span className="text-xl font-extrabold text-primary">
+            {todayCount !== null ? todayCount : '—'}
+          </span>
+          <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            今日完成
+          </span>
         </div>
-        <h1 className="mt-6 text-2xl font-extrabold text-foreground">{title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
-        {streak !== null && streak > 0 && (
-          <div className="mt-6 rounded-2xl bg-card px-6 py-4 shadow-soft">
-            <p className="text-sm text-muted-foreground">連續健心</p>
-            <p className="text-3xl font-extrabold" style={{ color: '#059669' }}>{streak} 天 🔥</p>
-          </div>
-        )}
+        <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
+          <span className="text-xl font-extrabold text-primary">
+            {streak !== null ? `${streak} 🔥` : '—'}
+          </span>
+          <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            連續健心
+          </span>
+        </div>
       </div>
 
-      {/* 分享到社群的隱私設定 */}
-      <div className="mt-8 rounded-3xl bg-card p-4 shadow-soft">
-        <p className="mb-3 text-sm font-bold text-foreground">要把這次打卡分享到社群嗎？</p>
-        <div className="flex flex-col gap-2">
+      {/* PERMA 幸福力成長（含動態進度條） */}
+      <div className="mb-6 w-full rounded-3xl bg-card p-6 shadow-soft">
+        <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+          練習後 PERMA 幸福力成長
+        </p>
+        <div className="flex flex-col gap-5">
+          {PG_PERMA_BOOSTS.map(({ key, label, delta, bar, description }, i) => (
+            <div
+              key={key}
+              className="celebrate-row flex flex-col gap-2"
+              style={{ animationDelay: `${0.15 + i * 0.18}s` }}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-14 shrink-0 text-sm font-extrabold text-foreground">
+                  {label}
+                </span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${bar} celebrate-bar`}
+                    style={{ width: `${(delta / 3) * 100}%`, animationDelay: `${0.25 + i * 0.18}s` }}
+                  />
+                </div>
+                <span className="w-10 shrink-0 text-right text-sm font-extrabold text-primary">
+                  +{delta}
+                </span>
+              </div>
+              <p className="pl-[68px] text-xs leading-relaxed text-muted-foreground">
+                {description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 隱私設定（決定是否公開這次打卡到社群） */}
+      <div className="mb-7 w-full rounded-3xl bg-card px-5 py-4 shadow-soft">
+        <p className="text-sm font-extrabold text-foreground">分享到社群的隱私設定</p>
+        <div className="mt-3 flex flex-col gap-2">
           {PRIVACY_OPTIONS.map((opt) => {
             const active = privacy === opt.value
             return (
               <button
                 key={opt.value}
-                onClick={() => changePrivacy(opt.value)}
+                onClick={() => handlePrivacyChange(opt.value)}
                 aria-pressed={active}
-                className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${
-                  active ? 'border-[#534AB7] bg-[#EEEDFE]' : 'border-border hover:bg-muted'
+                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                  active
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-muted/40 hover:bg-muted'
                 }`}
               >
-                <span className="text-xl">{opt.emoji}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-foreground">{opt.label}</span>
-                  <span className="block text-[11px] leading-snug text-muted-foreground">{opt.hint}</span>
+                <span className="text-lg leading-none">{opt.emoji}</span>
+                <span className="flex-1">
+                  <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
+                    {opt.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                    {opt.hint}
+                  </span>
                 </span>
-                {active && <span style={{ color: PURPLE }}>✓</span>}
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                    active ? 'border-primary' : 'border-border'
+                  }`}
+                >
+                  {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                </span>
               </button>
             )
           })}
         </div>
       </div>
 
-      <div className="mt-8 flex flex-col gap-2.5">
-        <PurpleCta onClick={onHome}>回訓練中心</PurpleCta>
-        {onAgain && againLabel && <GhostButton onClick={onAgain}>{againLabel}</GhostButton>}
+      {/* CTA：結束練習 → 跳社群；也可以再做一次 */}
+      <div className="flex w-full flex-col gap-3">
+        <button
+          onClick={handleFinish}
+          disabled={saving}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-full text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+          style={{ backgroundColor: saving ? '#B9B4E6' : PURPLE }}
+        >
+          ✅ 結束今天練習
+        </button>
+        {onAgain && againLabel && (
+          <GhostButton onClick={onAgain}>{againLabel}</GhostButton>
+        )}
+        <GhostButton onClick={onIntro}>回練習選單</GhostButton>
       </div>
-    </Screen>
+    </div>
   )
 }
