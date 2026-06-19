@@ -27,6 +27,7 @@ type GratitudeEntry = {
 // 未來每種練習可定義自己的形狀；以 v 區分變體。
 type PracticePayload = {
   v?: string
+  // 過程目標覺察
   event?: string
   who?: string
   when?: string
@@ -34,6 +35,13 @@ type PracticePayload = {
   insight?: string
   situation?: string
   suggestion?: string
+  // 找尋真實自我（v='authentic_self'）
+  top_work?: string
+  top_life?: string
+  narrative?: string
+  // 生命最後一天（v='last_day'）
+  description?: string
+  action?: string
   [k: string]: unknown
 }
 
@@ -801,12 +809,33 @@ function CommunityPage() {
   )
 }
 
+// 貼文右上角的版型小標籤（文字＋底色），依練習來源切換。
+function practiceTag(practiceType: string | null): { label: string; tile: string } {
+  switch (practiceType) {
+    case 'process_goal':
+      return { label: '過程目標覺察', tile: 'bg-tile-blue' }
+    case 'workshop_authentic_self':
+      return { label: '找尋真實自我', tile: 'bg-tile-pink' }
+    case 'workshop_last_day':
+      return { label: '生命最後一天', tile: 'bg-tile-peach' }
+    default:
+      return { label: '感恩日記', tile: 'bg-tile-mint' }
+  }
+}
+
 // ── 貼文主體（依練習類型客製版型） ──────────────────────────────────────
-// 感恩日記＝三項條列（編號泡泡）；過程目標覺察＝事件／人時地／AI 回饋。
+// 感恩日記＝三項條列（編號泡泡）；過程目標覺察＝事件／人時地／AI 回饋；
+// 找尋真實自我＝工作/生活最重要事件＋自我敘事；生命最後一天＝希望被記得的樣子＋行動。
 // 未來新練習：在 PracticeBody 增加一個分支 + 對應的 Body 元件即可。
 function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   if (entry.practice_type === 'process_goal' && entry.payload) {
     return <ProcessGoalBody payload={entry.payload} />
+  }
+  if (entry.practice_type === 'workshop_authentic_self' && entry.payload) {
+    return <AuthenticSelfBody payload={entry.payload} />
+  }
+  if (entry.practice_type === 'workshop_last_day' && entry.payload) {
+    return <LastDayBody payload={entry.payload} />
   }
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   return (
@@ -876,6 +905,34 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
         </div>
       )}
       {payload.insight && <PgAiBlock label="AI 回饋" value={payload.insight} />}
+    </div>
+  )
+}
+
+// 找尋真實自我：工作／生活最重要的事件 + 自我敘事（亮色強調）。
+function AuthenticSelfBody({ payload }: { payload: PracticePayload }) {
+  const topWork = (payload.top_work ?? '').trim()
+  const topLife = (payload.top_life ?? '').trim()
+  const narrative = (payload.narrative ?? '').trim()
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {topWork && <PgFieldBlock label="工作中最重要的事件" value={topWork} />}
+      {topLife && <PgFieldBlock label="生活中最重要的事件" value={topLife} />}
+      {narrative && <PgAiBlock label="我的自我敘事" value={narrative} />}
+    </div>
+  )
+}
+
+// 生命最後一天：希望被記得的樣子 + 接下來一個月的行動（亮色強調）。
+function LastDayBody({ payload }: { payload: PracticePayload }) {
+  const description = (payload.description ?? '').trim()
+  const action = (payload.action ?? '').trim()
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {description && (
+        <PgFieldBlock label="我希望被記得的樣子" value={`一個「${description}」的人`} />
+      )}
+      {action && <PgAiBlock label="接下來一個月，我想要" value={action} />}
     </div>
   )
 }
@@ -1087,11 +1144,9 @@ function EntryCard({
           </div>
         </div>
         <span
-          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold text-foreground ${
-            entry.practice_type === 'process_goal' ? 'bg-tile-blue' : 'bg-tile-mint'
-          }`}
+          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold text-foreground ${practiceTag(entry.practice_type).tile}`}
         >
-          {entry.practice_type === 'process_goal' ? '過程目標覺察' : '感恩日記'}
+          {practiceTag(entry.practice_type).label}
         </span>
         {isOwn && (
           <div className="relative shrink-0">

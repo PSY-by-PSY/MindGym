@@ -1,5 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { PrimaryCta } from '../PrimaryCta'
+import VoiceInput from '../pretest/VoiceInput'
+
+// 工作坊主題色（語音麥克風圖示用）；對應 index.css 的 --primary 藍。
+const WORKSHOP_ACCENT = '#5B8DEF'
 
 // ─────────────────────────────────────────────────────────────────────────
 // 工作坊模塊共用 UI
@@ -154,26 +158,43 @@ export function StepNav({
   )
 }
 
-/** 書寫框 —— 與專案既有卡片風格一致的文字輸入區。 */
+/**
+ * 書寫框 —— 與專案既有卡片風格一致的文字輸入區。
+ * voice=true 時，下方多一顆「語音輸入」按鈕（沿用感恩日記的 VoiceInput，
+ * 辨識結果接在現有文字後面）。
+ */
 export function WorkshopTextarea({
   value,
   onChange,
   placeholder,
   rows = 5,
+  voice = false,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   rows?: number
+  voice?: boolean
 }) {
+  const appendTranscript = (text: string) => {
+    const sep = value && !/\s$/.test(value) ? ' ' : ''
+    onChange(value + sep + text)
+  }
   return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full resize-none rounded-3xl bg-card p-4 text-sm leading-relaxed text-foreground shadow-soft placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
-    />
+    <div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="w-full resize-none rounded-3xl bg-card p-4 text-sm leading-relaxed text-foreground shadow-soft placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+      />
+      {voice && (
+        <div className="mt-2">
+          <VoiceInput accent={WORKSHOP_ACCENT} onTranscript={appendTranscript} />
+        </div>
+      )}
+    </div>
   )
 }
 
