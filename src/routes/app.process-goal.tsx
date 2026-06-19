@@ -147,9 +147,12 @@ async function insertCommunityPost(
     .insert({
       user_id: userId,
       practice_type: 'process_goal',
-      item_1: content.item_1,
-      item_2: content.item_2 ?? null,
-      item_3: content.item_3 ?? null,
+      // item_1~3 在 DB 有 NOT NULL 約束（感恩日記固定填三項），過程目標覺察
+      // 只用到 1~2 項，未用到的補空字串而非 null；社群卡片以 filter(Boolean)
+      // 過濾空字串，不會顯示空泡泡。
+      item_1: content.item_1 || '',
+      item_2: content.item_2 ?? '',
+      item_3: content.item_3 ?? '',
       ai_feedback: content.ai_feedback ?? null,
       is_shared: fields.is_shared,
       use_real_name: fields.use_real_name,
@@ -1209,10 +1212,8 @@ function PgCelebrateStage({
     if (saving) return
     setSaving(true)
     await router.invalidate()
-    // focus=<entryId> 讓社群頁切換到「我的貼文」並讓這篇貼文進入視窗
-    const search: { showEntry: number; focus?: string } = { showEntry: 1 }
-    if (savedEntryId) search.focus = savedEntryId
-    navigate({ to: '/app/community', search })
+    // 與感恩日記一致：導向社群動態牆（貼文已 is_shared，會出現在牆上）
+    navigate({ to: '/app/community', search: { showEntry: 1 } })
   }
 
   return (
