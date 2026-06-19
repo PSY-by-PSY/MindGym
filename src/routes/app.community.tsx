@@ -20,6 +20,21 @@ type GratitudeEntry = {
   target_2: string | null
   target_3: string | null
   practice_type: string | null
+  payload: PracticePayload | null
+}
+
+// 各練習客製貼文版型的結構化資料（存在 gratitude_entries.payload jsonb）。
+// 未來每種練習可定義自己的形狀；以 v 區分變體。
+type PracticePayload = {
+  v?: string
+  event?: string
+  who?: string
+  when?: string
+  where?: string
+  insight?: string
+  situation?: string
+  suggestion?: string
+  [k: string]: unknown
 }
 
 type Comment = {
@@ -84,14 +99,26 @@ function normalizeEntry(row: unknown): GratitudeEntry {
 const FEED_POOL_SIZE = 60
 const PAGE_SIZE = 5
 
+// 純欄位（payload／streak 都不依賴）— 一定查得到，當作最後保底。
 const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, is_shared, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3, practice_type'
-// 帶 profiles(current_streak) 的查詢；若 streak 欄位不存在會退回純貼文查詢
-const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS}, profiles(current_streak)`
+// +payload（客製版型結構化資料）；payload 欄位未建立（migration 未跑）時退回上面那層
+const ENTRY_COLS_PAYLOAD = `${ENTRY_COLS}, payload`
+// +profiles(current_streak)；streak 欄位不存在時再退回
+const ENTRY_COLS_WITH_STREAK = `${ENTRY_COLS_PAYLOAD}, profiles(current_streak)`
 
-// 查詢已分享貼文，盡力帶上 streak；若 join 失敗（例如 profiles 缺 current_streak 欄位）
-// 則退回不帶 streak 的查詢，確保貼文一定能顯示。
+// 依序嘗試 streak+payload → payload → 純欄位：任何欄位/ join 不存在都自動降級，
+// 確保動態牆永遠載得出來（payload migration 未跑時 process_goal 貼文以條列退回顯示）。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function runWithColFallback(build: (cols: string) => any): Promise<GratitudeEntry[]> {
+  for (const cols of [ENTRY_COLS_WITH_STREAK, ENTRY_COLS_PAYLOAD, ENTRY_COLS]) {
+    const { data, error } = await build(cols)
+    if (!error) return ((data as unknown[]) ?? []).map(normalizeEntry)
+  }
+  return []
+}
+
 async function selectSharedEntries(limit: number, excludeUserId?: string | null) {
-  const build = (cols: string) => {
+  return runWithColFallback((cols) => {
     let q = supabase
       .from('gratitude_entries')
       .select(cols)
@@ -100,13 +127,7 @@ async function selectSharedEntries(limit: number, excludeUserId?: string | null)
       .limit(limit)
     if (excludeUserId) q = q.neq('user_id', excludeUserId)
     return q
-  }
-
-  const withStreak = await build(ENTRY_COLS_WITH_STREAK)
-  if (!withStreak.error) return (withStreak.data ?? []).map(normalizeEntry)
-
-  const plain = await build(ENTRY_COLS)
-  return (plain.data ?? []).map(normalizeEntry)
+  })
 }
 
 // 從近期已分享的貼文中取回（最新在前，最多 FEED_POOL_SIZE 篇）
@@ -132,18 +153,13 @@ async function fetchUserGratitudeMap(userId: string | null): Promise<Record<stri
 }
 
 async function fetchMyEntries(userId: string): Promise<GratitudeEntry[]> {
-  const build = (cols: string) =>
+  return runWithColFallback((cols) =>
     supabase
       .from('gratitude_entries')
       .select(cols)
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-  const withStreak = await build(ENTRY_COLS_WITH_STREAK)
-  if (!withStreak.error) return (withStreak.data ?? []).map(normalizeEntry)
-
-  const plain = await build(ENTRY_COLS)
-  return (plain.data ?? []).map(normalizeEntry)
+      .order('created_at', { ascending: false }),
+  )
 }
 
 async function fetchModalEntry(userId: string | null): Promise<GratitudeEntry | null> {
@@ -390,7 +406,6 @@ function DailyModal({
   anonName: string | null
   onCommentAdded: (c: Comment) => void
 }) {
-  const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   const avatar = avatarFor(entry.anon_name, 0, entry.avatar)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -487,16 +502,7 @@ function DailyModal({
           </div>
         </div>
 
-        <ul className="mt-4 flex flex-col gap-2">
-          {items.map((item, i) => (
-            <li key={i} className="flex items-start gap-3 rounded-2xl bg-muted px-3.5 py-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
-                {i + 1}
-              </span>
-              <span className="text-sm leading-relaxed text-foreground/80">{item}</span>
-            </li>
-          ))}
-        </ul>
+        <PracticeBody entry={entry} />
 
         {/* 直接按讚 */}
         <div className="mt-4 flex items-center gap-3 border-t border-border pt-3">
@@ -795,6 +801,85 @@ function CommunityPage() {
   )
 }
 
+// ── 貼文主體（依練習類型客製版型） ──────────────────────────────────────
+// 感恩日記＝三項條列（編號泡泡）；過程目標覺察＝事件／人時地／AI 回饋。
+// 未來新練習：在 PracticeBody 增加一個分支 + 對應的 Body 元件即可。
+function PracticeBody({ entry }: { entry: GratitudeEntry }) {
+  if (entry.practice_type === 'process_goal' && entry.payload) {
+    return <ProcessGoalBody payload={entry.payload} />
+  }
+  const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
+  return (
+    <ul className="mt-4 flex flex-col gap-2">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-start gap-3 rounded-2xl bg-muted px-3.5 py-2.5">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
+            {i + 1}
+          </span>
+          <span className="text-sm leading-relaxed text-foreground/80">{item}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function PgFieldBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-muted px-3.5 py-3">
+      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">{value}</p>
+    </div>
+  )
+}
+
+function PgAiBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-gradient-soft px-3.5 py-3">
+      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-primary">{label}</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{value}</p>
+    </div>
+  )
+}
+
+function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
+  // 【提升專注錦囊】：困境 + AI 錦囊
+  if (payload.v === 'boost') {
+    return (
+      <div className="mt-4 flex flex-col gap-2">
+        {payload.situation && <PgFieldBlock label="我遇到的困境" value={payload.situation} />}
+        {payload.suggestion && <PgAiBlock label="AI 專注錦囊" value={payload.suggestion} />}
+      </div>
+    )
+  }
+  // 【專注時刻記錄】：最讓我感到專注的（事）＋ 我通常在這樣的條件下完成（人/時/地）＋ AI 回饋
+  const conditions = [
+    { emoji: '👤', k: '人', v: payload.who },
+    { emoji: '🕐', k: '時', v: payload.when },
+    { emoji: '📍', k: '地', v: payload.where },
+  ].filter((c) => c.v && String(c.v).trim())
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {payload.event && <PgFieldBlock label="最讓我感到專注的" value={payload.event} />}
+      {conditions.length > 0 && (
+        <div className="rounded-2xl bg-muted px-3.5 py-3">
+          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
+            我通常在這樣的條件下完成
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {conditions.map((c) => (
+              <div key={c.k} className="flex items-baseline gap-2">
+                <span className="shrink-0 text-xs font-bold text-foreground/70">{c.emoji} {c.k}</span>
+                <span className="text-sm leading-relaxed text-foreground/85">{String(c.v)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {payload.insight && <PgAiBlock label="AI 回饋" value={payload.insight} />}
+    </div>
+  )
+}
+
 function EntryCard({
   entry,
   index,
@@ -824,7 +909,6 @@ function EntryCard({
   onCommentAdded: (c: Comment) => void
   onCommentLikeChange: (commentId: string, info: LikeInfo) => void
 }) {
-  const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   const articleRef = useRef<HTMLElement>(null)
   const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
   const [localPrivacy, setLocalPrivacy] = useState<Privacy>(
@@ -1054,17 +1138,8 @@ function EntryCard({
         )}
       </div>
 
-      {/* Items */}
-      <ul className="mt-4 flex flex-col gap-2">
-        {items.map((item, i) => (
-          <li key={i} className="flex items-start gap-3 rounded-2xl bg-muted px-3.5 py-2.5">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
-              {i + 1}
-            </span>
-            <span className="text-sm leading-relaxed text-foreground/80">{item}</span>
-          </li>
-        ))}
-      </ul>
+      {/* Body（依練習類型客製版型） */}
+      <PracticeBody entry={entry} />
 
       {/* Gratitude target tags */}
       {tags.length > 0 && (

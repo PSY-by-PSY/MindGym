@@ -138,30 +138,40 @@ async function insertCommunityPost(
   userId: string,
   content: ShareContent,
   privacy: Privacy,
+  payload?: Record<string, unknown>,
 ): Promise<string | null> {
   const fields = privacyToFields(privacy)
   const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle()
   const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
-  const { data, error } = await supabase
-    .from('gratitude_entries')
-    .insert({
-      user_id: userId,
-      practice_type: 'process_goal',
-      // item_1~3 在 DB 有 NOT NULL 約束（感恩日記固定填三項），過程目標覺察
-      // 只用到 1~2 項，未用到的補空字串而非 null；社群卡片以 filter(Boolean)
-      // 過濾空字串，不會顯示空泡泡。
-      item_1: content.item_1 || '',
-      item_2: content.item_2 ?? '',
-      item_3: content.item_3 ?? '',
-      ai_feedback: content.ai_feedback ?? null,
-      is_shared: fields.is_shared,
-      use_real_name: fields.use_real_name,
-      anon_name: anonName,
-      avatar: profile?.avatar ?? null,
-      entry_date: isoDate(new Date()),
-    })
-    .select('id')
-    .single()
+  // item_1~3 在 DB 有 NOT NULL 約束（感恩日記固定填三項），過程目標覺察
+  // 只用到 1~2 項，未用到的補空字串而非 null；社群卡片以 filter(Boolean)
+  // 過濾空字串，不會顯示空泡泡。payload 則承載「客製版型」的結構化欄位。
+  const baseRow: Record<string, unknown> = {
+    user_id: userId,
+    practice_type: 'process_goal',
+    item_1: content.item_1 || '',
+    item_2: content.item_2 ?? '',
+    item_3: content.item_3 ?? '',
+    ai_feedback: content.ai_feedback ?? null,
+    is_shared: fields.is_shared,
+    use_real_name: fields.use_real_name,
+    anon_name: anonName,
+    avatar: profile?.avatar ?? null,
+    entry_date: isoDate(new Date()),
+  }
+
+  const attempt = (row: Record<string, unknown>) =>
+    supabase.from('gratitude_entries').insert(row).select('id').single()
+
+  let { data, error } = await attempt(payload ? { ...baseRow, payload } : baseRow)
+
+  // payload 欄位尚未建立（migration 未跑）→ 退回不含 payload 的寫入，
+  // 確保貼文照樣發得出去（顯示退回 item 條列版），不再重蹈無聲失敗。
+  if (error && payload && (error.code === '42703' || /payload/i.test(error.message ?? ''))) {
+    console.warn('[process-goal community] payload 欄位不存在，請在 Supabase 跑 process_goal.sql；本次以退回版發佈')
+    ;({ data, error } = await attempt(baseRow))
+  }
+
   if (error) {
     console.error('[process-goal community]', error)
     return null
@@ -658,12 +668,20 @@ function RecordModule({
       if (error) throw error
 
       // 2. 建立社群貼文（預設隱私，之後在完成頁可改）
+      //    payload 承載「專注時刻記錄」客製版型：事件／人時地／AI 回饋。
       const entryId = await insertCommunityPost(userId, {
         item_1: event || '記下了一個專注時刻',
         item_2: insight || null,
         item_3: null,
         ai_feedback: insight || null,
-      }, DEFAULT_PRIVACY)
+      }, DEFAULT_PRIVACY, {
+        v: 'moment',
+        event,
+        who,
+        when: whenTime,
+        where: wherePlace,
+        insight,
+      })
       savedEntryIdRef.current = entryId
 
       track('process_goal_moment_recorded')
@@ -921,12 +939,17 @@ function BoostModule({
       })
       if (error) throw error
 
+      // payload 承載「提升專注錦囊」客製版型：困境 + AI 錦囊。
       const entryId = await insertCommunityPost(userId, {
         item_1: situation ? `卡關：${situation}` : '今天有件事提不起勁。',
         item_2: suggestion || null,
         item_3: null,
         ai_feedback: suggestion || null,
-      }, DEFAULT_PRIVACY)
+      }, DEFAULT_PRIVACY, {
+        v: 'boost',
+        situation,
+        suggestion,
+      })
       savedEntryIdRef.current = entryId
 
       track('process_goal_boost_done')

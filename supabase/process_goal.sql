@@ -125,3 +125,15 @@ ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS insight      text;
 ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS category     text;
 
 CREATE INDEX IF NOT EXISTS focus_logs_user_kind_idx ON focus_logs (user_id, log_kind);
+
+-- ============================================================
+-- 社群貼文「依練習客製版型」：gratitude_entries 新增 payload(jsonb)
+-- 每種練習發出的社群貼文長相不同（感恩日記＝三項條列；過程目標覺察＝
+-- 事件／人時地／AI 回饋…），用一個彈性 jsonb 欄位存「結構化欄位」，
+-- 前端依 practice_type + payload 客製渲染。未來新練習只要定義自己的
+-- payload 形狀＋一個渲染分支即可，不必再為每種練習加欄位。
+--   過程目標覺察 moment：{ "v":"moment", event, who, when, where, insight }
+--   過程目標覺察 boost ：{ "v":"boost",  situation, suggestion }
+-- 舊貼文 payload=null → 前端自動退回 item_1~3 條列顯示。
+-- ============================================================
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS payload jsonb;
