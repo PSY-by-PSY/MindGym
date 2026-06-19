@@ -75,7 +75,7 @@ const PRACTICES: PracticeMeta[] = [
   {
     key: 'process-goal',
     name: '過程目標覺察',
-    emoji: '👁️',
+    emoji: '🔍',
     to: '/app/process-goal',
     targets: { E: 1, M: 1, A: 1 },
     available: true,

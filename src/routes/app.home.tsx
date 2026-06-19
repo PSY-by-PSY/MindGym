@@ -79,7 +79,7 @@ const modules = [
     ],
   },
   {
-    emoji: '👁️',
+    emoji: '🔍',
     name: '過程目標覺察',
     tile: 'bg-tile-blue',
     to: '/app/process-goal' as const,
@@ -672,7 +672,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
             />
             <ExerciseCard
               to="/app/process-goal"
-              emoji="👁️"
+              emoji="🔍"
               tile="bg-tile-blue"
               name="過程目標覺察"
               meta="初階 · 3 分鐘 · 投入力 · 意義力 · 成就力"
@@ -686,7 +686,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
         <div className="flex flex-col gap-2">
           <ExerciseCard
             to="/app/process-goal"
-            emoji="👁️"
+            emoji="🔍"
             tile="bg-tile-blue"
             name="過程目標覺察"
             meta="新上架 · 找回你的專注狀態"
