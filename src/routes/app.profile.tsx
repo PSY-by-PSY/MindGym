@@ -74,14 +74,19 @@ type GratitudeEntry = {
   ai_feedback?: string | null
 }
 
-// 過程目標覺察的每日紀錄（晚間回顧 / 早晨啟動），用於「我的健心日記」日曆
+// 過程目標覺察的每日紀錄（專注時刻記錄 / 提升專注錦囊），用於「我的健心日記」日曆
+// 'morning' 為舊版「早晨啟動」的遺留資料（morning_logs），仍相容顯示。
 type PgItem =
   | {
-      kind: 'evening'
+      kind: 'moment'
       log_date: string
       focus_description?: string | null
+      insight?: string | null
+    }
+  | {
+      kind: 'boost'
+      log_date: string
       difficult_task?: string | null
-      if_then_plan?: string | null
       ai_feedback?: string | null
     }
   | {
@@ -90,6 +95,12 @@ type PgItem =
       today_task?: string | null
       ai_suggestion?: string | null
     }
+
+const PG_KIND_META: Record<PgItem['kind'], { emoji: string; label: string }> = {
+  moment: { emoji: '📝', label: '專注時刻記錄' },
+  boost: { emoji: '🧭', label: '提升專注錦囊' },
+  morning: { emoji: '🌅', label: '早晨啟動' },
+}
 
 export const Route = createFileRoute('/app/profile')({
   loader: async () => {
@@ -534,7 +545,7 @@ function GratitudeCalendar({
     Promise.all([
       supabase
         .from('focus_logs')
-        .select('log_date, focus_description, difficult_task, if_then_plan, ai_feedback')
+        .select('log_date, log_kind, focus_description, insight, difficult_task, ai_feedback')
         .eq('user_id', userId)
         .gte('log_date', startDate)
         .lte('log_date', endDate),
@@ -547,7 +558,12 @@ function GratitudeCalendar({
     ]).then(([focusRes, morningRes]) => {
       if (cancelled) return
       const items: PgItem[] = [
-        ...(focusRes.data ?? []).map((r): PgItem => ({ kind: 'evening', ...r, log_date: String(r.log_date).slice(0, 10) })),
+        ...(focusRes.data ?? []).map((r): PgItem => {
+          const log_date = String(r.log_date).slice(0, 10)
+          return r.log_kind === 'boost'
+            ? { kind: 'boost', log_date, difficult_task: r.difficult_task, ai_feedback: r.ai_feedback }
+            : { kind: 'moment', log_date, focus_description: r.focus_description, insight: r.insight }
+        }),
         ...(morningRes.data ?? []).map((r): PgItem => ({ kind: 'morning', ...r, log_date: String(r.log_date).slice(0, 10) })),
       ]
       setPgItems(items)
@@ -691,10 +707,10 @@ function GratitudeCalendar({
                     className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-blue text-base">
-                      {it.kind === 'morning' ? '🌅' : '🌙'}
+                      {PG_KIND_META[it.kind].emoji}
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">
-                      過程目標覺察 · {it.kind === 'morning' ? '早晨啟動' : '晚間回顧'}
+                      過程目標覺察 · {PG_KIND_META[it.kind].label}
                     </span>
                     <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
                   </button>
@@ -772,7 +788,7 @@ function GratitudeCalendar({
                   Process Goal Awareness
                 </p>
                 <h3 className="text-lg font-extrabold text-foreground">
-                  過程目標覺察 · {pgModal.kind === 'morning' ? '早晨啟動' : '晚間回顧'}
+                  過程目標覺察 · {PG_KIND_META[pgModal.kind].label}
                 </h3>
                 <p className="text-xs text-muted-foreground">{pgModal.log_date}</p>
               </div>
@@ -784,7 +800,7 @@ function GratitudeCalendar({
               </button>
             </div>
             <div className="flex flex-col gap-3">
-              {pgModal.kind === 'morning' ? (
+              {pgModal.kind === 'morning' && (
                 <>
                   {pgModal.today_task && (
                     <div className="rounded-2xl bg-tile-blue p-4">
@@ -799,30 +815,35 @@ function GratitudeCalendar({
                     </div>
                   )}
                 </>
-              ) : (
+              )}
+              {pgModal.kind === 'moment' && (
                 <>
                   {pgModal.focus_description && (
                     <div className="rounded-2xl bg-tile-blue p-4">
-                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">今天的專注時刻</p>
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">專注時刻</p>
                       <p className="text-sm leading-relaxed text-foreground">{pgModal.focus_description}</p>
                     </div>
                   )}
+                  {pgModal.insight && (
+                    <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">AI 洞察</p>
+                      <p className="text-sm leading-relaxed">{pgModal.insight}</p>
+                    </div>
+                  )}
+                </>
+              )}
+              {pgModal.kind === 'boost' && (
+                <>
                   {pgModal.difficult_task && (
                     <div className="rounded-2xl bg-muted p-4">
-                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">難以開始的事</p>
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">卡關的事</p>
                       <p className="text-sm leading-relaxed text-foreground">{pgModal.difficult_task}</p>
                     </div>
                   )}
-                  {pgModal.if_then_plan && (
-                    <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
-                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">if-then 計畫</p>
-                      <p className="text-sm leading-relaxed">{pgModal.if_then_plan}</p>
-                    </div>
-                  )}
                   {pgModal.ai_feedback && (
-                    <div className="rounded-2xl bg-primary-soft p-4">
-                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">教練回饋</p>
-                      <p className="text-sm leading-relaxed text-foreground">{pgModal.ai_feedback}</p>
+                    <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">專注錦囊</p>
+                      <p className="text-sm leading-relaxed">{pgModal.ai_feedback}</p>
                     </div>
                   )}
                 </>

@@ -665,7 +665,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
               emoji="👁️"
               tile="bg-tile-blue"
               name="過程目標覺察"
-              meta="進階 · 3 分鐘 · 意義力 · 成就力"
+              meta="初階 · 3 分鐘 · 意義力 · 成就力"
               badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
             />
           </div>

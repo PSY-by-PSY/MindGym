@@ -221,41 +221,29 @@ class ExtractKeywordsRequest(BaseModel):
 
 # ── Process Goal Awareness models（過程目標覺察）────────────────────────────
 
-class WhyQuestionsRequest(BaseModel):
-    scene_description: str = ""
+# ── 過程目標覺察（全新版）─────────────────────────────────────────────────
+# 模組一【專注時刻記錄】：解構人時地事 → 收斂核心專注需求(insight) + 活動類別。
+# 模組二【提升專注錦囊】：把使用者過去的專注紀錄帶進來，AI 嚴格依活動類別篩選，
+#   再把相近成功經驗的底層條件「遷移並擴大」成可立即執行的建議。
+class FocusInsightRequest(BaseModel):
+    event: str = ""        # 事件與感受
+    who: str = ""          # 人物
+    when_time: str = ""    # 時間
+    where_place: str = ""  # 地點
+
+
+class FocusMomentRecord(BaseModel):
+    event: str = ""
     who: str = ""
     when_time: str = ""
     where_place: str = ""
-    with_what: str = ""
-    feelings: list[str] = Field(default_factory=list)
+    insight: str = ""
+    category: str = ""
 
 
-class WhySummaryRequest(BaseModel):
-    who_why: str = ""
-    when_why: str = ""
-    where_why: str = ""
-    what_why: str = ""
-
-
-class EveningFeedbackRequest(BaseModel):
-    condition_tags: list[str] = Field(default_factory=list)
-    feelings: list[str] = Field(default_factory=list)
-    why_summary: str = ""
-    had_focus_moment: bool = False
-    focus_description: str = ""
-    today_conditions: list[str] = Field(default_factory=list)
-    difficult_task: str = ""
-    obstacle: str = ""
-
-
-class MorningFeedbackRequest(BaseModel):
-    condition_tags: list[str] = Field(default_factory=list)
-    feelings: list[str] = Field(default_factory=list)
-    why_summary: str = ""
-    one_sentence: str = ""
-    recent_logs_summary: str = ""
-    today_task: str = ""
-    yesterday_if_then: str = ""
+class FocusBoostRequest(BaseModel):
+    current_situation: str = ""  # 目前難以專注的事件與情境
+    records: list[FocusMomentRecord] = Field(default_factory=list)  # 過去的專注時刻紀錄
 
 
 # ── InMind models ──────────────────────────────────────────────────────────
@@ -1075,165 +1063,128 @@ async def _pg_claude_json(source: str, user_id: str, system: str, user_content: 
     return json.loads(match.group())
 
 
-@app.post("/api/pg/why-questions")
-async def pg_why_questions(req: WhyQuestionsRequest, authorization: str = Header(...)):
-    """Step 3：針對人/時/地/物各生成一個追問；同時把人時地物精煉成關鍵詞。"""
+@app.post("/api/pg/focus-insight")
+async def pg_focus_insight(req: FocusInsightRequest, authorization: str = Header(...)):
+    """模組一【專注時刻記錄】：解構人時地事，收斂使用者真正的核心專注需求(insight)，
+    並判定這次專注屬於哪一類活動(category)，供模組二嚴格比對。"""
     try:
         token = authorization.removeprefix("Bearer ").strip()
         user_id = await get_user_id(token)
-        feelings = "、".join(req.feelings) if req.feelings else "（未填）"
         content = (
-            "你是一個心理引導師。使用者剛才描述了一個讓他感到沈浸的場景：\n"
-            f"場景描述：{req.scene_description}\n"
-            f"人：{req.who}\n"
-            f"時：{req.when_time}\n"
-            f"地：{req.where_place}\n"
-            f"物：{req.with_what}\n"
-            f"感受：{feelings}\n\n"
-            "請做兩件事：\n"
-            "1. 針對「人」、「時」、「地」、「物」各生成一個追問，目的是幫助使用者理解"
-            "「為什麼這個條件對他有效」，挖掘條件背後真正滿足的心理需求。"
-            "追問要口語、溫和、有好奇心，不要像問卷，每個問題一句話。\n"
-            "2. 把使用者填的人時地物各自精煉成『最精簡的關鍵詞』（例：『在實驗室裡面』→『實驗室』、"
-            "『當時是一個人在那邊操作』→『一個人』、『大概是週六的晚上』→『週六晚上』），放在 tidy；"
-            "並用一句話精簡描述他做的事（scene_summary，15 字內）；"
-            "再從這些條件裡挑 2~4 個最能代表他專注狀態的標籤放在 condition_tags。\n"
-            "以 JSON 格式回傳：\n"
-            '{"who_why":"...","when_why":"...","where_why":"...","what_why":"...",'
-            '"tidy":{"who":"...","when_time":"...","where_place":"...","with_what":"..."},'
-            '"scene_summary":"...","condition_tags":["...","..."]}'
+            "使用者記錄了一個讓自己特別專注／投入的時刻，請你解構並收斂。\n\n"
+            f"事件與當下感受：{req.event or '（未填）'}\n"
+            f"人物（和誰／一個人）：{req.who or '（未填）'}\n"
+            f"時間：{req.when_time or '（未填）'}\n"
+            f"地點：{req.where_place or '（未填）'}\n\n"
+            "請做三件事：\n"
+            "1. insight：解構這些『人、時、地、事』背後，推論並收斂出使用者『真正需要的核心專注需求』。"
+            "要看穿表面條件、講出底層的心理／環境需求。"
+            "例：使用者說『在咖啡廳做事很專注』→ 收斂成『你可能需要帶有規律環境噪音（有點吵雜）、"
+            "且身旁有人的物理環境，完全孤立反而不適合你』。"
+            "用溫暖、覺察、像懂你的朋友的口吻，對『你』說話，2~3 句、80 字內。\n"
+            "2. category：判定這次專注活動的類別，只能是以下其中一個英文鍵："
+            "static（靜態認知：讀書/寫作/思考/編程/規劃）、"
+            "dynamic（動態身體：運動/訓練/體力活動）、"
+            "life（生活雜事：家事/整理/採買/雜務）、"
+            "social（人際互動：社交/會議/溝通/合作）、"
+            "creative（創作表達：畫畫/音樂/設計/手作）、other（其他）。\n"
+            "3. condition_tags：從人時地事裡挑 2~4 個最能代表他專注條件的精簡關鍵詞。\n"
+            '只回傳 JSON：{"insight":"...","category":"static","condition_tags":["...","..."]}'
         )
         data = await _pg_claude_json(
-            "pg-why-questions", user_id,
-            "你是溫柔的心理引導師，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            "pg-focus-insight", user_id,
+            "你是溫暖、敏銳的專注力教練，擅長看穿條件背後真正的需求。回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
             content,
         )
-        tidy = data.get("tidy") or {}
+        cat = (data.get("category") or "other").strip().lower()
+        if cat not in {"static", "dynamic", "life", "social", "creative", "other"}:
+            cat = "other"
         return {
-            "who_why": data.get("who_why", ""),
-            "when_why": data.get("when_why", ""),
-            "where_why": data.get("where_why", ""),
-            "what_why": data.get("what_why", ""),
-            "tidy": {
-                "who": tidy.get("who", "") or req.who,
-                "when_time": tidy.get("when_time", "") or req.when_time,
-                "where_place": tidy.get("where_place", "") or req.where_place,
-                "with_what": tidy.get("with_what", "") or req.with_what,
-            },
-            "scene_summary": data.get("scene_summary", "") or req.scene_description,
+            "insight": data.get("insight", ""),
+            "category": cat,
             "condition_tags": data.get("condition_tags") or [],
         }
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("pg_why_questions failed [%s]: %s", type(exc).__name__, exc)
+        logger.error("pg_focus_insight failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
-@app.post("/api/pg/why-summary")
-async def pg_why_summary(req: WhySummaryRequest, authorization: str = Header(...)):
-    """Step 4：把四個 why 收斂成一句「你真正需要的是：___」。"""
+_CATEGORY_LABELS = {
+    "static": "靜態認知（讀書/寫作/思考/編程/規劃）",
+    "dynamic": "動態身體（運動/訓練/體力活動）",
+    "life": "生活雜事（家事/整理/採買/雜務）",
+    "social": "人際互動（社交/會議/溝通/合作）",
+    "creative": "創作表達（畫畫/音樂/設計/手作）",
+    "other": "其他",
+}
+
+
+@app.post("/api/pg/focus-boost")
+async def pg_focus_boost(req: FocusBoostRequest, authorization: str = Header(...)):
+    """模組二【提升專注錦囊】：嚴格依活動類別比對歷史『專注時刻記錄』，
+    把相近成功經驗的底層條件遷移並擴大成可立即執行的建議。"""
     try:
         token = authorization.removeprefix("Bearer ").strip()
         user_id = await get_user_id(token)
+
+        if req.records:
+            lines = []
+            for i, r in enumerate(req.records, 1):
+                label = _CATEGORY_LABELS.get((r.category or "other"), r.category or "其他")
+                lines.append(
+                    f"[紀錄{i}] 類別={r.category or 'other'}（{label}）\n"
+                    f"  事件：{r.event or '（未填）'}\n"
+                    f"  人：{r.who or '—'}／時：{r.when_time or '—'}／地：{r.where_place or '—'}\n"
+                    f"  核心需求：{r.insight or '（未整理）'}"
+                )
+            records_block = "\n".join(lines)
+        else:
+            records_block = "（使用者目前還沒有任何專注時刻記錄）"
+
         content = (
-            "使用者回答了以下關於自己沈浸條件的 why：\n"
-            f"人的 why：{req.who_why}\n"
-            f"時的 why：{req.when_why}\n"
-            f"地的 why：{req.where_why}\n"
-            f"物的 why：{req.what_why}\n\n"
-            "請把這些答案收斂成一句話，格式為「你真正需要的是：___」。\n"
-            "這句話要抓住所有 why 的共同核心需求、口語直接有溫度、不超過 30 個中文字。\n"
-            '只回傳 JSON：{"summary":"你真正需要的是：..."}'
+            "使用者現在遇到一件難以專注／提不起勁的事，想要一個能立刻試的方法。\n\n"
+            f"【目前的困境與情境】\n{req.current_situation or '（未填）'}\n\n"
+            "【使用者過去的『專注時刻記錄』】\n"
+            f"{records_block}\n\n"
+            "請嚴格依以下步驟思考：\n"
+            "1. 先判定『目前困境』屬於哪一類活動（static 靜態認知／dynamic 動態身體／"
+            "life 生活雜事／social 人際互動／creative 創作表達／other）。\n"
+            "2. 【嚴格篩選，禁止錯誤類比】只能參考『相同或高度相容類別』的歷史紀錄。"
+            "static 與 creative 都屬久坐專注可互通；但靜態認知與動態身體『絕對不可』互相套用。"
+            "例：使用者現在『背單字無法專注』(static)，就【不可】拿他『運動很專注』(dynamic) 的經驗來建議；"
+            "要找他過去其他靜態學習/工作的專注紀錄。若現在是『生活雜事難專注』(life)，才參考過去『做家事很專注』。\n"
+            "3. 找到相容的成功紀錄後，提取其底層專注條件（如：身旁有人、特定時段、環境聲音、規律噪音等），"
+            "把這些條件『遷移並擴大』套用到目前困境，給出具體且有創意的行動建議（不必侷限在完全相同地點）。"
+            "例：他過去在人很多的系館寫報告很投入 → 建議『你可能需要身邊有多人陪伴的氛圍，"
+            "試試去星巴克或圖書館的開放討論區讀書』。\n"
+            "4. 若沒有任何相容類別的紀錄（has_match=false），就誠實說明：這類活動還沒有你的專注紀錄，"
+            "鼓勵他先去【專注時刻記錄】補一筆，記得越多、建議越準；同時可給一個通用的小起步建議。\n\n"
+            '只回傳 JSON：{"has_match":true,"category":"static",'
+            '"matched_summary":"（你參考了哪一筆過去經驗，一句話）",'
+            '"suggestion":"（溫暖、具體、可立即執行的建議，120 字內，口語對「你」說）"}'
         )
         data = await _pg_claude_json(
-            "pg-why-summary", user_id,
-            "你是溫柔的健心教練，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            "pg-focus-boost", user_id,
+            "你是了解使用者的專注力教練，最重要的紀律是『絕不做跨活動類型的錯誤類比』。"
+            "回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
             content,
-            max_tokens=256,
+            max_tokens=640,
         )
-        return {"summary": data.get("summary", "")}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("pg_why_summary failed [%s]: %s", type(exc).__name__, exc)
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
-
-
-@app.post("/api/pg/evening-feedback")
-async def pg_evening_feedback(req: EveningFeedbackRequest, authorization: str = Header(...)):
-    """晚間回顧：回饋今天的專注時刻 + 產生 if-then 計畫。"""
-    try:
-        token = authorization.removeprefix("Bearer ").strip()
-        user_id = await get_user_id(token)
-        content = (
-            "你是使用者的專注力教練，語氣溫暖、簡短、有針對性。\n\n"
-            "使用者的沈浸地圖：\n"
-            f"- 核心條件：{'、'.join(req.condition_tags) or '（未填）'}\n"
-            f"- 核心感受：{'、'.join(req.feelings) or '（未填）'}\n"
-            f"- 他真正需要的是：{req.why_summary or '（未填）'}\n\n"
-            "今天的記錄：\n"
-            f"- 今天有沒有專注時刻：{'有' if req.had_focus_moment else '沒有'}\n"
-            f"- 專注時刻描述：{req.focus_description or '（無）'}\n"
-            f"- 今天有效的條件：{'、'.join(req.today_conditions) or '（無）'}\n"
-            f"- 困難的任務：{req.difficult_task or '（無）'}\n"
-            f"- 預期的障礙：{req.obstacle or '（無）'}\n\n"
-            "請做兩件事：\n"
-            "1. 給一句針對今天專注時刻的回饋（如果有的話），要具體呼應他說的內容，不要空洞鼓勵。\n"
-            "2. 根據他的沈浸地圖和今天的障礙，生成一個 if-then 計畫，格式為"
-            "「如果___（障礙發生），那我就___（用你的條件應對）。」\n"
-            '回傳 JSON：{"focus_feedback":"...","if_then_plan":"..."}\n'
-            "（若今天沒有專注時刻，focus_feedback 給空字串）"
-        )
-        data = await _pg_claude_json(
-            "pg-evening-feedback", user_id,
-            "你是溫暖的專注力教練，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
-            content,
-        )
+        cat = (data.get("category") or "other").strip().lower()
+        if cat not in _CATEGORY_LABELS:
+            cat = "other"
         return {
-            "focus_feedback": data.get("focus_feedback", ""),
-            "if_then_plan": data.get("if_then_plan", ""),
+            "has_match": bool(data.get("has_match", False)),
+            "category": cat,
+            "matched_summary": data.get("matched_summary", ""),
+            "suggestion": data.get("suggestion", ""),
         }
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("pg_evening_feedback failed [%s]: %s", type(exc).__name__, exc)
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
-
-
-@app.post("/api/pg/morning-feedback")
-async def pg_morning_feedback(req: MorningFeedbackRequest, authorization: str = Header(...)):
-    """早晨啟動：給一句具體、今天就能做到的啟動建議。"""
-    try:
-        token = authorization.removeprefix("Bearer ").strip()
-        user_id = await get_user_id(token)
-        content = (
-            "你是使用者的專注力教練，語氣簡短、有力、像一個了解你的朋友。\n\n"
-            "使用者的沈浸地圖：\n"
-            f"- 核心條件：{'、'.join(req.condition_tags) or '（未填）'}\n"
-            f"- 核心感受：{'、'.join(req.feelings) or '（未填）'}\n"
-            f"- 他真正需要的是：{req.why_summary or '（未填）'}\n"
-            f"- 收斂一句話：{req.one_sentence or '（未填）'}\n\n"
-            f"最近七天的記錄摘要：{req.recent_logs_summary or '（資料還很少，可忽略）'}\n\n"
-            "今天的輸入：\n"
-            f"- 今天要做的事／安排：{req.today_task or '（未填）'}\n"
-            f"- 昨晚的 if-then 計畫（若有）：{req.yesterday_if_then or '（無）'}\n\n"
-            "請根據使用者今天的輸入和他的沈浸地圖，給一句具體的啟動建議：\n"
-            "- 要包含具體的條件（什麼時候、在哪、怎麼開始）\n"
-            "- 要小到「今天就能做到」，不要空洞鼓勵\n"
-            "- 若近七天有值得指出的模式，可以帶一句\n"
-            '只回傳 JSON：{"suggestion":"..."}（suggestion 為一段話，100 字以內，中文，口語）'
-        )
-        data = await _pg_claude_json(
-            "pg-morning-feedback", user_id,
-            "你是了解使用者的專注力教練，回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
-            content,
-        )
-        return {"suggestion": data.get("suggestion", "")}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("pg_morning_feedback failed [%s]: %s", type(exc).__name__, exc)
+        logger.error("pg_focus_boost failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 

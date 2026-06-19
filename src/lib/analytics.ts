@@ -37,9 +37,11 @@ export type AnalyticsEvent =
   | 'gratitude_completed'  // 完成感恩日記
   | 'module_opened'        // 點開訓練中心的某個模組
   | 'today_practice_opened'      // 點開首頁「開始今日練習」橫幅
-  | 'process_goal_map_created'   // 完成過程目標覺察的沈浸地圖
-  | 'process_goal_evening_done'  // 完成過程目標覺察晚間回顧
-  | 'process_goal_morning_done'  // 完成過程目標覺察早晨啟動
+  | 'process_goal_map_created'      // （舊版）完成過程目標覺察的沈浸地圖
+  | 'process_goal_evening_done'     // （舊版）完成過程目標覺察晚間回顧
+  | 'process_goal_morning_done'     // （舊版）完成過程目標覺察早晨啟動
+  | 'process_goal_moment_recorded'  // 完成【專注時刻記錄】
+  | 'process_goal_boost_done'       // 完成【提升專注錦囊】
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null

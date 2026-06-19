@@ -103,3 +103,25 @@ CREATE POLICY "morning_logs: 本人可更新" ON morning_logs FOR UPDATE USING (
 -- ============================================================
 ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS practice_type text DEFAULT 'gratitude';
 CREATE INDEX IF NOT EXISTS gratitude_entries_practice_type_idx ON gratitude_entries (practice_type);
+
+-- ============================================================
+-- 全新版（v2）：過程目標覺察重構為兩個模組，共用 focus_logs
+--   log_kind = 'moment' → 【專注時刻記錄】（數據收集與洞察層）
+--   log_kind = 'boost'  → 【提升專注錦囊】（情境遷移與建議層）
+-- 設計沿用：前端以 anon key + RLS 直接寫入，後端只做 AI。
+--
+-- 【專注時刻記錄】每筆儲存：事件與感受(focus_description)、人(moment_who)、
+--   時(moment_when)、地(moment_where)、AI 收斂的核心洞察(insight)、
+--   活動類別(category：static/dynamic/life/social/creative/other)。
+-- 【提升專注錦囊】每筆儲存：當前困境(difficult_task)、AI 給的建議(ai_feedback)、
+--   AI 判定的活動類別(category)。
+-- category 是「提升專注錦囊」嚴格篩選的依據（禁止靜態↔動態錯誤類比）。
+-- ============================================================
+ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS log_kind     text DEFAULT 'moment';
+ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS moment_who   text;
+ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS moment_when  text;
+ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS moment_where text;
+ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS insight      text;
+ALTER TABLE focus_logs ADD COLUMN IF NOT EXISTS category     text;
+
+CREATE INDEX IF NOT EXISTS focus_logs_user_kind_idx ON focus_logs (user_id, log_kind);
