@@ -42,6 +42,11 @@ type PracticePayload = {
   // 生命最後一天（v='last_day'）
   description?: string
   action?: string
+  // WOOP 目標實踐地圖（v='woop'）
+  wish?: string
+  outcome?: string
+  obstacle?: string
+  plan?: string
   [k: string]: unknown
 }
 
@@ -818,6 +823,8 @@ function practiceTag(practiceType: string | null): { label: string; tile: string
       return { label: '找尋真實自我', tile: 'bg-tile-pink' }
     case 'workshop_last_day':
       return { label: '生命最後一天', tile: 'bg-tile-peach' }
+    case 'workshop_woop':
+      return { label: 'WOOP 目標實踐地圖', tile: 'bg-tile-lemon' }
     default:
       return { label: '感恩日記', tile: 'bg-tile-mint' }
   }
@@ -825,7 +832,8 @@ function practiceTag(practiceType: string | null): { label: string; tile: string
 
 // ── 貼文主體（依練習類型客製版型） ──────────────────────────────────────
 // 感恩日記＝三項條列（編號泡泡）；過程目標覺察＝事件／人時地／AI 回饋；
-// 找尋真實自我＝工作/生活最重要事件＋自我敘事；生命最後一天＝希望被記得的樣子＋行動。
+// 找尋真實自我＝工作/生活最重要事件＋自我敘事；生命最後一天＝希望被記得的樣子＋行動；
+// WOOP＝願望／結果／阻礙＋If-Then 執行計畫。
 // 未來新練習：在 PracticeBody 增加一個分支 + 對應的 Body 元件即可。
 function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   if (entry.practice_type === 'process_goal' && entry.payload) {
@@ -836,6 +844,9 @@ function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   }
   if (entry.practice_type === 'workshop_last_day' && entry.payload) {
     return <LastDayBody payload={entry.payload} />
+  }
+  if (entry.practice_type === 'workshop_woop' && entry.payload) {
+    return <WoopBody payload={entry.payload} />
   }
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   return (
@@ -933,6 +944,23 @@ function LastDayBody({ payload }: { payload: PracticePayload }) {
         <PgFieldBlock label="我希望被記得的樣子" value={`一個「${description}」的人`} />
       )}
       {action && <PgAiBlock label="接下來一個月，我想要" value={action} />}
+    </div>
+  )
+}
+
+// WOOP 目標實踐地圖：願望／結果／阻礙 + If-Then 執行計畫（亮色強調）。
+function WoopBody({ payload }: { payload: PracticePayload }) {
+  const wish = (payload.wish ?? '').trim()
+  const outcome = (payload.outcome ?? '').trim()
+  const obstacle = (payload.obstacle ?? '').trim()
+  const plan = (payload.plan ?? '').trim()
+  const ifThen = obstacle && plan ? `如果${obstacle}，那麼我就${plan}。` : plan
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {wish && <PgFieldBlock label="W・設定目標" value={wish} />}
+      {outcome && <PgFieldBlock label="O・看見結果" value={outcome} />}
+      {obstacle && <PgFieldBlock label="O・覺察阻礙" value={obstacle} />}
+      {ifThen && <PgAiBlock label="P・If-Then 執行計畫" value={ifThen} />}
     </div>
   )
 }

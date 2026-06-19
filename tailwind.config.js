@@ -33,6 +33,7 @@ export default {
         'tile-peach': 'var(--tile-peach)',
         'tile-pink': 'var(--tile-pink)',
         'tile-mint': 'var(--tile-mint)',
+        'tile-lemon': 'var(--tile-lemon)',
         border: 'var(--border)',
         ring: 'var(--ring)',
       },

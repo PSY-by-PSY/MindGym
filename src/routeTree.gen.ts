@@ -21,6 +21,7 @@ import { Route as AppPlaceholderImport } from './routes/app.placeholder'
 import { Route as AppHomeImport } from './routes/app.home'
 import { Route as AppGratitudeImport } from './routes/app.gratitude'
 import { Route as AppCommunityImport } from './routes/app.community'
+import { Route as AppWorkshopWoopImport } from './routes/app.workshop.woop'
 import { Route as AppWorkshopWarmupImport } from './routes/app.workshop.warmup'
 import { Route as AppWorkshopLastDayImport } from './routes/app.workshop.last-day'
 import { Route as AppWorkshopAuthenticSelfImport } from './routes/app.workshop.authentic-self'
@@ -84,6 +85,12 @@ const AppGratitudeRoute = AppGratitudeImport.update({
 const AppCommunityRoute = AppCommunityImport.update({
   id: '/community',
   path: '/community',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppWorkshopWoopRoute = AppWorkshopWoopImport.update({
+  id: '/workshop/woop',
+  path: '/workshop/woop',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -200,6 +207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkshopWarmupImport
       parentRoute: typeof AppImport
     }
+    '/app/workshop/woop': {
+      id: '/app/workshop/woop'
+      path: '/workshop/woop'
+      fullPath: '/app/workshop/woop'
+      preLoaderRoute: typeof AppWorkshopWoopImport
+      parentRoute: typeof AppImport
+    }
   }
 }
 
@@ -215,6 +229,7 @@ interface AppRouteChildren {
   AppWorkshopAuthenticSelfRoute: typeof AppWorkshopAuthenticSelfRoute
   AppWorkshopLastDayRoute: typeof AppWorkshopLastDayRoute
   AppWorkshopWarmupRoute: typeof AppWorkshopWarmupRoute
+  AppWorkshopWoopRoute: typeof AppWorkshopWoopRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -227,6 +242,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppWorkshopAuthenticSelfRoute: AppWorkshopAuthenticSelfRoute,
   AppWorkshopLastDayRoute: AppWorkshopLastDayRoute,
   AppWorkshopWarmupRoute: AppWorkshopWarmupRoute,
+  AppWorkshopWoopRoute: AppWorkshopWoopRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -245,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
   '/app/workshop/warmup': typeof AppWorkshopWarmupRoute
+  '/app/workshop/woop': typeof AppWorkshopWoopRoute
 }
 
 export interface FileRoutesByTo {
@@ -261,6 +278,7 @@ export interface FileRoutesByTo {
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
   '/app/workshop/warmup': typeof AppWorkshopWarmupRoute
+  '/app/workshop/woop': typeof AppWorkshopWoopRoute
 }
 
 export interface FileRoutesById {
@@ -278,6 +296,7 @@ export interface FileRoutesById {
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
   '/app/workshop/warmup': typeof AppWorkshopWarmupRoute
+  '/app/workshop/woop': typeof AppWorkshopWoopRoute
 }
 
 export interface FileRouteTypes {
@@ -296,6 +315,7 @@ export interface FileRouteTypes {
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
     | '/app/workshop/warmup'
+    | '/app/workshop/woop'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -311,6 +331,7 @@ export interface FileRouteTypes {
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
     | '/app/workshop/warmup'
+    | '/app/workshop/woop'
   id:
     | '__root__'
     | '/'
@@ -326,6 +347,7 @@ export interface FileRouteTypes {
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
     | '/app/workshop/warmup'
+    | '/app/workshop/woop'
   fileRoutesById: FileRoutesById
 }
 
@@ -373,7 +395,8 @@ export const routeTree = rootRoute
         "/app/profile",
         "/app/workshop/authentic-self",
         "/app/workshop/last-day",
-        "/app/workshop/warmup"
+        "/app/workshop/warmup",
+        "/app/workshop/woop"
       ]
     },
     "/login": {
@@ -416,6 +439,10 @@ export const routeTree = rootRoute
     },
     "/app/workshop/warmup": {
       "filePath": "app.workshop.warmup.tsx",
+      "parent": "/app"
+    },
+    "/app/workshop/woop": {
+      "filePath": "app.workshop.woop.tsx",
       "parent": "/app"
     }
   }

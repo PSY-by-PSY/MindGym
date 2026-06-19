@@ -135,6 +135,7 @@ const workshopModules = [
   { emoji: '🃏', name: '暖身卡牌', tile: 'bg-tile-peach', to: '/app/workshop/warmup' as const },
   { emoji: '🪞', name: '找尋真實自我', tile: 'bg-tile-mint', to: '/app/workshop/authentic-self' as const },
   { emoji: '🌅', name: '生命最後一天', tile: 'bg-tile-blue', to: '/app/workshop/last-day' as const },
+  { emoji: '🎯', name: 'WOOP 目標實踐地圖', tile: 'bg-tile-lemon', to: '/app/workshop/woop' as const },
 ]
 
 function HomePage() {
