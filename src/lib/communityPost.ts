@@ -19,9 +19,6 @@ export function pickAnonName(): string {
   return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
 }
 
-/** @deprecated 改用 lib/date 的 isoLocalDate；此處保留別名讓既有 import 不致斷裂。 */
-export const isoDate = isoLocalDate
-
 export interface ShareContent {
   /** 退回版（payload 欄位不存在時）顯示的條列第一項；也滿足 item_1 的 NOT NULL。 */
   item_1: string
@@ -62,7 +59,7 @@ export async function insertCommunityPost(
     use_real_name: fields.use_real_name,
     anon_name: anonName,
     avatar: profile?.avatar ?? null,
-    entry_date: isoDate(new Date()),
+    entry_date: isoLocalDate(new Date()),
   }
 
   const attempt = (row: Record<string, unknown>) =>

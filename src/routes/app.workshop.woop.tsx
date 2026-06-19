@@ -7,7 +7,8 @@ import {
   CompletionActions,
 } from '../components/workshop/WorkshopUI'
 import { supabase } from '../lib/supabase'
-import { insertCommunityPost, markStreak, isoDate } from '../lib/communityPost'
+import { insertCommunityPost, markStreak } from '../lib/communityPost'
+import { isoLocalDate } from '../lib/date'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
 
@@ -185,7 +186,7 @@ function WoopFlow() {
     if (!mapCardRef.current || sharing) return
     setSharing(true)
     try {
-      await downloadNodeAsPng(mapCardRef.current, `woop-map-${isoDate(new Date())}.png`, '我的 WOOP 地圖')
+      await downloadNodeAsPng(mapCardRef.current, `woop-map-${isoLocalDate(new Date())}.png`, '我的 WOOP 地圖')
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
     } finally {

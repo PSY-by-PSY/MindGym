@@ -7,7 +7,8 @@ import {
   CompletionActions,
 } from '../components/workshop/WorkshopUI'
 import { supabase } from '../lib/supabase'
-import { insertCommunityPost, markStreak, isoDate } from '../lib/communityPost'
+import { insertCommunityPost, markStreak } from '../lib/communityPost'
+import { isoLocalDate } from '../lib/date'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
 
@@ -162,7 +163,7 @@ function LastDayFlow() {
 
           <button
             type="button"
-            onClick={() => handleDownload(reflectCardRef, `last-day-${isoDate(new Date())}.png`, '生命中的最後一天')}
+            onClick={() => handleDownload(reflectCardRef, `last-day-${isoLocalDate(new Date())}.png`, '生命中的最後一天')}
             disabled={sharing}
             className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
@@ -290,7 +291,7 @@ function LastDayFlow() {
 
         <button
           type="button"
-          onClick={() => handleDownload(summaryCardRef, `last-day-summary-${isoDate(new Date())}.png`, '生命最後一天 · 我的整理')}
+          onClick={() => handleDownload(summaryCardRef, `last-day-summary-${isoLocalDate(new Date())}.png`, '生命最後一天 · 我的整理')}
           disabled={sharing}
           className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >

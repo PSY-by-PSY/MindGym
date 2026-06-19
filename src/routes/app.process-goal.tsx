@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeUnifiedStreak } from '../lib/streak'
+import { isoLocalDate } from '../lib/date'
 import { track } from '../lib/analytics'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
@@ -90,10 +91,6 @@ interface ShareContent {
 }
 
 // ── 工具 ─────────────────────────────────────────────────────────────────
-function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function formatDate(date: Date): string {
   const days = ['日', '一', '二', '三', '四', '五', '六']
   const y = date.getFullYear()
@@ -157,7 +154,7 @@ async function insertCommunityPost(
     use_real_name: fields.use_real_name,
     anon_name: anonName,
     avatar: profile?.avatar ?? null,
-    entry_date: isoDate(new Date()),
+    entry_date: isoLocalDate(new Date()),
   }
 
   const attempt = (row: Record<string, unknown>) =>
@@ -624,7 +621,7 @@ function RecordModule({
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
       const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
-      const filename = `focus-moment-${isoDate(new Date())}.png`
+      const filename = `focus-moment-${isoLocalDate(new Date())}.png`
       if (isMobile) {
         const blob = await fetch(dataUrl).then((r) => r.blob())
         const file = new File([blob], filename, { type: 'image/png' })
@@ -655,7 +652,7 @@ function RecordModule({
       // 1. 寫入 focus_logs
       const { error } = await supabase.from('focus_logs').insert({
         user_id: userId,
-        log_date: isoDate(new Date()),
+        log_date: isoLocalDate(new Date()),
         log_kind: 'moment',
         had_focus_moment: true,
         focus_description: event || null,
@@ -901,7 +898,7 @@ function BoostModule({
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
       const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
-      const filename = `focus-boost-${isoDate(new Date())}.png`
+      const filename = `focus-boost-${isoLocalDate(new Date())}.png`
       if (isMobile) {
         const blob = await fetch(dataUrl).then((r) => r.blob())
         const file = new File([blob], filename, { type: 'image/png' })
@@ -931,7 +928,7 @@ function BoostModule({
     try {
       const { error } = await supabase.from('focus_logs').insert({
         user_id: userId,
-        log_date: isoDate(new Date()),
+        log_date: isoLocalDate(new Date()),
         log_kind: 'boost',
         had_focus_moment: false,
         difficult_task: situation || null,
@@ -1213,7 +1210,7 @@ function PgCelebrateStage({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const today = isoDate(new Date())
+      const today = isoLocalDate(new Date())
       const { count } = await supabase
         .from('focus_logs')
         .select('id', { count: 'exact', head: true })

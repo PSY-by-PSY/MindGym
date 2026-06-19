@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeStreak, computeUnifiedStreak, streakFromDates } from '../lib/streak'
+import { isoLocalDate } from '../lib/date'
 import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
@@ -133,13 +134,6 @@ function formatWritingDate(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y} / ${m} / ${d}（${days[date.getDay()]}）`
-}
-
-function isoDate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
 }
 
 // 行動網路偶爾會讓連線卡住卻不結束，fetch 預設沒有逾時 → promise 永遠不 resolve，
@@ -341,7 +335,7 @@ function GratitudePage() {
       item_3: items.item_3,
       is_shared: fields.is_shared,
       use_real_name: fields.use_real_name,
-      entry_date: isoDate(selectedDate),
+      entry_date: isoLocalDate(selectedDate),
       anon_name: anonName,
     }
     if (aiFeedback) payload.ai_feedback = aiFeedback
@@ -747,7 +741,7 @@ function WritingStage({
     d.setDate(d.getDate() - 1)
     return d
   }, [])
-  const selectedIso = isoDate(selectedDate)
+  const selectedIso = isoLocalDate(selectedDate)
 
   useEffect(() => {
     loadStreak().then(setStreak).catch(() => {})
@@ -847,7 +841,7 @@ function WritingStage({
               { label: '今天', date: today },
               { label: '昨天', date: yesterday },
             ].map(({ label, date }) => {
-              const active = selectedIso === isoDate(date)
+              const active = selectedIso === isoLocalDate(date)
               return (
                 <button
                   key={label}
@@ -1106,7 +1100,7 @@ function SummaryStage({
           margin: '0',
         },
       })
-      const filename = `gratitude-${isoDate(selectedDate)}.png`
+      const filename = `gratitude-${isoLocalDate(selectedDate)}.png`
       if (isMobile) {
         const blob = await fetch(dataUrl).then((r) => r.blob())
         const file = new File([blob], filename, { type: 'image/png' })
@@ -1540,7 +1534,7 @@ function CelebrateStage({
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
       const userId = session.user.id
-      const today = isoDate(todayDate())
+      const today = isoLocalDate(todayDate())
 
       const [allDatesRes, todayRes] = await Promise.all([
         supabase

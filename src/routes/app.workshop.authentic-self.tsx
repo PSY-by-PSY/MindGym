@@ -7,7 +7,8 @@ import {
   CompletionActions,
 } from '../components/workshop/WorkshopUI'
 import { supabase } from '../lib/supabase'
-import { insertCommunityPost, markStreak, isoDate } from '../lib/communityPost'
+import { insertCommunityPost, markStreak } from '../lib/communityPost'
+import { isoLocalDate } from '../lib/date'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
 
@@ -211,7 +212,7 @@ function AuthenticSelfFlow() {
 
           <button
             type="button"
-            onClick={() => handleDownload(rankCardRef, `life-events-${isoDate(new Date())}.png`, '我的重要生命事件')}
+            onClick={() => handleDownload(rankCardRef, `life-events-${isoLocalDate(new Date())}.png`, '我的重要生命事件')}
             disabled={sharing}
             className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
@@ -330,7 +331,7 @@ function AuthenticSelfFlow() {
 
         <button
           type="button"
-          onClick={() => handleDownload(narrativeCardRef, `self-narrative-${isoDate(new Date())}.png`, '我的自我敘事')}
+          onClick={() => handleDownload(narrativeCardRef, `self-narrative-${isoLocalDate(new Date())}.png`, '我的自我敘事')}
           disabled={sharing}
           className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >
