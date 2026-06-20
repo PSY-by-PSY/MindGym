@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeUnifiedStreak } from '../lib/streak'
 import { isoLocalDate } from '../lib/date'
+import { saveOrShareImage } from '../lib/shareImage'
 import { track } from '../lib/analytics'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
@@ -620,20 +621,8 @@ function RecordModule({
         skipFonts: true,
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
-      const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
       const filename = `focus-moment-${isoLocalDate(new Date())}.png`
-      if (isMobile) {
-        const blob = await fetch(dataUrl).then((r) => r.blob())
-        const file = new File([blob], filename, { type: 'image/png' })
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: '我的專注時刻' })
-          return
-        }
-      }
-      const link = document.createElement('a')
-      link.download = filename
-      link.href = dataUrl
-      link.click()
+      await saveOrShareImage(dataUrl, filename, '我的專注時刻')
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
     } finally {
@@ -897,20 +886,8 @@ function BoostModule({
         skipFonts: true,
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
-      const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
       const filename = `focus-boost-${isoLocalDate(new Date())}.png`
-      if (isMobile) {
-        const blob = await fetch(dataUrl).then((r) => r.blob())
-        const file = new File([blob], filename, { type: 'image/png' })
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: '我的專注錦囊' })
-          return
-        }
-      }
-      const link = document.createElement('a')
-      link.download = filename
-      link.href = dataUrl
-      link.click()
+      await saveOrShareImage(dataUrl, filename, '我的專注錦囊')
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
     } finally {

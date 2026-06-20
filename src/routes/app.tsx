@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { type FontScale, FONT_SCALE_OPTIONS, getFontScale, setFontScale } from '../lib/fontScale'
 import { fetchNotifications, getLastSeen, setLastSeen, type NotificationItem } from '../lib/notifications'
+import { isNativeApp } from '../lib/nativeAuth'
+import { pushLocalNotification } from '../lib/localNotifications'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -215,20 +217,24 @@ function NotificationBell() {
         if (cancelled) return
         setItems(list)
 
-        // 取得使用者同意後，App 開著時若有新的按讚/留言，主動發系統通知
+        // App 開著時若有新的按讚/留言，主動發系統通知。
+        // 原生 App：用 Local Notifications（WKWebView 不支援 Web Notification）。
+        // 純網頁：用 Web Notification（需使用者已授權）。
         const maxTime = list.length > 0 ? list[0].createdAt : null
         if (baselineRef.current === null) {
           baselineRef.current = maxTime ?? '1970-01-01T00:00:00.000Z'
         } else if (maxTime && maxTime > baselineRef.current) {
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            list
-              .filter((i) => i.createdAt > (baselineRef.current as string))
-              .slice(0, 3)
-              .forEach((i) => {
-                try {
-                  new Notification('PSY by PSY', { body: i.title })
-                } catch { /* 部分平台需 SW，忽略 */ }
-              })
+          const fresh = list
+            .filter((i) => i.createdAt > (baselineRef.current as string))
+            .slice(0, 3)
+          if (isNativeApp()) {
+            fresh.forEach((i) => { void pushLocalNotification('PSY by PSY', i.title) })
+          } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            fresh.forEach((i) => {
+              try {
+                new Notification('PSY by PSY', { body: i.title })
+              } catch { /* 部分平台需 SW，忽略 */ }
+            })
           }
           baselineRef.current = maxTime
         }

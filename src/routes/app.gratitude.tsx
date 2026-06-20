@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { computeStreak, computeUnifiedStreak, streakFromDates } from '../lib/streak'
 import { isoLocalDate } from '../lib/date'
+import { saveOrShareImage } from '../lib/shareImage'
 import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
@@ -1101,18 +1102,7 @@ function SummaryStage({
         },
       })
       const filename = `gratitude-${isoLocalDate(selectedDate)}.png`
-      if (isMobile) {
-        const blob = await fetch(dataUrl).then((r) => r.blob())
-        const file = new File([blob], filename, { type: 'image/png' })
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: '今天的感恩日記' })
-          return
-        }
-      }
-      const link = document.createElement('a')
-      link.download = filename
-      link.href = dataUrl
-      link.click()
+      await saveOrShareImage(dataUrl, filename, '今天的感恩日記')
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') {
         console.error('[share image]', e)

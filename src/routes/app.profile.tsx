@@ -2,6 +2,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
+import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/communityModeration'
 import petCat from '../assets/pet-cat.png'
 
 type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
@@ -106,7 +107,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
+    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0, blockedList: [] as BlockedListItem[] }
 
     const fallbackName =
       (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -121,7 +122,7 @@ export const Route = createFileRoute('/app/profile')({
     const lastDay = new Date(y, m, 0).getDate()
     const endOfMonth = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
 
-    const [profileRes, permaRes, entriesRes, allDatesRes, focusAllRes, morningAllRes, focusMonthRes, morningMonthRes] = await Promise.all([
+    const [profileRes, permaRes, entriesRes, allDatesRes, focusAllRes, morningAllRes, focusMonthRes, morningMonthRes, blockedList] = await Promise.all([
       supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle(),
       supabase
         .from('perma_scores')
@@ -148,6 +149,7 @@ export const Route = createFileRoute('/app/profile')({
       supabase.from('morning_logs').select('log_date').eq('user_id', userId),
       supabase.from('focus_logs').select('log_date').eq('user_id', userId).gte('log_date', startOfMonth).lte('log_date', endOfMonth),
       supabase.from('morning_logs').select('log_date').eq('user_id', userId).gte('log_date', startOfMonth).lte('log_date', endOfMonth),
+      fetchBlockedList(userId),
     ])
 
     // 連續打卡與統計跨練習計算（感恩日記 + 過程目標覺察）
@@ -182,6 +184,7 @@ export const Route = createFileRoute('/app/profile')({
       streak,
       monthlyCount,
       totalCount,
+      blockedList,
     }
   },
   pendingComponent: LoadingState,
@@ -911,8 +914,64 @@ function AvatarPicker({
   )
 }
 
+// ── 封鎖名單（社群安全管理） ─────────────────────────────────────────────────
+// App Store 1.2 要求 UGC App 提供封鎖機制；這裡讓使用者檢視已封鎖對象並解除封鎖。
+// blocked_label 為封鎖當下畫面顯示的名稱（匿名代號或實名），不會外洩匿名背後的真名。
+function BlockedList({ userId, initial }: { userId: string | null; initial: BlockedListItem[] }) {
+  const [list, setList] = useState<BlockedListItem[]>(initial)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function handleUnblock(blockedId: string) {
+    if (!userId || busy) return
+    setBusy(blockedId)
+    const ok = await unblockUser(userId, blockedId)
+    if (ok) setList((prev) => prev.filter((b) => b.blocked_id !== blockedId))
+    setBusy(null)
+  }
+
+  return (
+    <div className="rounded-3xl bg-card p-5 shadow-soft">
+      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
+        Blocked Users
+      </p>
+      <h2 className="mb-3 text-lg font-extrabold text-foreground">封鎖名單</h2>
+      {list.length === 0 ? (
+        <p className="py-2 text-sm text-muted-foreground">你還沒有封鎖任何人。</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {list.map((b) => (
+            <li
+              key={b.blocked_id}
+              className="flex items-center gap-3 rounded-2xl bg-muted px-3.5 py-2.5"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tile-peach text-base">
+                🚫
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-foreground">
+                  {b.blocked_label || '已封鎖的使用者'}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  封鎖於 {String(b.created_at).slice(0, 10)}
+                </p>
+              </div>
+              <button
+                onClick={() => handleUnblock(b.blocked_id)}
+                disabled={busy === b.blocked_id}
+                className="shrink-0 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-bold text-foreground transition hover:bg-background disabled:opacity-50"
+              >
+                {busy === b.blocked_id ? '…' : '解除封鎖'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function ProfilePage() {
-  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount, blockedList } = Route.useLoaderData()
   const router = useRouter()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
   const [showPicker, setShowPicker] = useState(false)
@@ -1121,6 +1180,9 @@ function ProfilePage() {
 
         {/* 感恩對象地圖 */}
         <GratitudeTargetMap userId={userId} />
+
+        {/* 封鎖名單（社群安全） */}
+        <BlockedList userId={userId} initial={blockedList ?? []} />
         </div>
       </div>
 

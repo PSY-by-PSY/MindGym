@@ -24,14 +24,14 @@ const config: CapacitorConfig = {
   ios: {
     // 讓 WebView 自動處理 safe-area inset，內容不被瀏海/home bar 蓋住。
     contentInset: 'always',
-    // 背景色：載入遠端網站前的底色，與品牌主色一致避免閃白。
-    backgroundColor: '#ffffff',
+    // 背景色：載入遠端網站前的底色，與啟動畫面品牌淺藍一致避免閃白。
+    backgroundColor: '#F0F6FF',
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 1200,
       launchAutoHide: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#F0F6FF',
       showSpinner: false,
       iosSpinnerStyle: 'small',
       splashFullScreen: true,

@@ -134,8 +134,42 @@ LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap sync ios
 
 ## 6. 下一步我可以幫你做的（醒來告訴我）
 
-- [ ] 社群加「檢舉／封鎖」功能（過審關鍵）
-- [ ] 推播（Local Notifications 先做，不需後端；或 APNs 完整版）
-- [ ] 用模擬器把 6 張上架截圖截好
-- [ ] 啟動畫面（Splash）換成品牌版（目前是白底）
-- [ ] 逐頁實機體驗微調（下載圖片在 WebView 的行為等）
+- [x] 社群加「檢舉／封鎖」功能（過審關鍵）　← 前一輪已做（`communityModeration.ts`＋`community_safety.sql`）
+- [x] 推播（Local Notifications，不需後端）　← 見 §7
+- [x] 用模擬器把 6 張上架截圖截好　← `docs/appstore_screenshots/`（1320×2868）
+- [x] 啟動畫面（Splash）換成品牌版（原本白底）　← 見 §7
+- [x] 逐頁實機體驗微調（下載圖片在 WebView 的行為）　← 見 §7
+
+---
+
+## 7. 本輪（0620 下午）完成內容
+
+### A. 本地推播 Local Notifications（先做、不需後端）
+新增 `@capacitor/local-notifications`，新檔 `src/lib/localNotifications.ts`，三種情境：
+1. **有人按讚** → 立即本地通知
+2. **有人留言** → 立即本地通知
+   - 1、2 由 App 開著時的 60 秒輪詢（`app.tsx` 的 NotificationBell）偵測到新互動時送出。
+     ⚠️ 純本地版：**App 完全關閉時收不到**（那需要 APNs 完整版，列為後續）。
+3. **每晚 21:30** → 提醒上線打卡（排程型，App 關著也會跳；重啟後 `main.tsx` 會補排）。
+
+`NotificationConsent` 已改為原生感知：WKWebView 沒有 Web Notification API，改用插件權限詢問，
+授權後立即排定 21:30 提醒。**全部 `isNativeApp()` 把關，網頁版改走 Web Notification、行為不變。**
+
+### B. 品牌啟動畫面（Splash）
+原本白底＋小吉祥物 → 改為**品牌淺藍漸層滿版（`#F0F6FF`）＋置中吉祥物**。
+- 來源 `resources/splash.png` 由 `resources/make_splash.py` 從 icon 去背合成（無接縫）。
+- 已重生 `ios/.../Splash.imageset` 三張圖、`LaunchScreen.storyboard` 底色、
+  `capacitor.config.ts` 的 ios/SplashScreen `backgroundColor`。
+- **已在模擬器重建驗證**：開場即滿版品牌藍、不再閃白。
+
+### C. 下載圖片在 WebView 的行為
+WKWebView 內 `a[download]` 完全無效。新增 `@capacitor/share` + `@capacitor/filesystem`，
+`shareImage.ts` 新增 `saveOrShareImage()`：原生→寫暫存檔＋原生分享面板（可存到「照片」）；
+網頁行動裝置→Web Share；桌面→下載。已把四處各自為政的下載點（感恩日記、過程目標 ×2、
+前測 InMind 報告）全部收斂到這支共用函式。
+
+### ⚠️ 兩步才會在 App 內生效
+B（殼）已可直接看到。A、C 是前端 JS，**且新增了原生 plugin**，所以：
+1. **把本分支 deploy 到 Vercel**（App 載入的是線上版）。
+2. **重新 `cap sync ios`＋在 Xcode 重建／archive**（新增 3 個 pod：local-notifications／share／filesystem）。
+   - locale 記得帶：`LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap sync ios`

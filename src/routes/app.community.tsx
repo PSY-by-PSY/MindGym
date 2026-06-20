@@ -2,6 +2,13 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { type Privacy, PRIVACY_OPTIONS, privacyToFields, privacyFromFields } from '../lib/privacy'
+import {
+  REPORT_REASONS,
+  submitReport,
+  blockUser,
+  fetchBlockedIds,
+  type ReportTargetType,
+} from '../lib/communityModeration'
 import wordCloudImg from '../assets/WordCloud.jpg'
 
 type GratitudeEntry = {
@@ -52,6 +59,7 @@ type PracticePayload = {
 
 type Comment = {
   id: string
+  user_id?: string | null
   anon_name: string | null
   content: string
   created_at: string
@@ -201,7 +209,7 @@ async function fetchSupporting(
     supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
     supabase
       .from('comments')
-      .select('id, entry_id, anon_name, content, created_at, parent_id')
+      .select('id, entry_id, user_id, anon_name, content, created_at, parent_id')
       .in('entry_id', entryIds)
       .order('created_at', { ascending: true }),
   ])
@@ -221,7 +229,7 @@ async function fetchSupporting(
   for (const entryId of entryIds) {
     comments[entryId] = allComments
       .filter((c) => c.entry_id === entryId)
-      .map(({ id, anon_name, content, created_at, parent_id }) => ({ id, anon_name, content, created_at, parent_id }))
+      .map(({ id, user_id, anon_name, content, created_at, parent_id }) => ({ id, user_id, anon_name, content, created_at, parent_id }))
   }
 
   // 留言愛心改為從 comment_likes 表載入（過去是純前端 state，重整就歸零）
@@ -262,18 +270,25 @@ export const Route = createFileRoute('/app/community')({
     const session = sessionRes.data.session
     const userId = session?.user.id ?? null
 
-    const [myEntries, profileRes, modalEntry, userMap] = await Promise.all([
+    const [myEntries, profileRes, modalEntry, userMap, blocked] = await Promise.all([
       userId ? fetchMyEntries(userId) : Promise.resolve([] as GratitudeEntry[]),
       userId
         ? supabase.from('profiles').select('name').eq('id', userId).single()
         : Promise.resolve({ data: null }),
       fetchModalEntry(userId),
       fetchUserGratitudeMap(userId),
+      fetchBlockedIds(userId),
     ])
+
+    // 過濾掉已封鎖使用者的公開貼文與每日 modal（自己的 myEntries 不受影響）
+    const visibleFeed = entries.filter((e) => !e.user_id || !blocked.has(e.user_id))
+    const visibleModal =
+      modalEntry && modalEntry.user_id && blocked.has(modalEntry.user_id) ? null : modalEntry
+    const blockedIds = [...blocked]
 
     // Combine unique entries from both feeds for a single supporting data fetch
     const entrySet = new Map<string, GratitudeEntry>()
-    entries.forEach((e) => entrySet.set(e.id, e))
+    visibleFeed.forEach((e) => entrySet.set(e.id, e))
     myEntries.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
     const allForSupport = [...entrySet.values()]
 
@@ -281,7 +296,7 @@ export const Route = createFileRoute('/app/community')({
 
     if (allForSupport.length === 0) {
       return {
-        entries,
+        entries: visibleFeed,
         myEntries,
         likes: {} as Record<string, LikeInfo>,
         comments: {} as Record<string, Comment[]>,
@@ -291,12 +306,31 @@ export const Route = createFileRoute('/app/community')({
         userId,
         modalEntry: null as GratitudeEntry | null,
         userMap: {} as Record<string, number>,
+        blockedIds,
       }
     }
 
     const supporting = await fetchSupporting(allForSupport, userId)
 
-    return { entries, myEntries, ...supporting, anonName, userId, modalEntry, userMap }
+    // 濾掉已封鎖使用者的留言（含巢狀回覆）
+    if (blocked.size > 0) {
+      for (const key of Object.keys(supporting.comments)) {
+        supporting.comments[key] = supporting.comments[key].filter(
+          (c) => !c.user_id || !blocked.has(c.user_id),
+        )
+      }
+    }
+
+    return {
+      entries: visibleFeed,
+      myEntries,
+      ...supporting,
+      anonName,
+      userId,
+      modalEntry: visibleModal,
+      userMap,
+      blockedIds,
+    }
   },
   pendingComponent: LoadingState,
   component: CommunityPage,
@@ -411,6 +445,7 @@ function DailyModal({
   userId,
   anonName,
   onCommentAdded,
+  onBlock,
 }: {
   entry: GratitudeEntry
   onClose: () => void
@@ -418,6 +453,7 @@ function DailyModal({
   userId: string | null
   anonName: string | null
   onCommentAdded: (c: Comment) => void
+  onBlock: (blockedUserId: string) => void
 }) {
   const avatar = avatarFor(entry.anon_name, 0, entry.avatar)
   const [commentText, setCommentText] = useState('')
@@ -425,6 +461,13 @@ function DailyModal({
   const [sentCount, setSentCount] = useState(0)
   const [like, setLike] = useState<LikeInfo>({ count: 0, liked: false })
   const [liking, setLiking] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  // 檢舉貼文成功或封鎖作者後直接關閉 modal
+  const { openReport, openBlock, sheets } = useModeration({
+    userId,
+    onBlock: (id) => { onBlock(id); onClose() },
+    onReported: () => onClose(),
+  })
 
   // 載入這篇貼文目前的按讚狀態（讓 modal 內可直接按讚）
   useEffect(() => {
@@ -461,7 +504,7 @@ function DailyModal({
     const { data, error } = await supabase
       .from('comments')
       .insert({ entry_id: entryId, user_id: userId, anon_name: anonName, content })
-      .select('id, anon_name, content, created_at')
+      .select('id, user_id, anon_name, content, created_at')
       .single()
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -513,6 +556,42 @@ function DailyModal({
             </p>
             <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
           </div>
+          {userId && entry.user_id && entry.user_id !== userId && (
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setShowMenu((p) => !p)}
+                aria-label="檢舉或封鎖"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+              >
+                <span className="text-xl font-bold leading-none tracking-widest">···</span>
+              </button>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-9 z-20 min-w-[184px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        openReport({ type: 'entry', entryId, reportedUserId: entry.user_id })
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
+                    >
+                      <span className="text-base leading-none">🚩</span>檢舉貼文
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        openBlock({ userId: entry.user_id as string, label: entry.anon_name ?? '這位使用者' })
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
+                    >
+                      <span className="text-base leading-none">🚫</span>封鎖此使用者
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <PracticeBody entry={entry} />
@@ -566,6 +645,8 @@ function DailyModal({
           )}
         </div>
       </div>
+
+      {sheets}
     </div>
   )
 }
@@ -617,6 +698,9 @@ function CommunityPage() {
 
   const [allEntries] = useState<GratitudeEntry[]>(loaderData.entries)
   const [myEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(
+    () => new Set(loaderData.blockedIds ?? []),
+  )
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
   const [commentLikes, setCommentLikes] = useState<Record<string, LikeInfo>>(loaderData.commentLikes)
@@ -663,7 +747,9 @@ function CommunityPage() {
   }, [focus, myEntries])
 
   const hasMore = displayCount < orderedEntries.length
-  const visibleEntries = orderedEntries.slice(0, displayCount)
+  const visibleEntries = orderedEntries
+    .slice(0, displayCount)
+    .filter((e) => !e.user_id || !blockedIds.has(e.user_id))
   const myHasMore = myDisplayCount < myEntries.length
   const visibleMyEntries = myEntries.slice(0, myDisplayCount)
 
@@ -710,6 +796,15 @@ function CommunityPage() {
     setCommentLikes((prev) => ({ ...prev, [commentId]: info }))
   }
 
+  // 封鎖成功後即時把對方加入過濾名單：其貼文/留言立刻從畫面消失
+  function handleBlocked(blockedUserId: string) {
+    setBlockedIds((prev) => {
+      const next = new Set(prev)
+      next.add(blockedUserId)
+      return next
+    })
+  }
+
   return (
     <>
       {open && modalEntry && (
@@ -720,6 +815,7 @@ function CommunityPage() {
           userId={userId}
           anonName={anonName}
           onCommentAdded={(c) => handleCommentAdded(modalEntry.id, c)}
+          onBlock={handleBlocked}
         />
       )}
 
@@ -756,9 +852,11 @@ function CommunityPage() {
                       anonName={anonName}
                       autoFocus={focus === entry.id}
                       isOwn={true}
+                      blockedIds={blockedIds}
                       onLikeChange={(info) => handleLikeChange(entry.id, info)}
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
                       onCommentLikeChange={handleCommentLikeChange}
+                      onBlock={handleBlocked}
                     />
                   ))}
                 </div>
@@ -793,9 +891,11 @@ function CommunityPage() {
                       userId={userId}
                       anonName={anonName}
                       isOwn={entry.user_id === userId && userId !== null}
+                      blockedIds={blockedIds}
                       onLikeChange={(info) => handleLikeChange(entry.id, info)}
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
                       onCommentLikeChange={handleCommentLikeChange}
+                      onBlock={handleBlocked}
                     />
                   ))}
                 </div>
@@ -965,6 +1065,242 @@ function WoopBody({ payload }: { payload: PracticePayload }) {
   )
 }
 
+// ── 檢舉 / 封鎖（社群安全，App Store 1.2 UGC 要求）共用元件 ──────────────────
+
+type ReportState = {
+  type: ReportTargetType
+  entryId?: string | null
+  commentId?: string | null
+  reportedUserId: string | null
+}
+
+// 檢舉底部 sheet：多選原因 + 選填備註。比照 AvatarPicker 的 bottom-sheet 樣式。
+function ReportSheet({
+  targetLabel,
+  submitting,
+  errored,
+  onSubmit,
+  onClose,
+}: {
+  targetLabel: string
+  submitting: boolean
+  errored: boolean
+  onSubmit: (reasons: string[], note: string) => void
+  onClose: () => void
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [note, setNote] = useState('')
+
+  function toggle(code: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
+
+  const canSubmit = selected.size > 0 && !submitting
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-6 shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-base font-extrabold text-foreground">檢舉這則{targetLabel}</p>
+          <button onClick={onClose} aria-label="關閉" className="text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+        <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+          請選擇檢舉原因（可複選），我們會盡快審核。系統不會通知對方。
+        </p>
+
+        <div className="flex flex-col gap-2">
+          {REPORT_REASONS.map((r) => {
+            const active = selected.has(r.code)
+            return (
+              <button
+                key={r.code}
+                onClick={() => toggle(r.code)}
+                className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                  active
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                <span>{r.label}</span>
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
+                    active ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
+                  }`}
+                >
+                  {active ? '✓' : ''}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="補充說明（選填）"
+          rows={2}
+          className="mt-3 w-full resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+        />
+
+        {errored && <p className="mt-2 text-xs font-semibold text-red-500">送出失敗，請稍後再試。</p>}
+
+        <button
+          onClick={() => canSubmit && onSubmit([...selected], note)}
+          disabled={!canSubmit}
+          className="mt-4 w-full rounded-full bg-gradient-primary py-3.5 text-sm font-extrabold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
+        >
+          {submitting ? '送出中…' : '送出檢舉'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// 封鎖確認 sheet。
+function ConfirmBlock({
+  label,
+  submitting,
+  errored,
+  onConfirm,
+  onClose,
+}: {
+  label: string
+  submitting: boolean
+  errored: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-6 shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-base font-extrabold text-foreground">封鎖 {label}？</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          封鎖後，你將不會再看到這位使用者的貼文與留言。你可以隨時到「個人檔案」解除封鎖。
+        </p>
+        {errored && <p className="mt-2 text-xs font-semibold text-red-500">封鎖失敗，請稍後再試。</p>}
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-full border border-border bg-background py-3 text-sm font-bold text-foreground transition hover:bg-muted"
+          >
+            取消
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={submitting}
+            className="flex-1 rounded-full bg-red-500 py-3 text-sm font-extrabold text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? '封鎖中…' : '封鎖'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 檢舉 / 封鎖的共用狀態與 DB 寫入。回傳開啟器與要渲染的 sheets。
+// onReported：檢舉成功後通知呼叫端做樂觀隱藏；onBlock：封鎖成功後把對方加入過濾名單。
+function useModeration({
+  userId,
+  onBlock,
+  onReported,
+}: {
+  userId: string | null
+  onBlock: (blockedUserId: string) => void
+  onReported: (target: ReportState) => void
+}) {
+  const [reportTarget, setReportTarget] = useState<ReportState | null>(null)
+  const [blockTarget, setBlockTarget] = useState<{ userId: string; label: string } | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [errored, setErrored] = useState(false)
+
+  function openReport(t: ReportState) {
+    setErrored(false)
+    setReportTarget(t)
+  }
+  function openBlock(t: { userId: string; label: string }) {
+    setErrored(false)
+    setBlockTarget(t)
+  }
+  function closeAll() {
+    setReportTarget(null)
+    setBlockTarget(null)
+    setErrored(false)
+  }
+
+  async function doReport(reasons: string[], note: string) {
+    if (!userId || !reportTarget) return
+    setSubmitting(true)
+    setErrored(false)
+    const ok = await submitReport({
+      reporterId: userId,
+      targetType: reportTarget.type,
+      entryId: reportTarget.entryId,
+      commentId: reportTarget.commentId,
+      reportedUserId: reportTarget.reportedUserId,
+      reasons,
+      note,
+    })
+    setSubmitting(false)
+    if (ok) {
+      onReported(reportTarget)
+      setReportTarget(null)
+    } else {
+      setErrored(true)
+    }
+  }
+
+  async function doBlock() {
+    if (!userId || !blockTarget) return
+    setSubmitting(true)
+    setErrored(false)
+    const ok = await blockUser(userId, blockTarget.userId, blockTarget.label)
+    setSubmitting(false)
+    if (ok) {
+      onBlock(blockTarget.userId)
+      setBlockTarget(null)
+    } else {
+      setErrored(true)
+    }
+  }
+
+  const sheets = (
+    <>
+      {reportTarget && (
+        <ReportSheet
+          targetLabel={reportTarget.type === 'entry' ? '貼文' : '留言'}
+          submitting={submitting}
+          errored={errored}
+          onSubmit={doReport}
+          onClose={closeAll}
+        />
+      )}
+      {blockTarget && (
+        <ConfirmBlock
+          label={blockTarget.label}
+          submitting={submitting}
+          errored={errored}
+          onConfirm={doBlock}
+          onClose={closeAll}
+        />
+      )}
+    </>
+  )
+
+  return { openReport, openBlock, sheets }
+}
+
 function EntryCard({
   entry,
   index,
@@ -975,10 +1311,12 @@ function EntryCard({
   userId,
   anonName,
   isOwn,
+  blockedIds,
   autoFocus = false,
   onLikeChange,
   onCommentAdded,
   onCommentLikeChange,
+  onBlock,
 }: {
   entry: GratitudeEntry
   index: number
@@ -989,10 +1327,12 @@ function EntryCard({
   userId: string | null
   anonName: string | null
   isOwn: boolean
+  blockedIds: Set<string>
   autoFocus?: boolean
   onLikeChange: (info: LikeInfo) => void
   onCommentAdded: (c: Comment) => void
   onCommentLikeChange: (commentId: string, info: LikeInfo) => void
+  onBlock: (blockedUserId: string) => void
 }) {
   const articleRef = useRef<HTMLElement>(null)
   const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
@@ -1003,6 +1343,24 @@ function EntryCard({
   const avatar = avatarFor(localAnonName, index, entry.avatar)
   const [showComments, setShowComments] = useState(false)
   const [liking, setLiking] = useState(false)
+
+  // 檢舉 / 封鎖（非本人貼文與留言）
+  const [openCommentMenu, setOpenCommentMenu] = useState<string | null>(null)
+  const [postReported, setPostReported] = useState(false)
+  const [hiddenCommentIds, setHiddenCommentIds] = useState<Set<string>>(new Set())
+  const [commentReportDone, setCommentReportDone] = useState(false)
+  const { openReport, openBlock, sheets } = useModeration({
+    userId,
+    onBlock,
+    onReported: (t) => {
+      if (t.type === 'entry') {
+        setPostReported(true)
+      } else if (t.commentId) {
+        setHiddenCommentIds((prev) => new Set(prev).add(t.commentId as string))
+        setCommentReportDone(true)
+      }
+    },
+  })
 
   // 從通知點進來：自動展開留言並捲動到這篇貼文
   useEffect(() => {
@@ -1037,8 +1395,12 @@ function EntryCard({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const replyInputRef = useRef<HTMLTextAreaElement>(null)
 
-  const topLevelComments = comments.filter((c) => !c.parent_id)
-  const repliesFor = (parentId: string) => comments.filter((c) => c.parent_id === parentId)
+  // 過濾掉已封鎖使用者的留言、以及本人剛檢舉而樂觀隱藏的留言
+  const visibleComments = comments.filter(
+    (c) => (!c.user_id || !blockedIds.has(c.user_id)) && !hiddenCommentIds.has(c.id),
+  )
+  const topLevelComments = visibleComments.filter((c) => !c.parent_id)
+  const repliesFor = (parentId: string) => visibleComments.filter((c) => c.parent_id === parentId)
 
   // 留言愛心：寫入 comment_likes 表並樂觀更新 UI（過去是純前端 state，重整就歸零）
   async function toggleCommentLike(commentId: string) {
@@ -1069,7 +1431,7 @@ function EntryCard({
     const { data, error } = await supabase
       .from('comments')
       .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo })
-      .select('id, anon_name, content, created_at, parent_id')
+      .select('id, user_id, anon_name, content, created_at, parent_id')
       .single()
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -1121,7 +1483,7 @@ function EntryCard({
     const { data, error } = await supabase
       .from('comments')
       .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content })
-      .select('id, anon_name, content, created_at')
+      .select('id, user_id, anon_name, content, created_at')
       .single()
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -1135,6 +1497,18 @@ function EntryCard({
       e.preventDefault()
       submitComment()
     }
+  }
+
+  // 檢舉貼文後，樂觀地以確認卡取代原貼文
+  if (postReported) {
+    return (
+      <article className="rounded-3xl bg-card p-6 text-center shadow-soft">
+        <p className="text-sm font-extrabold text-foreground">✅ 已收到你的檢舉</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          我們會盡快審核，感謝你協助維護社群。
+        </p>
+      </article>
+    )
   }
 
   return (
@@ -1219,6 +1593,44 @@ function EntryCard({
             )}
           </div>
         )}
+        {!isOwn && userId && (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowMenu((prev) => !prev)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+              aria-label="檢舉或封鎖"
+            >
+              <span className="text-xl font-bold leading-none tracking-widest">···</span>
+            </button>
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 top-9 z-20 min-w-[184px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      openReport({ type: 'entry', entryId: entry.id, reportedUserId: entry.user_id })
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
+                  >
+                    <span className="text-base leading-none">🚩</span>檢舉貼文
+                  </button>
+                  {entry.user_id && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        openBlock({ userId: entry.user_id as string, label: localAnonName ?? '這位使用者' })
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
+                    >
+                      <span className="text-base leading-none">🚫</span>封鎖此使用者
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Body（依練習類型客製版型） */}
@@ -1264,13 +1676,18 @@ function EntryCard({
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
         >
           <span className="text-base leading-none">💬</span>
-          <span>{comments.length > 0 ? `${comments.length} 則留言` : '留言'}</span>
+          <span>{visibleComments.length > 0 ? `${visibleComments.length} 則留言` : '留言'}</span>
         </button>
       </div>
 
       {/* Comment section */}
       {showComments && (
         <div className="mt-3 flex flex-col gap-2">
+          {commentReportDone && (
+            <p className="rounded-xl bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
+              ✅ 已收到你的留言檢舉，我們會盡快審核。
+            </p>
+          )}
           {topLevelComments.length > 0 && (
             <ul className="flex flex-col gap-2">
               {topLevelComments.map((c) => {
@@ -1306,6 +1723,44 @@ function EntryCard({
                             回覆
                           </button>
                         )}
+                        {userId && c.user_id !== userId && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setOpenCommentMenu(openCommentMenu === c.id ? null : c.id)}
+                              aria-label="檢舉或封鎖留言"
+                              className="px-0.5 text-[13px] font-bold leading-none text-muted-foreground transition hover:text-foreground"
+                            >
+                              ⋯
+                            </button>
+                            {openCommentMenu === c.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setOpenCommentMenu(null)} />
+                                <div className="absolute right-0 top-5 z-20 min-w-[160px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                                  <button
+                                    onClick={() => {
+                                      setOpenCommentMenu(null)
+                                      openReport({ type: 'comment', commentId: c.id, reportedUserId: c.user_id ?? null })
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
+                                  >
+                                    🚩 檢舉留言
+                                  </button>
+                                  {c.user_id && (
+                                    <button
+                                      onClick={() => {
+                                        setOpenCommentMenu(null)
+                                        openBlock({ userId: c.user_id as string, label: c.anon_name ?? '這位使用者' })
+                                      }}
+                                      className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-red-500 transition hover:bg-muted"
+                                    >
+                                      🚫 封鎖此使用者
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1333,6 +1788,44 @@ function EntryCard({
                                 <span className="text-xs leading-none">{rLike.liked ? '❤️' : '🤍'}</span>
                                 {rLike.count > 0 && <span>{rLike.count}</span>}
                               </button>
+                              {userId && r.user_id !== userId && (
+                                <div className="relative shrink-0 self-start pt-0.5">
+                                  <button
+                                    onClick={() => setOpenCommentMenu(openCommentMenu === r.id ? null : r.id)}
+                                    aria-label="檢舉或封鎖留言"
+                                    className="px-0.5 text-[13px] font-bold leading-none text-muted-foreground transition hover:text-foreground"
+                                  >
+                                    ⋯
+                                  </button>
+                                  {openCommentMenu === r.id && (
+                                    <>
+                                      <div className="fixed inset-0 z-10" onClick={() => setOpenCommentMenu(null)} />
+                                      <div className="absolute right-0 top-5 z-20 min-w-[160px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                                        <button
+                                          onClick={() => {
+                                            setOpenCommentMenu(null)
+                                            openReport({ type: 'comment', commentId: r.id, reportedUserId: r.user_id ?? null })
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
+                                        >
+                                          🚩 檢舉留言
+                                        </button>
+                                        {r.user_id && (
+                                          <button
+                                            onClick={() => {
+                                              setOpenCommentMenu(null)
+                                              openBlock({ userId: r.user_id as string, label: r.anon_name ?? '這位使用者' })
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-red-500 transition hover:bg-muted"
+                                          >
+                                            🚫 封鎖此使用者
+                                          </button>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </li>
                           )
                         })}
@@ -1390,6 +1883,8 @@ function EntryCard({
           )}
         </div>
       )}
+
+      {sheets}
     </article>
   )
 }

@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { useRef, useState } from 'react'
 import type { InMindReport, DimensionKey } from './types'
 import { DIMENSION_CONFIGS, DIMENSION_ORDER } from './types'
+import { saveOrShareImage } from '../../lib/shareImage'
 
 interface Props {
   report: InMindReport
@@ -454,31 +455,18 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
       if (!blob) return
 
       const filename = `InMind-報告-${celeb_match.name}.png`
-      const file = new File([blob], filename, { type: 'image/png' })
-
-      const nav = navigator as Navigator & {
-        canShare?: (data: ShareData) => boolean
-        share?: (data: ShareData) => Promise<void>
-      }
-      if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-        try {
-          await nav.share({
-            files: [file],
-            title: 'InMind 心理健身報告',
-            text: `我的心理體型是＃${celeb_match.name}型！來測測你的吧。`,
-          })
-          return
-        } catch (err) {
-          if ((err as DOMException | undefined)?.name === 'AbortError') return
-        }
-      }
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.click()
-      URL.revokeObjectURL(url)
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(blob)
+      })
+      await saveOrShareImage(
+        dataUrl,
+        filename,
+        'InMind 心理健身報告',
+        `我的心理體型是＃${celeb_match.name}型！來測測你的吧。`,
+      )
     } finally {
       setSharing(false)
     }

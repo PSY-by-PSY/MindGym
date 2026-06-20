@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase'
 import { initAnalytics, identifyUser, resetUser, trackPageview } from './lib/analytics'
 import { getFontScale, applyFontScale } from './lib/fontScale'
 import { isNativeApp, setupNativeAuthListener } from './lib/nativeAuth'
+import { initLocalNotifications } from './lib/localNotifications'
 import { NotificationConsent } from './components/NotificationConsent'
 import './index.css'
 
@@ -25,6 +26,10 @@ initAnalytics()
 // 原生 App（iOS）：監聽 Google 登入完成後導回 App 的 deep link。
 // 網頁版會自動跳過（isNativeApp() 為 false），不影響任何網頁行為。
 void setupNativeAuthListener()
+
+// 原生 App（iOS）：若已授權通知，補排每晚 21:30 打卡提醒（重啟後仍存在）。
+// 未授權則不動作；網頁版自動跳過。
+void initLocalNotifications()
 
 export interface RouterContext {
   session: Session | null
