@@ -38,8 +38,10 @@ const config: CapacitorConfig = {
       splashImmersive: false,
     },
     Keyboard: {
-      // 鍵盤彈出時用原生方式擠壓畫面，避免 WebView 內容被蓋住。
-      resize: 'native',
+      // 用 'none'：鍵盤彈出時「不」改變原生 WebView 尺寸，鍵盤改為覆蓋在內容上。
+      // 'native' 會在偵測到鍵盤時縮小 WebView 高度；但從系統瀏覽器（OAuth 登入）打字
+      // 返回後，縮小的尺寸沒復原 → App 被擠到上半部、下半部露出黑色原生視窗。改 'none' 根除。
+      resize: 'none',
     },
   },
 }
