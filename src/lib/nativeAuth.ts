@@ -26,6 +26,9 @@
 import { Capacitor } from '@capacitor/core'
 import { supabase } from './supabase'
 
+// ⚠️ 這個 OAuth deep-link scheme 「故意」保持 com.mindgym.app（與 Bundle ID
+//    com.psybypsy.app 不同）：scheme 只是一個註冊在 Info.plist 的字串、與 Bundle ID
+//    無關，且 Supabase Redirect URLs 已設定這組。改了反而要動 Supabase、會弄壞登入。
 export const NATIVE_OAUTH_REDIRECT = 'com.mindgym.app://login-callback'
 
 // 是否運行在原生 App（iOS/Android）殼裡。網頁瀏覽器回傳 false。

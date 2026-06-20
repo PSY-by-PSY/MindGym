@@ -8,7 +8,7 @@
 //   APNS_KEY_ID        Apple Developer 的 APNs Auth Key ID（.p8 檔名裡那串）
 //   APNS_TEAM_ID       Apple Developer Team ID
 //   APNS_PRIVATE_KEY   .p8 內容（含 -----BEGIN PRIVATE KEY----- 整段）
-//   APNS_BUNDLE_ID     com.mindgym.app（預設值，可省）
+//   APNS_BUNDLE_ID     com.psybypsy.app（預設值，可省）
 //   APNS_HOST          api.push.apple.com（正式）/ api.sandbox.push.apple.com（開發/TestFlight 用 sandbox）
 //   WEBHOOK_SECRET     與 SQL 觸發器 header 的 x-webhook-secret 相同
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  讀 device_tokens、gratitude_entries（繞過 RLS）
@@ -21,7 +21,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const KEY_ID = Deno.env.get('APNS_KEY_ID')!
 const TEAM_ID = Deno.env.get('APNS_TEAM_ID')!
 const PRIVATE_KEY_PEM = Deno.env.get('APNS_PRIVATE_KEY')!
-const BUNDLE_ID = Deno.env.get('APNS_BUNDLE_ID') ?? 'com.mindgym.app'
+const BUNDLE_ID = Deno.env.get('APNS_BUNDLE_ID') ?? 'com.psybypsy.app'
 const APNS_HOST = Deno.env.get('APNS_HOST') ?? 'api.push.apple.com'
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!
 

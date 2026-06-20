@@ -23,7 +23,7 @@
 supabase secrets set \
   APNS_KEY_ID=你的KeyID \
   APNS_TEAM_ID=你的TeamID \
-  APNS_BUNDLE_ID=com.mindgym.app \
+  APNS_BUNDLE_ID=com.psybypsy.app \
   APNS_HOST=api.sandbox.push.apple.com \
   WEBHOOK_SECRET=自訂一組隨機字串
 # .p8 內容（含 BEGIN/END 整段）：
@@ -65,7 +65,7 @@ Xcode 跑到**實機**（⚠️ 模擬器收不到真正的 APNs）：
   - `403` → WEBHOOK_SECRET 對不上。
   - `no tokens` → `device_tokens` 沒存到（確認步驟 6-1、6-2）。
 - **想先本機假測**（不經 APNs，僅驗證 UI）：實機/模擬器
-  `xcrun simctl push booted com.mindgym.app payload.json`（payload 內含 `aps.alert`）。
+  `xcrun simctl push booted com.psybypsy.app payload.json`（payload 內含 `aps.alert`）。
 
 ## 之後可優化（非必要）
 - **機器人按讚不推播**：已處理 ✓ —— 觸發器加了 `WHEN (NEW.is_bot IS NOT TRUE)`，
