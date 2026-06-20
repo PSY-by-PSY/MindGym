@@ -15,6 +15,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { isNativeApp } from './nativeAuth'
 
+// 版本化的通知同意鍵（NotificationConsent 橫幅與選單開關共用）：
+// 升版（改字串）即可「重新詢問所有使用者」。
+export const NOTIF_CONSENT_KEY = 'notif_consent_2026_06'
+
+// 統一的通知權限狀態。'unsupported' = 純網頁無 Notification API，或原生殼尚未含此 plugin（需重建）。
+export type NotifPermission = 'granted' | 'denied' | 'prompt' | 'unsupported'
+
 // 固定 id：打卡提醒用單一 id，重排前先取消避免堆疊。
 const DAILY_CHECKIN_ID = 1001
 const CHECKIN_HOUR = 21
@@ -25,6 +32,22 @@ let permissionGranted: boolean | null = null
 async function ln() {
   const { LocalNotifications } = await import('@capacitor/local-notifications')
   return LocalNotifications
+}
+
+// 查詢目前的本地通知權限狀態（不會跳出系統視窗）。供「選單 → 通知開關」顯示狀態用。
+export async function getLocalNotifPermission(): Promise<NotifPermission> {
+  if (!isNativeApp()) return 'unsupported'
+  try {
+    const LN = await ln()
+    const cur = await LN.checkPermissions()
+    if (cur.display === 'granted') return 'granted'
+    if (cur.display === 'denied') return 'denied'
+    return 'prompt'
+  } catch (e) {
+    // plugin 尚未編進殼（未重建）→ 視為 unsupported，提示使用者更新 App。
+    console.error('[localNotif] getPermission', e)
+    return 'unsupported'
+  }
 }
 
 // 請求（或確認）本地通知權限。回傳是否已授權。結果快取，避免重複詢問。

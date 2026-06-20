@@ -1,10 +1,17 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { type FontScale, FONT_SCALE_OPTIONS, getFontScale, setFontScale } from '../lib/fontScale'
 import { fetchNotifications, getLastSeen, setLastSeen, type NotificationItem } from '../lib/notifications'
 import { isNativeApp } from '../lib/nativeAuth'
-import { pushLocalNotification } from '../lib/localNotifications'
+import {
+  pushLocalNotification,
+  getLocalNotifPermission,
+  ensureLocalNotifPermission,
+  scheduleDailyCheckin,
+  NOTIF_CONSENT_KEY,
+  type NotifPermission,
+} from '../lib/localNotifications'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -171,9 +178,92 @@ function TopHeader() {
               放大全站文字，方便閱讀。
             </p>
           </div>
+
+          {/* 通知開關：即使先前按過「稍後再說」，也能在這裡隨時開啟 */}
+          <NotificationSetting />
         </nav>
       </aside>
     </>
+  )
+}
+
+// 選單裡的「通知」控制：給使用者一個「永遠找得到」的入口開啟通知，
+// 補足一次性詢問橫幅（按過稍後再說就消失）的缺口。
+// 原生 App 走 Local Notifications 權限；純網頁走瀏覽器 Notification。
+function NotificationSetting() {
+  const [state, setState] = useState<NotifPermission | 'loading'>('loading')
+  const [busy, setBusy] = useState(false)
+
+  const refresh = async () => {
+    if (isNativeApp()) {
+      setState(await getLocalNotifPermission())
+    } else if (typeof Notification !== 'undefined') {
+      const p = Notification.permission
+      setState(p === 'granted' ? 'granted' : p === 'denied' ? 'denied' : 'prompt')
+    } else {
+      setState('unsupported')
+    }
+  }
+
+  useEffect(() => { void refresh() }, [])
+
+  const enable = async () => {
+    setBusy(true)
+    try {
+      if (isNativeApp()) {
+        const granted = await ensureLocalNotifPermission()
+        if (granted) await scheduleDailyCheckin()
+      } else if (typeof Notification !== 'undefined') {
+        await Notification.requestPermission()
+      }
+      try { localStorage.setItem(NOTIF_CONSENT_KEY, 'granted') } catch { /* 忽略 */ }
+    } finally {
+      setBusy(false)
+      await refresh()
+    }
+  }
+
+  let body: ReactNode
+  if (state === 'loading') {
+    body = <p className="mt-2 text-[11px] text-muted-foreground">讀取中…</p>
+  } else if (state === 'granted') {
+    body = (
+      <p className="mt-2 text-[11px] leading-relaxed text-emerald-600">
+        ✓ 已開啟。有人按讚、留言，以及每晚會提醒你打卡。
+      </p>
+    )
+  } else if (state === 'denied') {
+    body = (
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        通知目前被系統關閉。請到「設定 → PSY by PSY → 通知」開啟。
+      </p>
+    )
+  } else if (state === 'unsupported') {
+    body = (
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        此版本暫不支援通知，請更新 App 後再試。
+      </p>
+    )
+  } else {
+    body = (
+      <button
+        onClick={enable}
+        disabled={busy}
+        className="mt-2 w-full rounded-xl bg-gradient-primary py-2 text-xs font-bold text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+      >
+        {busy ? '處理中…' : '開啟通知'}
+      </button>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="text-xl">🔔</span>
+        <span className="font-bold text-foreground">通知</span>
+      </div>
+      {body}
+    </div>
   )
 }
 

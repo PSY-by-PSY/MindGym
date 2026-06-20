@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isNativeApp } from '../lib/nativeAuth'
-import { ensureLocalNotifPermission, scheduleDailyCheckin } from '../lib/localNotifications'
-
-// 版本化的同意鍵：升版（改字串）即可「重新詢問所有使用者」。
-// 依需求：今天開始所有人（無論是否登入過）都重新問一次是否願意接收通知。
-const CONSENT_KEY = 'notif_consent_2026_06'
+import { ensureLocalNotifPermission, scheduleDailyCheckin, NOTIF_CONSENT_KEY as CONSENT_KEY } from '../lib/localNotifications'
 
 // 詢問並取得使用者同意，讓 App / Web App 能傳送系統通知。
 // 不論是否登入皆會出現（掛在最外層），每位使用者只問一次（已回應就不再打擾）。
