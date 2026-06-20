@@ -17,7 +17,7 @@ function AppShell() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopHeader />
-      <main className="flex-1 pt-14 pb-24">
+      <main className="flex-1 pb-24 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <Outlet />
       </main>
       <BottomNav />
@@ -60,33 +60,37 @@ function TopHeader() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-[oklch(1_0_0_/_0.95)] px-4 backdrop-blur-md pt-[env(safe-area-inset-top)]">
-        {/* 左側佔位（維持 logo 置中） */}
-        <div className="w-28" />
+      {/* safe-area padding 疊加在「內容列之上」：header 總高 = safe-area + 56px。
+          內容列固定 h-14（56px），不被瀏海/動態島的 inset 壓縮，圖示才不會跑位。 */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-[oklch(1_0_0_/_0.95)] backdrop-blur-md pt-[env(safe-area-inset-top)]">
+        <div className="flex h-14 items-center justify-between px-4">
+          {/* 左側佔位（維持 logo 置中） */}
+          <div className="w-28" />
 
-        {/* 中間 Logo */}
-        <span className="text-sm font-extrabold tracking-[0.15em] text-foreground uppercase">
-          PSY by PSY
-        </span>
+          {/* 中間 Logo */}
+          <span className="text-sm font-extrabold tracking-[0.15em] text-foreground uppercase">
+            PSY by PSY
+          </span>
 
-        {/* 右側 icons */}
-        <div className="flex w-28 items-center justify-end gap-1">
-          <NotificationBell />
-          <button
-            aria-label="重新整理"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90 disabled:opacity-60"
-          >
-            <RefreshIcon spinning={refreshing} />
-          </button>
-          <button
-            aria-label="選單"
-            onClick={() => setDrawerOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
-          >
-            <MenuIcon />
-          </button>
+          {/* 右側 icons */}
+          <div className="flex w-28 items-center justify-end gap-1">
+            <NotificationBell />
+            <button
+              aria-label="重新整理"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90 disabled:opacity-60"
+            >
+              <RefreshIcon spinning={refreshing} />
+            </button>
+            <button
+              aria-label="選單"
+              onClick={() => setDrawerOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
+            >
+              <MenuIcon />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -274,7 +278,7 @@ function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-2 top-[calc(env(safe-area-inset-top)+3.25rem)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-soft">
+          <div className="absolute right-2 top-[calc(env(safe-area-inset-top)+3.75rem)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-soft">
             <div className="flex items-center justify-between px-2 py-2">
               <p className="text-sm font-extrabold text-foreground">通知</p>
               <button
