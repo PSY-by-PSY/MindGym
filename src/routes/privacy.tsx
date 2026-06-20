@@ -11,7 +11,7 @@ export const Route = createFileRoute('/privacy')({
 //
 // 🧑 上架前請確認／替換：下方標 ⚠️ 的聯絡 Email 與公司／團隊正式名稱。
 const LAST_UPDATED = '2026 年 6 月 19 日'
-const CONTACT_EMAIL = 'psybypsy.team@gmail.com' // ⚠️ 請替換為正式聯絡信箱
+const CONTACT_EMAIL = 'psybypsy01@gmail.com'
 
 function PrivacyPage() {
   return (
