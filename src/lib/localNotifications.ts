@@ -35,34 +35,44 @@ async function ln() {
   return LocalNotifications
 }
 
+// 防止原生外掛呼叫「卡住不回應」時 UI 永遠轉圈：超過 ms 沒回應就以 timeout 拒絕。
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`localnotif-timeout:${label}`)), ms),
+    ),
+  ])
+}
+
 // 查詢目前的本地通知權限狀態（不會跳出系統視窗）。供「選單 → 通知開關」顯示狀態用。
 export async function getLocalNotifPermission(): Promise<NotifPermission> {
   if (!isNativeApp()) return 'unsupported'
   try {
-    const LN = await ln()
-    const cur = await LN.checkPermissions()
+    const LN = await withTimeout(ln(), 4000, 'import')
+    const cur = await withTimeout(LN.checkPermissions(), 4000, 'checkPermissions')
     if (cur.display === 'granted') return 'granted'
     if (cur.display === 'denied') return 'denied'
     return 'prompt'
   } catch (e) {
-    // plugin 尚未編進殼（未重建）→ 視為 unsupported，提示使用者更新 App。
+    // iOS 上 checkPermissions（getNotificationSettings）在部分裝置會卡住不回應。
+    // 別讓選單停在「讀取中」——當作「還沒問過」，使用者仍可按「開啟通知」直接觸發授權。
     console.error('[localNotif] getPermission', e)
-    return 'unsupported'
+    return 'prompt'
   }
 }
 
-// 請求（或確認）本地通知權限。回傳是否已授權。結果快取，避免重複詢問。
+// 請求本地通知權限（會跳出 iOS 系統視窗）。回傳是否已授權。
+// 直接呼叫 requestPermissions —— 「不」先 checkPermissions：後者在部分裝置會卡住，
+// 而 requestPermissions 較可靠、且本身具冪等性（已決定過會直接回現況、不重複跳窗）。
+// 只在 import 套上 timeout；requestPermissions 本身要等使用者回應視窗，故不設 timeout。
 export async function ensureLocalNotifPermission(): Promise<boolean> {
   if (!isNativeApp()) return false
-  if (permissionGranted !== null) return permissionGranted
+  if (permissionGranted === true) return true
   try {
-    const LN = await ln()
-    const cur = await LN.checkPermissions()
-    let granted = cur.display === 'granted'
-    if (!granted && (cur.display === 'prompt' || cur.display === 'prompt-with-rationale')) {
-      const req = await LN.requestPermissions()
-      granted = req.display === 'granted'
-    }
+    const LN = await withTimeout(ln(), 4000, 'import')
+    const req = await LN.requestPermissions()
+    const granted = req.display === 'granted'
     permissionGranted = granted
     return granted
   } catch (e) {
@@ -98,8 +108,9 @@ export async function scheduleDailyCheckin(): Promise<void> {
 export async function enableNotifications(): Promise<boolean> {
   const granted = await ensureLocalNotifPermission()
   if (granted) {
-    await scheduleDailyCheckin()
-    await registerForPush()
+    // 不 await：排程／註冊推播在部分裝置可能卡住，不該讓「開啟通知」按鈕卡在「處理中」。
+    void scheduleDailyCheckin()
+    void registerForPush()
   }
   return granted
 }
