@@ -14,6 +14,7 @@
 //    同時殼需重新 `cap sync ios` + 重建（已新增 @capacitor/local-notifications pod）。
 // ─────────────────────────────────────────────────────────────────────────
 import { isNativeApp } from './nativeAuth'
+import { registerForPush } from './pushNotifications'
 
 // 版本化的通知同意鍵（NotificationConsent 橫幅與選單開關共用）：
 // 升版（改字串）即可「重新詢問所有使用者」。
@@ -92,6 +93,17 @@ export async function scheduleDailyCheckin(): Promise<void> {
   }
 }
 
+// 使用者主動開啟通知的單一入口（橫幅、選單開關共用）：
+// 請求權限 → 排每晚打卡提醒 → 註冊遠端推播。回傳是否成功授權。
+export async function enableNotifications(): Promise<boolean> {
+  const granted = await ensureLocalNotifPermission()
+  if (granted) {
+    await scheduleDailyCheckin()
+    await registerForPush()
+  }
+  return granted
+}
+
 // App 啟動時呼叫一次：若先前已授權，確保打卡提醒已排程（重裝/重啟後補排）。
 // 未授權則完全不動作（由 NotificationConsent 詢問後才排）。
 export async function initLocalNotifications(): Promise<void> {
@@ -102,6 +114,8 @@ export async function initLocalNotifications(): Promise<void> {
     if (cur.display === 'granted') {
       permissionGranted = true
       await scheduleDailyCheckin()
+      // 已授權 → 順便（重新）註冊遠端推播，刷新 device token。
+      await registerForPush()
     }
   } catch (e) {
     console.error('[localNotif] init', e)

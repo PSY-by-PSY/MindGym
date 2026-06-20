@@ -7,11 +7,11 @@ import { isNativeApp } from '../lib/nativeAuth'
 import {
   pushLocalNotification,
   getLocalNotifPermission,
-  ensureLocalNotifPermission,
-  scheduleDailyCheckin,
+  enableNotifications,
   NOTIF_CONSENT_KEY,
   type NotifPermission,
 } from '../lib/localNotifications'
+import { registerForPush } from '../lib/pushNotifications'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -23,6 +23,10 @@ export const Route = createFileRoute('/app')({
 })
 
 function AppShell() {
+  // 進到（已登入的）App 區域時，若已授權通知就（重新）註冊遠端推播，
+  // 確保 device token 對應到目前登入的帳號（startup 時可能 session 還沒就緒）。
+  useEffect(() => { void registerForPush() }, [])
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopHeader />
@@ -211,8 +215,7 @@ function NotificationSetting() {
     setBusy(true)
     try {
       if (isNativeApp()) {
-        const granted = await ensureLocalNotifPermission()
-        if (granted) await scheduleDailyCheckin()
+        await enableNotifications()
       } else if (typeof Notification !== 'undefined') {
         await Notification.requestPermission()
       }

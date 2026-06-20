@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isNativeApp } from '../lib/nativeAuth'
-import { ensureLocalNotifPermission, scheduleDailyCheckin, NOTIF_CONSENT_KEY as CONSENT_KEY } from '../lib/localNotifications'
+import { enableNotifications, NOTIF_CONSENT_KEY as CONSENT_KEY } from '../lib/localNotifications'
 
 // 詢問並取得使用者同意，讓 App / Web App 能傳送系統通知。
 // 不論是否登入皆會出現（掛在最外層），每位使用者只問一次（已回應就不再打擾）。
@@ -38,10 +38,9 @@ export function NotificationConsent() {
   const allow = async () => {
     try {
       if (isNativeApp()) {
-        // 原生：請求 Local Notifications 權限，授權後立刻排定每晚 21:30 打卡提醒。
-        const granted = await ensureLocalNotifPermission()
+        // 原生：請求權限 → 排每晚打卡提醒 → 註冊遠端推播（按讚／留言關 App 也收得到）。
+        const granted = await enableNotifications()
         try { localStorage.setItem(CONSENT_KEY, granted ? 'granted' : 'denied') } catch { /* 忽略 */ }
-        if (granted) await scheduleDailyCheckin()
       } else {
         const result = await Notification.requestPermission()
         try { localStorage.setItem(CONSENT_KEY, result) } catch { /* 忽略 */ }
