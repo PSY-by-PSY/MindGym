@@ -9,10 +9,14 @@
 //   3. 每晚 21:30               → 提醒上線打卡（排程型，App 關著也會跳）
 //
 // 全部以 isNativeApp() 把關：純網頁版完全不執行（網頁版改用 Web Notification）。
-// 插件以動態 import 載入，網頁打包不會因此變大、也不會在 SSR/web 出錯。
-// ⚠️ 因為 App 載入的是 Vercel 線上版，這支檔案要 deploy 後才會在 App 內生效；
-//    同時殼需重新 `cap sync ios` + 重建（已新增 @capacitor/local-notifications pod）。
+//
+// ⚠️ 插件改用「靜態 import」而非動態 import：
+//    動態 import() 會被切成 lazy chunk，在 iOS WKWebView（PWA / service worker
+//    環境）載入新 chunk 時可能「卡住不回應」，導致權限視窗永遠跳不出來。
+//    靜態 import 會打包進主 bundle（App 一定載得到），最穩。網頁端只多幾 KB 的
+//    plugin web shim、且呼叫前都有 isNativeApp() 把關，無副作用。
 // ─────────────────────────────────────────────────────────────────────────
+import { LocalNotifications } from '@capacitor/local-notifications'
 import { isNativeApp } from './nativeAuth'
 import { registerForPush } from './pushNotifications'
 
@@ -20,7 +24,7 @@ import { registerForPush } from './pushNotifications'
 // 升版（改字串）即可「重新詢問所有使用者」。
 export const NOTIF_CONSENT_KEY = 'notif_consent_2026_06'
 
-// 統一的通知權限狀態。'unsupported' = 純網頁無 Notification API，或原生殼尚未含此 plugin（需重建）。
+// 統一的通知權限狀態。'unsupported' = 純網頁無 Notification API。
 export type NotifPermission = 'granted' | 'denied' | 'prompt' | 'unsupported'
 
 // 固定 id：打卡提醒用單一 id，重排前先取消避免堆疊。
@@ -29,11 +33,6 @@ const CHECKIN_HOUR = 21
 const CHECKIN_MINUTE = 30
 
 let permissionGranted: boolean | null = null
-
-async function ln() {
-  const { LocalNotifications } = await import('@capacitor/local-notifications')
-  return LocalNotifications
-}
 
 // 把錯誤攤平成可讀字串（Capacitor 的錯誤常是純物件 {message, code}，直接 log 會變成 {}）。
 function errDetail(e: unknown): string {
@@ -45,27 +44,15 @@ function errDetail(e: unknown): string {
   }
 }
 
-// 防止原生外掛呼叫「卡住不回應」時 UI 永遠轉圈：超過 ms 沒回應就以 timeout 拒絕。
-function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`localnotif-timeout:${label}`)), ms),
-    ),
-  ])
-}
-
 // 查詢目前的本地通知權限狀態（不會跳出系統視窗）。供「選單 → 通知開關」顯示狀態用。
 export async function getLocalNotifPermission(): Promise<NotifPermission> {
   if (!isNativeApp()) return 'unsupported'
   try {
-    const LN = await withTimeout(ln(), 4000, 'import')
-    const cur = await withTimeout(LN.checkPermissions(), 4000, 'checkPermissions')
+    const cur = await LocalNotifications.checkPermissions()
     if (cur.display === 'granted') return 'granted'
     if (cur.display === 'denied') return 'denied'
     return 'prompt'
   } catch (e) {
-    // iOS 上 checkPermissions（getNotificationSettings）在部分裝置會卡住不回應。
     // 別讓選單停在「讀取中」——當作「還沒問過」，使用者仍可按「開啟通知」直接觸發授權。
     console.error('[localNotif] getPermission FAILED ->', errDetail(e))
     return 'prompt'
@@ -75,13 +62,11 @@ export async function getLocalNotifPermission(): Promise<NotifPermission> {
 // 請求本地通知權限（會跳出 iOS 系統視窗）。回傳是否已授權。
 // 直接呼叫 requestPermissions —— 「不」先 checkPermissions：後者在部分裝置會卡住，
 // 而 requestPermissions 較可靠、且本身具冪等性（已決定過會直接回現況、不重複跳窗）。
-// 只在 import 套上 timeout；requestPermissions 本身要等使用者回應視窗，故不設 timeout。
 export async function ensureLocalNotifPermission(): Promise<boolean> {
   if (!isNativeApp()) return false
   if (permissionGranted === true) return true
   try {
-    const LN = await withTimeout(ln(), 4000, 'import')
-    const req = await LN.requestPermissions()
+    const req = await LocalNotifications.requestPermissions()
     const granted = req.display === 'granted'
     permissionGranted = granted
     return granted
@@ -95,9 +80,8 @@ export async function ensureLocalNotifPermission(): Promise<boolean> {
 export async function scheduleDailyCheckin(): Promise<void> {
   if (!(await ensureLocalNotifPermission())) return
   try {
-    const LN = await ln()
-    await LN.cancel({ notifications: [{ id: DAILY_CHECKIN_ID }] })
-    await LN.schedule({
+    await LocalNotifications.cancel({ notifications: [{ id: DAILY_CHECKIN_ID }] })
+    await LocalNotifications.schedule({
       notifications: [
         {
           id: DAILY_CHECKIN_ID,
@@ -109,7 +93,7 @@ export async function scheduleDailyCheckin(): Promise<void> {
       ],
     })
   } catch (e) {
-    console.error('[localNotif] scheduleDailyCheckin', e)
+    console.error('[localNotif] scheduleDailyCheckin', errDetail(e))
   }
 }
 
@@ -130,8 +114,7 @@ export async function enableNotifications(): Promise<boolean> {
 export async function initLocalNotifications(): Promise<void> {
   if (!isNativeApp()) return
   try {
-    const LN = await ln()
-    const cur = await LN.checkPermissions()
+    const cur = await LocalNotifications.checkPermissions()
     if (cur.display === 'granted') {
       permissionGranted = true
       await scheduleDailyCheckin()
@@ -139,7 +122,7 @@ export async function initLocalNotifications(): Promise<void> {
       await registerForPush()
     }
   } catch (e) {
-    console.error('[localNotif] init', e)
+    console.error('[localNotif] init', errDetail(e))
   }
 }
 
@@ -147,8 +130,7 @@ export async function initLocalNotifications(): Promise<void> {
 export async function pushLocalNotification(title: string, body: string): Promise<void> {
   if (!(await ensureLocalNotifPermission())) return
   try {
-    const LN = await ln()
-    await LN.schedule({
+    await LocalNotifications.schedule({
       notifications: [
         {
           // 用時間戳尾段當 id（避免與打卡提醒 1001 衝突，且每則唯一）。
@@ -160,6 +142,6 @@ export async function pushLocalNotification(title: string, body: string): Promis
       ],
     })
   } catch (e) {
-    console.error('[localNotif] push', e)
+    console.error('[localNotif] push', errDetail(e))
   }
 }

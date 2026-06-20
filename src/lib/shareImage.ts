@@ -9,6 +9,10 @@
 //   3. 桌面（或不支援 Web Share）：直接觸發瀏覽器下載。
 //
 // 呼叫端負責把 node 放在畫面外，並自行 try/catch（使用者取消分享會丟錯，可忽略）。
+// 靜態 import（理由同 localNotifications.ts）：動態 import() 的 lazy chunk 在 iOS
+// WKWebView/PWA 環境可能卡住載不進來，導致「儲存圖片」沒反應。靜態最穩。
+import { Filesystem, Directory } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { isNativeApp } from './nativeAuth'
 
 export function isMobileDevice(): boolean {
@@ -22,8 +26,6 @@ async function saveNative(
   title: string,
   text?: string,
 ): Promise<void> {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem')
-  const { Share } = await import('@capacitor/share')
   const base64 = dataUrl.includes(',') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : dataUrl
   const { uri } = await Filesystem.writeFile({
     path: filename,

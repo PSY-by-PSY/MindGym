@@ -12,15 +12,13 @@
 // 全程 isNativeApp() 把關；純網頁不執行。插件動態 import，網頁打包不受影響。
 // ⚠️ 需新增 @capacitor/push-notifications pod → 殼要重建；且要部署 Edge Function。
 // ─────────────────────────────────────────────────────────────────────────
+// 改用靜態 import（理由同 localNotifications.ts）：動態 import() 的 lazy chunk
+// 在 iOS WKWebView/PWA 環境可能卡住載不進來。靜態 import 打包進主 bundle 最穩。
+import { PushNotifications } from '@capacitor/push-notifications'
 import { isNativeApp } from './nativeAuth'
 import { supabase } from './supabase'
 
 let listenersReady = false
-
-async function pn() {
-  const { PushNotifications } = await import('@capacitor/push-notifications')
-  return PushNotifications
-}
 
 async function saveToken(token: string): Promise<void> {
   try {
@@ -42,20 +40,19 @@ async function saveToken(token: string): Promise<void> {
 export async function registerForPush(): Promise<void> {
   if (!isNativeApp()) return
   try {
-    const PN = await pn()
-    const perm = await PN.checkPermissions()
+    const perm = await PushNotifications.checkPermissions()
     if (perm.receive !== 'granted') return
 
     if (!listenersReady) {
       listenersReady = true
-      await PN.addListener('registration', (token) => {
+      await PushNotifications.addListener('registration', (token) => {
         void saveToken(token.value)
       })
-      await PN.addListener('registrationError', (err) => {
+      await PushNotifications.addListener('registrationError', (err) => {
         console.error('[push] registrationError', err)
       })
     }
-    await PN.register()
+    await PushNotifications.register()
   } catch (e) {
     console.error('[push] register', e)
   }
