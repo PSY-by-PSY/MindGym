@@ -35,6 +35,16 @@ async function ln() {
   return LocalNotifications
 }
 
+// 把錯誤攤平成可讀字串（Capacitor 的錯誤常是純物件 {message, code}，直接 log 會變成 {}）。
+function errDetail(e: unknown): string {
+  if (e instanceof Error) return `${e.name}: ${e.message}`
+  try {
+    return JSON.stringify(e)
+  } catch {
+    return String(e)
+  }
+}
+
 // 防止原生外掛呼叫「卡住不回應」時 UI 永遠轉圈：超過 ms 沒回應就以 timeout 拒絕。
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -57,7 +67,7 @@ export async function getLocalNotifPermission(): Promise<NotifPermission> {
   } catch (e) {
     // iOS 上 checkPermissions（getNotificationSettings）在部分裝置會卡住不回應。
     // 別讓選單停在「讀取中」——當作「還沒問過」，使用者仍可按「開啟通知」直接觸發授權。
-    console.error('[localNotif] getPermission', e)
+    console.error('[localNotif] getPermission FAILED ->', errDetail(e))
     return 'prompt'
   }
 }
@@ -76,7 +86,7 @@ export async function ensureLocalNotifPermission(): Promise<boolean> {
     permissionGranted = granted
     return granted
   } catch (e) {
-    console.error('[localNotif] permission', e)
+    console.error('[localNotif] permission FAILED ->', errDetail(e))
     return false
   }
 }
