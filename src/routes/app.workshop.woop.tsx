@@ -9,6 +9,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { insertCommunityPost, markStreak } from '../lib/communityPost'
 import { isoLocalDate } from '../lib/date'
+import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
 
@@ -199,6 +200,7 @@ function WoopFlow() {
     setPublishing(true)
     try {
       const ifThen = assembleIfThen(obstacle, plan)
+      const workshopId = getWorkshopId()
       const entryId = await insertCommunityPost(
         userId,
         'workshop_woop',
@@ -215,14 +217,16 @@ function WoopFlow() {
           outcome: outcome.trim(),
           obstacle: obstacle.trim(),
           plan: plan.trim(),
+          workshop_id: workshopId,
         },
       )
       setPublished(true)
       await markStreak(userId)
       await router.invalidate()
+      // 規格 [3]：發佈後導引至「當天工作坊貼文頁面」。
       navigate({
         to: '/app/community',
-        search: entryId ? { focus: entryId } : { showEntry: 1 },
+        search: { workshop: workshopId, ...(entryId ? { focus: entryId } : {}) },
       })
     } catch (e) {
       console.error('[woop publish]', e)

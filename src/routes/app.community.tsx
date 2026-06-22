@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { type Privacy, PRIVACY_OPTIONS, privacyToFields, privacyFromFields } from '../lib/privacy'
+import { workshopIdFromPayload, formatWorkshopLabel } from '../lib/workshop'
 import {
   REPORT_REASONS,
   submitReport,
@@ -45,10 +46,19 @@ type PracticePayload = {
   // 找尋真實自我（v='authentic_self'）
   top_work?: string
   top_life?: string
+  work_reason?: string
+  life_reason?: string
   narrative?: string
   // 生命最後一天（v='last_day'）
   description?: string
+  stream?: string
+  friend?: string
+  family?: string
+  world?: string
+  farewell?: string
   action?: string
+  // 工作坊歸屬（規格 [2]）：以日期分組（YYYYMMDD）或歷史標籤
+  workshop_id?: string
   // WOOP 目標實踐地圖（v='woop'）
   wish?: string
   outcome?: string
@@ -138,6 +148,12 @@ async function runWithColFallback(build: (cols: string) => any): Promise<Gratitu
   return []
 }
 
+// 工作坊練習類型（規格 [1][2]：工作坊貼文獨立成區塊）。
+const WORKSHOP_PRACTICE_TYPES = ['workshop_authentic_self', 'workshop_last_day', 'workshop_woop']
+function isWorkshopPractice(pt: string | null | undefined): boolean {
+  return !!pt && pt.startsWith('workshop_')
+}
+
 async function selectSharedEntries(limit: number, excludeUserId?: string | null) {
   return runWithColFallback((cols) => {
     let q = supabase
@@ -180,6 +196,20 @@ async function fetchMyEntries(userId: string): Promise<GratitudeEntry[]> {
       .select(cols)
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
+  )
+}
+
+// 工作坊貼文（規格 [1]）：撈所有已分享的工作坊貼文，供「工作坊貼文」分頁分組成區塊。
+// 動態牆只取最新 60 篇可能漏掉較舊的工作坊貼文，因此另外查詢。
+async function fetchWorkshopEntries(): Promise<GratitudeEntry[]> {
+  return runWithColFallback((cols) =>
+    supabase
+      .from('gratitude_entries')
+      .select(cols)
+      .eq('is_shared', true)
+      .in('practice_type', WORKSHOP_PRACTICE_TYPES)
+      .order('created_at', { ascending: false })
+      .limit(300),
   )
 }
 
@@ -254,16 +284,18 @@ async function fetchSupporting(
 }
 
 export const Route = createFileRoute('/app/community')({
-  validateSearch: (search: Record<string, unknown>): { showEntry?: number; focus?: string } => {
+  validateSearch: (search: Record<string, unknown>): { showEntry?: number; focus?: string; workshop?: string } => {
     const raw = search.showEntry
-    const out: { showEntry?: number; focus?: string } = {}
+    const out: { showEntry?: number; focus?: string; workshop?: string } = {}
     if (raw === 1 || raw === '1') out.showEntry = 1
     if (typeof search.focus === 'string' && search.focus) out.focus = search.focus
+    if (typeof search.workshop === 'string' && search.workshop) out.workshop = search.workshop
     return out
   },
   loader: async () => {
-    const [entries, sessionRes] = await Promise.all([
+    const [entries, workshopEntriesRaw, sessionRes] = await Promise.all([
       fetchLatestEntries(),
+      fetchWorkshopEntries(),
       supabase.auth.getSession(),
     ])
 
@@ -282,13 +314,15 @@ export const Route = createFileRoute('/app/community')({
 
     // 過濾掉已封鎖使用者的公開貼文與每日 modal（自己的 myEntries 不受影響）
     const visibleFeed = entries.filter((e) => !e.user_id || !blocked.has(e.user_id))
+    const visibleWorkshop = workshopEntriesRaw.filter((e) => !e.user_id || !blocked.has(e.user_id))
     const visibleModal =
       modalEntry && modalEntry.user_id && blocked.has(modalEntry.user_id) ? null : modalEntry
     const blockedIds = [...blocked]
 
-    // Combine unique entries from both feeds for a single supporting data fetch
+    // Combine unique entries from all feeds for a single supporting data fetch
     const entrySet = new Map<string, GratitudeEntry>()
     visibleFeed.forEach((e) => entrySet.set(e.id, e))
+    visibleWorkshop.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
     myEntries.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
     const allForSupport = [...entrySet.values()]
 
@@ -297,6 +331,7 @@ export const Route = createFileRoute('/app/community')({
     if (allForSupport.length === 0) {
       return {
         entries: visibleFeed,
+        workshopEntries: visibleWorkshop,
         myEntries,
         likes: {} as Record<string, LikeInfo>,
         comments: {} as Record<string, Comment[]>,
@@ -323,6 +358,7 @@ export const Route = createFileRoute('/app/community')({
 
     return {
       entries: visibleFeed,
+      workshopEntries: visibleWorkshop,
       myEntries,
       ...supporting,
       anonName,
@@ -336,7 +372,9 @@ export const Route = createFileRoute('/app/community')({
   component: CommunityPage,
 })
 
-type FeedMode = 'recommended' | 'latest' | 'my'
+type FeedMode = 'community' | 'workshop' | 'my'
+// 「社群貼文」的排序（規格 [1]）：最相關 / 最新；預設最新。
+type CommunitySort = 'relevant' | 'latest'
 
 // 計算單篇貼文與使用者感恩地圖的相關度：
 // 貼文每個類別標籤，加上使用者該類別在自身感恩地圖中的占比。
@@ -661,8 +699,8 @@ function FeedModeToggle({
   userId: string | null
 }) {
   const options: { value: FeedMode; label: string }[] = [
-    { value: 'recommended', label: '推薦貼文' },
-    { value: 'latest', label: '最新貼文' },
+    { value: 'community', label: '社群貼文' },
+    { value: 'workshop', label: '工作坊貼文' },
     ...(userId ? [{ value: 'my' as FeedMode, label: '我的貼文' }] : []),
   ]
   return (
@@ -674,7 +712,7 @@ function FeedModeToggle({
             <button
               key={opt.value}
               onClick={() => onChange(opt.value)}
-              className={`rounded-full px-5 py-2 text-sm font-bold transition
+              className={`rounded-full px-4 py-2 text-sm font-bold transition
                 ${active
                   ? 'bg-foreground text-background shadow-soft'
                   : 'text-muted-foreground hover:text-foreground'
@@ -689,14 +727,46 @@ function FeedModeToggle({
   )
 }
 
+// 「社群貼文」排序下拉（規格 [1]）：最相關 / 最新；預設最新。
+function CommunitySortSelect({
+  sort,
+  onChange,
+}: {
+  sort: CommunitySort
+  onChange: (s: CommunitySort) => void
+}) {
+  return (
+    <div className="mb-4 flex items-center justify-end gap-2">
+      <span className="text-xs font-semibold text-muted-foreground">排序</span>
+      <div className="relative">
+        <select
+          value={sort}
+          onChange={(e) => onChange(e.target.value as CommunitySort)}
+          className="appearance-none rounded-full bg-card py-1.5 pl-4 pr-9 text-sm font-bold text-foreground shadow-soft focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="latest">最新</option>
+          <option value="relevant">最相關</option>
+        </select>
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">▾</span>
+      </div>
+    </div>
+  )
+}
+
+// 工作坊區塊 id → 顯示用標籤（取貼文 payload.workshop_id；缺漏退回歷史工作坊）。
+function workshopIdOfEntry(entry: GratitudeEntry): string {
+  return workshopIdFromPayload(entry.payload?.workshop_id)
+}
+
 function CommunityPage() {
   const loaderData = Route.useLoaderData()
-  const { showEntry, focus } = Route.useSearch()
+  const { showEntry, focus, workshop } = Route.useSearch()
   const modalEntry = loaderData.modalEntry
-  // 從通知點進來時帶 focus（要看的貼文）就不再彈出每日動態 modal
-  const { open, close } = useWelcomeModal(!!modalEntry && !focus, showEntry === 1)
+  // 從通知或工作坊發佈導引進來（帶 focus / workshop）時不再彈出每日動態 modal
+  const { open, close } = useWelcomeModal(!!modalEntry && !focus && !workshop, showEntry === 1)
 
   const [allEntries] = useState<GratitudeEntry[]>(loaderData.entries)
+  const [workshopEntries] = useState<GratitudeEntry[]>(loaderData.workshopEntries ?? [])
   const [myEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
   const [blockedIds, setBlockedIds] = useState<Set<string>>(
     () => new Set(loaderData.blockedIds ?? []),
@@ -707,9 +777,13 @@ function CommunityPage() {
   const [tags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
   const [myDisplayCount, setMyDisplayCount] = useState(PAGE_SIZE)
-  const [mode, setMode] = useState<FeedMode>('recommended')
+  const [mode, setMode] = useState<FeedMode>('community')
+  const [communitySort, setCommunitySort] = useState<CommunitySort>('latest')
+  const [selectedWorkshop, setSelectedWorkshop] = useState<string | null>(workshop ?? null)
+  const [showScrollEnd, setShowScrollEnd] = useState(false)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const mySentinelRef = useRef<HTMLDivElement>(null)
+  const scrollEndRef = useRef<HTMLDivElement>(null)
 
   const userId = loaderData.userId ?? null
   const anonName = loaderData.anonName
@@ -720,9 +794,15 @@ function CommunityPage() {
     [userMap],
   )
 
+  // 「社群貼文」只放非工作坊貼文（工作坊貼文在「工作坊貼文」分頁聚合）。
+  const communityEntries = useMemo(
+    () => allEntries.filter((e) => !isWorkshopPractice(e.practice_type)),
+    [allEntries],
+  )
+
   const orderedEntries = useMemo(() => {
-    if (mode === 'latest' || mapTotal === 0) return allEntries
-    return allEntries
+    if (communitySort === 'latest' || mapTotal === 0) return communityEntries
+    return communityEntries
       .map((entry, i) => ({
         entry,
         i,
@@ -730,7 +810,54 @@ function CommunityPage() {
       }))
       .sort((a, b) => (b.score - a.score) || (a.i - b.i))
       .map((x) => x.entry)
-  }, [mode, allEntries, tags, userMap, mapTotal])
+  }, [communitySort, communityEntries, tags, userMap, mapTotal])
+
+  // 我參與（發過文）的工作坊 id —— 規格 [4]：只有發過文的成員看得到該區塊。
+  const myWorkshopIds = useMemo(() => {
+    const s = new Set<string>()
+    for (const e of myEntries) {
+      if (isWorkshopPractice(e.practice_type)) s.add(workshopIdOfEntry(e))
+    }
+    return s
+  }, [myEntries])
+
+  // 工作坊貼文池：公開工作坊貼文 + 自己的工作坊貼文（含僅限本人；去重）。
+  const workshopPool = useMemo(() => {
+    const map = new Map<string, GratitudeEntry>()
+    workshopEntries.forEach((e) => map.set(e.id, e))
+    myEntries.forEach((e) => {
+      if (isWorkshopPractice(e.practice_type) && !map.has(e.id)) map.set(e.id, e)
+    })
+    return [...map.values()]
+  }, [workshopEntries, myEntries])
+
+  // 分組成區塊，只保留「我發過文」的工作坊（規格 [4]）。
+  const workshopBlocks = useMemo(() => {
+    const groups = new Map<string, GratitudeEntry[]>()
+    for (const e of workshopPool) {
+      const id = workshopIdOfEntry(e)
+      if (!myWorkshopIds.has(id)) continue
+      if (!groups.has(id)) groups.set(id, [])
+      groups.get(id)!.push(e)
+    }
+    return [...groups.entries()]
+      .map(([id, entries]) => ({ id, entries }))
+      .sort((a, b) => {
+        const an = /^\d{8}$/.test(a.id)
+        const bn = /^\d{8}$/.test(b.id)
+        if (an && bn) return b.id.localeCompare(a.id) // 日期新到舊
+        if (an) return -1
+        if (bn) return 1
+        return a.id.localeCompare(b.id) // 歷史標籤排最後
+      })
+  }, [workshopPool, myWorkshopIds])
+
+  const selectedWorkshopEntries = useMemo(() => {
+    if (!selectedWorkshop) return []
+    return workshopPool
+      .filter((e) => workshopIdOfEntry(e) === selectedWorkshop)
+      .filter((e) => !e.user_id || !blockedIds.has(e.user_id))
+  }, [workshopPool, selectedWorkshop, blockedIds])
 
   // 切換模式時回到頁首批次
   useEffect(() => {
@@ -738,13 +865,38 @@ function CommunityPage() {
     setMyDisplayCount(PAGE_SIZE)
   }, [mode])
 
-  // 從通知點進來：切到「我的貼文」並確保目標貼文有被渲染（必要時放寬分頁）
+  // 工作坊發佈導引（規格 [3]）：帶 ?workshop= 進來 → 切到工作坊分頁並開啟該區塊。
   useEffect(() => {
-    if (!focus) return
+    if (!workshop) return
+    setMode('workshop')
+    setSelectedWorkshop(workshop)
+  }, [workshop])
+
+  // 從通知點進來（帶 focus 但非工作坊導引）：切到「我的貼文」並確保目標貼文被渲染。
+  useEffect(() => {
+    if (!focus || workshop) return
     setMode('my')
     const idx = myEntries.findIndex((e) => e.id === focus)
     if (idx >= 0) setMyDisplayCount((c) => Math.max(c, idx + 1))
-  }, [focus, myEntries])
+  }, [focus, workshop, myEntries])
+
+  // 切換工作坊區塊時重置「看完所有貼文」提示
+  useEffect(() => {
+    setShowScrollEnd(false)
+  }, [selectedWorkshop, mode])
+
+  // 規格 [3]：在工作坊區塊內滑到底部 → 彈出「看完所有貼文」Modal。
+  useEffect(() => {
+    if (mode !== 'workshop' || !selectedWorkshop || selectedWorkshopEntries.length === 0) return
+    const el = scrollEndRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (es) => { if (es[0].isIntersecting) setShowScrollEnd(true) },
+      { rootMargin: '0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [mode, selectedWorkshop, selectedWorkshopEntries.length])
 
   const hasMore = displayCount < orderedEntries.length
   const visibleEntries = orderedEntries
@@ -869,9 +1021,30 @@ function CommunityPage() {
               </>
             )}
           </>
+        ) : mode === 'workshop' ? (
+          <WorkshopTab
+            userId={userId}
+            blocks={workshopBlocks}
+            selectedWorkshop={selectedWorkshop}
+            onSelect={setSelectedWorkshop}
+            selectedEntries={selectedWorkshopEntries}
+            scrollEndRef={scrollEndRef}
+            likes={likes}
+            comments={comments}
+            commentLikes={commentLikes}
+            tags={tags}
+            anonName={anonName}
+            blockedIds={blockedIds}
+            focus={focus}
+            onLikeChange={handleLikeChange}
+            onCommentAdded={handleCommentAdded}
+            onCommentLikeChange={handleCommentLikeChange}
+            onBlock={handleBlocked}
+          />
         ) : (
           <>
-            {allEntries.length === 0 ? (
+            <CommunitySortSelect sort={communitySort} onChange={setCommunitySort} />
+            {orderedEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
                 <span className="text-4xl">💫</span>
                 <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
@@ -910,7 +1083,171 @@ function CommunityPage() {
           </>
         )}
       </div>
+
+      {showScrollEnd && <ScrollEndModal onClose={() => setShowScrollEnd(false)} />}
     </>
+  )
+}
+
+// 規格 [3]：在工作坊區塊滑到底部彈出，提醒回到原本頁面繼續活動。
+function ScrollEndModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
+      <div className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 text-center shadow-soft">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-3xl">
+          ✅
+        </div>
+        <p className="text-base font-extrabold leading-relaxed text-foreground">
+          看完所有貼文囉！
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          請回到原本的頁面繼續進行活動。
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 flex h-14 w-full items-center justify-center rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98]"
+        >
+          我知道了
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// 「工作坊貼文」分頁：未選區塊→區塊列表；選了→該工作坊的貼文列表（規格 [1][3][4]）。
+function WorkshopTab({
+  userId,
+  blocks,
+  selectedWorkshop,
+  onSelect,
+  selectedEntries,
+  scrollEndRef,
+  likes,
+  comments,
+  commentLikes,
+  tags,
+  anonName,
+  blockedIds,
+  focus,
+  onLikeChange,
+  onCommentAdded,
+  onCommentLikeChange,
+  onBlock,
+}: {
+  userId: string | null
+  blocks: { id: string; entries: GratitudeEntry[] }[]
+  selectedWorkshop: string | null
+  onSelect: (id: string | null) => void
+  selectedEntries: GratitudeEntry[]
+  scrollEndRef: React.RefObject<HTMLDivElement>
+  likes: Record<string, LikeInfo>
+  comments: Record<string, Comment[]>
+  commentLikes: Record<string, LikeInfo>
+  tags: Record<string, GratitudeTargetTag[]>
+  anonName: string | null
+  blockedIds: Set<string>
+  focus?: string
+  onLikeChange: (entryId: string, info: LikeInfo) => void
+  onCommentAdded: (entryId: string, c: Comment) => void
+  onCommentLikeChange: (commentId: string, info: LikeInfo) => void
+  onBlock: (blockedUserId: string) => void
+}) {
+  if (!userId) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
+        <span className="text-4xl">🔒</span>
+        <p className="mt-3 text-sm font-medium">請先登入，並完成工作坊練習後，即可在此看到你參加過的工作坊貼文。</p>
+      </div>
+    )
+  }
+
+  // 已選區塊 → 顯示該工作坊的貼文列表
+  if (selectedWorkshop) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => onSelect(null)}
+          className="mb-3 flex items-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-bold text-foreground/70 shadow-soft transition active:scale-[0.97]"
+        >
+          ← 工作坊列表
+        </button>
+        <h2 className="mb-4 text-lg font-extrabold text-foreground">
+          {formatWorkshopLabel(selectedWorkshop)}
+        </h2>
+
+        {selectedEntries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
+            <span className="text-4xl">📝</span>
+            <p className="mt-3 text-sm font-medium">這個工作坊還沒有公開的貼文。</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-4">
+              {selectedEntries.map((entry, i) => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  index={i}
+                  likeInfo={likes[entry.id] ?? { count: 0, liked: false }}
+                  comments={comments[entry.id] ?? []}
+                  commentLikes={commentLikes}
+                  tags={tags[entry.id] ?? []}
+                  userId={userId}
+                  anonName={anonName}
+                  autoFocus={focus === entry.id}
+                  isOwn={entry.user_id === userId}
+                  blockedIds={blockedIds}
+                  onLikeChange={(info) => onLikeChange(entry.id, info)}
+                  onCommentAdded={(c) => onCommentAdded(entry.id, c)}
+                  onCommentLikeChange={onCommentLikeChange}
+                  onBlock={onBlock}
+                />
+              ))}
+            </div>
+            <div ref={scrollEndRef} className="h-4" />
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              已經看完所有貼文囉！
+            </p>
+          </>
+        )}
+      </>
+    )
+  }
+
+  // 未選區塊 → 區塊列表
+  if (blocks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
+        <span className="text-4xl">🪧</span>
+        <p className="mt-3 text-sm font-medium">完成並發佈工作坊練習後，這裡會出現你參加過的工作坊。</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {blocks.map((b) => (
+        <button
+          key={b.id}
+          type="button"
+          onClick={() => onSelect(b.id)}
+          className="flex items-center gap-4 rounded-3xl bg-card p-5 text-left shadow-soft transition active:scale-[0.98]"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-2xl">
+            🪐
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-base font-extrabold text-foreground">
+              {formatWorkshopLabel(b.id)}
+            </span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">{b.entries.length} 則貼文</span>
+          </span>
+          <span className="shrink-0 text-muted-foreground">›</span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -1020,28 +1357,36 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
   )
 }
 
-// 找尋真實自我：工作／生活最重要的事件 + 自我敘事（亮色強調）。
+// 找尋真實自我：工作／生活最重要的事件（含背後原因）+ 自我敘事（亮色強調）。
 function AuthenticSelfBody({ payload }: { payload: PracticePayload }) {
   const topWork = (payload.top_work ?? '').trim()
   const topLife = (payload.top_life ?? '').trim()
+  const workReason = (payload.work_reason ?? '').trim()
+  const lifeReason = (payload.life_reason ?? '').trim()
   const narrative = (payload.narrative ?? '').trim()
+  const compose = (event: string, reason: string) =>
+    reason ? `${event}\n原因：${reason}` : event
   return (
     <div className="mt-4 flex flex-col gap-2">
-      {topWork && <PgFieldBlock label="工作中最重要的事件" value={topWork} />}
-      {topLife && <PgFieldBlock label="生活中最重要的事件" value={topLife} />}
+      {topWork && <PgFieldBlock label="工作中最重要的事件" value={compose(topWork, workReason)} />}
+      {topLife && <PgFieldBlock label="生活中最重要的事件" value={compose(topLife, lifeReason)} />}
       {narrative && <PgAiBlock label="我的自我敘事" value={narrative} />}
     </div>
   )
 }
 
-// 生命最後一天：希望被記得的樣子 + 接下來一個月的行動（亮色強調）。
+// 生命最後一天：希望被記得的樣子（自我告別敘事）+ 接下來一個月的行動（亮色強調）。
 function LastDayBody({ payload }: { payload: PracticePayload }) {
+  // 新版：farewell（自我告別敘事）；舊版：description（被記得的樣子）。
+  const farewell = (payload.farewell ?? '').trim()
   const description = (payload.description ?? '').trim()
   const action = (payload.action ?? '').trim()
   return (
     <div className="mt-4 flex flex-col gap-2">
-      {description && (
-        <PgFieldBlock label="我希望被記得的樣子" value={`一個「${description}」的人`} />
+      {farewell ? (
+        <PgFieldBlock label="我希望被記得的樣子" value={farewell} />
+      ) : (
+        description && <PgFieldBlock label="我希望被記得的樣子" value={`一個「${description}」的人`} />
       )}
       {action && <PgAiBlock label="接下來一個月，我想要" value={action} />}
     </div>

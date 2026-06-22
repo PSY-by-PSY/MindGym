@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
-  checkWorkshopPassword,
+  parseWorkshopPassword,
   isWorkshopUnlocked,
   unlockWorkshop,
 } from '../../lib/workshop'
@@ -22,8 +22,9 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (checkWorkshopPassword(value)) {
-      unlockWorkshop()
+    const { ok, workshopId } = parseWorkshopPassword(value)
+    if (ok && workshopId) {
+      unlockWorkshop(workshopId)
       onUnlock()
     } else {
       setError(true)
@@ -44,7 +45,7 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
         請輸入工作坊密碼
       </h1>
       <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-        這些練習是為線上工作坊設計的限定內容，請輸入帶領者提供的密碼後開始。
+        這些練習是為線上工作坊設計的限定內容，請輸入帶領者提供的當日密碼後開始。
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 w-full max-w-sm">

@@ -9,6 +9,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { insertCommunityPost, markStreak } from '../lib/communityPost'
 import { isoLocalDate } from '../lib/date'
+import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
 
@@ -24,7 +25,7 @@ function AuthenticSelfModule() {
   )
 }
 
-const TOTAL_STEPS = 8
+const TOTAL_STEPS = 9
 
 const WORK_LABELS = ['工作・第 1 件', '工作・第 2 件', '工作・第 3 件']
 const LIFE_LABELS = ['生活・第 1 件', '生活・第 2 件', '生活・第 3 件']
@@ -55,6 +56,7 @@ function AuthenticSelfFlow() {
   const [sharing, setSharing] = useState(false)
 
   const rankCardRef = useRef<HTMLDivElement>(null)
+  const coreValueCardRef = useRef<HTMLDivElement>(null)
   const narrativeCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -105,6 +107,9 @@ function AuthenticSelfFlow() {
     setPublishing(true)
     try {
       const narrativeText = assembleNarrative(narrative)
+      const workReason = workReflection.trim()
+      const lifeReason = lifeReflection.trim()
+      const workshopId = getWorkshopId()
       const entryId = await insertCommunityPost(
         userId,
         'workshop_authentic_self',
@@ -115,14 +120,23 @@ function AuthenticSelfFlow() {
           ai_feedback: null,
         },
         privacy,
-        { v: 'authentic_self', top_work: topWork, top_life: topLife, narrative: narrativeText },
+        {
+          v: 'authentic_self',
+          top_work: topWork,
+          top_life: topLife,
+          work_reason: workReason,
+          life_reason: lifeReason,
+          narrative: narrativeText,
+          workshop_id: workshopId,
+        },
       )
       setPublished(true)
       await markStreak(userId)
       await router.invalidate()
+      // 規格 [3]：發佈後導引至「當天工作坊貼文頁面」。
       navigate({
         to: '/app/community',
-        search: entryId ? { focus: entryId } : { showEntry: 1 },
+        search: { workshop: workshopId, ...(entryId ? { focus: entryId } : {}) },
       })
     } catch (e) {
       console.error('[authentic-self publish]', e)
@@ -223,15 +237,29 @@ function AuthenticSelfFlow() {
     )
   }
 
-  // ── 步驟 5：分享你最重要的生命事件（討論環節） ────────────────────
+  // ── 步驟 5：分享你最重要的生命事件（討論環節，提問優化 1） ────────────
   if (step === 5) {
     return (
-      <WorkshopLayout step={5} total={TOTAL_STEPS} title="分享你最重要的生命事件" minutes={10} onBack={back} onNext={next}>
+      <WorkshopLayout step={5} total={TOTAL_STEPS} title="分享你最重要的生命事件" minutes={15} onBack={back} onNext={next}>
         <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/80">
           <p className="font-bold text-foreground">為什麼這對你來說很重要？</p>
           <p className="mt-1.5">
-            兩人一組，針對排序第一的事件，分享你做這件事情的核心原因。時間為 10 分鐘，請大家輪流分享。
+            兩人一組，針對排序第一的事件，分享你做這件事情的核心原因。時間為 15 分鐘，請大家輪流分享。
           </p>
+          <p className="mt-3">
+            邀請你，試著進一步反思這個選擇背後的核心價值觀、信念或需求。
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            <li className="flex gap-2">
+              <span className="text-primary">・</span>這個選擇之所以重要，是因為你在乎什麼呢？
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">・</span>這個決定背後，你最重視的是什麼？
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">・</span>這個經驗／決定，滿足了你哪方面的需求？
+            </li>
+          </ul>
         </div>
 
         <p className="mt-6 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
@@ -245,13 +273,30 @@ function AuthenticSelfFlow() {
     )
   }
 
-  // ── 步驟 6：書寫核心原因（含語音輸入） ────────────────────────────
+  // ── 步驟 6：書寫核心原因（提問優化 2，範例置於引導語、不放進書寫框） ──
   if (step === 6) {
     return (
       <WorkshopLayout step={6} total={TOTAL_STEPS} title="書寫核心原因" minutes={10} onBack={back} onNext={next}>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          針對工作與生活各自排序第一名的事件，書寫：為何覺得它重要、重大，以及它如何影響了你的生命。可以用打字，也可以用語音輸入。
-        </p>
+        <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/80">
+          <p>
+            針對工作與生活各自排序第一名的事件，邀請你寫下：為何你覺得它如此重要、重大，背後的原因、反映的核心價值觀是什麼，以及它如何影響了你的生命。
+          </p>
+          <p className="mt-2">邀請你，寫得越具體越好。你可以用打字，也可以用語音輸入。</p>
+        </div>
+
+        <div className="mt-4 rounded-3xl bg-gradient-soft p-4 shadow-soft">
+          <p className="text-xs font-extrabold text-primary">💡 範例</p>
+          <div className="mt-2 flex flex-col gap-2.5 text-sm leading-relaxed text-foreground/80">
+            <div>
+              <p className="font-bold text-foreground">工作：選擇心理學學科</p>
+              <p>原因：了解人性，讓我去理解人生命的本質，促進對生命經驗的覺察。</p>
+            </div>
+            <div>
+              <p className="font-bold text-foreground">生活：拍照紀錄與朋友的生活，並與他人分享</p>
+              <p>原因：整理與生命重要他人的回憶，重視人與人之間的連結。</p>
+            </div>
+          </div>
+        </div>
 
         <ReflectionField
           rank="工作・第一名"
@@ -271,11 +316,65 @@ function AuthenticSelfFlow() {
     )
   }
 
-  // ── 步驟 7：撰寫自我敘事 ──────────────────────────────────────────
+  // ── 步驟 7：核心價值字卡生成（工作＋原因、生活＋原因 → 下載圖） ───────
   if (step === 7) {
     return (
+      <>
+        {/* 畫面外高解析下載圖 */}
+        <div ref={coreValueCardRef} aria-hidden className="pointer-events-none fixed -left-[9999px] top-0" style={{ width: 1080, height: 1440 }}>
+          <CoreValueShareCard
+            topWork={topWork}
+            topLife={topLife}
+            workReason={workReflection}
+            lifeReason={lifeReflection}
+            date={today}
+          />
+        </div>
+
+        <WorkshopLayout
+          step={7}
+          total={TOTAL_STEPS}
+          title="我重要的生命經驗，以及背後的核心原因與價值觀"
+          onBack={back}
+          onNext={next}
+        >
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            這是你覺察重要生命事件背後的核心原因，你可以把它儲存下來，留作紀念。
+          </p>
+
+          <div className="mt-5 flex flex-col gap-3">
+            <CoreValuePreview
+              accent="bg-tile-blue"
+              label="工作"
+              event={topWork}
+              reason={workReflection}
+            />
+            <CoreValuePreview
+              accent="bg-tile-mint"
+              label="生活"
+              event={topLife}
+              reason={lifeReflection}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleDownload(coreValueCardRef, `core-value-${isoLocalDate(new Date())}.png`, '我的核心價值')}
+            disabled={sharing}
+            className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+          >
+            {sharing ? '正在生成圖片…' : downloadLabel}
+          </button>
+        </WorkshopLayout>
+      </>
+    )
+  }
+
+  // ── 步驟 8：撰寫自我敘事（範例置於引導語、書寫框不放預設範例） ────────
+  if (step === 8) {
+    return (
       <WorkshopLayout
-        step={7}
+        step={8}
         total={TOTAL_STEPS}
         title="撰寫自我敘事"
         minutes={5}
@@ -284,37 +383,49 @@ function AuthenticSelfFlow() {
         nextLabel="完成"
         nextVariant="done"
       >
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          把前面的探索收斂成一句自我敘事，完成下面的填空。
-        </p>
+        <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/80">
+          <p>把前面的探索收斂成一段自我敘事，完成下面的填空：</p>
+          <p className="mt-2 font-bold text-foreground">
+            我是＿＿＿＿（名字），<br />
+            因為我＿＿＿＿（做過最重要的哪些決定、事情）<br />
+            所以我是一個＿＿＿＿（什麼樣的人）
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-3xl bg-gradient-soft p-4 shadow-soft">
+          <p className="text-xs font-extrabold text-primary">💡 舉例</p>
+          <p className="mt-2 text-sm leading-relaxed text-foreground/80">
+            我是 王慈恩，因為我做了選擇心理學學科、常與朋友分享與聯繫的人，所以我是一個希望透過心理學促進自我與他人對生命的理解，重視人際連結，並熱衷於創造人與人相互連結的人。
+          </p>
+        </div>
 
         <NarrativePreview narrative={narrative} />
 
         <div className="mt-5 flex flex-col gap-4">
           <LabeledField
-            label="我是＿＿＿"
+            label="我是＿＿＿＿（名字）"
             value={narrative.who}
             onChange={(v) => setNarrative((n) => ({ ...n, who: v }))}
-            placeholder="例如：一個重視成長的人 / 我的名字"
+            placeholder=""
           />
           <LabeledField
-            label="因為我＿＿＿＿＿（做過最重要的哪些決定、事情）"
+            label="因為我＿＿＿＿（做過最重要的哪些決定、事情）"
             value={narrative.did}
             onChange={(v) => setNarrative((n) => ({ ...n, did: v }))}
-            placeholder="例如：在關鍵時刻選擇了……"
+            placeholder=""
           />
           <LabeledField
-            label="所以我是一個＿＿＿＿＿＿＿（什麼樣的人）"
+            label="所以我是一個＿＿＿＿（什麼樣的人）"
             value={narrative.kind}
             onChange={(v) => setNarrative((n) => ({ ...n, kind: v }))}
-            placeholder="例如：勇於為自己做選擇的人"
+            placeholder=""
           />
         </div>
       </WorkshopLayout>
     )
   }
 
-  // ── 步驟 8：你的自我敘事（下載圖 + 發佈到社群） ───────────────────
+  // ── 步驟 9：你的自我敘事（下載圖 + 發佈到社群） ───────────────────
   return (
     <>
       {/* 畫面外高解析下載圖 */}
@@ -322,7 +433,7 @@ function AuthenticSelfFlow() {
         <NarrativeShareCard narrative={assembleNarrative(narrative)} topWork={topWork} topLife={topLife} date={today} />
       </div>
 
-      <WorkshopLayout step={8} total={TOTAL_STEPS} title="你的自我敘事 🌟">
+      <WorkshopLayout step={9} total={TOTAL_STEPS} title="你的自我敘事 🌟">
         <p className="text-sm leading-relaxed text-muted-foreground">這是你今天為自己寫下的敘事：</p>
 
         <div className="mt-5 rounded-3xl bg-gradient-soft p-6 shadow-soft">
@@ -401,28 +512,60 @@ function FieldGroup({
   )
 }
 
+// 規格 [6]：書寫介面一律用多行 textarea，避免單行限制看不到完整內容。
 function LabeledField({
   label,
   value,
   onChange,
   placeholder,
+  rows = 2,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  rows?: number
 }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-bold text-muted-foreground">{label}</span>
-      <input
-        type="text"
+      <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl bg-card px-4 py-3 text-sm text-foreground shadow-soft placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+        rows={rows}
+        className="w-full resize-y rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-foreground shadow-soft placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
     </label>
+  )
+}
+
+// 步驟 7「核心價值字卡」的畫面內預覽：事件 + 背後原因。
+function CoreValuePreview({
+  accent,
+  label,
+  event,
+  reason,
+}: {
+  accent: string
+  label: string
+  event: string
+  reason: string
+}) {
+  return (
+    <div className="rounded-3xl bg-gradient-soft p-5 shadow-soft">
+      <div className="mb-2 flex items-center gap-2">
+        <span className={`h-3 w-3 rounded-full ${accent}`} />
+        <span className="text-sm font-extrabold text-foreground">{label}</span>
+      </div>
+      <p className="text-base font-bold leading-relaxed text-foreground">
+        {event.trim() || <span className="font-normal text-muted-foreground/60">（第一名尚未填寫）</span>}
+      </p>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
+        <span className="font-bold text-muted-foreground">原因：</span>
+        {reason.trim() || <span className="text-muted-foreground/60">（尚未書寫核心原因）</span>}
+      </p>
+    </div>
   )
 }
 
@@ -745,6 +888,63 @@ function RankShareCard({
       <CardRankColumn title="工作" color="#3F7BD6" items={workItems} />
       <CardRankColumn title="生活" color="#2E9E8F" items={lifeItems} />
       <CardLogo />
+    </div>
+  )
+}
+
+// 步驟 7：核心價值字卡 —— [工作]＋[對應原因]、[生活]＋[對應原因]。
+function CoreValueShareCard({
+  topWork,
+  topLife,
+  workReason,
+  lifeReason,
+  date,
+}: {
+  topWork: string
+  topLife: string
+  workReason: string
+  lifeReason: string
+  date: string
+}) {
+  return (
+    <div style={CARD_BASE}>
+      <div>
+        <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.55 }}>PSY BY PSY · CORE VALUES</div>
+        <div style={{ fontSize: 42, fontWeight: 800, marginTop: 18, lineHeight: 1.25 }}>
+          我重要的生命經驗與背後的核心原因
+        </div>
+        <div style={{ fontSize: 22, opacity: 0.65, marginTop: 10 }}>{date}</div>
+      </div>
+
+      <CoreValueCardBlock title="工作" color="#3F7BD6" event={topWork} reason={workReason} />
+      <CoreValueCardBlock title="生活" color="#2E9E8F" event={topLife} reason={lifeReason} />
+
+      <CardLogo />
+    </div>
+  )
+}
+
+function CoreValueCardBlock({
+  title,
+  color,
+  event,
+  reason,
+}: {
+  title: string
+  color: string
+  event: string
+  reason: string
+}) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.72)', borderRadius: 32, padding: '28px 36px' }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color, marginBottom: 14 }}>{title}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.45, marginBottom: 14 }}>
+        {event.trim() || '—'}
+      </div>
+      <div style={{ fontSize: 25, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+        <span style={{ fontWeight: 800, color }}>原因 · </span>
+        {reason.trim() || '—'}
+      </div>
     </div>
   )
 }

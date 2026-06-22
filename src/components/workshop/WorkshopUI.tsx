@@ -1,9 +1,33 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { PrimaryCta } from '../PrimaryCta'
 import VoiceInput from '../pretest/VoiceInput'
 
 // 工作坊主題色（語音麥克風圖示用）；對應 index.css 的 --primary 藍。
 const WORKSHOP_ACCENT = '#5B8DEF'
+
+// ─────────────────────────────────────────────────────────────────────────
+// 防跑批機制（規格 [5]）：點「下一步」時跳出 Confirm Dialog，提醒「跟著講師指示，
+// 不要提前翻閱」。可勾選「不再提示」，本次使用階段後續就不再跳出。
+// ─────────────────────────────────────────────────────────────────────────
+const SKIP_CONFIRM_KEY = 'workshop_skip_advance_confirm'
+const ADVANCE_HINT = '為了維持課程品質，請跟著講師的指示，不要提前翻閱。'
+
+function shouldSkipAdvanceConfirm(): boolean {
+  try {
+    return sessionStorage.getItem(SKIP_CONFIRM_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function setSkipAdvanceConfirm(): void {
+  try {
+    sessionStorage.setItem(SKIP_CONFIRM_KEY, 'true')
+  } catch {
+    /* 忽略 */
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // 工作坊模塊共用 UI
@@ -79,7 +103,7 @@ export function WorkshopLayout({
       {/* 步驟內容 */}
       <div className="mt-6">{children}</div>
 
-      {/* 底部導覽 */}
+      {/* 底部導覽。前往下一頁（nextVariant='next'）時啟用防跑批確認與固定提示。 */}
       {onNext && (
         <StepNav
           onBack={onBack}
@@ -87,6 +111,7 @@ export function WorkshopLayout({
           nextLabel={nextLabel}
           nextVariant={nextVariant}
           nextDisabled={nextDisabled}
+          confirmAdvance={nextVariant === 'next'}
         />
       )}
     </div>
@@ -123,36 +148,130 @@ export function TimeBadge({ minutes }: { minutes: number }) {
   )
 }
 
-/** 上一步／下一步按鈕列。沒有 onBack 時，下一步按鈕佔滿整排。 */
+/**
+ * 上一步／下一步按鈕列。沒有 onBack 時，下一步按鈕佔滿整排。
+ * confirmAdvance=true 時，點「下一步」會先跳出防跑批確認 Dialog（規格 [5]），
+ * 並在按鈕下方顯示固定提示文字。
+ */
 export function StepNav({
   onBack,
   onNext,
   nextLabel = '下一步',
   nextVariant = 'next',
   nextDisabled = false,
+  confirmAdvance = false,
 }: {
   onBack?: () => void
   onNext: () => void
   nextLabel?: string
   nextVariant?: 'next' | 'done'
   nextDisabled?: boolean
+  confirmAdvance?: boolean
 }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const handleNext = () => {
+    if (confirmAdvance && !shouldSkipAdvanceConfirm()) {
+      setConfirming(true)
+      return
+    }
+    onNext()
+  }
+
   return (
-    <div className="mt-8 flex items-center gap-3">
-      {onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex h-16 shrink-0 items-center justify-center gap-2 rounded-full bg-card px-6 text-sm font-extrabold text-foreground/70 shadow-soft transition active:scale-[0.97]"
-        >
-          <ArrowLeftIcon />
-          上一步
-        </button>
+    <>
+      <div className="mt-8 flex items-center gap-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-16 shrink-0 items-center justify-center gap-2 rounded-full bg-card px-6 text-sm font-extrabold text-foreground/70 shadow-soft transition active:scale-[0.97]"
+          >
+            <ArrowLeftIcon />
+            上一步
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
+          <PrimaryCta onClick={handleNext} disabled={nextDisabled} variant={nextVariant}>
+            {nextLabel}
+          </PrimaryCta>
+        </div>
+      </div>
+
+      {/* 固定提示文字（規格 [5]） */}
+      {confirmAdvance && (
+        <p className="mt-3 text-center text-xs font-medium leading-relaxed text-muted-foreground">
+          {ADVANCE_HINT}
+        </p>
       )}
-      <div className="min-w-0 flex-1">
-        <PrimaryCta onClick={onNext} disabled={nextDisabled} variant={nextVariant}>
-          {nextLabel}
-        </PrimaryCta>
+
+      {confirming && (
+        <AdvanceConfirmDialog
+          onConfirm={() => {
+            setConfirming(false)
+            onNext()
+          }}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+    </>
+  )
+}
+
+/** 防跑批確認 Dialog：含「不再提示」勾選鈕。 */
+function AdvanceConfirmDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const [dontAsk, setDontAsk] = useState(false)
+
+  const confirm = () => {
+    if (dontAsk) setSkipAdvanceConfirm()
+    onConfirm()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
+      <div className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 shadow-soft">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-2xl">
+          ✋
+        </div>
+        <p className="text-base font-extrabold leading-relaxed text-foreground">
+          {ADVANCE_HINT}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          確認講師已經指示前往下一頁了嗎？
+        </p>
+
+        <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-sm text-foreground/80">
+          <input
+            type="checkbox"
+            checked={dontAsk}
+            onChange={(e) => setDontAsk(e.target.checked)}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          不再提示
+        </label>
+
+        <div className="mt-5 flex flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={confirm}
+            className="flex h-14 w-full items-center justify-center rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            是，前往下頁
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-12 w-full items-center justify-center rounded-full bg-card text-sm font-extrabold text-foreground/70 shadow-soft transition active:scale-[0.98]"
+          >
+            否，留在本頁
+          </button>
+        </div>
       </div>
     </div>
   )
