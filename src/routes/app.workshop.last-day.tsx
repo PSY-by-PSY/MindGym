@@ -11,7 +11,7 @@ import { insertCommunityPost, markStreak } from '../lib/communityPost'
 import { isoLocalDate } from '../lib/date'
 import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
-import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
+import { DEFAULT_PRIVACY } from '../lib/privacy'
 
 export const Route = createFileRoute('/app/workshop/last-day')({
   component: LastDayModule,
@@ -47,21 +47,17 @@ function LastDayFlow() {
   const [action, setAction] = useState('')
 
   const [userId, setUserId] = useState<string | null>(null)
-  // 步驟 9：來自活動一（找尋真實自我）的自我敘事聚合結果
-  const [priorNarrative, setPriorNarrative] = useState<string | null>(null)
-  const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
   const [sharing, setSharing] = useState(false)
 
   const streamCardRef = useRef<HTMLDivElement>(null)
   const farewellCardRef = useRef<HTMLDivElement>(null)
+  const summaryCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user.id ?? null
-      setUserId(uid)
-      if (uid) void loadPriorNarrative(uid).then(setPriorNarrative)
+      setUserId(data.session?.user.id ?? null)
     })
   }, [])
 
@@ -71,7 +67,6 @@ function LastDayFlow() {
     setStream('')
     setFarewell({ name: '', friend: '', family: '', world: '' })
     setAction('')
-    setPrivacy(DEFAULT_PRIVACY)
     setPublishing(false)
     setPublished(false)
     setStep(1)
@@ -115,7 +110,7 @@ function LastDayFlow() {
           item_3: '',
           ai_feedback: null,
         },
-        privacy,
+        DEFAULT_PRIVACY,
         {
           v: 'last_day',
           stream: stream.trim(),
@@ -346,9 +341,10 @@ function LastDayFlow() {
           </p>
 
           <div className="mt-5 rounded-3xl bg-gradient-soft p-6 shadow-soft">
-            <p className="whitespace-pre-wrap text-base font-bold leading-relaxed text-foreground">
-              {farewellText}
-            </p>
+            <FarewellNarrative
+              farewell={farewell}
+              className="text-base font-bold leading-relaxed text-foreground"
+            />
           </div>
 
           <button
@@ -393,72 +389,87 @@ function LastDayFlow() {
     )
   }
 
-  // ── 步驟 9：結尾整合頁面（自我敘事聚合 + 未來一個月） ───────────────
+  // ── 步驟 9：結尾整合頁面（自我告別敘事 + 未來一個月） ───────────────
   return (
-    <WorkshopLayout step={9} total={TOTAL_STEPS} title="今天的整理 🕊️">
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        把你是怎樣的人，與接下來一個月想踏出的一步放在一起：
-      </p>
-
-      <SummaryCard
-        label="我是怎樣的人"
-        content={priorNarrative?.trim() || farewellText}
-      />
-      <SummaryCard label="接下來一個月，我想要" content={action} highlight />
-
-      {/* 發佈到社群 */}
-      <div className="mt-6 rounded-3xl bg-card p-5 shadow-soft">
-        <p className="text-sm font-extrabold text-foreground">把你的整理分享到社群</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          分享你希望被記得的樣子，與接下來一個月想做的事，和大家彼此鼓勵。
-        </p>
-        <PrivacyPicker privacy={privacy} onChange={setPrivacy} disabled={publishing || published} />
-        <button
-          type="button"
-          onClick={publish}
-          disabled={publishing || published || !userId}
-          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
-        >
-          {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🕊️ 發佈並前往社群'}
-        </button>
-        {!userId && (
-          <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到社群。</p>
-        )}
+    <>
+      {/* 畫面外高解析下載圖（整理：四句告別敘事 + 接下來一個月想要） */}
+      <div ref={summaryCardRef} aria-hidden className="pointer-events-none fixed -left-[9999px] top-0" style={{ width: 1080, height: 1440 }}>
+        <SummaryShareCard farewell={farewellText} action={action} date={today} />
       </div>
 
-      <CompletionActions onRestart={restart} />
-    </WorkshopLayout>
+      <WorkshopLayout step={9} total={TOTAL_STEPS} title="今天的整理 🕊️">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          把你希望被記得的樣子，與接下來一個月想踏出的一步放在一起：
+        </p>
+
+        {/* 我是怎樣的人：四句自我告別敘事（規格 [5]，使用者填入以藍色標記） */}
+        <div className="mt-4 rounded-3xl bg-card p-4 shadow-soft">
+          <p className="text-xs font-bold text-muted-foreground">我是怎樣的人</p>
+          <FarewellNarrative
+            farewell={farewell}
+            className="mt-1.5 text-sm leading-relaxed text-foreground/85"
+          />
+        </div>
+        <SummaryCard label="接下來一個月，我想要" content={action} highlight />
+
+        <button
+          type="button"
+          onClick={() => handleDownload(summaryCardRef, `last-day-summary-${isoLocalDate(new Date())}.png`, '生命最後一天 · 今天的整理')}
+          disabled={sharing}
+          className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+        >
+          {sharing ? '正在生成圖片…' : downloadLabel}
+        </button>
+
+        {/* 發佈到工作坊貼文（規格 [1]：工作坊一定直接分享到工作坊貼文，不再選擇隱私） */}
+        <div className="mt-6 rounded-3xl bg-card p-5 shadow-soft">
+          <p className="text-sm font-extrabold text-foreground">把你的整理分享到工作坊</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            分享你希望被記得的樣子，與接下來一個月想做的事，和工作坊夥伴彼此鼓勵。
+          </p>
+          <button
+            type="button"
+            onClick={publish}
+            disabled={publishing || published || !userId}
+            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+          >
+            {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🕊️ 發佈到工作坊貼文'}
+          </button>
+          {!userId && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>
+          )}
+        </div>
+
+        <CompletionActions onRestart={restart} />
+      </WorkshopLayout>
+    </>
   )
 }
 
-// 取得使用者在「找尋真實自我」最近一次的自我敘事，供步驟 9 聚合顯示。
-async function loadPriorNarrative(userId: string): Promise<string | null> {
-  const pick = (row: { payload?: { narrative?: string } | null; item_1?: string | null } | null) =>
-    row?.payload?.narrative?.trim() || row?.item_1?.trim() || null
+// ─── 子元件 ───────────────────────────────────────────────────────────────
 
-  // 先試 payload（客製版型）；payload 欄位不存在時退回只取 item_1。
-  const withPayload = await supabase
-    .from('gratitude_entries')
-    .select('item_1, payload')
-    .eq('user_id', userId)
-    .eq('practice_type', 'workshop_authentic_self')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!withPayload.error) return pick(withPayload.data as never)
-
-  const basic = await supabase
-    .from('gratitude_entries')
-    .select('item_1')
-    .eq('user_id', userId)
-    .eq('practice_type', 'workshop_authentic_self')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return pick(basic.data as never)
+// 使用者填入的內容以藍色標記，方便辨識自己寫的字（規格 [4][5]）。
+function FilledText({ children }: { children: React.ReactNode }) {
+  return <span className="font-bold text-blue-600">{children}</span>
 }
 
-// ─── 子元件 ───────────────────────────────────────────────────────────────
+// 四句自我告別敘事：固定句型 + 使用者填入（藍色）。空白以底線佔位。
+function FarewellNarrative({ farewell, className }: { farewell: Farewell; className?: string }) {
+  const blank = (v: string) =>
+    v.trim() ? (
+      <FilledText>{v.trim()}</FilledText>
+    ) : (
+      <span className="text-muted-foreground/50">＿＿＿＿</span>
+    )
+  return (
+    <p className={`whitespace-pre-wrap leading-relaxed ${className ?? ''}`}>
+      我是{blank(farewell.name)}，在我離開這個世界以後…{'\n'}
+      我的朋友，會形容我是一個{blank(farewell.friend)}的人。{'\n'}
+      我的伴侶／家人／孩子，會形容我是一個{blank(farewell.family)}的人。{'\n'}
+      最後，我希望在我離開之後，這個社會／國家／世界／宇宙，記得我是一個{blank(farewell.world)}的人。
+    </p>
+  )
+}
 
 // 自我告別敘事的單行填空（規格 [6]：多行 textarea；移除中文「」引號）。
 function FarewellField({
@@ -495,9 +506,7 @@ function FarewellPreview({ farewell }: { farewell: Farewell }) {
   return (
     <div className="mt-4 rounded-3xl bg-gradient-soft p-5 shadow-soft">
       <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wider text-primary">即時預覽</p>
-      <p className="whitespace-pre-wrap text-base font-bold leading-relaxed text-foreground">
-        {assembleFarewell(farewell)}
-      </p>
+      <FarewellNarrative farewell={farewell} className="text-base font-bold text-foreground" />
     </div>
   )
 }
@@ -517,51 +526,6 @@ function SummaryCard({
       <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
         {content.trim() || '（沒有留下文字）'}
       </p>
-    </div>
-  )
-}
-
-function PrivacyPicker({
-  privacy,
-  onChange,
-  disabled,
-}: {
-  privacy: Privacy
-  onChange: (p: Privacy) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="mt-3 flex flex-col gap-2">
-      {PRIVACY_OPTIONS.map((opt) => {
-        const active = privacy === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            disabled={disabled}
-            aria-pressed={active}
-            className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${
-              active ? 'border-primary bg-primary/10' : 'border-border bg-muted/40 hover:bg-muted'
-            }`}
-          >
-            <span className="text-lg leading-none">{opt.emoji}</span>
-            <span className="flex-1">
-              <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
-                {opt.label}
-              </span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{opt.hint}</span>
-            </span>
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                active ? 'border-primary' : 'border-border'
-              }`}
-            >
-              {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
-            </span>
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -661,6 +625,40 @@ function FarewellShareCard({ farewell, date }: { farewell: string; date: string 
         }}
       >
         <div style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{farewell}</div>
+      </div>
+      <CardLogo />
+    </div>
+  )
+}
+
+// 步驟 9「今天的整理」字卡：四句自我告別敘事 + 接下來一個月想要。
+function SummaryShareCard({ farewell, action, date }: { farewell: string; action: string; date: string }) {
+  return (
+    <div style={CARD_BASE}>
+      <div>
+        <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.5 }}>PSY BY PSY · LAST DAY</div>
+        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>今天的整理</div>
+        <div style={{ fontSize: 22, opacity: 0.6, marginTop: 10 }}>{date}</div>
+      </div>
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.78)',
+          borderRadius: 32,
+          padding: '40px 44px',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 32,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, opacity: 0.55, marginBottom: 14 }}>我是怎樣的人</div>
+          <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{farewell}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, opacity: 0.55, marginBottom: 14 }}>接下來一個月，我想要</div>
+          <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{action.trim() || '—'}</div>
+        </div>
       </div>
       <CardLogo />
     </div>

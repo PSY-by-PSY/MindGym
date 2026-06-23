@@ -11,7 +11,7 @@ import { insertCommunityPost, markStreak } from '../lib/communityPost'
 import { isoLocalDate } from '../lib/date'
 import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
-import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
+import { DEFAULT_PRIVACY } from '../lib/privacy'
 
 export const Route = createFileRoute('/app/workshop/woop')({
   component: WoopModule,
@@ -143,7 +143,6 @@ function WoopFlow() {
   const [exampleIdx, setExampleIdx] = useState(0)
 
   const [userId, setUserId] = useState<string | null>(null)
-  const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -174,7 +173,6 @@ function WoopFlow() {
     setPlan('')
     setShowExample(false)
     setExampleIdx(0)
-    setPrivacy(DEFAULT_PRIVACY)
     setPublishing(false)
     setPublished(false)
     setPhase('intro')
@@ -210,7 +208,7 @@ function WoopFlow() {
           item_3: '',
           ai_feedback: null,
         },
-        privacy,
+        DEFAULT_PRIVACY,
         {
           v: 'woop',
           wish: wish.trim(),
@@ -296,23 +294,22 @@ function WoopFlow() {
             </p>
           </div>
 
-          {/* 發佈到社群 */}
+          {/* 發佈到工作坊貼文（規格 [1][3]：工作坊一定直接分享到工作坊貼文，不再選擇隱私） */}
           <div className="mt-5 rounded-3xl bg-card p-5 shadow-soft">
-            <p className="text-sm font-extrabold text-foreground">把你的 WOOP 地圖分享到社群</p>
+            <p className="text-sm font-extrabold text-foreground">把你的 WOOP 地圖分享到工作坊</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              分享你的目標與應對計畫，讓大家一起為你加油，也彼此督促前進。
+              分享你的目標與應對計畫，讓工作坊夥伴一起為你加油，也彼此督促前進。
             </p>
-            <PrivacyPicker privacy={privacy} onChange={setPrivacy} disabled={publishing || published} />
             <button
               type="button"
               onClick={publish}
               disabled={publishing || published || !userId}
               className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
             >
-              {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🎯 發佈並前往社群'}
+              {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🎯 發佈到工作坊貼文'}
             </button>
             {!userId && (
-              <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到社群。</p>
+              <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>
             )}
           </div>
 
@@ -591,52 +588,6 @@ function EyeIcon({ off }: { off: boolean }) {
       <circle cx="12" cy="12" r="3" />
       {off && <path d="M3 3l18 18" />}
     </svg>
-  )
-}
-
-// 隱私三選一（與其他練習一致）。
-function PrivacyPicker({
-  privacy,
-  onChange,
-  disabled,
-}: {
-  privacy: Privacy
-  onChange: (p: Privacy) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="mt-3 flex flex-col gap-2">
-      {PRIVACY_OPTIONS.map((opt) => {
-        const active = privacy === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            disabled={disabled}
-            aria-pressed={active}
-            className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${
-              active ? 'border-primary bg-primary/10' : 'border-border bg-muted/40 hover:bg-muted'
-            }`}
-          >
-            <span className="text-lg leading-none">{opt.emoji}</span>
-            <span className="flex-1">
-              <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
-                {opt.label}
-              </span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{opt.hint}</span>
-            </span>
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                active ? 'border-primary' : 'border-border'
-              }`}
-            >
-              {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
-            </span>
-          </button>
-        )
-      })}
-    </div>
   )
 }
 

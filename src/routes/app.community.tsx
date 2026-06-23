@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { type Privacy, PRIVACY_OPTIONS, privacyToFields, privacyFromFields } from '../lib/privacy'
 import { workshopIdFromPayload, formatWorkshopLabel } from '../lib/workshop'
@@ -127,8 +127,9 @@ function normalizeEntry(row: unknown): GratitudeEntry {
   return { ...r, current_streak: normalizeStreak(r) } as unknown as GratitudeEntry
 }
 
-const FEED_POOL_SIZE = 60
-const PAGE_SIZE = 5
+// 無限捲動每批筆數（規格：往下滑時後端一包一包回傳，避免首屏一次載入過多）。
+const PAGE_SIZE = 5        // 社群動態每批
+const MY_PAGE_SIZE = 6     // 我的貼文每批（一次約 5~7 則）
 
 // 純欄位（payload／streak 都不依賴）— 一定查得到，當作最後保底。
 const ENTRY_COLS = 'id, user_id, anon_name, use_real_name, is_shared, item_1, item_2, item_3, entry_date, avatar, target_1, target_2, target_3, practice_type'
@@ -150,9 +151,10 @@ async function runWithColFallback(build: (cols: string) => any): Promise<Gratitu
 
 // 工作坊練習類型（規格 [1][2]：工作坊貼文獨立成區塊）。
 const WORKSHOP_PRACTICE_TYPES = ['workshop_authentic_self', 'workshop_last_day', 'workshop_woop']
-function isWorkshopPractice(pt: string | null | undefined): boolean {
-  return !!pt && pt.startsWith('workshop_')
-}
+
+// 「社群動態」排除工作坊貼文（它們聚合在「工作坊貼文」分頁）。practice_type 為 null
+// 的感恩日記要保留，因此用 OR：是 null 或不在工作坊類型清單內。
+const NON_WORKSHOP_OR = `practice_type.is.null,practice_type.not.in.(${WORKSHOP_PRACTICE_TYPES.join(',')})`
 
 async function selectSharedEntries(limit: number, excludeUserId?: string | null) {
   return runWithColFallback((cols) => {
@@ -167,9 +169,17 @@ async function selectSharedEntries(limit: number, excludeUserId?: string | null)
   })
 }
 
-// 從近期已分享的貼文中取回（最新在前，最多 FEED_POOL_SIZE 篇）
-async function fetchLatestEntries() {
-  return selectSharedEntries(FEED_POOL_SIZE)
+// 社群動態一批（最新在前；排除工作坊貼文）。range 為含端點的 [offset, offset+limit-1]。
+async function fetchCommunityPage(offset: number, limit: number): Promise<GratitudeEntry[]> {
+  return runWithColFallback((cols) =>
+    supabase
+      .from('gratitude_entries')
+      .select(cols)
+      .eq('is_shared', true)
+      .or(NON_WORKSHOP_OR)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  )
 }
 
 // 取得使用者本人的「感恩地圖」— 各感恩對象類別的累積次數。
@@ -189,12 +199,27 @@ async function fetchUserGratitudeMap(userId: string | null): Promise<Record<stri
   return counts
 }
 
-async function fetchMyEntries(userId: string): Promise<GratitudeEntry[]> {
+// 「我的貼文」一批（最新在前）。range 為含端點的 [offset, offset+limit-1]。
+async function fetchMyPage(userId: string, offset: number, limit: number): Promise<GratitudeEntry[]> {
   return runWithColFallback((cols) =>
     supabase
       .from('gratitude_entries')
       .select(cols)
       .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+  )
+}
+
+// 使用者自己的工作坊貼文（全部、不分頁）：決定哪些工作坊區塊可見、並補進工作坊池
+// （含僅限本人的舊資料）。一個使用者的工作坊貼文不多，全取無妨。
+async function fetchMyWorkshopEntries(userId: string): Promise<GratitudeEntry[]> {
+  return runWithColFallback((cols) =>
+    supabase
+      .from('gratitude_entries')
+      .select(cols)
+      .eq('user_id', userId)
+      .in('practice_type', WORKSHOP_PRACTICE_TYPES)
       .order('created_at', { ascending: false }),
   )
 }
@@ -293,8 +318,9 @@ export const Route = createFileRoute('/app/community')({
     return out
   },
   loader: async () => {
+    // 只載第一批社群動態（其餘往下滑再向後端要）。
     const [entries, workshopEntriesRaw, sessionRes] = await Promise.all([
-      fetchLatestEntries(),
+      fetchCommunityPage(0, PAGE_SIZE),
       fetchWorkshopEntries(),
       supabase.auth.getSession(),
     ])
@@ -302,8 +328,10 @@ export const Route = createFileRoute('/app/community')({
     const session = sessionRes.data.session
     const userId = session?.user.id ?? null
 
-    const [myEntries, profileRes, modalEntry, userMap, blocked] = await Promise.all([
-      userId ? fetchMyEntries(userId) : Promise.resolve([] as GratitudeEntry[]),
+    // myEntries 只載第一批（往下滑再要）；myWorkshopEntries 全取，供工作坊區塊判斷。
+    const [myEntries, myWorkshopEntries, profileRes, modalEntry, userMap, blocked] = await Promise.all([
+      userId ? fetchMyPage(userId, 0, MY_PAGE_SIZE) : Promise.resolve([] as GratitudeEntry[]),
+      userId ? fetchMyWorkshopEntries(userId) : Promise.resolve([] as GratitudeEntry[]),
       userId
         ? supabase.from('profiles').select('name').eq('id', userId).single()
         : Promise.resolve({ data: null }),
@@ -312,8 +340,10 @@ export const Route = createFileRoute('/app/community')({
       fetchBlockedIds(userId),
     ])
 
-    // 過濾掉已封鎖使用者的公開貼文與每日 modal（自己的 myEntries 不受影響）
-    const visibleFeed = entries.filter((e) => !e.user_id || !blocked.has(e.user_id))
+    const communityHasMore = entries.length === PAGE_SIZE
+    const myHasMore = myEntries.length === MY_PAGE_SIZE
+
+    // 過濾掉已封鎖使用者的工作坊貼文與每日 modal（社群動態/我的貼文在 render 時才濾）
     const visibleWorkshop = workshopEntriesRaw.filter((e) => !e.user_id || !blocked.has(e.user_id))
     const visibleModal =
       modalEntry && modalEntry.user_id && blocked.has(modalEntry.user_id) ? null : modalEntry
@@ -321,18 +351,22 @@ export const Route = createFileRoute('/app/community')({
 
     // Combine unique entries from all feeds for a single supporting data fetch
     const entrySet = new Map<string, GratitudeEntry>()
-    visibleFeed.forEach((e) => entrySet.set(e.id, e))
+    entries.forEach((e) => entrySet.set(e.id, e))
     visibleWorkshop.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
     myEntries.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
+    myWorkshopEntries.forEach((e) => { if (!entrySet.has(e.id)) entrySet.set(e.id, e) })
     const allForSupport = [...entrySet.values()]
 
     const anonName = (profileRes.data?.name ?? null) as string | null
 
     if (allForSupport.length === 0) {
       return {
-        entries: visibleFeed,
+        entries,
         workshopEntries: visibleWorkshop,
         myEntries,
+        myWorkshopEntries,
+        communityHasMore,
+        myHasMore,
         likes: {} as Record<string, LikeInfo>,
         comments: {} as Record<string, Comment[]>,
         commentLikes: {} as Record<string, LikeInfo>,
@@ -357,9 +391,12 @@ export const Route = createFileRoute('/app/community')({
     }
 
     return {
-      entries: visibleFeed,
+      entries,
       workshopEntries: visibleWorkshop,
       myEntries,
+      myWorkshopEntries,
+      communityHasMore,
+      myHasMore,
       ...supporting,
       anonName,
       userId,
@@ -449,6 +486,16 @@ function LoadingState() {
           <div key={i} className="h-40 animate-pulse rounded-3xl bg-primary-soft" />
         ))}
       </div>
+    </div>
+  )
+}
+
+// 往下滑載入下一批時的提示。
+function LoadMoreHint() {
+  return (
+    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+      載入更多…
     </div>
   )
 }
@@ -758,6 +805,12 @@ function workshopIdOfEntry(entry: GratitudeEntry): string {
   return workshopIdFromPayload(entry.payload?.workshop_id)
 }
 
+// 把新一批貼文接在後面，並以 id 去重（新貼文插入導致 offset 漂移時不會重複顯示）。
+function mergeEntries(prev: GratitudeEntry[], next: GratitudeEntry[]): GratitudeEntry[] {
+  const seen = new Set(prev.map((e) => e.id))
+  return [...prev, ...next.filter((e) => !seen.has(e.id))]
+}
+
 function CommunityPage() {
   const loaderData = Route.useLoaderData()
   const { showEntry, focus, workshop } = Route.useSearch()
@@ -765,18 +818,22 @@ function CommunityPage() {
   // 從通知或工作坊發佈導引進來（帶 focus / workshop）時不再彈出每日動態 modal
   const { open, close } = useWelcomeModal(!!modalEntry && !focus && !workshop, showEntry === 1)
 
-  const [allEntries] = useState<GratitudeEntry[]>(loaderData.entries)
+  // 社群動態 / 我的貼文：往下滑時一批批向後端要（規格 1、2）。
+  const [communityFeed, setCommunityFeed] = useState<GratitudeEntry[]>(loaderData.entries)
+  const [communityHasMore, setCommunityHasMore] = useState<boolean>(loaderData.communityHasMore ?? false)
+  const [communityLoading, setCommunityLoading] = useState(false)
+  const [myEntries, setMyEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
+  const [myHasMore, setMyHasMore] = useState<boolean>(loaderData.myHasMore ?? false)
+  const [myLoading, setMyLoading] = useState(false)
   const [workshopEntries] = useState<GratitudeEntry[]>(loaderData.workshopEntries ?? [])
-  const [myEntries] = useState<GratitudeEntry[]>(loaderData.myEntries ?? [])
+  const [myWorkshopEntries] = useState<GratitudeEntry[]>(loaderData.myWorkshopEntries ?? [])
   const [blockedIds, setBlockedIds] = useState<Set<string>>(
     () => new Set(loaderData.blockedIds ?? []),
   )
   const [likes, setLikes] = useState<Record<string, LikeInfo>>(loaderData.likes)
   const [comments, setComments] = useState<Record<string, Comment[]>>(loaderData.comments)
   const [commentLikes, setCommentLikes] = useState<Record<string, LikeInfo>>(loaderData.commentLikes)
-  const [tags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
-  const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
-  const [myDisplayCount, setMyDisplayCount] = useState(PAGE_SIZE)
+  const [tags, setTags] = useState<Record<string, GratitudeTargetTag[]>>(loaderData.tags)
   const [mode, setMode] = useState<FeedMode>('community')
   const [communitySort, setCommunitySort] = useState<CommunitySort>('latest')
   const [selectedWorkshop, setSelectedWorkshop] = useState<string | null>(workshop ?? null)
@@ -784,25 +841,85 @@ function CommunityPage() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const mySentinelRef = useRef<HTMLDivElement>(null)
   const scrollEndRef = useRef<HTMLDivElement>(null)
+  // 後端分頁游標：以「已向後端取得的原始筆數」為 offset，避免封鎖/去重造成漂移。
+  const communityOffset = useRef<number>(loaderData.entries.length)
+  const myOffset = useRef<number>((loaderData.myEntries ?? []).length)
+  const communityLoadingRef = useRef(false)
+  const myLoadingRef = useRef(false)
 
   const userId = loaderData.userId ?? null
   const anonName = loaderData.anonName
-  const userMap = loaderData.userMap ?? {}
+  const userMap = useMemo(() => loaderData.userMap ?? {}, [loaderData.userMap])
+
+  // 把一批新貼文的互動資料（愛心/留言/標籤）併進現有 state；已存在的鍵保留現值
+  // （避免覆蓋使用者本回合的樂觀更新）。
+  const mergeSupporting = useCallback(
+    (s: {
+      likes: Record<string, LikeInfo>
+      comments: Record<string, Comment[]>
+      commentLikes: Record<string, LikeInfo>
+      tags: Record<string, GratitudeTargetTag[]>
+    }) => {
+      setLikes((p) => ({ ...s.likes, ...p }))
+      setComments((p) => ({ ...s.comments, ...p }))
+      setCommentLikes((p) => ({ ...s.commentLikes, ...p }))
+      setTags((p) => ({ ...s.tags, ...p }))
+    },
+    [],
+  )
+
+  const loadMoreCommunity = useCallback(async () => {
+    if (communityLoadingRef.current || !communityHasMore) return
+    communityLoadingRef.current = true
+    setCommunityLoading(true)
+    try {
+      const next = await fetchCommunityPage(communityOffset.current, PAGE_SIZE)
+      communityOffset.current += next.length
+      if (next.length > 0) {
+        const support = await fetchSupporting(next, userId)
+        mergeSupporting(support)
+        setCommunityFeed((prev) => mergeEntries(prev, next))
+      }
+      setCommunityHasMore(next.length === PAGE_SIZE)
+    } catch (e) {
+      console.error('[community loadMore]', e)
+    } finally {
+      communityLoadingRef.current = false
+      setCommunityLoading(false)
+    }
+  }, [communityHasMore, userId, mergeSupporting])
+
+  const loadMoreMy = useCallback(async () => {
+    if (myLoadingRef.current || !myHasMore || !userId) return
+    myLoadingRef.current = true
+    setMyLoading(true)
+    try {
+      const next = await fetchMyPage(userId, myOffset.current, MY_PAGE_SIZE)
+      myOffset.current += next.length
+      if (next.length > 0) {
+        const support = await fetchSupporting(next, userId)
+        mergeSupporting(support)
+        setMyEntries((prev) => mergeEntries(prev, next))
+      }
+      setMyHasMore(next.length === MY_PAGE_SIZE)
+    } catch (e) {
+      console.error('[my loadMore]', e)
+    } finally {
+      myLoadingRef.current = false
+      setMyLoading(false)
+    }
+  }, [myHasMore, userId, mergeSupporting])
 
   const mapTotal = useMemo(
     () => Object.values(userMap).reduce((s, v) => s + v, 0),
     [userMap],
   )
 
-  // 「社群貼文」只放非工作坊貼文（工作坊貼文在「工作坊貼文」分頁聚合）。
-  const communityEntries = useMemo(
-    () => allEntries.filter((e) => !isWorkshopPractice(e.practice_type)),
-    [allEntries],
-  )
-
+  // 社群動態已在後端排除工作坊貼文。'latest' 直接用後端順序；'relevant' 在已載入的
+  // 範圍內依感恩地圖相關度重排（往下滑載入更多後會一併重排）。
   const orderedEntries = useMemo(() => {
-    if (communitySort === 'latest' || mapTotal === 0) return communityEntries
-    return communityEntries
+    if (communitySort === 'latest' || mapTotal === 0) return communityFeed
+    return communityFeed
       .map((entry, i) => ({
         entry,
         i,
@@ -810,26 +927,23 @@ function CommunityPage() {
       }))
       .sort((a, b) => (b.score - a.score) || (a.i - b.i))
       .map((x) => x.entry)
-  }, [communitySort, communityEntries, tags, userMap, mapTotal])
+  }, [communitySort, communityFeed, tags, userMap, mapTotal])
 
   // 我參與（發過文）的工作坊 id —— 規格 [4]：只有發過文的成員看得到該區塊。
+  // 用全量的 myWorkshopEntries（非分頁 myEntries），避免漏掉較舊的工作坊貼文。
   const myWorkshopIds = useMemo(() => {
     const s = new Set<string>()
-    for (const e of myEntries) {
-      if (isWorkshopPractice(e.practice_type)) s.add(workshopIdOfEntry(e))
-    }
+    for (const e of myWorkshopEntries) s.add(workshopIdOfEntry(e))
     return s
-  }, [myEntries])
+  }, [myWorkshopEntries])
 
   // 工作坊貼文池：公開工作坊貼文 + 自己的工作坊貼文（含僅限本人；去重）。
   const workshopPool = useMemo(() => {
     const map = new Map<string, GratitudeEntry>()
     workshopEntries.forEach((e) => map.set(e.id, e))
-    myEntries.forEach((e) => {
-      if (isWorkshopPractice(e.practice_type) && !map.has(e.id)) map.set(e.id, e)
-    })
+    myWorkshopEntries.forEach((e) => { if (!map.has(e.id)) map.set(e.id, e) })
     return [...map.values()]
-  }, [workshopEntries, myEntries])
+  }, [workshopEntries, myWorkshopEntries])
 
   // 分組成區塊，只保留「我發過文」的工作坊（規格 [4]）。
   const workshopBlocks = useMemo(() => {
@@ -859,12 +973,6 @@ function CommunityPage() {
       .filter((e) => !e.user_id || !blockedIds.has(e.user_id))
   }, [workshopPool, selectedWorkshop, blockedIds])
 
-  // 切換模式時回到頁首批次
-  useEffect(() => {
-    setDisplayCount(PAGE_SIZE)
-    setMyDisplayCount(PAGE_SIZE)
-  }, [mode])
-
   // 工作坊發佈導引（規格 [3]）：帶 ?workshop= 進來 → 切到工作坊分頁並開啟該區塊。
   useEffect(() => {
     if (!workshop) return
@@ -872,13 +980,15 @@ function CommunityPage() {
     setSelectedWorkshop(workshop)
   }, [workshop])
 
-  // 從通知點進來（帶 focus 但非工作坊導引）：切到「我的貼文」並確保目標貼文被渲染。
+  // 從通知點進來（帶 focus 但非工作坊導引）：切到「我的貼文」。若目標貼文還沒載入，
+  // 持續往後端取下一批，直到出現或沒有更多（effect 會隨 myEntries 更新重跑）。
   useEffect(() => {
     if (!focus || workshop) return
     setMode('my')
-    const idx = myEntries.findIndex((e) => e.id === focus)
-    if (idx >= 0) setMyDisplayCount((c) => Math.max(c, idx + 1))
-  }, [focus, workshop, myEntries])
+    if (!myEntries.some((e) => e.id === focus) && myHasMore && !myLoadingRef.current) {
+      void loadMoreMy()
+    }
+  }, [focus, workshop, myEntries, myHasMore, loadMoreMy])
 
   // 切換工作坊區塊時重置「看完所有貼文」提示
   useEffect(() => {
@@ -898,40 +1008,33 @@ function CommunityPage() {
     return () => observer.disconnect()
   }, [mode, selectedWorkshop, selectedWorkshopEntries.length])
 
-  const hasMore = displayCount < orderedEntries.length
-  const visibleEntries = orderedEntries
-    .slice(0, displayCount)
-    .filter((e) => !e.user_id || !blockedIds.has(e.user_id))
-  const myHasMore = myDisplayCount < myEntries.length
-  const visibleMyEntries = myEntries.slice(0, myDisplayCount)
+  const visibleEntries = orderedEntries.filter((e) => !e.user_id || !blockedIds.has(e.user_id))
+  const visibleMyEntries = myEntries
 
+  // 社群動態：sentinel 進入視窗 → 向後端要下一批。依賴 feed 長度與 mode：每批載入後
+  // 重新訂閱，若 sentinel 仍在視窗內會再次觸發（避免畫面很高時一次只載一批就停住）。
   useEffect(() => {
-    if (!sentinelRef.current || !hasMore) return
+    const el = sentinelRef.current
+    if (mode !== 'community' || !el || !communityHasMore) return
     const observer = new IntersectionObserver(
-      (observerEntries) => {
-        if (observerEntries[0].isIntersecting) {
-          setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, orderedEntries.length))
-        }
-      },
+      (es) => { if (es[0].isIntersecting) void loadMoreCommunity() },
       { rootMargin: '200px' },
     )
-    observer.observe(sentinelRef.current)
+    observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, orderedEntries.length])
+  }, [mode, communityHasMore, communityFeed.length, loadMoreCommunity])
 
+  // 我的貼文：sentinel 進入視窗 → 向後端要下一批。
   useEffect(() => {
-    if (!mySentinelRef.current || !myHasMore) return
+    const el = mySentinelRef.current
+    if (mode !== 'my' || !el || !myHasMore) return
     const observer = new IntersectionObserver(
-      (observerEntries) => {
-        if (observerEntries[0].isIntersecting) {
-          setMyDisplayCount((prev) => Math.min(prev + PAGE_SIZE, myEntries.length))
-        }
-      },
+      (es) => { if (es[0].isIntersecting) void loadMoreMy() },
       { rootMargin: '200px' },
     )
-    observer.observe(mySentinelRef.current)
+    observer.observe(el)
     return () => observer.disconnect()
-  }, [myHasMore, myEntries.length])
+  }, [mode, myHasMore, myEntries.length, loadMoreMy])
 
   function handleLikeChange(entryId: string, newInfo: LikeInfo) {
     setLikes((prev) => ({ ...prev, [entryId]: newInfo }))
@@ -1013,7 +1116,8 @@ function CommunityPage() {
                   ))}
                 </div>
                 <div ref={mySentinelRef} className="h-4" />
-                {!myHasMore && (
+                {myLoading && <LoadMoreHint />}
+                {!myHasMore && !myLoading && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
                     已經看完所有打卡紀錄囉！
                   </p>
@@ -1073,7 +1177,8 @@ function CommunityPage() {
                   ))}
                 </div>
                 <div ref={sentinelRef} className="h-4" />
-                {!hasMore && (
+                {communityLoading && <LoadMoreHint />}
+                {!communityHasMore && !communityLoading && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
                     已經看完所有打卡紀錄囉！
                   </p>

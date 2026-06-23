@@ -11,7 +11,7 @@ import { insertCommunityPost, markStreak } from '../lib/communityPost'
 import { isoLocalDate } from '../lib/date'
 import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
-import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS } from '../lib/privacy'
+import { DEFAULT_PRIVACY } from '../lib/privacy'
 
 export const Route = createFileRoute('/app/workshop/authentic-self')({
   component: AuthenticSelfModule,
@@ -50,7 +50,6 @@ function AuthenticSelfFlow() {
   const [narrative, setNarrative] = useState<Narrative>({ who: '', did: '', kind: '' })
 
   const [userId, setUserId] = useState<string | null>(null)
-  const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -69,7 +68,6 @@ function AuthenticSelfFlow() {
     setWorkReflection('')
     setLifeReflection('')
     setNarrative({ who: '', did: '', kind: '' })
-    setPrivacy(DEFAULT_PRIVACY)
     setPublishing(false)
     setPublished(false)
     setStep(1)
@@ -119,7 +117,7 @@ function AuthenticSelfFlow() {
           item_3: topLife ? `生活：${topLife}` : '',
           ai_feedback: null,
         },
-        privacy,
+        DEFAULT_PRIVACY,
         {
           v: 'authentic_self',
           top_work: topWork,
@@ -437,7 +435,7 @@ function AuthenticSelfFlow() {
         <p className="text-sm leading-relaxed text-muted-foreground">這是你今天為自己寫下的敘事：</p>
 
         <div className="mt-5 rounded-3xl bg-gradient-soft p-6 shadow-soft">
-          <p className="text-lg font-bold leading-relaxed text-foreground">{assembleNarrative(narrative)}</p>
+          <NarrativeText narrative={narrative} className="text-lg font-bold leading-relaxed text-foreground" />
         </div>
 
         <button
@@ -449,23 +447,22 @@ function AuthenticSelfFlow() {
           {sharing ? '正在生成圖片…' : downloadLabel}
         </button>
 
-        {/* 發佈到社群 */}
+        {/* 發佈到工作坊貼文（規格 [1]：工作坊一定直接分享到工作坊貼文，不再選擇隱私） */}
         <div className="mt-6 rounded-3xl bg-card p-5 shadow-soft">
-          <p className="text-sm font-extrabold text-foreground">把你的自我敘事分享到社群</p>
+          <p className="text-sm font-extrabold text-foreground">把你的自我敘事分享到工作坊</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            選擇要如何出現在社群打卡牆，鼓勵彼此一起認識真實的自己。
+            分享給工作坊夥伴，鼓勵彼此一起認識真實的自己。
           </p>
-          <PrivacyPicker privacy={privacy} onChange={setPrivacy} disabled={publishing || published} />
           <button
             type="button"
             onClick={publish}
             disabled={publishing || published || !userId}
             className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🌟 發佈並前往社群'}
+            {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🌟 發佈到工作坊貼文'}
           </button>
           {!userId && (
-            <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到社群。</p>
+            <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>
           )}
         </div>
 
@@ -730,62 +727,31 @@ function ReflectionField({
   )
 }
 
-function NarrativePreview({ narrative }: { narrative: Narrative }) {
-  const who = narrative.who.trim() || '＿＿＿'
-  const did = narrative.did.trim() || '＿＿＿＿＿'
-  const kind = narrative.kind.trim() || '＿＿＿＿＿＿＿'
+// 自我敘事：固定句型 + 使用者填入（藍色標記，規格 [6]）。空白以底線佔位。
+function FilledText({ children }: { children: React.ReactNode }) {
+  return <span className="font-bold text-blue-600">{children}</span>
+}
+
+function NarrativeText({ narrative, className }: { narrative: Narrative; className?: string }) {
+  const blank = (v: string, placeholder: string) =>
+    v.trim() ? (
+      <FilledText>{v.trim()}</FilledText>
+    ) : (
+      <span className="text-muted-foreground/50">{placeholder}</span>
+    )
   return (
-    <div className="mt-4 rounded-3xl bg-gradient-soft p-5 shadow-soft">
-      <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wider text-primary">即時預覽</p>
-      <p className="text-base font-bold leading-relaxed text-foreground">
-        我是{who}，因為我{did}，所以我是一個{kind}。
-      </p>
-    </div>
+    <p className={`leading-relaxed ${className ?? ''}`}>
+      我是{blank(narrative.who, '＿＿＿')}，因為我{blank(narrative.did, '＿＿＿＿＿')}
+      ，所以我是一個{blank(narrative.kind, '＿＿＿＿＿＿＿')}。
+    </p>
   )
 }
 
-// 隱私三選一（與感恩日記、過程目標覺察一致）。
-function PrivacyPicker({
-  privacy,
-  onChange,
-  disabled,
-}: {
-  privacy: Privacy
-  onChange: (p: Privacy) => void
-  disabled?: boolean
-}) {
+function NarrativePreview({ narrative }: { narrative: Narrative }) {
   return (
-    <div className="mt-3 flex flex-col gap-2">
-      {PRIVACY_OPTIONS.map((opt) => {
-        const active = privacy === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            disabled={disabled}
-            aria-pressed={active}
-            className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${
-              active ? 'border-primary bg-primary/10' : 'border-border bg-muted/40 hover:bg-muted'
-            }`}
-          >
-            <span className="text-lg leading-none">{opt.emoji}</span>
-            <span className="flex-1">
-              <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
-                {opt.label}
-              </span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{opt.hint}</span>
-            </span>
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                active ? 'border-primary' : 'border-border'
-              }`}
-            >
-              {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
-            </span>
-          </button>
-        )
-      })}
+    <div className="mt-4 rounded-3xl bg-gradient-soft p-5 shadow-soft">
+      <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wider text-primary">即時預覽</p>
+      <NarrativeText narrative={narrative} className="text-base font-bold text-foreground" />
     </div>
   )
 }
