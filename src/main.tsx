@@ -15,6 +15,21 @@ import './index.css'
 // 關閉過度滾動回彈…）只作用在 App 內，網頁版完全不受影響。
 if (isNativeApp()) {
   document.documentElement.classList.add('native-app')
+
+  // 鎖定 WebView 縮放，根治「點輸入框後整頁卡在放大狀態」的 bug。
+  //   原因：iOS 在輸入框字級 < 16px 時會自動放大頁面。網頁版是 Safari，iOS 10
+  //   起為了無障礙會忽略 viewport 的縮放鎖定 → 使用者能用雙指縮回；但 App 版是
+  //   WKWebView，它「會」遵守縮放設定，預設又沒鎖 maximum-scale，於是放大進去後
+  //   雙指也縮不回來，頁面就一直卡在放大狀態。
+  //   解法：只在 App 內把 viewport 補上 maximum-scale=1，讓 WKWebView 從頭就不放大。
+  //   （App 本來就無法雙指縮放，鎖定不影響任何既有功能；網頁版的 viewport 完全不動。）
+  const viewport = document.querySelector('meta[name="viewport"]')
+  if (viewport) {
+    viewport.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover',
+    )
+  }
 }
 
 // 套用使用者先前選的字體大小（渲染前套用，避免閃爍）
