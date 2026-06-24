@@ -142,7 +142,7 @@ function HomePage() {
   const { userName, recommendation } = Route.useRouteContext()
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-6 md:px-10">
       <header className="mb-6">
         <p className="font-handwriting text-2xl text-muted-foreground">嗨，歡迎回來</p>
         <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
@@ -632,7 +632,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
   })
 
   return (
-    <section className="mt-10 pb-16">
+    <section className="mt-10 pb-8">
       <div className="mb-4">
         <h2 className="text-2xl font-extrabold text-foreground leading-tight">
           健心訓練中心<br />PSY by PSY Training Center

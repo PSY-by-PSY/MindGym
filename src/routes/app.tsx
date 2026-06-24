@@ -12,6 +12,8 @@ import {
   type NotifPermission,
 } from '../lib/localNotifications'
 import { registerForPush } from '../lib/pushNotifications'
+import { useGlobalKeyboard } from '../lib/keyboard'
+import { hardRefresh } from '../lib/refresh'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -27,10 +29,14 @@ function AppShell() {
   // 確保 device token 對應到目前登入的帳號（startup 時可能 session 還沒就緒）。
   useEffect(() => { void registerForPush() }, [])
 
+  // 全站鍵盤行為（規格 [2][5]）：點空白處收鍵盤、鍵盤彈出時補底部留白。
+  useGlobalKeyboard()
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopHeader />
-      <main className="flex-1 pb-24 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      {/* 鍵盤彈出時，底部留白加上鍵盤高度（--keyboard-height），讓底端輸入框可捲入可視範圍。 */}
+      <main className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(6rem+var(--keyboard-height,0px))]">
         <Outlet />
       </main>
       <BottomNav />
@@ -48,27 +54,11 @@ function TopHeader() {
     setFontScaleState(scale)
   }
 
-  // 安裝成 Web App（standalone）後沒有瀏覽器網址列可重整。先前用 router.invalidate()
-  // 只重跑 loader，但元件內以 useState 快取的 loader 資料不會更新，畫面仍是舊的。
-  // 改成真正「洗掉」舊內容：先解除 PWA service worker、清掉所有快取，再整頁重新載入，
-  // 確保抓到最新前端與資料。
+  // 重整邏輯抽到 lib/refresh，與社群「下拉重整」共用（規格 [3]）。
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
-    try {
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations()
-        await Promise.all(regs.map((r) => r.unregister()))
-      }
-      if ('caches' in window) {
-        const keys = await caches.keys()
-        await Promise.all(keys.map((k) => caches.delete(k)))
-      }
-    } catch (e) {
-      console.error('[refresh]', e)
-    } finally {
-      window.location.reload()
-    }
+    await hardRefresh()
   }
 
   return (

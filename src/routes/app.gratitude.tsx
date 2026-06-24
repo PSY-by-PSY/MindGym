@@ -508,7 +508,7 @@ function IntroStage({
   const difficultyLabel = difficulty === 'basic' ? '初階' : '進階'
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-36 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
       {/* 3-A 大標題 */}
       <h1 className="text-[1.9rem] font-extrabold leading-tight text-foreground">
         感恩日記練習
@@ -755,7 +755,7 @@ function WritingStage({
 
   return (
     <>
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-40 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
       {/* Back button */}
       <button
         onClick={onBack}
@@ -1119,7 +1119,7 @@ function SummaryStage({
   const isFallback = !summaryResult && !!fallbackResult
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 md:px-10">
       {/* 返回鍵：編輯模式回上一頁改日記、唯讀模式回結束頁 */}
       <button
         onClick={onBack}
@@ -1607,7 +1607,7 @@ function CelebrateStage({
   }
 
   return (
-    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-8 pb-12 md:px-10">
+    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-5 pb-8 md:px-10">
       {/* 返回鍵：回到 AI 日記頁面查看（唯讀，不重新生成） */}
       <button
         onClick={onBack}

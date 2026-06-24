@@ -10,6 +10,8 @@ import {
   fetchBlockedIds,
   type ReportTargetType,
 } from '../lib/communityModeration'
+import { usePullToRefresh, PULL_THRESHOLD } from '../lib/pullToRefresh'
+import { hardRefresh } from '../lib/refresh'
 import wordCloudImg from '../assets/WordCloud.jpg'
 
 type GratitudeEntry = {
@@ -479,7 +481,7 @@ function Header() {
 
 function LoadingState() {
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-10 md:px-10">
+    <div className="mx-auto max-w-3xl px-6 pt-6 md:px-10">
       <Header />
       <div className="flex flex-col gap-4">
         {[1, 2, 3, 4].map((i) => (
@@ -851,6 +853,9 @@ function CommunityPage() {
   const anonName = loaderData.anonName
   const userMap = useMemo(() => loaderData.userMap ?? {}, [loaderData.userMap])
 
+  // 下拉重整（規格 [3]）：在頁面頂端往下拉超過門檻 → 硬重整（與頂部重整鈕一致）。
+  const { pull, refreshing } = usePullToRefresh(hardRefresh)
+
   // 把一批新貼文的互動資料（愛心/留言/標籤）併進現有 state；已存在的鍵保留現值
   // （避免覆蓋使用者本回合的樂觀更新）。
   const mergeSupporting = useCallback(
@@ -1062,6 +1067,26 @@ function CommunityPage() {
 
   return (
     <>
+      {/* 下拉重整指示器（規格 [3]）：固定在頂部 header 下方，隨下拉距離淡入。 */}
+      {pull > 0 && (
+        <div
+          className="pointer-events-none fixed left-0 right-0 z-40 flex items-end justify-center overflow-hidden"
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 3.5rem)',
+            height: `${pull}px`,
+            opacity: Math.min(1, pull / PULL_THRESHOLD),
+          }}
+        >
+          <div className="flex items-center gap-2 pb-1 text-xs font-semibold text-muted-foreground">
+            <span
+              className={`h-4 w-4 rounded-full border-2 border-muted-foreground/30 border-t-primary ${refreshing ? 'animate-spin' : ''}`}
+              style={refreshing ? undefined : { transform: `rotate(${pull * 4}deg)` }}
+            />
+            {refreshing ? '更新中…' : pull >= PULL_THRESHOLD ? '放開以重整' : '下拉重整'}
+          </div>
+        </div>
+      )}
+
       {open && modalEntry && (
         <DailyModal
           entry={modalEntry}
@@ -1074,7 +1099,7 @@ function CommunityPage() {
         />
       )}
 
-      <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-10 pb-16 md:px-10">
+      <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-6 pb-8 md:px-10">
         <Header />
 
         <div className="mb-6 rounded-3xl bg-card px-6 pb-6 pt-5 shadow-soft">
@@ -1785,6 +1810,9 @@ function EntryCard({
   onBlock: (blockedUserId: string) => void
 }) {
   const articleRef = useRef<HTMLElement>(null)
+  // 工作坊貼文不顯示「隱私／匿名分享」選單（規格 [4]）：工作坊貼文是隨工作坊發佈，
+  // 不需要切換公開／匿名／實名。他人貼文的檢舉／封鎖選單仍保留（App Store UGC 要求）。
+  const isWorkshopEntry = WORKSHOP_PRACTICE_TYPES.includes(entry.practice_type ?? '')
   const [localAnonName, setLocalAnonName] = useState<string | null>(entry.anon_name)
   const [localPrivacy, setLocalPrivacy] = useState<Privacy>(
     privacyFromFields({ is_shared: entry.is_shared, use_real_name: entry.use_real_name }),
@@ -2000,7 +2028,7 @@ function EntryCard({
         >
           {practiceTag(entry.practice_type).label}
         </span>
-        {isOwn && (
+        {isOwn && !isWorkshopEntry && (
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu((prev) => !prev)}

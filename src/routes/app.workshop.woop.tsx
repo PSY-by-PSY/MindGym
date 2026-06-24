@@ -430,7 +430,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
     { emoji: '🧘', name: '建立習慣', desc: '讓冥想、閱讀或健身持久實踐' },
   ]
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-40 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
       <header className="mt-2">
         <p className="text-sm font-bold tracking-wider text-primary">目標實踐地圖</p>
         <h1 className="mt-1 text-3xl font-extrabold leading-tight text-foreground">你 WOOP 了嗎？</h1>

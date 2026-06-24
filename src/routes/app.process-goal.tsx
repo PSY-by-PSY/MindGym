@@ -210,7 +210,7 @@ async function loadMomentRecords(userId: string): Promise<MomentRecord[]> {
 // ── 共用 UI ──────────────────────────────────────────────────────────────
 function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="animate-fade-up mx-auto max-w-xl px-6 pb-28 pt-8 md:px-10">{children}</div>
+    <div className="animate-fade-up mx-auto max-w-xl px-6 pb-8 pt-5 md:px-10">{children}</div>
   )
 }
 
@@ -446,7 +446,7 @@ function Intro({
 }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pb-36 pt-8 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pb-8 pt-5 md:px-10">
       <h1 className="text-[1.9rem] font-extrabold leading-tight text-foreground">過程目標覺察練習</h1>
 
       <div className="mt-5 flex items-end gap-8">
@@ -1214,7 +1214,7 @@ function PgCelebrateStage({
   }
 
   return (
-    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pb-12 pt-8 md:px-10">
+    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pb-8 pt-5 md:px-10">
       {/* 完成 emoji */}
       <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full text-5xl shadow-soft" style={{ backgroundColor: '#D1FAE5' }}>
         {emoji}

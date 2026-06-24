@@ -72,7 +72,7 @@ export function WorkshopLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-8 pb-40 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
       {/* 頂部：返回首頁 + 步驟進度 */}
       <div className="flex items-center justify-between">
         <Link
