@@ -609,9 +609,17 @@ function DailyModal({
   }
 
   return (
-    // 背景點擊不關閉：使用者必須按右上角的叉叉才能離開
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-      <div className="relative max-h-[90vh] w-full max-w-sm animate-fade-up overflow-y-auto rounded-3xl bg-card p-6 shadow-soft">
+    // 背景點擊不關閉：使用者必須按右上角的叉叉才能離開。
+    // paddingBottom = --keyboard-height：鍵盤彈出時底部讓出空間，flex 置中往上移。
+    // max-h 同步縮減：讓 overflow-y-auto 在 modal 內可向上捲到留言框。
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+      style={{ paddingBottom: 'var(--keyboard-height, 0px)' }}
+    >
+      <div
+        className="relative w-full max-w-sm animate-fade-up overflow-y-auto rounded-3xl bg-card p-6 shadow-soft"
+        style={{ maxHeight: 'calc(90vh - var(--keyboard-height, 0px))' }}
+      >
         {/* 右上角關閉叉叉 */}
         <button
           onClick={onClose}
