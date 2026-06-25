@@ -14,6 +14,7 @@ import {
 import { registerForPush } from '../lib/pushNotifications'
 import { useGlobalKeyboard } from '../lib/keyboard'
 import { hardRefresh } from '../lib/refresh'
+import logoWordmark from '../assets/ui/logo-wordmark.png'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: ({ context }) => {
@@ -65,31 +66,29 @@ function TopHeader() {
     <>
       {/* safe-area padding 疊加在「內容列之上」：header 總高 = safe-area + 56px。
           內容列固定 h-14（56px），不被瀏海/動態島的 inset 壓縮，圖示才不會跑位。 */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-[oklch(1_0_0_/_0.95)] backdrop-blur-md pt-[env(safe-area-inset-top)]">
-        <div className="flex h-14 items-center justify-between px-4">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#FEFAF0]/95 shadow-[0_3px_12px_rgba(0,0,0,0.05)] backdrop-blur-md pt-[env(safe-area-inset-top)]">
+        <div className="flex h-14 items-center justify-between px-5">
           {/* 左側佔位（維持 logo 置中） */}
-          <div className="w-28" />
+          <div className="w-24" />
 
           {/* 中間 Logo */}
-          <span className="text-sm font-extrabold tracking-[0.15em] text-foreground uppercase">
-            PSY by PSY
-          </span>
+          <img src={logoWordmark} alt="PSY by PSY" className="h-[22px] w-auto object-contain" />
 
           {/* 右側 icons */}
-          <div className="flex w-28 items-center justify-end gap-1">
+          <div className="flex w-24 items-center justify-end gap-0.5 text-foreground">
             <NotificationBell />
             <button
               aria-label="重新整理"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90 disabled:opacity-60"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-[#542916]/5 active:scale-90 disabled:opacity-60"
             >
               <RefreshIcon spinning={refreshing} />
             </button>
             <button
               aria-label="選單"
               onClick={() => setDrawerOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-[#542916]/5 active:scale-90"
             >
               <MenuIcon />
             </button>
@@ -100,40 +99,42 @@ function TopHeader() {
       {/* Side Drawer Overlay */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-[#1c1714]/40"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       {/* Side Drawer */}
       <aside
-        className={`fixed top-0 right-0 z-50 flex h-full w-72 flex-col bg-card shadow-2xl transition-transform duration-300 ${
+        className={`fixed top-0 right-0 z-50 flex h-full w-[300px] flex-col overflow-y-auto bg-[#FEFAF0] shadow-[-10px_0_30px_rgba(40,24,12,0.25)] transition-transform duration-300 ${
           drawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
-          <span className="text-sm font-extrabold tracking-widest text-foreground uppercase">選單</span>
+        <div className="flex items-center justify-between px-7 pb-3 pt-[calc(env(safe-area-inset-top)+1.6rem)]">
+          <span className="text-2xl font-black tracking-[0.04em] text-foreground">選單</span>
           <button
             aria-label="關閉選單"
             onClick={() => setDrawerOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-2xl leading-none text-foreground hover:bg-[#542916]/5"
           >
-            <CloseIcon />
+            ✕
           </button>
         </div>
 
-        <nav className="flex flex-col gap-1 p-4">
+        <div className="mx-7 h-px bg-[#e3dccd]" />
+
+        <nav className="flex flex-col gap-1 px-5 py-4">
           <DrawerLink
             to="/onboarding"
             search={{ reassess: true }}
             icon="📋"
-            label="心理健康測驗"
+            label="InMind 心理健康測驗"
             onClick={() => setDrawerOpen(false)}
           />
           <DrawerExternalLink
             href="https://line.me/ti/g2/s8BmdrBAelUmNj858hi5iHzhJ-vhTQVCqTSokQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
             icon="🧠"
-            label="PSYbyPSY 社群"
+            label="PSY by PSY 社群"
           />
           <DrawerExternalLink
             href="https://www.instagram.com/psy_by_psy/"
@@ -141,26 +142,28 @@ function TopHeader() {
             label="IG 追蹤我們"
           />
 
-          <div className="my-2 border-t border-border" />
+          <div className="my-3 h-px bg-[#e3dccd]" />
 
           {/* 字體大小（無障礙大字模式） */}
-          <div className="rounded-2xl px-4 py-3">
+          <div className="px-3 py-1">
             <div className="flex items-center gap-3">
               <span className="text-xl">🔠</span>
-              <span className="font-bold text-foreground">字體大小</span>
+              <span className="text-lg font-black tracking-[0.03em] text-foreground">字體大小</span>
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-4 flex items-center gap-3">
               {FONT_SCALE_OPTIONS.map((opt) => {
                 const active = fontScale === opt.value
                 const sizeClass =
-                  opt.value === 'standard' ? 'text-sm' : opt.value === 'large' ? 'text-base' : 'text-lg'
+                  opt.value === 'standard' ? 'text-[15px]' : opt.value === 'large' ? 'text-xl' : 'text-2xl'
                 return (
                   <button
                     key={opt.value}
                     onClick={() => changeFontScale(opt.value)}
                     aria-pressed={active}
-                    className={`flex-1 rounded-xl px-2 py-2 font-extrabold transition active:scale-95 ${sizeClass} ${
-                      active ? 'bg-foreground text-background' : 'bg-muted text-foreground/70'
+                    className={`rounded-2xl px-4 py-2.5 font-bold transition active:scale-95 ${sizeClass} ${
+                      active
+                        ? 'border-2 border-[#88B8CE] bg-white text-foreground shadow-soft'
+                        : 'border border-[#d8cdbb] bg-[#e7e0d2] text-muted-foreground'
                     }`}
                   >
                     {opt.label}
@@ -168,7 +171,7 @@ function TopHeader() {
                 )
               })}
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
               放大全站文字，方便閱讀。
             </p>
           </div>
@@ -484,33 +487,30 @@ function BottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   const tabs = [
-    { to: '/app/home', label: '訓練中心', icon: <DumbbellIcon /> },
-    { to: '/app/community', label: '社群', icon: <UsersIcon /> },
-    { to: '/app/profile', label: '個人頁面', icon: <UserIcon /> },
+    { to: '/app/home', label: '首頁', icon: <HomeIcon />, alwaysLabel: true },
+    { to: '/app/community', label: '社群', icon: <UsersIcon />, alwaysLabel: false },
+    { to: '/app/profile', label: '個人', icon: <UserIcon />, alwaysLabel: false },
   ] as const
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-[oklch(1_0_0_/_0.95)] backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto flex max-w-3xl">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-[calc(1.4rem+env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border-2 border-[#542916] bg-[#FEFAF0]/[0.92] px-3.5 py-2.5 shadow-[0_8px_20px_rgba(40,24,12,0.18)] backdrop-blur-md">
         {tabs.map((tab) => {
           const isActive = pathname === tab.to || pathname.startsWith(tab.to + '/')
+          const showLabel = isActive || tab.alwaysLabel
           return (
             <Link
               key={tab.to}
               to={tab.to}
               data-status={isActive ? 'active' : undefined}
-              className={`group flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors ${
-                isActive ? 'text-primary' : 'text-muted-foreground'
+              className={`flex items-center gap-2 rounded-full px-[18px] py-3 transition active:scale-95 ${
+                isActive ? 'bg-[#542916] text-[#FEFAF0]' : 'bg-transparent text-[#542916]'
               }`}
             >
-              <span
-                className={`flex h-9 w-16 items-center justify-center rounded-full transition-colors ${
-                  isActive ? 'bg-primary-soft' : 'bg-transparent'
-                }`}
-              >
-                {tab.icon}
-              </span>
-              <span className="text-[11px] font-bold tracking-wide">{tab.label}</span>
+              {tab.icon}
+              {showLabel && (
+                <span className="text-[15px] font-semibold tracking-[0.04em]">{tab.label}</span>
+              )}
             </Link>
           )
         })}
@@ -547,45 +547,29 @@ function RefreshIcon({ spinning }: { spinning?: boolean }) {
   )
 }
 
-function CloseIcon() {
+function HomeIcon() {
   return (
     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  )
-}
-
-function DumbbellIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2.5" y="9.5" width="3" height="5" rx="1" />
-      <rect x="18.5" y="9.5" width="3" height="5" rx="1" />
-      <rect x="5.5" y="10.5" width="2" height="3" rx="0.5" />
-      <rect x="16.5" y="10.5" width="2" height="3" rx="0.5" />
-      <line x1="7.5" y1="12" x2="16.5" y2="12" strokeWidth="2.5" />
+      <path d="M3 11l9-8 9 8" />
+      <path d="M5 10v10h14V10" />
     </svg>
   )
 }
 
 function UsersIcon() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857" />
-      <path d="M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857" />
-      <path d="M7 20H2v-2a3 3 0 0 1 5.356-1.857" />
-      <path d="M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0" />
-      <circle cx="12" cy="7" r="3" />
-      <circle cx="19" cy="8" r="2" />
-      <circle cx="5" cy="8" r="2" />
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <circle cx="17" cy="9" r="2.6" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0M15 19a4.5 4.5 0 0 1 6 0" />
     </svg>
   )
 }
 
 function UserIcon() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="4" />
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="3.6" />
       <path d="M5 20a7 7 0 0 1 14 0" />
     </svg>
   )

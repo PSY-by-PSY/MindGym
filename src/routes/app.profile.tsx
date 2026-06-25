@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
 import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/communityModeration'
-import petCat from '../assets/pet-cat.png'
+import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
+import partnerPlant from '../assets/ui/profile-9d7a.png'
 
 type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
 
@@ -295,14 +296,20 @@ function ScoreBar({ score, tile }: { score: number; tile: string }) {
 
 function Header() {
   return (
-    <div className="relative min-h-44">
-      <div className="absolute inset-x-0 top-0 h-44 rounded-b-[40%] bg-gradient-soft" />
-      <div className="relative px-6 pt-10 md:px-10">
-        <p className="font-handwriting text-2xl text-muted-foreground">我的健心檔案</p>
-        <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-          本週進度，小改變促進大改變
-        </h1>
-      </div>
+    <div className="px-5 pt-4 text-center">
+      <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">我的健心檔案</h1>
+      <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">My PSY by PSY Profile</p>
+      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-foreground">本週進度，小改變促進大改變</p>
+    </div>
+  )
+}
+
+// 區段標題（中文 900 + 英文副標），對齊新版設計
+function SectionLabel({ zh, en }: { zh: string; en: string }) {
+  return (
+    <div className="mt-3">
+      <h2 className="text-[21px] font-black tracking-[0.03em] text-foreground">{zh}</h2>
+      <p className="font-en text-[13px] font-medium text-muted-foreground">{en}</p>
     </div>
   )
 }
@@ -1023,10 +1030,10 @@ function ProfilePage() {
 
   return (
     <>
-      <div className="animate-fade-up mx-auto max-w-3xl pb-4">
+      <div className="animate-fade-up mx-auto max-w-md pb-4">
         <Header />
 
-        <div className="flex flex-col gap-4 px-6 pt-5 md:px-10">
+        <div className="flex flex-col gap-4 px-5 pt-5">
         {/* 名字卡 */}
         <div className="flex items-center gap-4 rounded-3xl bg-card p-5 shadow-soft">
           <button
@@ -1113,15 +1120,49 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* 夥伴小卡（裝飾） */}
-        <div className="flex items-center gap-4 rounded-3xl bg-tile-blue p-5 shadow-soft">
-          <img src={petCat} alt="夥伴貓" className="h-20 w-20 animate-float" />
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Mental Training Partner
-            </p>
-            <p className="mt-1 font-extrabold text-foreground">我的健心夥伴</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">「今天也跟著你一起變強了！」</p>
+        {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
+        <div>
+          <SectionLabel zh="我的健心夥伴" en="Mental Training Partner" />
+          <div
+            className="relative mt-2.5 overflow-hidden rounded-[22px] pb-[50px]"
+            style={{ background: 'linear-gradient(165deg,#d5e8be 0%,#b8d49a 50%,#8fb870 100%)' }}
+          >
+            {/* 底部草地 */}
+            <div
+              className="absolute inset-x-0 bottom-0 h-[54px] rounded-b-[22px]"
+              style={{ background: 'linear-gradient(180deg,#5a7a32 0%,#3d5820 100%)' }}
+            >
+              <svg width="100%" height="28" viewBox="0 0 360 28" preserveAspectRatio="none" className="absolute -top-3 left-0">
+                <path d="M0 28 Q20 4 40 22 Q55 6 70 22 Q88 2 106 20 Q120 6 138 24 Q155 4 170 22 Q188 6 205 20 Q222 4 240 24 Q258 6 274 20 Q290 4 308 22 Q325 6 342 20 Q352 10 360 28Z" fill="#3d5820" />
+              </svg>
+            </div>
+            {/* 盆栽 + 吉祥物 */}
+            <div className="relative flex items-end justify-center px-4 pt-4">
+              <img src={partnerPlant} alt="健心夥伴" className="relative z-[2] w-[180px]" />
+              <img src={gratitudeMascot} alt="" className="absolute bottom-0 right-2 z-[1] w-[110px] -scale-x-100" />
+            </div>
+            {/* PERMA 種子 */}
+            <div className="absolute inset-x-0 bottom-4 z-[3] flex justify-center gap-2">
+              {[
+                { letter: 'P', label: '情緒', color: '#d18197' },
+                { letter: 'E', label: '投入', color: '#e0a93f' },
+                { letter: 'R', label: '連結', color: '#88B8CE' },
+                { letter: 'M', label: '意義', color: '#71744F' },
+                { letter: 'A', label: '成就', color: '#c98a52' },
+              ].map((s) => (
+                <div key={s.letter} className="flex flex-col items-center gap-1">
+                  <span
+                    className="flex h-[30px] w-[30px] items-center justify-center rounded-full font-en text-sm font-black text-white shadow-[0_2px_5px_rgba(0,0,0,0.22)]"
+                    style={{ background: s.color }}
+                  >
+                    {s.letter}
+                  </span>
+                  <span className="text-[11px] font-extrabold text-cream [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
+                    {s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

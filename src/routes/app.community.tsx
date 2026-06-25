@@ -470,22 +470,21 @@ function avatarFor(
 
 function Header() {
   return (
-    <header className="mb-6">
-      <p className="font-handwriting text-2xl text-muted-foreground">大家今天感謝了什麼？</p>
-      <h1 className="mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-        健心房動態 PSY by PSY Feed
-      </h1>
+    <header className="mb-1">
+      <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">健身房動態</h1>
+      <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">PSY by PSY Feed</p>
+      <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">大家今天感謝了什麼？</p>
     </header>
   )
 }
 
 function LoadingState() {
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-6 md:px-10">
+    <div className="mx-auto max-w-md px-5 pt-4">
       <Header />
-      <div className="flex flex-col gap-4">
+      <div className="mt-4 flex flex-col gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-40 animate-pulse rounded-3xl bg-primary-soft" />
+          <div key={i} className="h-40 animate-pulse rounded-[22px] bg-primary-soft" />
         ))}
       </div>
     </div>
@@ -762,17 +761,17 @@ function FeedModeToggle({
   ]
   return (
     <div className="mb-4 flex justify-center">
-      <div className="inline-flex items-center gap-1 rounded-full bg-muted p-1 shadow-soft">
+      <div className="inline-flex items-center gap-1 rounded-full bg-[rgba(241,193,102,0.45)] p-1.5">
         {options.map((opt) => {
           const active = mode === opt.value
           return (
             <button
               key={opt.value}
               onClick={() => onChange(opt.value)}
-              className={`rounded-full px-4 py-2 text-sm font-bold transition
+              className={`rounded-full px-4 py-2 text-sm font-bold tracking-[0.03em] transition
                 ${active
-                  ? 'bg-foreground text-background shadow-soft'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-foreground text-cream'
+                  : 'text-foreground/80 hover:text-foreground'
                 }`}
             >
               {opt.label}
@@ -1107,12 +1106,25 @@ function CommunityPage() {
         />
       )}
 
-      <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-6 pb-8 md:px-10">
+      <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
         <Header />
 
-        <div className="mb-6 rounded-3xl bg-card px-6 pb-6 pt-5 shadow-soft">
-          <p className="mb-1 text-sm font-semibold text-foreground">感恩文字雲</p>
-          <img src={wordCloudImg} alt="感恩文字雲" className="w-full rounded-2xl" />
+        <div
+          className="relative mb-5 mt-3.5 h-[188px] overflow-hidden rounded-[22px]"
+          style={{ background: 'radial-gradient(circle at 50% 45%, #f3e7cf 0%, #ece0c8 55%, #FEFAF0 100%)' }}
+        >
+          <img
+            src={wordCloudImg}
+            alt="感恩文字雲"
+            className="absolute inset-0 h-full w-full object-cover opacity-50 mix-blend-multiply"
+          />
+          <span className="absolute left-[14%] top-[30%] text-[21px] font-bold text-[#876B5F]">公園</span>
+          <span className="absolute left-[34%] top-[20%] text-[25px] font-black text-[#71744F]">狗狗</span>
+          <span className="absolute left-[30%] top-[42%] text-[19px] font-bold text-[#b79858]">開心</span>
+          <span className="absolute right-[18%] top-[24%] text-[25px] font-black text-[#a13a1e]">好吃</span>
+          <span className="absolute left-[20%] top-[62%] text-[21px] font-bold text-[#876B5F]">論文</span>
+          <span className="absolute right-[30%] top-[56%] text-[27px] font-black text-[#88B8CE] [text-shadow:0_0_14px_rgba(136,184,206,0.7)]">心情</span>
+          <span className="absolute right-[16%] top-[64%] text-[22px] font-extrabold text-[#d18197]">伴侶</span>
         </div>
 
         <FeedModeToggle mode={mode} onChange={setMode} userId={userId} />
@@ -1425,13 +1437,12 @@ function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   }
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   return (
-    <ul className="mt-4 flex flex-col gap-2">
+    <ul className="mt-4 flex flex-col gap-3">
       {items.map((item, i) => (
-        <li key={i} className="flex items-start gap-3 rounded-2xl bg-muted px-3.5 py-2.5">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
-            {i + 1}
-          </span>
-          <span className="text-sm leading-relaxed text-foreground/80">{item}</span>
+        <li key={i} className="relative ml-1.5 flex gap-2 rounded-xl bg-cream py-3.5 pl-[18px] pr-4">
+          <span className="absolute -left-3 top-1/2 h-[15px] w-[26px] -translate-y-1/2 -rotate-[8deg] rounded-[50%] border-4 border-[#6b4a36] border-t-[#46291c] bg-transparent" />
+          <span className="shrink-0 text-[15px] font-extrabold text-foreground">{i + 1}.</span>
+          <span className="text-[15px] leading-[1.55] text-foreground-soft">{item}</span>
         </li>
       ))}
     </ul>
@@ -2000,9 +2011,10 @@ function EntryCard({
   return (
     <article
       ref={articleRef}
-      className={`rounded-3xl bg-card p-5 shadow-soft transition ${
+      className={`rounded-[22px] p-[18px] transition ${
         autoFocus ? 'ring-2 ring-primary' : ''
       }`}
+      style={{ background: index % 2 === 0 ? 'rgba(136,184,206,0.55)' : 'rgba(185,176,120,0.5)' }}
     >
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -2010,19 +2022,19 @@ function EntryCard({
           <img
             src={avatar.photoUrl}
             alt="頭像"
-            className="h-11 w-11 rounded-full object-cover"
+            className="h-[54px] w-[54px] rounded-full object-cover"
           />
         ) : (
-          <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
+          <div className={`flex h-[54px] w-[54px] items-center justify-center rounded-full text-xl ${avatar.tile}`}>
             {avatar.emoji}
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-extrabold text-foreground">
+          <p className="truncate text-[21px] font-black tracking-[0.03em] text-foreground">
             {localAnonName ?? '匿名使用者'}
           </p>
           <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
+            <p className="font-en text-sm font-semibold text-muted-foreground">{formatDate(entry.entry_date)}</p>
             {entry.current_streak != null && entry.current_streak > 0 && (
               <span className="text-xs font-semibold text-orange-500">🔥 連續 {entry.current_streak} 天</span>
             )}
@@ -2031,9 +2043,8 @@ function EntryCard({
             )}
           </div>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold text-foreground ${practiceTag(entry.practice_type).tile}`}
-        >
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#876B5F] bg-cream px-2.5 py-1 text-[13px] font-bold text-foreground">
+          <i className="h-2 w-2 rounded-full bg-[#71744F]" />
           {practiceTag(entry.practice_type).label}
         </span>
         {isOwn && !isWorkshopEntry && (
@@ -2140,7 +2151,7 @@ function EntryCard({
       )}
 
       {/* Action bar */}
-      <div className="mt-4 flex items-center gap-3 border-t border-border pt-3">
+      <div className="mt-4 flex items-center gap-3 border-t border-[rgba(84,41,22,0.18)] pt-3">
         <button
           onClick={toggleLike}
           disabled={!userId || liking}

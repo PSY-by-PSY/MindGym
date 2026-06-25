@@ -7,20 +7,42 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'PingFang TC', 'Microsoft JhengHei', 'sans-serif'],
+        sans: ['Noto Sans TC', 'ui-sans-serif', 'system-ui', '-apple-system', 'PingFang TC', 'Microsoft JhengHei', 'sans-serif'],
         heading: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        en: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         handwriting: ['Caveat', 'Kalam', 'Noto Sans TC', 'cursive'],
       },
       colors: {
         background: 'var(--background)',
-        foreground: 'var(--foreground)',
-        card: 'var(--card)',
+        page: 'var(--page)',
+        foreground: {
+          DEFAULT: 'var(--foreground)',
+          soft: 'var(--foreground-soft)',
+        },
+        card: {
+          DEFAULT: 'var(--card)',
+          cream: 'var(--card-cream)',
+        },
         primary: {
           DEFAULT: 'var(--primary)',
           foreground: 'var(--primary-foreground)',
           soft: 'var(--primary-soft)',
           glow: 'var(--primary-glow)',
         },
+        brand: 'var(--primary)',
+        cream: 'var(--card-cream)',
+        ink: {
+          DEFAULT: 'var(--foreground)',
+          deep: 'var(--brown-deep)',
+        },
+        gold: {
+          DEFAULT: 'var(--gold)',
+          deep: 'var(--gold-deep)',
+        },
+        tan: 'var(--tan)',
+        olive: 'var(--olive)',
+        blush: 'var(--blush)',
+        rust: 'var(--rust)',
         'night-deep': 'var(--night-deep)',
         'night-mid': 'var(--night-mid)',
         secondary: 'var(--secondary)',
@@ -34,7 +56,10 @@ export default {
         'tile-pink': 'var(--tile-pink)',
         'tile-mint': 'var(--tile-mint)',
         'tile-lemon': 'var(--tile-lemon)',
-        border: 'var(--border)',
+        border: {
+          DEFAULT: 'var(--border)',
+          strong: 'var(--border-strong)',
+        },
         ring: 'var(--ring)',
       },
       borderRadius: {

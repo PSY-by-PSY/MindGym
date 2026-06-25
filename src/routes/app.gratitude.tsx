@@ -9,6 +9,9 @@ import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
 import { track } from '../lib/analytics'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
+import heartsBanner from '../assets/ui/hearts-banner.png'
+import sleepingMascot from '../assets/ui/sleeping-mascot.png'
+import celebrateHearts from '../assets/ui/celebrate-hearts.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -508,27 +511,28 @@ function IntroStage({
   const difficultyLabel = difficulty === 'basic' ? '初階' : '進階'
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
-      {/* 3-A 大標題 */}
-      <h1 className="text-[1.9rem] font-extrabold leading-tight text-foreground">
-        感恩日記練習
-      </h1>
-
-      {/* 3-B 基本資訊行 */}
-      <div className="mt-5 flex items-end gap-8">
-        <div>
-          <p className="text-3xl font-extrabold text-foreground">5</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">分鐘</p>
-        </div>
-        <div>
-          <p className="text-3xl font-extrabold text-foreground">{difficultyLabel}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">難度</p>
+    <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
+      {/* 愛心橫幅 + 5 分鐘標記 */}
+      <div className="relative -mx-5 h-[170px] overflow-hidden">
+        <img
+          src={heartsBanner}
+          alt=""
+          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+        />
+        <div className="absolute right-5 top-16 z-[2] flex h-[70px] w-[70px] flex-col items-center justify-center rounded-xl border-[3px] border-[#88B8CE] bg-cream">
+          <span className="font-en text-[30px] font-bold leading-none text-foreground">5</span>
+          <span className="mt-0.5 text-xs text-muted-foreground">分鐘</span>
         </div>
       </div>
 
-      {/* 3-C 常駐描述 */}
-      <div className="mt-5 rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/80">
+      {/* 3-A 大標題 */}
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">感恩日記練習</h1>
+      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Gratitude Journal</p>
+
+      {/* 3-C 常駐描述（黃色卡） */}
+      <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         感恩日記（Gratitude Journal）是正向心理學中最具代表性的練習之一，透過每天有意識地回顧值得感謝的事件，幫助大腦重新聚焦於生活中的支持、善意與美好經驗。
+        <span className="ml-1 align-baseline text-xs font-bold text-[#542916]">（難度：{difficultyLabel}）</span>
       </div>
 
       {/* 3-C2 查看更多展開 */}
@@ -621,59 +625,51 @@ function IntroStage({
       </div>
 
       {/* 3-D 練習內容清單 */}
-      <div className="mt-5 flex flex-col gap-2.5">
+      <div className="mt-5 flex flex-col gap-3.5">
         {['選擇練習難度', '寫下三件感恩的事', '閱讀 AI 教練回饋'].map((item) => (
-          <div key={item} className="flex items-center gap-2.5 text-sm text-foreground/80">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary/70 text-[10px] font-extrabold text-primary">
-              ✓
-            </span>
+          <div key={item} className="flex items-center gap-3 text-base text-foreground">
+            <span className="h-[22px] w-[22px] shrink-0 rounded-full bg-[#88B8CE]" />
             {item}
           </div>
         ))}
       </div>
 
       {/* 3-E 難度選擇 */}
-      <p className="mt-7 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        CHOOSE INTENSITY
-      </p>
-      <div className="mt-1 flex items-baseline justify-between">
-        <h3 className="text-base font-extrabold text-foreground">依今天的能量挑一個強度</h3>
-        <div className="whitespace-nowrap text-xs text-muted-foreground">
-          {PERMA_BOOSTS.map(({ label, delta }) => (
-            <span key={label} className="mr-3">
-              {label} <strong className="text-foreground">+{delta}</strong>
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">依據你今天的能量挑一個強度</h3>
+      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose Intensity</p>
+      <div className="flex gap-3">
         <button
           onClick={() => onChangeDifficulty('basic')}
-          className={`relative flex flex-col items-start rounded-2xl bg-tile-mint p-4 text-left transition active:scale-[0.98] ${
-            difficulty === 'basic' ? 'ring-2 ring-orange-400' : ''
+          className={`relative flex aspect-square flex-1 items-end justify-center overflow-hidden rounded-[18px] border-[3px] border-gold-deep bg-gold pb-3.5 transition active:scale-[0.98] ${
+            difficulty === 'basic' ? 'ring-2 ring-gold-deep ring-offset-2 ring-offset-background' : ''
           }`}
         >
-          <span className="absolute right-3 top-3 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-            輕量
-          </span>
-          <span className="mt-5 text-[0.95rem] font-extrabold text-emerald-800">初階練習</span>
-          <span className="mt-1 text-xs font-medium text-emerald-700">5 分 能量值</span>
+          <span className="text-[30px] font-black tracking-[0.04em] text-cream [text-shadow:0_2px_0_rgba(132,90,30,0.4)]">初階練習</span>
         </button>
-        <div className="relative flex flex-col items-start rounded-2xl bg-muted/50 p-4 text-left grayscale opacity-50 cursor-not-allowed select-none">
-          <span className="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-            施工中
-          </span>
-          <span className="mt-5 text-[0.95rem] font-extrabold text-muted-foreground">進階練習</span>
-          <span className="mt-1 text-xs font-medium text-muted-foreground">10 分 能量值</span>
+        <div className="relative flex aspect-square flex-1 cursor-not-allowed select-none items-end justify-center overflow-hidden rounded-[18px] border-[3px] border-[#6b5b50] bg-[#6b5b50] pb-3.5">
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-black/25 px-2 py-0.5 text-[10px] font-bold text-white">施工中</span>
+          <span className="text-[30px] font-black tracking-[0.04em] text-[#cabcae]">進階練習</span>
         </div>
       </div>
+      <p className="mt-3 text-sm text-muted-foreground">
+        {PERMA_BOOSTS.map(({ label, delta }) => (
+          <span key={label} className="mr-3">
+            {label} <strong className="text-foreground">+{delta}</strong>
+          </span>
+        ))}
+      </p>
 
       {/* 開始練習 CTA */}
-      <div className="mt-6">
-        <PrimaryCta onClick={onStart} variant="next">
-          開始練習
-        </PrimaryCta>
-      </div>
+      <button
+        onClick={onStart}
+        className="mt-6 flex h-[60px] w-full items-center justify-center gap-3 rounded-full bg-[#88B8CE] text-xl font-black tracking-[0.08em] text-cream shadow-[0_4px_10px_rgba(136,184,206,0.4)] transition active:scale-[0.98]"
+      >
+        開始練習
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9 8l4 4-4 4" />
+        </svg>
+      </button>
     </div>
   )
 }
@@ -755,7 +751,7 @@ function WritingStage({
 
   return (
     <>
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
+    <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
       {/* Back button */}
       <button
         onClick={onBack}
@@ -872,63 +868,22 @@ function WritingStage({
 }
 
 function CircularProgress({ filled, chars }: { filled: number; chars: number }) {
-  const r = 52
-  const circumference = 2 * Math.PI * r
-  const strokeDashoffset = circumference * (1 - filled / 3)
   const isComplete = filled === 3
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative">
-        <svg
-          width="140"
-          height="140"
-          viewBox="0 0 140 140"
-          style={
-            isComplete
-              ? { filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.65))' }
-              : undefined
-          }
+    <div className="flex flex-col items-center">
+      <div className="relative mx-auto h-[160px] w-[200px]">
+        <img src={sleepingMascot} alt="" className="pointer-events-none absolute left-1/2 top-[-6px] w-[150px] -translate-x-1/2" />
+        <div
+          className={`absolute left-1/2 top-[46px] flex h-[128px] w-[128px] -translate-x-1/2 items-center justify-center rounded-full border-[9px] bg-[rgba(254,250,240,0.7)] ${
+            isComplete ? 'border-gold-deep' : 'border-foreground'
+          }`}
+          style={isComplete ? { filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.55))' } : undefined}
         >
-          {/* Track */}
-          <circle
-            cx="70"
-            cy="70"
-            r={r}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="10"
-            className="text-muted-foreground/20"
-          />
-          {/* Progress */}
-          <circle
-            cx="70"
-            cy="70"
-            r={r}
-            fill="none"
-            stroke={isComplete ? '#f59e0b' : '#3b56a8'}
-            strokeWidth="10"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            transform="rotate(-90 70 70)"
-            style={{ transition: 'stroke-dashoffset 0.7s ease, stroke 0.5s ease' }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className={`text-2xl font-extrabold ${
-              isComplete ? 'text-amber-500' : 'text-foreground'
-            }`}
-          >
-            {filled}/3
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            今日進度
-          </span>
+          <span className="font-en text-[40px] font-bold text-foreground">{filled}/3</span>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">今日已寫 {chars} 字</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">今日已寫 {chars} 字</p>
     </div>
   )
 }
@@ -1119,22 +1074,21 @@ function SummaryStage({
   const isFallback = !summaryResult && !!fallbackResult
 
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 md:px-10">
-      {/* 返回鍵：編輯模式回上一頁改日記、唯讀模式回結束頁 */}
-      <button
-        onClick={onBack}
-        disabled={submitting}
-        className="mb-5 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90 disabled:opacity-50"
-        aria-label={mode === 'edit' ? '返回編輯日記' : '返回'}
-      >
-        <BackIcon />
-      </button>
-
-      <p className="font-handwriting text-2xl text-muted-foreground">今天的回顧</p>
-      <h2 className="mb-1 mt-1 text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
-        寫下你的感恩日記 ✨
-      </h2>
-      <p className="text-xs text-muted-foreground">{date}</p>
+    <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
+      <div className="relative min-h-[96px]">
+        {/* 返回鍵：編輯模式回上一頁改日記、唯讀模式回結束頁 */}
+        <button
+          onClick={onBack}
+          disabled={submitting}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#efe7d6] bg-white text-foreground shadow-[0_2px_5px_rgba(0,0,0,0.06)] transition active:scale-90 disabled:opacity-50"
+          aria-label={mode === 'edit' ? '返回編輯日記' : '返回'}
+        >
+          <BackIcon />
+        </button>
+        <img src={celebrateHearts} alt="" className="pointer-events-none absolute right-0 top-[-6px] w-[150px]" />
+        <h2 className="mt-3.5 text-[25px] font-black tracking-[0.03em] text-foreground">你今天的感恩回顧</h2>
+        <p className="font-en mt-1 text-sm font-bold text-muted-foreground">{date}</p>
+      </div>
 
       {/* Entries with target tag badges */}
       <div className="mb-6 mt-6 flex flex-col gap-3">
@@ -1607,7 +1561,7 @@ function CelebrateStage({
   }
 
   return (
-    <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pt-5 pb-8 md:px-10">
+    <div className="animate-fade-up mx-auto flex max-w-md flex-col items-center px-5 pt-4 pb-8">
       {/* 返回鍵：回到 AI 日記頁面查看（唯讀，不重新生成） */}
       <button
         onClick={onBack}

@@ -10,10 +10,10 @@ import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from 
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
-// 模組專用配色
-const TEAL = { backgroundColor: '#E1F5EE', color: '#085041' }
-const PURPLE_BG = { backgroundColor: '#EEEDFE', color: '#26215C' }
-const PURPLE = '#534AB7'
+// 模組專用配色（對齊新版暖色設計）
+const TEAL = { backgroundColor: '#d7ebd9', color: '#3f6b46' }
+const PURPLE_BG = { backgroundColor: '#f3ead9', color: '#542916' }
+const PURPLE = '#542916'
 
 const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
 function pickAnonName() {
@@ -229,7 +229,7 @@ function PurpleCta({
       onClick={onClick}
       disabled={disabled}
       className="flex h-14 w-full items-center justify-center gap-2 rounded-full text-base font-extrabold tracking-[0.15em] text-white transition active:scale-[0.98] disabled:opacity-40"
-      style={{ backgroundColor: disabled ? '#B9B4E6' : PURPLE }}
+      style={{ backgroundColor: disabled ? '#cfe2ee' : PURPLE }}
     >
       {children}
     </button>
@@ -287,7 +287,7 @@ function AutoTextarea({
         placeholder={placeholder}
         autoFocus={autoFocus}
         rows={1}
-        className="w-full resize-none overflow-hidden rounded-2xl border border-border bg-card px-4 py-3 text-[15px] leading-relaxed text-foreground shadow-sm outline-none transition focus:border-[#534AB7]"
+        className="w-full resize-none overflow-hidden rounded-2xl border border-border bg-card px-4 py-3 text-[15px] leading-relaxed text-foreground shadow-sm outline-none transition focus:border-[#542916]"
         style={{ minHeight, ...style }}
       />
       {voice && (
@@ -392,7 +392,7 @@ function ProcessGoalPage() {
     return (
       <Screen>
         <div className="mt-20 flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-soft border-t-[#534AB7]" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-soft border-t-[#542916]" />
           <p className="text-sm text-muted-foreground">載入中…</p>
         </div>
       </Screen>
@@ -779,7 +779,7 @@ function RecordModule({
               onClick={save}
               disabled={submitting || loadingAi}
               className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
-              style={{ backgroundColor: submitting || loadingAi ? '#B9B4E6' : PURPLE }}
+              style={{ backgroundColor: submitting || loadingAi ? '#cfe2ee' : PURPLE }}
             >
               {submitting ? '處理中…' : '下一步 →'}
             </button>
@@ -1020,7 +1020,7 @@ function BoostModule({
               onClick={save}
               disabled={submitting || loadingAi}
               className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
-              style={{ backgroundColor: submitting || loadingAi ? '#B9B4E6' : PURPLE }}
+              style={{ backgroundColor: submitting || loadingAi ? '#cfe2ee' : PURPLE }}
             >
               {submitting ? '處理中…' : '下一步 →'}
             </button>
@@ -1101,7 +1101,7 @@ function PgShareCard({
           padding: '28px 36px',
         }}
       >
-        <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#534AB7', marginBottom: 14 }}>
+        <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#542916', marginBottom: 14 }}>
           {isRecord ? '我的專注時刻' : '遇到的困境'}
         </div>
         <div style={{ fontSize: mainFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{mainText}</div>
@@ -1116,7 +1116,7 @@ function PgShareCard({
             padding: '28px 32px',
           }}
         >
-          <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#534AB7', marginBottom: 14 }}>
+          <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#542916', marginBottom: 14 }}>
             {isRecord ? 'AI 教練觀察' : '我的專注錦囊'}
           </div>
           <div style={{ fontSize: 20, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{aiText}</div>
@@ -1127,7 +1127,7 @@ function PgShareCard({
       {streak !== null && streak > 0 && (
         <div
           style={{
-            background: 'linear-gradient(135deg,#534AB7 0%,#7c75d4 100%)',
+            background: 'linear-gradient(135deg,#542916 0%,#88B8CE 100%)',
             borderRadius: 32,
             padding: '26px 36px',
             textAlign: 'center',
@@ -1321,7 +1321,7 @@ function PgCelebrateStage({
           onClick={handleFinish}
           disabled={saving}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
-          style={{ backgroundColor: saving ? '#B9B4E6' : PURPLE }}
+          style={{ backgroundColor: saving ? '#cfe2ee' : PURPLE }}
         >
           ✅ 結束今天練習
         </button>

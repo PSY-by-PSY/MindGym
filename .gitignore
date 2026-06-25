@@ -20,6 +20,9 @@ dist-ssr
 __pycache__/
 *.pyc
 
+# Claude Design 交付素材包（參考用，素材已複製到 src/assets/ui）
+web-app-ui/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
