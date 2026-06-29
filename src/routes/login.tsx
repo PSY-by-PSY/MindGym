@@ -9,7 +9,7 @@ import {
   type InAppBrowser,
 } from '../lib/inAppBrowser'
 import { isNativeApp, signInWithGoogleNative } from '../lib/nativeAuth'
-import coachWelcome from '../assets/brain-lifter.png'
+import coachWelcome from '../assets/ui/gratitude-mascot.png'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {

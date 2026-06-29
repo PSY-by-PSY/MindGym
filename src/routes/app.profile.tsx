@@ -2,9 +2,12 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
-import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/communityModeration'
-import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
+import playingMascot from '../assets/ui/playing-mascot.png'
+import dancingStars from '../assets/ui/dancing-stars.png'
+import meadow from '../assets/ui/meadow-band.png'
 import partnerPlant from '../assets/ui/profile-9d7a.png'
+import avatar1 from '../assets/ui/avatar-1.png'
+import avatar2 from '../assets/ui/avatar-2.png'
 
 type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
 
@@ -16,12 +19,13 @@ const TARGET_META: Record<TargetCode, { emoji: string; label: string }> = {
   custom:      { emoji: '🏷️', label: '自訂' },
 }
 
+// 暖色重設計：對齊附圖五（自己=金、身邊他人=藍、自訂=粉），其餘沿用全站語意色
 const TARGET_COLORS: Record<TargetCode, string> = {
-  others:      '#6BAED6',
-  self:        '#FD8D3C',
-  environment: '#74C476',
-  experience:  '#9E9AC8',
-  custom:      '#BDBDBD',
+  self:        '#F1C166',
+  others:      '#88B8CE',
+  environment: '#7BA86E',
+  experience:  '#C99A6A',
+  custom:      '#D18197',
 }
 
 const TARGET_INSIGHT: Record<TargetCode, string> = {
@@ -40,23 +44,20 @@ const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
   custom:      { title: '🏷️ 自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
 }
 
-type AvatarCode = 'star' | 'blossom' | 'leaf' | 'sun' | 'butterfly' | 'wave'
+type AvatarCode = 'avatar-1' | 'avatar-2'
 
-const AVATAR_OPTIONS: { code: AvatarCode; emoji: string; tile: string; label: string }[] = [
-  { code: 'star',      emoji: '🌟', tile: 'bg-tile-peach', label: '星光' },
-  { code: 'blossom',   emoji: '🌸', tile: 'bg-tile-pink',  label: '花朵' },
-  { code: 'leaf',      emoji: '🌿', tile: 'bg-tile-mint',  label: '綠意' },
-  { code: 'sun',       emoji: '☀️', tile: 'bg-tile-blue',  label: '陽光' },
-  { code: 'butterfly', emoji: '🦋', tile: 'bg-tile-pink',  label: '蝴蝶' },
-  { code: 'wave',      emoji: '🌊', tile: 'bg-tile-blue',  label: '海浪' },
+const AVATAR_OPTIONS: { code: AvatarCode; src: string; label: string }[] = [
+  { code: 'avatar-1', src: avatar1, label: '夥伴一' },
+  { code: 'avatar-2', src: avatar2, label: '夥伴二' },
 ]
 
 function isPhotoAvatar(code: string | null): boolean {
   return !!code && (code.startsWith('data:image') || code.startsWith('http'))
 }
 
-function avatarByCode(code: string | null): { emoji: string; tile: string } {
-  return AVATAR_OPTIONS.find((a) => a.code === code) ?? { emoji: '🌟', tile: 'bg-tile-peach' }
+// 頭像現在固定為兩張角色圖，預設 avatar-1。舊資料（emoji 代號 / null）一律回退到 avatar-1。
+function avatarSrcByCode(code: string | null): string {
+  return AVATAR_OPTIONS.find((a) => a.code === code)?.src ?? avatar1
 }
 
 type PermaScores = {
@@ -108,7 +109,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0, blockedList: [] as BlockedListItem[] }
+    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
 
     const fallbackName =
       (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -123,7 +124,7 @@ export const Route = createFileRoute('/app/profile')({
     const lastDay = new Date(y, m, 0).getDate()
     const endOfMonth = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
 
-    const [profileRes, permaRes, entriesRes, allDatesRes, focusAllRes, morningAllRes, focusMonthRes, morningMonthRes, blockedList] = await Promise.all([
+    const [profileRes, permaRes, entriesRes, allDatesRes, focusAllRes, morningAllRes, focusMonthRes, morningMonthRes] = await Promise.all([
       supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle(),
       supabase
         .from('perma_scores')
@@ -150,7 +151,6 @@ export const Route = createFileRoute('/app/profile')({
       supabase.from('morning_logs').select('log_date').eq('user_id', userId),
       supabase.from('focus_logs').select('log_date').eq('user_id', userId).gte('log_date', startOfMonth).lte('log_date', endOfMonth),
       supabase.from('morning_logs').select('log_date').eq('user_id', userId).gte('log_date', startOfMonth).lte('log_date', endOfMonth),
-      fetchBlockedList(userId),
     ])
 
     // 連續打卡與統計跨練習計算（感恩日記 + 過程目標覺察）
@@ -185,7 +185,6 @@ export const Route = createFileRoute('/app/profile')({
       streak,
       monthlyCount,
       totalCount,
-      blockedList,
     }
   },
   pendingComponent: LoadingState,
@@ -205,10 +204,21 @@ const WEEK_DAYS = ['日','一','二','三','四','五','六']
 
 // ── PERMA 雷達圖 ────────────────────────────────────────────────────────────
 
+// 黃色五角星標記（資料頂點用），對齊附圖的手繪星星風格
+function starPolygon(cx: number, cy: number, outer: number, inner: number): string {
+  const pts: string[] = []
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outer : inner
+    const a = ((-90 + i * 36) * Math.PI) / 180
+    pts.push(`${(cx + Math.cos(a) * r).toFixed(2)},${(cy + Math.sin(a) * r).toFixed(2)}`)
+  }
+  return pts.join(' ')
+}
+
 function PermaRadar({ scores }: { scores: PermaScores }) {
-  const cx = 130
-  const cy = 122
-  const maxR = 76
+  const cx = 160
+  const cy = 150
+  const maxR = 80
   const n = PERMA_DIMENSIONS.length
   const angle = (i: number) => ((-90 + (i * 360) / n) * Math.PI) / 180
   const point = (i: number, r: number): [number, number] => [
@@ -218,79 +228,72 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
   const poly = (r: number) =>
     PERMA_DIMENSIONS.map((_, i) => point(i, r).join(',')).join(' ')
 
-  const dataPts = PERMA_DIMENSIONS.map((d, i) => point(i, (scores[d.key] / 5) * maxR))
+  const dataPts = PERMA_DIMENSIONS.map((d, i) => point(i, (Math.max(0, scores[d.key]) / 5) * maxR))
   const dataPoly = dataPts.map((p) => p.join(',')).join(' ')
 
   return (
-    <svg viewBox="0 0 260 250" className="w-full">
+    <svg viewBox="0 0 320 300" className="w-full">
+      {/* 藍色同心五邊形格線 */}
       {[1, 2, 3, 4, 5].map((level) => (
         <polygon
           key={level}
           points={poly((level / 5) * maxR)}
-          fill="none"
-          stroke="var(--border)"
-          strokeWidth="1.5"
+          fill={level === 5 ? 'rgba(136,184,206,0.06)' : 'none'}
+          stroke={level === 5 ? '#7fb0c9' : '#a6cce0'}
+          strokeWidth={level === 5 ? 1.8 : 1.3}
+          strokeLinejoin="round"
         />
       ))}
+      {/* 軸線 */}
       {PERMA_DIMENSIONS.map((_, i) => {
         const [x, y] = point(i, maxR)
-        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="var(--border)" strokeWidth="1.5" />
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#c4dded" strokeWidth="1.1" />
       })}
-      <polygon points={dataPoly} fill="var(--primary)" fillOpacity="0.25" stroke="var(--primary)" strokeWidth="2.5" strokeLinejoin="round" />
+      {/* 金色資料區塊 + 星星頂點 */}
+      <polygon points={dataPoly} fill="rgba(241,193,102,0.5)" stroke="#e0a93f" strokeWidth="2.5" strokeLinejoin="round" />
       {dataPts.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="4.5" fill="var(--primary)" stroke="var(--card)" strokeWidth="2" />
+        <polygon
+          key={i}
+          points={starPolygon(x, y, 7.5, 3)}
+          fill="#F1C166"
+          stroke="#dd9f33"
+          strokeWidth="1"
+          strokeLinejoin="round"
+        />
       ))}
+      {/* 各維度標籤 + 分數框 */}
       {PERMA_DIMENSIONS.map((d, i) => {
-        const [x, y] = point(i, maxR + 22)
+        const [lx, ly] = point(i, maxR + 30)
+        const by = ly + 13
         return (
-          <text
-            key={d.key}
-            x={x}
-            y={y - 6}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize="12"
-            fontWeight="800"
-            fill="var(--muted-foreground)"
-          >
-            {d.letter} {d.short}
-          </text>
-        )
-      })}
-      {PERMA_DIMENSIONS.map((d, i) => {
-        const [x, y] = point(i, maxR + 22)
-        return (
-          <text
-            key={`${d.key}-score`}
-            x={x}
-            y={y + 8}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize="11"
-            fontWeight="800"
-            fill="var(--primary)"
-          >
-            {scores[d.key]}/5
-          </text>
+          <g key={d.key}>
+            <text
+              x={lx}
+              y={ly - 3}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="12.5"
+              fontWeight="800"
+              fill="#542916"
+            >
+              {d.letter} {d.label}
+            </text>
+            <rect x={lx - 16} y={by - 11} width="32" height="22" rx="7" fill="#FEFAF0" stroke="#542916" strokeWidth="1.5" />
+            <text
+              x={lx}
+              y={by + 1}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="13"
+              fontWeight="800"
+              fill="#542916"
+            >
+              {Math.max(0, scores[d.key]).toFixed(1)}
+            </text>
+          </g>
         )
       })}
     </svg>
-  )
-}
-
-function ScoreBar({ score, tile }: { score: number; tile: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex flex-1 gap-1">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className={`h-2.5 flex-1 rounded-full transition-all ${i <= score ? tile : 'bg-muted'}`}
-          />
-        ))}
-      </div>
-      <span className="w-9 text-right text-sm font-extrabold text-foreground">{score}/5</span>
-    </div>
   )
 }
 
@@ -329,24 +332,26 @@ function LoadingState() {
 // ── 感恩對象地圖 ────────────────────────────────────────────────────────────
 
 function DonutChart({ segments }: { segments: { code: TargetCode; count: number; pct: number }[] }) {
-  const r = 38
+  const r = 37
   const cx = 50
   const cy = 50
   const circumference = 2 * Math.PI * r
+  // 單一區塊時不留缺口（否則圓形會被切一刀）；多區塊用圓角端 + 缺口呈現附圖五的塊狀甜甜圈。
+  const gapPx = segments.length > 1 ? 9 : 0
 
   if (segments.length === 0) {
     return (
-      <svg viewBox="0 0 100 100" className="h-32 w-32">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="16" />
+      <svg viewBox="0 0 100 100" className="h-36 w-36">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#efe7d6" strokeWidth="17" />
       </svg>
     )
   }
 
   let cumulative = 0
   return (
-    <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
+    <svg viewBox="0 0 100 100" className="h-36 w-36 -rotate-90">
       {segments.map(({ code, pct }) => {
-        const dash = Math.max(0, pct * circumference - 2)
+        const dash = Math.max(0.5, pct * circumference - gapPx)
         const gap = circumference - dash
         const offset = -(cumulative * circumference)
         cumulative += pct
@@ -358,7 +363,8 @@ function DonutChart({ segments }: { segments: { code: TargetCode; count: number;
             r={r}
             fill="none"
             stroke={TARGET_COLORS[code]}
-            strokeWidth="16"
+            strokeWidth="17"
+            strokeLinecap="round"
             strokeDasharray={`${dash} ${gap}`}
             strokeDashoffset={offset}
           />
@@ -421,9 +427,11 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
           </button>
         </div>
 
-        <div className="flex items-center gap-5">
-          <DonutChart segments={segments} />
-          <div className="flex flex-1 flex-col gap-2">
+        <div className="flex items-center gap-4">
+          <div className="shrink-0">
+            <DonutChart segments={segments} />
+          </div>
+          <div className="flex flex-1 flex-col gap-2.5">
             {segments.length === 0 ? (
               <p className="text-xs leading-relaxed text-muted-foreground">
                 完成更多感恩練習後，這裡會顯示你的感恩對象分佈。
@@ -432,15 +440,15 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
               segments.map(({ code, pct }) => {
                 const meta = TARGET_META[code]
                 return (
-                  <div key={code} className="flex items-center gap-2">
+                  <div key={code} className="flex items-center gap-2.5">
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      className="h-3 w-3 shrink-0 rounded-full"
                       style={{ background: TARGET_COLORS[code] }}
                     />
-                    <span className="flex-1 text-xs text-foreground/80">
-                      {meta.emoji} {meta.label}
+                    <span className="flex-1 text-sm font-bold text-foreground">
+                      {meta.label}
                     </span>
-                    <span className="text-xs font-bold text-foreground">
+                    <span className="text-sm font-extrabold text-foreground">
                       {Math.round(pct * 100)}%
                     </span>
                   </div>
@@ -898,87 +906,36 @@ function AvatarPicker({
           <p className="text-sm font-extrabold text-foreground">選擇你的頭像</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          {AVATAR_OPTIONS.map((opt) => (
-            <button
-              key={opt.code}
-              onClick={() => onSelect(opt.code)}
-              className={`flex flex-col items-center gap-2 rounded-2xl py-4 transition active:scale-95 ${
-                current === opt.code
-                  ? 'ring-2 ring-primary ring-offset-2'
-                  : 'hover:bg-muted'
-              }`}
-            >
-              <span className={`flex h-14 w-14 items-center justify-center rounded-full text-3xl ${opt.tile}`}>
-                {opt.emoji}
-              </span>
-              <span className="text-xs font-bold text-foreground">{opt.label}</span>
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-4">
+          {AVATAR_OPTIONS.map((opt) => {
+            const active =
+              current === opt.code ||
+              (!AVATAR_OPTIONS.some((a) => a.code === current) && opt.code === 'avatar-1')
+            return (
+              <button
+                key={opt.code}
+                onClick={() => onSelect(opt.code)}
+                className={`flex flex-col items-center gap-2 rounded-2xl py-4 transition active:scale-95 ${
+                  active ? 'bg-muted ring-2 ring-primary ring-offset-2' : 'hover:bg-muted'
+                }`}
+              >
+                <img
+                  src={opt.src}
+                  alt={opt.label}
+                  className="h-20 w-20 rounded-full object-cover shadow-soft"
+                />
+                <span className="text-xs font-bold text-foreground">{opt.label}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
   )
 }
 
-// ── 封鎖名單（社群安全管理） ─────────────────────────────────────────────────
-// App Store 1.2 要求 UGC App 提供封鎖機制；這裡讓使用者檢視已封鎖對象並解除封鎖。
-// blocked_label 為封鎖當下畫面顯示的名稱（匿名代號或實名），不會外洩匿名背後的真名。
-function BlockedList({ userId, initial }: { userId: string | null; initial: BlockedListItem[] }) {
-  const [list, setList] = useState<BlockedListItem[]>(initial)
-  const [busy, setBusy] = useState<string | null>(null)
-
-  async function handleUnblock(blockedId: string) {
-    if (!userId || busy) return
-    setBusy(blockedId)
-    const ok = await unblockUser(userId, blockedId)
-    if (ok) setList((prev) => prev.filter((b) => b.blocked_id !== blockedId))
-    setBusy(null)
-  }
-
-  return (
-    <div className="rounded-3xl bg-card p-5 shadow-soft">
-      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-        Blocked Users
-      </p>
-      <h2 className="mb-3 text-lg font-extrabold text-foreground">封鎖名單</h2>
-      {list.length === 0 ? (
-        <p className="py-2 text-sm text-muted-foreground">你還沒有封鎖任何人。</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {list.map((b) => (
-            <li
-              key={b.blocked_id}
-              className="flex items-center gap-3 rounded-2xl bg-muted px-3.5 py-2.5"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tile-peach text-base">
-                🚫
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-foreground">
-                  {b.blocked_label || '已封鎖的使用者'}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  封鎖於 {String(b.created_at).slice(0, 10)}
-                </p>
-              </div>
-              <button
-                onClick={() => handleUnblock(b.blocked_id)}
-                disabled={busy === b.blocked_id}
-                className="shrink-0 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-bold text-foreground transition hover:bg-background disabled:opacity-50"
-              >
-                {busy === b.blocked_id ? '…' : '解除封鎖'}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
 function ProfilePage() {
-  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount, blockedList } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
   const router = useRouter()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
   const [showPicker, setShowPicker] = useState(false)
@@ -1025,8 +982,8 @@ function ProfilePage() {
 
   const handleSelectAvatar = (code: AvatarCode) => persistAvatar(code)
 
-  const avatarDisplay = avatarByCode(avatar)
   const isPhoto = isPhotoAvatar(avatar)
+  const avatarSrc = isPhoto && avatar ? avatar : avatarSrcByCode(avatar)
 
   return (
     <>
@@ -1041,17 +998,11 @@ function ProfilePage() {
             className="relative shrink-0 transition active:scale-95"
             aria-label="更換頭像"
           >
-            {isPhoto && avatar ? (
-              <img
-                src={avatar}
-                alt="使用者頭像"
-                className="h-16 w-16 rounded-full object-cover"
-              />
-            ) : (
-              <div className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl ${avatarDisplay.tile}`}>
-                {avatarDisplay.emoji}
-              </div>
-            )}
+            <img
+              src={avatarSrc}
+              alt="使用者頭像"
+              className="h-16 w-16 rounded-full object-cover"
+            />
             <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow">
               ✏️
             </span>
@@ -1124,22 +1075,19 @@ function ProfilePage() {
         <div>
           <SectionLabel zh="我的健心夥伴" en="Mental Training Partner" />
           <div
-            className="relative mt-2.5 overflow-hidden rounded-[22px] pb-[50px]"
-            style={{ background: 'linear-gradient(165deg,#d5e8be 0%,#b8d49a 50%,#8fb870 100%)' }}
+            className="relative mt-2.5 overflow-hidden rounded-[22px] pb-[64px]"
+            style={{ background: 'linear-gradient(180deg,#cfe2ee 0%,#e7efdf 52%,#FEFAF0 100%)' }}
           >
-            {/* 底部草地 */}
-            <div
-              className="absolute inset-x-0 bottom-0 h-[54px] rounded-b-[22px]"
-              style={{ background: 'linear-gradient(180deg,#5a7a32 0%,#3d5820 100%)' }}
-            >
-              <svg width="100%" height="28" viewBox="0 0 360 28" preserveAspectRatio="none" className="absolute -top-3 left-0">
-                <path d="M0 28 Q20 4 40 22 Q55 6 70 22 Q88 2 106 20 Q120 6 138 24 Q155 4 170 22 Q188 6 205 20 Q222 4 240 24 Q258 6 274 20 Q290 4 308 22 Q325 6 342 20 Q352 10 360 28Z" fill="#3d5820" />
-              </svg>
-            </div>
-            {/* 盆栽 + 吉祥物 */}
-            <div className="relative flex items-end justify-center px-4 pt-4">
-              <img src={partnerPlant} alt="健心夥伴" className="relative z-[2] w-[180px]" />
-              <img src={gratitudeMascot} alt="" className="absolute bottom-0 right-2 z-[1] w-[110px] -scale-x-100" />
+            {/* 底部草地（meadow.png 暖色草帶） */}
+            <img
+              src={meadow}
+              alt=""
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-0 w-full select-none"
+            />
+            {/* 盆栽 + 玩耍吉祥物 */}
+            <div className="relative z-[2] flex items-end justify-center px-4 pt-5">
+              <img src={partnerPlant} alt="健心夥伴" className="relative z-[2] w-[168px]" />
+              <img src={playingMascot} alt="" className="absolute bottom-[6px] right-2 z-[1] w-[116px]" />
             </div>
             {/* PERMA 種子 */}
             <div className="absolute inset-x-0 bottom-4 z-[3] flex justify-center gap-2">
@@ -1157,7 +1105,7 @@ function ProfilePage() {
                   >
                     {s.letter}
                   </span>
-                  <span className="text-[11px] font-extrabold text-cream [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
+                  <span className="text-[11px] font-extrabold text-[#46291c] [text-shadow:0_1px_1px_rgba(255,255,255,0.45)]">
                     {s.label}
                   </span>
                 </div>
@@ -1176,21 +1124,9 @@ function ProfilePage() {
               Mental Muscle Radar
             </p>
             <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌肉雷達圖</h2>
-            <p className="mb-2 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
+            <p className="mb-1 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
+            <img src={dancingStars} alt="" className="pointer-events-none -mb-3 mt-1 w-full select-none" />
             <PermaRadar scores={scores} />
-            <div className="mt-4 flex flex-col gap-4">
-              {PERMA_DIMENSIONS.map(({ key, letter, label, tile }) => (
-                <div key={key}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
-                      {letter}
-                    </span>
-                    <span className="text-sm font-bold text-foreground">{label}</span>
-                  </div>
-                  <ScoreBar score={scores[key]} tile={tile} />
-                </div>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-12 text-muted-foreground shadow-soft">
@@ -1199,31 +1135,28 @@ function ProfilePage() {
           </div>
         )}
 
-        {/* 觀看最近一次測驗結果 */}
-        {scores && (
+        {/* 觀看最近一次測驗結果 / 重新評估（並排） */}
+        <div className="flex gap-3">
+          {scores && (
+            <Link
+              to="/onboarding"
+              search={{ showResult: true }}
+              className="flex flex-1 items-center justify-center rounded-2xl bg-primary-soft px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-primary transition active:scale-[0.98]"
+            >
+              觀看最近一次<br />測驗結果
+            </Link>
+          )}
           <Link
             to="/onboarding"
-            search={{ showResult: true }}
-            className="flex w-full items-center justify-center rounded-full bg-primary-soft py-4 text-sm font-extrabold tracking-wide text-primary transition active:scale-[0.98]"
+            search={{ reassess: true }}
+            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98]"
           >
-            觀看最近一次測驗結果
+            重新評估
           </Link>
-        )}
-
-        {/* 重新評估 */}
-        <Link
-          to="/onboarding"
-          search={{ reassess: true }}
-          className="flex w-full items-center justify-center rounded-full border-2 border-primary-soft bg-card py-4 text-sm font-extrabold tracking-wide text-primary transition active:scale-[0.98]"
-        >
-          重新評估
-        </Link>
+        </div>
 
         {/* 感恩對象地圖 */}
         <GratitudeTargetMap userId={userId} />
-
-        {/* 封鎖名單（社群安全） */}
-        <BlockedList userId={userId} initial={blockedList ?? []} />
         </div>
       </div>
 

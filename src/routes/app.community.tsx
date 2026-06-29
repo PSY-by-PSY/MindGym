@@ -12,7 +12,9 @@ import {
 } from '../lib/communityModeration'
 import { usePullToRefresh, PULL_THRESHOLD } from '../lib/pullToRefresh'
 import { hardRefresh } from '../lib/refresh'
-import wordCloudImg from '../assets/WordCloud.jpg'
+import wordCloudImg from '../assets/ui/wordcloud.png'
+import avatar1 from '../assets/ui/avatar-1.png'
+import avatar2 from '../assets/ui/avatar-2.png'
 
 type GratitudeEntry = {
   id: string
@@ -437,35 +439,35 @@ function formatDate(dateStr: string | null): string {
   return `${y} / ${m} / ${d}`
 }
 
-const AVATAR_OPTIONS = [
-  { code: 'star',      emoji: '🌟', tile: 'bg-tile-peach' },
-  { code: 'blossom',   emoji: '🌸', tile: 'bg-tile-pink' },
-  { code: 'leaf',      emoji: '🌿', tile: 'bg-tile-mint' },
-  { code: 'sun',       emoji: '☀️', tile: 'bg-tile-blue' },
-  { code: 'butterfly', emoji: '🦋', tile: 'bg-tile-pink' },
-  { code: 'wave',      emoji: '🌊', tile: 'bg-tile-blue' },
-]
+const AVATAR_SRC: Record<string, string> = {
+  'avatar-1': avatar1,
+  'avatar-2': avatar2,
+}
 
 function isPhotoAvatar(code: string | null | undefined): boolean {
   return !!code && (code.startsWith('data:image') || code.startsWith('http'))
 }
 
+// 頭像固定為兩張角色圖（預設 avatar-1）。舊資料（emoji 代號 / null）一律回退到 avatar-1，
+// 仍支援過去上傳過的相片頭像（data: / http URL）。
 function avatarFor(
-  seed: string | null,
-  index: number,
+  _seed: string | null,
+  _index: number,
   avatarCode?: string | null,
-): { emoji: string; tile: string; photoUrl?: string } {
-  if (isPhotoAvatar(avatarCode)) {
-    return { emoji: '', tile: '', photoUrl: avatarCode as string }
-  }
-  if (avatarCode) {
-    const opt = AVATAR_OPTIONS.find((a) => a.code === avatarCode)
-    if (opt) return { emoji: opt.emoji, tile: opt.tile }
-  }
-  if (!seed) return { emoji: AVATAR_OPTIONS[index % AVATAR_OPTIONS.length].emoji, tile: AVATAR_OPTIONS[index % AVATAR_OPTIONS.length].tile }
-  const sum = [...seed].reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-  const idx = sum % AVATAR_OPTIONS.length
-  return { emoji: AVATAR_OPTIONS[idx].emoji, tile: AVATAR_OPTIONS[idx].tile }
+): { src: string } {
+  if (isPhotoAvatar(avatarCode)) return { src: avatarCode as string }
+  return { src: AVATAR_SRC[avatarCode ?? ''] ?? avatar1 }
+}
+
+// 貼文右上角「更多」按鈕的圖示：垂直三點、細小、淺色，質感較輕盈。
+function VerticalDotsIcon() {
+  return (
+    <svg width="4" height="16" viewBox="0 0 4 16" fill="currentColor" aria-hidden="true">
+      <circle cx="2" cy="2" r="1.5" />
+      <circle cx="2" cy="8" r="1.5" />
+      <circle cx="2" cy="14" r="1.5" />
+    </svg>
+  )
 }
 
 function Header() {
@@ -633,17 +635,11 @@ function DailyModal({
         </p>
 
         <div className="flex items-center gap-3">
-          {avatar.photoUrl ? (
-            <img
-              src={avatar.photoUrl}
-              alt="頭像"
-              className="h-11 w-11 rounded-full object-cover"
-            />
-          ) : (
-            <div className={`flex h-11 w-11 items-center justify-center rounded-full text-lg ${avatar.tile}`}>
-              {avatar.emoji}
-            </div>
-          )}
+          <img
+            src={avatar.src}
+            alt="頭像"
+            className="h-11 w-11 rounded-full object-cover"
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate font-extrabold text-foreground">
               {entry.anon_name ?? '匿名使用者'}
@@ -655,9 +651,9 @@ function DailyModal({
               <button
                 onClick={() => setShowMenu((p) => !p)}
                 aria-label="檢舉或封鎖"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
               >
-                <span className="text-xl font-bold leading-none tracking-widest">···</span>
+                <VerticalDotsIcon />
               </button>
               {showMenu && (
                 <>
@@ -1110,21 +1106,14 @@ function CommunityPage() {
         <Header />
 
         <div
-          className="relative mb-5 mt-3.5 h-[188px] overflow-hidden rounded-[22px]"
+          className="relative mb-5 mt-3.5 flex h-[200px] items-center justify-center overflow-hidden rounded-[22px]"
           style={{ background: 'radial-gradient(circle at 50% 45%, #f3e7cf 0%, #ece0c8 55%, #FEFAF0 100%)' }}
         >
           <img
             src={wordCloudImg}
             alt="感恩文字雲"
-            className="absolute inset-0 h-full w-full object-cover opacity-50 mix-blend-multiply"
+            className="h-[184px] w-auto object-contain"
           />
-          <span className="absolute left-[14%] top-[30%] text-[21px] font-bold text-[#876B5F]">公園</span>
-          <span className="absolute left-[34%] top-[20%] text-[25px] font-black text-[#71744F]">狗狗</span>
-          <span className="absolute left-[30%] top-[42%] text-[19px] font-bold text-[#b79858]">開心</span>
-          <span className="absolute right-[18%] top-[24%] text-[25px] font-black text-[#a13a1e]">好吃</span>
-          <span className="absolute left-[20%] top-[62%] text-[21px] font-bold text-[#876B5F]">論文</span>
-          <span className="absolute right-[30%] top-[56%] text-[27px] font-black text-[#88B8CE] [text-shadow:0_0_14px_rgba(136,184,206,0.7)]">心情</span>
-          <span className="absolute right-[16%] top-[64%] text-[22px] font-extrabold text-[#d18197]">伴侶</span>
         </div>
 
         <FeedModeToggle mode={mode} onChange={setMode} userId={userId} />
@@ -2018,17 +2007,11 @@ function EntryCard({
     >
       {/* Header */}
       <div className="flex items-center gap-3">
-        {avatar.photoUrl ? (
-          <img
-            src={avatar.photoUrl}
-            alt="頭像"
-            className="h-[54px] w-[54px] rounded-full object-cover"
-          />
-        ) : (
-          <div className={`flex h-[54px] w-[54px] items-center justify-center rounded-full text-xl ${avatar.tile}`}>
-            {avatar.emoji}
-          </div>
-        )}
+        <img
+          src={avatar.src}
+          alt="頭像"
+          className="h-[54px] w-[54px] rounded-full object-cover"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[21px] font-black tracking-[0.03em] text-foreground">
             {localAnonName ?? '匿名使用者'}
@@ -2051,10 +2034,10 @@ function EntryCard({
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu((prev) => !prev)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
               aria-label="更多選項"
             >
-              <span className="text-xl font-bold leading-none tracking-widest">···</span>
+              <VerticalDotsIcon />
             </button>
             {showMenu && (
               <>
@@ -2094,10 +2077,10 @@ function EntryCard({
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu((prev) => !prev)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
               aria-label="檢舉或封鎖"
             >
-              <span className="text-xl font-bold leading-none tracking-widest">···</span>
+              <VerticalDotsIcon />
             </button>
             {showMenu && (
               <>

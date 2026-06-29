@@ -54,7 +54,7 @@
   --gradient-night: linear-gradient(160deg, #6b5240 0%, #46291c 100%);
   --shadow-soft: 0 8px 22px -10px rgba(40, 24, 12, 0.30);
 
-  font-family: 'Noto Sans TC', ui-sans-serif, system-ui, -apple-system,
+  font-family: 'GenJyuuGothic', 'Noto Sans TC', ui-sans-serif, system-ui, -apple-system,
     'PingFang TC', 'Microsoft JhengHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -213,7 +213,7 @@ html[data-font-scale='xlarge'] {
     animation: celebrate-bar 0.9s ease-out both;
   }
   .font-handwriting {
-    font-family: 'Caveat', 'Kalam', 'Noto Sans TC', cursive;
+    font-family: 'Caveat', 'Kalam', 'GenJyuuGothic', 'Noto Sans TC', cursive;
   }
   .no-scrollbar {
     -ms-overflow-style: none;

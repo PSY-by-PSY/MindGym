@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Noto Sans TC', 'ui-sans-serif', 'system-ui', '-apple-system', 'PingFang TC', 'Microsoft JhengHei', 'sans-serif'],
+        sans: ['GenJyuuGothic', 'Noto Sans TC', 'ui-sans-serif', 'system-ui', '-apple-system', 'PingFang TC', 'Microsoft JhengHei', 'sans-serif'],
         heading: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         en: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         handwriting: ['Caveat', 'Kalam', 'Noto Sans TC', 'cursive'],

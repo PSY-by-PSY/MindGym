@@ -12,6 +12,7 @@ import {
   type NotifPermission,
 } from '../lib/localNotifications'
 import { registerForPush } from '../lib/pushNotifications'
+import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/communityModeration'
 import { useGlobalKeyboard } from '../lib/keyboard'
 import { hardRefresh } from '../lib/refresh'
 import logoWordmark from '../assets/ui/logo-wordmark.png'
@@ -178,6 +179,11 @@ function TopHeader() {
 
           {/* 通知開關：即使先前按過「稍後再說」，也能在這裡隨時開啟 */}
           <NotificationSetting />
+
+          <div className="my-3 h-px bg-[#e3dccd]" />
+
+          {/* 封鎖名單（社群安全管理）：從個人檔案移至側邊欄 */}
+          <BlockedListSection active={drawerOpen} />
         </nav>
       </aside>
     </>
@@ -259,6 +265,94 @@ function NotificationSetting() {
         <span className="font-bold text-foreground">通知</span>
       </div>
       {body}
+    </div>
+  )
+}
+
+// 封鎖名單（社群安全管理）：App Store 1.2 要求 UGC App 提供封鎖機制。
+// 從個人檔案移到側邊欄，預設收合，開啟側邊欄時才載入清單。
+function BlockedListSection({ active }: { active: boolean }) {
+  const [userId, setUserId] = useState<string | null>(null)
+  const [list, setList] = useState<BlockedListItem[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user.id ?? null))
+  }, [])
+
+  useEffect(() => {
+    if (!active || !userId || loaded) return
+    let cancelled = false
+    fetchBlockedList(userId).then((rows) => {
+      if (!cancelled) {
+        setList(rows)
+        setLoaded(true)
+      }
+    })
+    return () => { cancelled = true }
+  }, [active, userId, loaded])
+
+  async function handleUnblock(blockedId: string) {
+    if (!userId || busy) return
+    setBusy(blockedId)
+    const ok = await unblockUser(userId, blockedId)
+    if (ok) setList((prev) => prev.filter((b) => b.blocked_id !== blockedId))
+    setBusy(null)
+  }
+
+  return (
+    <div className="rounded-2xl px-4 py-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-3"
+        aria-expanded={open}
+      >
+        <span className="text-xl">🚫</span>
+        <span className="font-bold text-foreground">封鎖名單</span>
+        {loaded && list.length > 0 && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+            {list.length}
+          </span>
+        )}
+        <span className="ml-auto text-sm text-muted-foreground">{open ? '▾' : '▸'}</span>
+      </button>
+
+      {open && (
+        <div className="mt-3">
+          {!loaded ? (
+            <p className="text-[11px] text-muted-foreground">讀取中…</p>
+          ) : list.length === 0 ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">你還沒有封鎖任何人。</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {list.map((b) => (
+                <li key={b.blocked_id} className="flex items-center gap-2.5 rounded-2xl bg-muted px-3 py-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-peach text-sm">
+                    🚫
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-foreground">
+                      {b.blocked_label || '已封鎖的使用者'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      封鎖於 {String(b.created_at).slice(0, 10)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleUnblock(b.blocked_id)}
+                    disabled={busy === b.blocked_id}
+                    className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-bold text-foreground transition hover:bg-background disabled:opacity-50"
+                  >
+                    {busy === b.blocked_id ? '…' : '解除封鎖'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -7,12 +7,12 @@ import homeMascot from '../assets/ui/home-mascot.png'
 import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
 import sleepingMascot from '../assets/ui/sleeping-mascot.png'
 import featuredGratitude from '../assets/ui/featured-gratitude.png'
-import exerciseGratitude from '../assets/ui/exercise-gratitude.png'
-import permaP from '../assets/ui/perma-p.png'
-import permaE from '../assets/ui/perma-e.png'
-import permaR from '../assets/ui/perma-r.png'
-import permaM from '../assets/ui/perma-m.png'
-import permaA from '../assets/ui/perma-a.png'
+import exerciseGratitude from '../assets/ui/exercise-gratitude-tight.png'
+import permaP from '../assets/ui/perma-p-tight.png'
+import permaE from '../assets/ui/perma-e-tight.png'
+import permaR from '../assets/ui/perma-r-tight.png'
+import permaM from '../assets/ui/perma-m-tight.png'
+import permaA from '../assets/ui/perma-a-tight.png'
 
 export const Route = createFileRoute('/app/home')({
   beforeLoad: async ({ context }) => {
@@ -319,10 +319,14 @@ function PermaCards() {
       {PERMA_CARDS.map((c) => (
         <div
           key={c.en}
-          className="relative h-[158px] overflow-hidden rounded-[20px] shadow-[0_4px_8px_rgba(0,0,0,0.2)]"
+          className="relative h-[166px] overflow-hidden rounded-[20px] shadow-[0_4px_8px_rgba(0,0,0,0.2)]"
           style={{ background: c.bg }}
         >
-          <img src={c.img} alt="" className="pointer-events-none absolute -left-1.5 bottom-0 w-40 opacity-90" />
+          <img
+            src={c.img}
+            alt=""
+            className="pointer-events-none absolute -left-3 bottom-[-6px] h-[176px] w-auto max-w-none object-contain opacity-95"
+          />
           <div className="absolute left-3.5 right-3.5 top-4 text-center">
             <div className="text-[23px] font-black leading-[1.1] text-foreground">{c.en}</div>
             <div className="mt-1.5 text-[15px] font-bold text-[#6f5547]">·{c.zh}·</div>
@@ -408,20 +412,28 @@ type ExerciseCardProps = {
   name: string
   meta: string
   badge?: string
+  tone?: 'cream' | 'gold'
 }
 
-function ExerciseCard({ to, search, img, name, meta, badge }: ExerciseCardProps) {
+function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream' }: ExerciseCardProps) {
   const linkProps = search ? { to, search } : { to }
+  const isGold = tone === 'gold'
   return (
     <Link
       {...(linkProps as Parameters<typeof Link>[0])}
       onClick={() => track('module_opened', { module: name })}
-      className="relative flex items-center gap-3.5 overflow-hidden rounded-[20px] bg-cream px-4 py-3 shadow-[0_4px_6px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
+      className="relative flex items-center gap-4 overflow-hidden rounded-[22px] px-5 py-4 shadow-[0_4px_10px_rgba(40,24,12,0.14)] transition active:scale-[0.98]"
+      style={isGold ? { background: 'linear-gradient(135deg,#f6e4ad 0%,#eccd7e 100%)' } : undefined}
     >
-      <img src={img} alt="" className="h-[72px] w-[72px] shrink-0 object-contain" />
+      {!isGold && <span className="absolute inset-0 -z-10 bg-cream" />}
+      <img
+        src={img}
+        alt=""
+        className={`shrink-0 object-contain ${isGold ? 'h-[88px] w-[88px]' : 'h-[72px] w-[72px]'}`}
+      />
       <span className="min-w-0 flex-1">
-        <b className="text-[23px] font-black tracking-[0.03em] text-foreground">{name}</b>
-        <span className="mt-1 block text-[15px] font-light tracking-[0.03em] text-foreground">{meta}</span>
+        <b className={`text-[25px] font-black tracking-[0.03em] ${isGold ? 'text-[#5b3a12]' : 'text-foreground'}`}>{name}</b>
+        <span className={`mt-1 block text-[15px] font-light tracking-[0.03em] ${isGold ? 'text-[#8a6320]' : 'text-foreground'}`}>{meta}</span>
       </span>
       {badge && (
         <span className="absolute right-3.5 top-3 rounded-full bg-[#d7ebd9] px-2.5 py-1 text-[11px] font-extrabold text-[#3f6b46]">
@@ -477,6 +489,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
               img={exerciseGratitude}
               name="感恩日記"
               meta="初階·五分鐘"
+              tone="gold"
               badge={recommendation.key === 'gratitude' ? '今日推薦' : undefined}
             />
             <ExerciseCard
