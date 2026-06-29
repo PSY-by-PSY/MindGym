@@ -1028,7 +1028,7 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 
 function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
   const hasScore = !!scores
-  const xs = [44, 88, 132, 176, 220]
+  const xs = [36, 74, 112, 150, 188]
   return (
     <div className="relative mt-2.5 overflow-hidden rounded-[22px] bg-cream">
       <svg viewBox="0 0 360 258" className="relative z-[1] w-full">
@@ -1057,11 +1057,11 @@ function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
           </g>
         ))}
       </svg>
-      {/* 玩耍吉祥物 */}
+      {/* 玩耍吉祥物 — 大尺寸，坐在盆器右側抱膝 */}
       <img
         src={playingMascot}
         alt=""
-        className="pointer-events-none absolute bottom-[16px] right-1 z-[2] w-[110px] select-none"
+        className="pointer-events-none absolute bottom-[14px] right-0 z-[2] w-[152px] select-none"
       />
     </div>
   )
