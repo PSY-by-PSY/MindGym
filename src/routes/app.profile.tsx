@@ -4,8 +4,6 @@ import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
 import playingMascot from '../assets/ui/playing-mascot.png'
 import dancingStars from '../assets/ui/dancing-stars.png'
-import meadow from '../assets/ui/meadow-band.png'
-import partnerPlant from '../assets/ui/profile-9d7a.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 
@@ -934,6 +932,141 @@ function AvatarPicker({
   )
 }
 
+// ── 我的健心夥伴：PERMA 成長盆栽 ────────────────────────────────────────────
+// 五個 PERMA 維度各是一株植物，分數越高長得越成熟（嫩芽→花苞→花→向日葵），
+// 分數標在植物上方；下方盆器標示 P/E/R/M/A 五色與中文。對齊新版手繪設計。
+const PLANTER_DIMS = [
+  { key: 'p_score' as const, letter: 'P', label: '情緒', color: '#D18197' },
+  { key: 'e_score' as const, letter: 'E', label: '投入', color: '#e0a93f' },
+  { key: 'r_score' as const, letter: 'R', label: '連結', color: '#88B8CE' },
+  { key: 'm_score' as const, letter: 'M', label: '意義', color: '#71744F' },
+  { key: 'a_score' as const, letter: 'A', label: '成就', color: '#c98a52' },
+]
+
+function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#7BA86E') {
+  return <ellipse cx={x} cy={y} rx={6 * s} ry={11 * s} fill={fill} transform={`rotate(${rot} ${x} ${y})`} />
+}
+
+function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScore: boolean }) {
+  const rimY = 176
+  const h = 22 + (Math.max(0, Math.min(5, score)) / 5) * 112
+  const topY = rimY - h
+  const midY = (rimY + topY) / 2
+  const sway = 5
+
+  let top: JSX.Element
+  let labelOffset = 14
+  if (score < 1.5) {
+    top = <g>{planterLeaf(x - 3, topY + 2, -38, 0.62)}{planterLeaf(x + 3, topY + 2, 38, 0.62)}</g>
+    labelOffset = 12
+  } else if (score < 2.8) {
+    top = <g>{planterLeaf(x - 4, topY + 1, -46, 0.95)}{planterLeaf(x + 4, topY + 1, 46, 0.95)}</g>
+  } else if (score < 3.8) {
+    top = (
+      <g>
+        <path
+          d={`M ${x} ${topY - 17} C ${x - 7} ${topY - 17} ${x - 7} ${topY + 1} ${x} ${topY + 1} C ${x + 7} ${topY + 1} ${x + 7} ${topY - 17} ${x} ${topY - 17} Z`}
+          fill="#ecc873"
+          stroke="#d8ac4a"
+          strokeWidth="1"
+        />
+        {planterLeaf(x - 3, topY + 2, -28, 0.5, '#6f9a5c')}
+        {planterLeaf(x + 3, topY + 2, 28, 0.5, '#6f9a5c')}
+      </g>
+    )
+    labelOffset = 22
+  } else if (score < 4.5) {
+    top = (
+      <g>
+        {[0, 72, 144, 216, 288].map((a) => {
+          const r = ((a - 90) * Math.PI) / 180
+          const px = x + Math.cos(r) * 10
+          const py = topY - 1 + Math.sin(r) * 10
+          return <ellipse key={a} cx={px} cy={py} rx={6} ry={9} fill="#F1C166" transform={`rotate(${a} ${px} ${py})`} />
+        })}
+        <circle cx={x} cy={topY - 1} r={6} fill="#c98a52" />
+      </g>
+    )
+    labelOffset = 22
+  } else {
+    top = (
+      <g>
+        {Array.from({ length: 11 }).map((_, k) => {
+          const a = k * (360 / 11)
+          const r = ((a - 90) * Math.PI) / 180
+          const px = x + Math.cos(r) * 13
+          const py = topY - 1 + Math.sin(r) * 13
+          return <ellipse key={k} cx={px} cy={py} rx={6} ry={11} fill="#F1C166" transform={`rotate(${a} ${px} ${py})`} />
+        })}
+        <circle cx={x} cy={topY - 1} r={9} fill="#c07a3e" />
+        <circle cx={x - 3} cy={topY - 2} r={1.1} fill="#fff" />
+        <circle cx={x + 3} cy={topY - 2} r={1.1} fill="#fff" />
+        <path d={`M ${x - 3} ${topY + 1} Q ${x} ${topY + 3.5} ${x + 3} ${topY + 1}`} stroke="#fff" strokeWidth="1" fill="none" strokeLinecap="round" />
+      </g>
+    )
+    labelOffset = 26
+  }
+
+  return (
+    <g>
+      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#7BA86E" strokeWidth="4" fill="none" strokeLinecap="round" />
+      {score >= 2.4 && (
+        <g>
+          {planterLeaf(x - 9, midY, -55, 0.8)}
+          {planterLeaf(x + 9, midY + 6, 55, 0.8)}
+        </g>
+      )}
+      {top}
+      {hasScore && (
+        <text x={x} y={topY - labelOffset} textAnchor="middle" fontSize="15" fontWeight="800" fill="#7a4a2a">
+          {score.toFixed(1)}
+        </text>
+      )}
+    </g>
+  )
+}
+
+function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
+  const hasScore = !!scores
+  const xs = [44, 88, 132, 176, 220]
+  return (
+    <div className="relative mt-2.5 overflow-hidden rounded-[22px] bg-cream">
+      <svg viewBox="0 0 360 258" className="relative z-[1] w-full">
+        {/* 草叢 */}
+        <g fill="#9aa86a" opacity="0.9">
+          <path d="M6 250 q3 -22 6 0 z M14 250 q3 -28 7 0 z M24 250 q3 -18 6 0 z" />
+          <path d="M330 250 q3 -24 6 0 z M340 250 q3 -30 7 0 z M351 250 q2 -16 5 0 z" />
+        </g>
+        {/* 植物 */}
+        {PLANTER_DIMS.map((d, i) => (
+          <PlantColumn key={d.key} x={xs[i]} score={scores ? Math.max(0, scores[d.key]) : 0.6} hasScore={hasScore} />
+        ))}
+        {/* 盆器 */}
+        <path d="M20 178 L340 178 L322 236 Q322 242 316 242 L44 242 Q38 242 38 236 Z" fill="#7a5640" />
+        <rect x="14" y="170" width="332" height="16" rx="8" fill="#8a6a4a" />
+        {/* P/E/R/M/A 五色圓 + 中文 */}
+        {PLANTER_DIMS.map((d, i) => (
+          <g key={d.key}>
+            <circle cx={xs[i]} cy={203} r={14} fill={d.color} />
+            <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
+              {d.letter}
+            </text>
+            <text x={xs[i]} y={253} textAnchor="middle" fontSize="12" fontWeight="800" fill="#542916">
+              {d.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+      {/* 玩耍吉祥物 */}
+      <img
+        src={playingMascot}
+        alt=""
+        className="pointer-events-none absolute bottom-[16px] right-1 z-[2] w-[110px] select-none"
+      />
+    </div>
+  )
+}
+
 function ProfilePage() {
   const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
   const router = useRouter()
@@ -1001,9 +1134,9 @@ function ProfilePage() {
             <img
               src={avatarSrc}
               alt="使用者頭像"
-              className="h-16 w-16 rounded-full object-cover"
+              className="h-[72px] w-[72px] rounded-[20px] border-[3px] border-[#542916] object-cover"
             />
-            <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow">
+            <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#542916] bg-cream text-[10px] shadow">
               ✏️
             </span>
           </button>
@@ -1074,44 +1207,7 @@ function ProfilePage() {
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
           <SectionLabel zh="我的健心夥伴" en="Mental Training Partner" />
-          <div
-            className="relative mt-2.5 overflow-hidden rounded-[22px] pb-[64px]"
-            style={{ background: 'linear-gradient(180deg,#cfe2ee 0%,#e7efdf 52%,#FEFAF0 100%)' }}
-          >
-            {/* 底部草地（meadow.png 暖色草帶） */}
-            <img
-              src={meadow}
-              alt=""
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-0 w-full select-none"
-            />
-            {/* 盆栽 + 玩耍吉祥物 */}
-            <div className="relative z-[2] flex items-end justify-center px-4 pt-5">
-              <img src={partnerPlant} alt="健心夥伴" className="relative z-[2] w-[168px]" />
-              <img src={playingMascot} alt="" className="absolute bottom-[6px] right-2 z-[1] w-[116px]" />
-            </div>
-            {/* PERMA 種子 */}
-            <div className="absolute inset-x-0 bottom-4 z-[3] flex justify-center gap-2">
-              {[
-                { letter: 'P', label: '情緒', color: '#d18197' },
-                { letter: 'E', label: '投入', color: '#e0a93f' },
-                { letter: 'R', label: '連結', color: '#88B8CE' },
-                { letter: 'M', label: '意義', color: '#71744F' },
-                { letter: 'A', label: '成就', color: '#c98a52' },
-              ].map((s) => (
-                <div key={s.letter} className="flex flex-col items-center gap-1">
-                  <span
-                    className="flex h-[30px] w-[30px] items-center justify-center rounded-full font-en text-sm font-black text-white shadow-[0_2px_5px_rgba(0,0,0,0.22)]"
-                    style={{ background: s.color }}
-                  >
-                    {s.letter}
-                  </span>
-                  <span className="text-[11px] font-extrabold text-[#46291c] [text-shadow:0_1px_1px_rgba(255,255,255,0.45)]">
-                    {s.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <PartnerPlanter scores={scores} />
         </div>
 
         {/* 健心紀錄日曆 */}
@@ -1125,7 +1221,7 @@ function ProfilePage() {
             </p>
             <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌肉雷達圖</h2>
             <p className="mb-1 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
-            <img src={dancingStars} alt="" className="pointer-events-none -mb-3 mt-1 w-full select-none" />
+            <img src={dancingStars} alt="" className="pointer-events-none mx-auto -mb-1 mt-1 block w-[62%] select-none" />
             <PermaRadar scores={scores} />
           </div>
         ) : (
