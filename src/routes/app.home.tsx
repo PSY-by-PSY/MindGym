@@ -224,7 +224,8 @@ function ActiveModuleCard({ name, meta, to }: ModuleProps) {
     <Link
       to={to}
       onClick={() => track('module_opened', { module: name })}
-      className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] bg-white text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
+      className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
+      style={{ background: 'linear-gradient(#9fc6dc 0%,#cfe0e6 38%,#FEFAF0 78%)' }}
     >
       <img
         src={featuredGratitude}
