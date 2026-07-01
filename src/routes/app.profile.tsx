@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
 import playingMascot from '../assets/ui/playing-mascot.png'
-import dancingStars from '../assets/ui/dancing-stars.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 
@@ -1256,7 +1255,6 @@ function ProfilePage() {
             </p>
             <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌肉雷達圖</h2>
             <p className="mb-1 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
-            <img src={dancingStars} alt="" className="pointer-events-none mx-auto -mb-1 mt-1 block w-[62%] select-none" />
             <PermaRadar scores={scores} />
           </div>
         ) : (

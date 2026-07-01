@@ -11,7 +11,6 @@ import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import heartsBanner from '../assets/ui/hearts-banner.png'
-import sleepingMascot from '../assets/ui/sleeping-mascot.png'
 import celebrateHearts from '../assets/ui/celebrate-hearts.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
@@ -890,10 +889,9 @@ function CircularProgress({ filled, chars }: { filled: number; chars: number }) 
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative mx-auto h-[160px] w-[200px]">
-        <img src={sleepingMascot} alt="" className="pointer-events-none absolute left-1/2 top-[-6px] w-[150px] -translate-x-1/2" />
+      <div className="relative mx-auto h-[128px] w-[200px]">
         <div
-          className={`absolute left-1/2 top-[46px] flex h-[128px] w-[128px] -translate-x-1/2 items-center justify-center rounded-full border-[9px] bg-[rgba(254,250,240,0.7)] ${
+          className={`absolute left-1/2 top-0 flex h-[128px] w-[128px] -translate-x-1/2 items-center justify-center rounded-full border-[9px] bg-[rgba(254,250,240,0.7)] ${
             isComplete ? 'border-gold-deep' : 'border-foreground'
           }`}
           style={isComplete ? { filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.55))' } : undefined}

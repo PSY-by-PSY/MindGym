@@ -224,8 +224,7 @@ function ActiveModuleCard({ name, meta, to }: ModuleProps) {
     <Link
       to={to}
       onClick={() => track('module_opened', { module: name })}
-      className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
-      style={{ background: 'linear-gradient(160deg,#F1C166 0%,#e0a93f 100%)' }}
+      className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] bg-white text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
     >
       <img
         src={featuredGratitude}
@@ -233,8 +232,8 @@ function ActiveModuleCard({ name, meta, to }: ModuleProps) {
         className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
       />
       <div className="relative z-10 p-5 pb-6">
-        <div className="text-[34px] font-black tracking-[0.04em] text-[#5b3a12]">{name}</div>
-        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-[#8a6320]">{meta}</div>
+        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{name}</div>
+        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{meta}</div>
       </div>
     </Link>
   )
