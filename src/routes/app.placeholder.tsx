@@ -7,6 +7,16 @@ export const Route = createFileRoute('/app/placeholder')({
   component: PlaceholderPage,
 })
 
+function ConstructionIcon() {
+  return (
+    <svg className="h-11 w-11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18" />
+      <path d="M6 21V10l6-5 6 5v11" />
+      <path d="M10 21v-6h4v6" />
+    </svg>
+  )
+}
+
 function PlaceholderPage() {
   const { name } = Route.useSearch()
 
@@ -14,8 +24,8 @@ function PlaceholderPage() {
     <div className="animate-fade-up mx-auto flex min-h-[calc(100vh-9rem)] max-w-3xl flex-col items-center justify-center px-6 text-center md:px-10">
       <div className="relative mb-7 animate-float">
         <div className="absolute inset-0 -z-10 translate-x-3 translate-y-4 rounded-[45%] bg-primary-soft" />
-        <div className="flex h-28 w-28 items-center justify-center rounded-[45%] bg-gradient-soft text-5xl">
-          🚧
+        <div className="flex h-28 w-28 items-center justify-center rounded-[45%] bg-gradient-soft text-muted-foreground">
+          <ConstructionIcon />
         </div>
       </div>
 

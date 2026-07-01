@@ -86,7 +86,7 @@ export async function scheduleDailyCheckin(): Promise<void> {
         {
           id: DAILY_CHECKIN_ID,
           title: 'PSY by PSY',
-          body: '今天還沒打卡嗎？花一分鐘記錄，延續你的健心連續紀錄 💪',
+          body: '今天還沒打卡嗎？花一分鐘記錄，延續你的健心連續紀錄',
           // on: { hour, minute } 會每天在該時間重複觸發。
           schedule: { on: { hour: CHECKIN_HOUR, minute: CHECKIN_MINUTE }, allowWhileIdle: true },
         },

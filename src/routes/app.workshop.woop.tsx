@@ -179,7 +179,7 @@ function WoopFlow() {
   }
 
   const today = formatDate(new Date())
-  const downloadLabel = isMobileDevice() ? '📲 分享 WOOP 地圖' : '⬇️ 下載 WOOP 地圖'
+  const downloadLabel = isMobileDevice() ? '分享 WOOP 地圖' : '下載 WOOP 地圖'
 
   const handleDownload = async () => {
     if (!mapCardRef.current || sharing) return
@@ -248,7 +248,7 @@ function WoopFlow() {
           <WoopMapCard wish={wish} outcome={outcome} obstacle={obstacle} plan={plan} ifThen={ifThen} date={today} />
         </div>
 
-        <WorkshopLayout step={TOTAL_STEPS} total={TOTAL_STEPS} title="WOOP 完成！🎯">
+        <WorkshopLayout step={TOTAL_STEPS} total={TOTAL_STEPS} title="WOOP 完成！">
           <p className="text-sm leading-relaxed text-muted-foreground">
             你已經完成了一次完整的 WOOP 目標規劃。記住，最重要的是當阻礙出現時，你已經有了應對計畫。
           </p>
@@ -288,7 +288,7 @@ function WoopFlow() {
 
           {/* PSYbyPSY 洞察 */}
           <div className="mt-5 rounded-3xl bg-card p-5 shadow-soft">
-            <p className="text-sm font-extrabold text-foreground">💡 PSYbyPSY 洞察</p>
+            <p className="text-sm font-extrabold text-foreground">PSYbyPSY 洞察</p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
               研究顯示，使用 WOOP 的人比僅設定目標的人，目標達成率高出許多。「心智對比」能活化大腦的目標追求系統，而「執行意圖」（If-Then）能在關鍵時刻自動觸發行動。
             </p>
@@ -306,7 +306,7 @@ function WoopFlow() {
               disabled={publishing || published || !userId}
               className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
             >
-              {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🎯 發佈到工作坊貼文'}
+              {publishing ? '發佈中…' : published ? '已發佈' : '發佈到工作坊貼文'}
             </button>
             {!userId && (
               <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>
@@ -424,10 +424,10 @@ function WoopFlow() {
 // 開場介紹頁：理論說明、適用情境、四步驟預覽、開始 CTA。
 function IntroScreen({ onStart }: { onStart: () => void }) {
   const scenarios = [
-    { emoji: '🛏️', name: '起步困難', desc: '想運動、讀書，卻總是癱在沙發上' },
-    { emoji: '📱', name: '誘惑干擾', desc: '總是被手機訊息導致分心' },
-    { emoji: '😰', name: '焦慮停滯', desc: '壓力大到想逃避' },
-    { emoji: '🧘', name: '建立習慣', desc: '讓冥想、閱讀或健身持久實踐' },
+    { icon: BedIcon, name: '起步困難', desc: '想運動、讀書，卻總是癱在沙發上' },
+    { icon: PhoneIcon, name: '誘惑干擾', desc: '總是被手機訊息導致分心' },
+    { icon: AnxiousIcon, name: '焦慮停滯', desc: '壓力大到想逃避' },
+    { icon: MeditationIcon, name: '建立習慣', desc: '讓冥想、閱讀或健身持久實踐' },
   ]
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
@@ -435,7 +435,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
         <p className="text-sm font-bold tracking-wider text-primary">目標實踐地圖</p>
         <h1 className="mt-1 text-3xl font-extrabold leading-tight text-foreground">你 WOOP 了嗎？</h1>
         <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-bold text-primary">
-          ⏱ 約 5 分鐘・引導書寫
+          <StopwatchIcon />約 5 分鐘・引導書寫
         </p>
       </header>
 
@@ -454,7 +454,9 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
       <div className="mt-3 grid grid-cols-2 gap-3">
         {scenarios.map((s) => (
           <div key={s.name} className="rounded-3xl bg-card p-4 shadow-soft">
-            <span className="text-2xl leading-none">{s.emoji}</span>
+            <span className="flex h-7 w-7 items-center justify-center text-primary">
+              <s.icon />
+            </span>
             <p className="mt-2 text-sm font-extrabold text-foreground">{s.name}</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{s.desc}</p>
           </div>
@@ -578,6 +580,53 @@ function ExampleRow({
       </div>
       <p className="text-xs leading-relaxed text-foreground/80">{value}</p>
     </div>
+  )
+}
+
+function BedIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 19v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8" />
+      <path d="M2 19v-3h20v3M6 9V6a2 2 0 0 1 2-2h3v5" />
+    </svg>
+  )
+}
+
+function PhoneIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7" y="2" width="10" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </svg>
+  )
+}
+
+function AnxiousIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 10.5v.01M15.5 10.5v.01" />
+      <path d="M8 16c1.5-1.5 6.5-1.5 8 0" />
+    </svg>
+  )
+}
+
+function MeditationIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="6" r="2" />
+      <path d="M12 8v3M5 19c0-3 3-4 4-6l3-2 3 2c1 2 4 3 4 6" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
+function StopwatchIcon() {
+  return (
+    <svg className="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l3 2M9 2h6M12 2v3" />
+    </svg>
   )
 }
 

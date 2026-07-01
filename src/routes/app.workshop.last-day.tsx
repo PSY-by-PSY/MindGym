@@ -77,7 +77,7 @@ function LastDayFlow() {
 
   const today = formatDate(new Date())
   const farewellText = assembleFarewell(farewell)
-  const downloadLabel = isMobileDevice() ? '📲 分享圖片' : '⬇️ 儲存圖片'
+  const downloadLabel = isMobileDevice() ? '分享圖片' : '儲存圖片'
 
   const handleDownload = async (
     ref: React.RefObject<HTMLDivElement>,
@@ -157,7 +157,7 @@ function LastDayFlow() {
         </div>
 
         <div className="mt-4 rounded-3xl bg-gradient-soft p-5 shadow-soft text-sm leading-relaxed text-foreground/85">
-          <p className="text-xs font-extrabold text-primary">💡 我的意識流：自由書寫原則</p>
+          <p className="text-xs font-extrabold text-primary">我的意識流：自由書寫原則</p>
           <ul className="mt-2 flex flex-col gap-2">
             <li>
               <span className="font-bold text-foreground">不間斷書寫：</span>
@@ -182,8 +182,8 @@ function LastDayFlow() {
     return (
       <WorkshopLayout step={2} total={TOTAL_STEPS} title="冥想引導" minutes={5} onBack={back} onNext={next}>
         <div className="mt-2 flex flex-col items-center rounded-3xl bg-gradient-soft p-8 text-center shadow-soft">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-card text-5xl shadow-soft">
-            🧘
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-card text-primary shadow-soft">
+            <MeditationIcon />
           </div>
           <p className="mt-6 text-base font-bold leading-relaxed text-foreground">
             冥想引導 5min
@@ -264,8 +264,8 @@ function LastDayFlow() {
     return (
       <WorkshopLayout step={5} total={TOTAL_STEPS} title="當我離開以後" onBack={back} onNext={next}>
         <div className="mt-2 flex flex-col items-center rounded-3xl bg-gradient-soft p-8 text-center shadow-soft">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-card text-4xl shadow-soft">
-            🕊️
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-card text-primary shadow-soft">
+            <DoveIcon />
           </div>
           <p className="mt-6 text-base font-bold leading-relaxed text-foreground">
             當我離開以後
@@ -397,7 +397,7 @@ function LastDayFlow() {
         <SummaryShareCard farewell={farewellText} action={action} date={today} />
       </div>
 
-      <WorkshopLayout step={9} total={TOTAL_STEPS} title="今天的整理 🕊️">
+      <WorkshopLayout step={9} total={TOTAL_STEPS} title="今天的整理">
         <p className="text-sm leading-relaxed text-muted-foreground">
           把你希望被記得的樣子，與接下來一個月想踏出的一步放在一起：
         </p>
@@ -433,7 +433,7 @@ function LastDayFlow() {
             disabled={publishing || published || !userId}
             className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🕊️ 發佈到工作坊貼文'}
+            {publishing ? '發佈中…' : published ? '已發佈' : '發佈到工作坊貼文'}
           </button>
           {!userId && (
             <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>
@@ -451,6 +451,25 @@ function LastDayFlow() {
 // 使用者填入的內容以藍色標記，方便辨識自己寫的字（規格 [4][5]）。
 function FilledText({ children }: { children: React.ReactNode }) {
   return <span className="font-bold text-blue-600">{children}</span>
+}
+
+function MeditationIcon() {
+  return (
+    <svg className="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="6" r="2" />
+      <path d="M12 8v3M5 19c0-3 3-4 4-6l3-2 3 2c1 2 4 3 4 6" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
+function DoveIcon() {
+  return (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="17" cy="7" r="1.6" />
+      <path d="M2 13c3-3 6-3 8-1 1-3 4-5 7-4-1 2-1 4 1 5-2 1-4 1-6 0-2 3-5 6-10 6 2-2 3-4 2-6-1 0-1.5 0-2 0z" />
+    </svg>
+  )
 }
 
 // 四句自我告別敘事：固定句型 + 使用者填入（藍色）。空白以底線佔位。

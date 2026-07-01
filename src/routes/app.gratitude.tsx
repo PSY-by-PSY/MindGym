@@ -8,6 +8,7 @@ import { PrimaryCta } from '../components/PrimaryCta'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
 import { track } from '../lib/analytics'
+import { useStageBack } from '../lib/useStageBack'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import heartsBanner from '../assets/ui/hearts-banner.png'
 import sleepingMascot from '../assets/ui/sleeping-mascot.png'
@@ -44,15 +45,15 @@ interface TagResult {
 
 interface SummaryResult {
   emotional_summary: string
-  action_suggestion: string
+  resonance_story: string
 }
 
-const TARGET_META: Record<TargetCode, { emoji: string; label: string }> = {
-  others:      { emoji: '👥', label: '身邊他人' },
-  self:        { emoji: '🙋', label: '自己' },
-  environment: { emoji: '🌳', label: '環境' },
-  experience:  { emoji: '✨', label: '體驗' },
-  custom:      { emoji: '🏷️', label: '自訂' },
+const TARGET_META: Record<TargetCode, { label: string }> = {
+  others:      { label: '身邊他人' },
+  self:        { label: '自己' },
+  environment: { label: '環境' },
+  experience:  { label: '體驗' },
+  custom:      { label: '自訂' },
 }
 
 
@@ -64,23 +65,23 @@ const DIFFICULTY_PROMPTS: Record<Difficulty, string> = {
 const FALLBACK_SUMMARIES: SummaryResult[] = [
   {
     emotional_summary: '你今天記下了珍貴的感恩，這份覺察本身就是一種溫柔的力量。',
-    action_suggestion: '試著在今天再回味這三件事一次，讓正向感受在心中多停留一會兒。',
+    resonance_story: '我曾經聽過有人說，她一開始只是隨手寫寫，直到某天翻回去看才發現，原來平凡的日子裡藏著這麼多值得感謝的瞬間。',
   },
   {
     emotional_summary: '能寫下感恩的事，代表你正在練習把目光放在生活中的光亮處。',
-    action_suggestion: '今天找一個安靜的時刻，深呼吸，把這份溫暖帶進你的身體。',
+    resonance_story: '我曾經聽過有人分享，他一開始覺得感恩練習有點刻意，但持續一陣子後，發現自己看事情的角度真的慢慢變得不一樣了。',
   },
   {
     emotional_summary: '每一次記下感恩，大腦就多一次尋找美好事物的練習。',
-    action_suggestion: '明天試著更具體描述其中一件事，問自己「它讓我感受到什麼？」',
+    resonance_story: '我曾經聽過有人說，原本以為自己過得很普通，直到開始練習感恩，才注意到身邊一直有人默默在支持著自己。',
   },
   {
     emotional_summary: '今天的三件感恩，是你送給明天自己的一份小禮物。',
-    action_suggestion: '如果其中有一件感恩涉及到某個人，不妨讓對方知道你的感謝。',
+    resonance_story: '我曾經聽過有人提到，他最感謝的往往不是什麼大事，而是那些差點被忽略的小片刻，回頭看反而最讓人安心。',
   },
   {
     emotional_summary: '感恩練習最珍貴的地方，在於它讓你習慣把注意力放在值得珍惜的事。',
-    action_suggestion: '今天睡前再想想：這三件事有沒有讓你想到一個值得感謝的人？',
+    resonance_story: '我曾經聽過有人說，一開始很難想到三件事，但練習久了，反而變成要選出「哪三件最想記下來」，這樣的轉變很有意思。',
   },
 ]
 
@@ -167,11 +168,11 @@ async function fetchSummary(items: GratitudeItems, difficulty: Difficulty): Prom
     body: JSON.stringify({ ...items, difficulty }),
   })
   if (!resp.ok) throw new Error(`API error: ${resp.status}`)
-  const data = await resp.json() as { emotional_summary?: string; action_suggestion?: string }
+  const data = await resp.json() as { emotional_summary?: string; resonance_story?: string }
   if (!data.emotional_summary) throw new Error('Empty summary')
   return {
     emotional_summary: data.emotional_summary,
-    action_suggestion: data.action_suggestion ?? '',
+    resonance_story: data.resonance_story ?? '',
   }
 }
 
@@ -201,7 +202,7 @@ function GratitudePage() {
   // 保存進入 SUMMARY 時觸發的分類請求 promise，讓 saveEntry 能直接 await，
   // 避免使用者在 AI 分類回來前就按下繼續、導致 target_* 沒寫入（社群貼文缺標籤）。
   const tagsPromiseRef = useRef<Promise<TagResult[]> | null>(null)
-  // 同理保存「安安回饋」請求的 promise。使用者常在 AI 還沒回來就按「下一步」，
+  // 同理保存「BOUBA 回饋」請求的 promise。使用者常在 AI 還沒回來就按「下一步」，
   // 若只看 summaryResult（state）會是 null，貼文就會缺 ai_feedback（後臺看到沒回應的貼文）。
   // saveEntry 會 await 這個 promise，確保 AI 回饋寫得進去。
   const summaryPromiseRef = useRef<Promise<SummaryResult> | null>(null)
@@ -222,7 +223,14 @@ function GratitudePage() {
   const navigate = useNavigate()
   const router = useRouter()
 
-
+  // 練習內部的 stage 也要能被瀏覽器返回／邊緣滑動手勢／畫面返回鍵一致地「退一層」，
+  // 而不是直接跳出整個練習回首頁。INTRO 是最外層，退到這裡後再返回才會真的離開路由。
+  const stageBack = () => {
+    if (stage === 'WRITING') setStage('INTRO')
+    else if (stage === 'SUMMARY') setStage(savedEntryId ? 'CELEBRATE' : 'WRITING')
+    else if (stage === 'CELEBRATE') setStage('SUMMARY')
+  }
+  const triggerBack = useStageBack(stage, (s) => s === 'INTRO', stageBack)
 
   useEffect(() => {
     if (stage !== 'SUMMARY') return
@@ -248,7 +256,7 @@ function GratitudePage() {
       .catch((e) => {
         if (!cancelled) {
           console.error('[gratitude-summary]', e)
-          setSummaryError('教練暫時無法整理你的感恩，稍後再試一次也沒關係。')
+          setSummaryError('BOUBA 暫時無法整理你的感恩，稍後再試一次也沒關係。')
         }
       })
 
@@ -293,7 +301,7 @@ function GratitudePage() {
       if (resolvedSummary) setSummaryResult(resolvedSummary)
     }
     const aiFeedback = resolvedSummary
-      ? `${resolvedSummary.emotional_summary} ${resolvedSummary.action_suggestion}`.trim()
+      ? `${resolvedSummary.emotional_summary} ${resolvedSummary.resonance_story}`.trim()
       : null
     // 確保分類標籤已就緒再寫入：先用已載入的 state，否則 await 背景請求；
     // 若背景請求失敗，最後再即時重試一次，把缺標籤的機率降到最低。
@@ -440,6 +448,7 @@ function GratitudePage() {
         <IntroStage
           difficulty={difficulty}
           onChangeDifficulty={setDifficulty}
+          onGoBack={() => window.history.back()}
           onStart={() => {
             track('gratitude_started', { difficulty })
             setStage('WRITING')
@@ -454,7 +463,7 @@ function GratitudePage() {
           selectedDate={selectedDate}
           onChangeSelectedDate={setSelectedDate}
           onChangeItem={(key, val) => setItems((prev) => ({ ...prev, [key]: val }))}
-          onBack={() => setStage('INTRO')}
+          onBack={triggerBack}
           onNext={() => setStage('SUMMARY')}
         />
       )
@@ -469,7 +478,7 @@ function GratitudePage() {
           // 已存檔（從結束頁返回查看）→ 唯讀，返回結束頁；
           // 未存檔（剛寫完）→ 可返回編輯，回上一頁改日記內容。
           mode={savedEntryId ? 'view' : 'edit'}
-          onBack={() => setStage(savedEntryId ? 'CELEBRATE' : 'WRITING')}
+          onBack={triggerBack}
           onContinue={async () => {
             try {
               await saveEntry()
@@ -489,7 +498,7 @@ function GratitudePage() {
           privacy={privacy}
           onPrivacyChange={handlePrivacyChange}
           onNavigate={handleFinalSave}
-          onBack={() => setStage('SUMMARY')}
+          onBack={triggerBack}
           streakOverride={celebrateStreak}
         />
       )
@@ -501,10 +510,12 @@ function GratitudePage() {
 function IntroStage({
   difficulty,
   onChangeDifficulty,
+  onGoBack,
   onStart,
 }: {
   difficulty: Difficulty
   onChangeDifficulty: (d: Difficulty) => void
+  onGoBack: () => void
   onStart: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -519,6 +530,13 @@ function IntroStage({
           alt=""
           className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
         />
+        <button
+          onClick={onGoBack}
+          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          aria-label="返回"
+        >
+          <BackIcon />
+        </button>
         <div className="absolute right-5 top-16 z-[2] flex h-[70px] w-[70px] flex-col items-center justify-center rounded-xl border-[3px] border-[#88B8CE] bg-cream">
           <span className="font-en text-[30px] font-bold leading-none text-foreground">5</span>
           <span className="mt-0.5 text-xs text-muted-foreground">分鐘</span>
@@ -626,7 +644,7 @@ function IntroStage({
 
       {/* 3-D 練習內容清單 */}
       <div className="mt-5 flex flex-col gap-3.5">
-        {['選擇練習難度', '寫下三件感恩的事', '閱讀 AI 教練回饋'].map((item) => (
+        {['選擇練習難度', '寫下三件感恩的事', '閱讀 BOUBA 回饋'].map((item) => (
           <div key={item} className="flex items-center gap-3 text-base text-foreground">
             <span className="h-[22px] w-[22px] shrink-0 rounded-full bg-[#88B8CE]" />
             {item}
@@ -773,7 +791,7 @@ function WritingStage({
           </button>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          已連續紀錄 {streak} 天 🔥
+          已連續紀錄 {streak} 天
         </p>
       </div>
 
@@ -958,7 +976,7 @@ function GratitudeCard({
             </div>
             {difficulty === 'advanced' && (
               <p className="mt-2 border-t border-border pt-2 text-xs leading-relaxed text-primary/70">
-                💡 {DIFFICULTY_PROMPTS[difficulty]}
+                {DIFFICULTY_PROMPTS[difficulty]}
               </p>
             )}
           </>
@@ -988,6 +1006,14 @@ function BackIcon() {
       strokeLinejoin="round"
     >
       <path d="M15 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
+function CelebrateCheckIcon() {
+  return (
+    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="#FEFAF0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5" />
     </svg>
   )
 }
@@ -1046,8 +1072,9 @@ function SummaryStage({
         height: 1440,
         pixelRatio: 2,
         cacheBust: true,
-        backgroundColor: '#ffffff',
-        skipFonts: true,
+        backgroundColor: '#FEFAF0',
+        // 不要略過字體內嵌：分享圖要用跟網頁完全相同的源柔黑體，
+        // skipFonts 在部分瀏覽器會讓 web font 沒內嵌進圖檔、退回系統預設字體。
         style: {
           position: 'static',
           left: '0',
@@ -1108,10 +1135,10 @@ function SummaryStage({
         })}
       </div>
 
-      {/* AI Coach feedback - 2-part */}
+      {/* BOUBA 回饋：情緒反映 + 一段貼合使用者內容的敘事，不含任何行動建議 */}
       <div className="mb-6 rounded-3xl bg-gradient-soft p-5 shadow-soft">
         <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
-          安安回饋
+          BOUBA 回饋
         </p>
         {isLoading ? (
           <FeedbackLoading />
@@ -1120,18 +1147,15 @@ function SummaryStage({
             <p className="text-sm leading-relaxed text-foreground">
               {displayResult.emotional_summary}
             </p>
-            {displayResult.action_suggestion && (
+            {displayResult.resonance_story && (
               <div className="rounded-2xl bg-white/40 px-3.5 py-2.5">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary/60 mb-1">
-                  行動建議
-                </p>
                 <p className="text-sm leading-relaxed text-foreground/80">
-                  {displayResult.action_suggestion}
+                  {displayResult.resonance_story}
                 </p>
               </div>
             )}
             {isFallback && (
-              <p className="text-[10px] text-muted-foreground/50">※ 安安今天稍忙，以通用回饋陪伴你</p>
+              <p className="text-[10px] text-muted-foreground/50">※ BOUBA 今天稍忙，以通用回饋陪伴你</p>
             )}
           </div>
         ) : null}
@@ -1146,7 +1170,7 @@ function SummaryStage({
         <ShareCard
           items={items}
           emotionalSummary={displayResult?.emotional_summary ?? null}
-          actionSuggestion={displayResult?.action_suggestion ?? null}
+          resonanceStory={displayResult?.resonance_story ?? null}
           date={date}
           streak={streak}
         />
@@ -1155,7 +1179,7 @@ function SummaryStage({
       {/* 回饋生成前：不顯示「下載圖片／下一步」，只提示請耐心等候 */}
       {isLoading ? (
         <p className="pb-6 text-center text-sm font-bold leading-relaxed text-muted-foreground">
-          ⏳ 等回饋生成完之後，才能進行下一步喔！
+          等回饋生成完之後，才能進行下一步喔！
         </p>
       ) : (
         <div className="flex flex-col gap-3 pb-4">
@@ -1192,10 +1216,9 @@ function SummaryStage({
 
 const FEEDBACK_LOADING_MESSAGES = [
   '正在分析你的感恩日記…',
-  '安安正在為你生成專屬回饋…',
-  '正在喚醒 AI 教練…',
+  'BOUBA 正在為你生成專屬回饋…',
   '正在啟動伺服器（首次回應可能需要多等幾秒）…',
-  '快好了，謝謝你的耐心等待 💛',
+  '快好了，謝謝你的耐心等待…',
 ]
 
 // AI 回饋生成期間的等待畫面：循環播放訊息，讓使用者不會覺得卡住或無聊。
@@ -1228,47 +1251,48 @@ function FeedbackLoading() {
   )
 }
 
+// 分享圖：直接沿用「你今天的感恩回顧」結果頁的配色、字體與版面比例，
+// 讓儲存下來的圖片就像那個畫面的截圖一樣（同一套暖色 token、同一套字體，字級再放大）。
 function ShareCard({
   items,
   emotionalSummary,
-  actionSuggestion,
+  resonanceStory,
   date,
   streak,
 }: {
   items: GratitudeItems
   emotionalSummary: string | null
-  actionSuggestion: string | null
+  resonanceStory: string | null
   date: string
   streak: number | null
 }) {
   const totalChars = (items.item_1?.length ?? 0) + (items.item_2?.length ?? 0) + (items.item_3?.length ?? 0)
-  const itemFontSize = totalChars < 60 ? 26 : totalChars < 120 ? 22 : 18
-  const itemPadding = totalChars < 60 ? '32px 36px' : totalChars < 120 ? '26px 32px' : '20px 28px'
-  const itemGap = totalChars < 60 ? 28 : totalChars < 120 ? 22 : 16
+  const itemFontSize = totalChars < 60 ? 40 : totalChars < 120 ? 34 : 29
+  const itemPadding = totalChars < 60 ? '36px 40px' : totalChars < 120 ? '30px 36px' : '26px 32px'
+  const itemGap = totalChars < 60 ? 26 : totalChars < 120 ? 22 : 18
 
   return (
     <div
       style={{
         width: '1080px',
         height: '1440px',
-        background: 'linear-gradient(150deg,#dfe7f5 0%,#e8d6e8 55%,#f1d6c2 100%)',
-        padding: '72px 72px 60px',
+        background: 'linear-gradient(180deg, #FEFAF0 0%, #f6efe0 55%, #efe2c9 100%)',
+        padding: '76px 72px 56px',
         boxSizing: 'border-box',
-        fontFamily: 'PingFang TC, Microsoft JhengHei, sans-serif',
-        color: '#1f2742',
+        color: '#542916',
         display: 'flex',
         flexDirection: 'column',
-        gap: 32,
+        gap: 30,
       }}
     >
       <div>
-        <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.55 }}>
+        <div style={{ fontSize: 18, letterSpacing: 8, fontWeight: 800, color: '#88B8CE' }}>
           PSY BY PSY · GRATITUDE
         </div>
-        <div style={{ fontSize: 52, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>
-          今天的三件感恩
+        <div style={{ fontSize: 58, fontWeight: 900, marginTop: 16, lineHeight: 1.25, letterSpacing: 1 }}>
+          你今天的感恩回顧
         </div>
-        <div style={{ fontSize: 22, opacity: 0.65, marginTop: 10 }}>{date}</div>
+        <div style={{ fontSize: 26, fontWeight: 700, opacity: 0.6, marginTop: 12 }}>{date}</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: itemGap }}>
@@ -1276,80 +1300,64 @@ function ShareCard({
           <div
             key={i}
             style={{
-              background: 'rgba(255,255,255,0.72)',
-              borderRadius: 32,
+              background: '#ffffff',
+              borderRadius: 40,
               padding: itemPadding,
               display: 'flex',
-              gap: 22,
+              gap: 24,
               alignItems: 'flex-start',
+              boxShadow: '0 8px 22px -10px rgba(40,24,12,0.18)',
             }}
           >
             <div
               style={{
-                width: 44,
-                height: 44,
+                width: 56,
+                height: 56,
                 borderRadius: '50%',
-                background: '#3b56a8',
-                color: '#fff',
+                background: '#88B8CE',
+                color: '#FEFAF0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 800,
-                fontSize: 20,
+                fontSize: 26,
                 flexShrink: 0,
               }}
             >
               {i + 1}
             </div>
-            <div style={{ fontSize: itemFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{text}</div>
+            <div style={{ fontSize: itemFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap', opacity: 0.85 }}>
+              {text}
+            </div>
           </div>
         ))}
       </div>
 
       <div
         style={{
-          background: 'rgba(255,255,255,0.55)',
-          borderRadius: 32,
-          padding: '28px 32px',
+          background: 'linear-gradient(135deg, #f6efe0 0%, #efe2c9 100%)',
+          borderRadius: 40,
+          padding: '34px 38px',
+          boxShadow: '0 8px 22px -10px rgba(40,24,12,0.18)',
         }}
       >
-        <div
-          style={{
-            fontSize: 14,
-            letterSpacing: 6,
-            fontWeight: 800,
-            color: '#3b56a8',
-            marginBottom: 14,
-          }}
-        >
-          安安回饋
+        <div style={{ fontSize: 18, letterSpacing: 6, fontWeight: 800, color: '#88B8CE', marginBottom: 18 }}>
+          BOUBA 回饋
         </div>
-        <div style={{ fontSize: 20, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+        <div style={{ fontSize: 32, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
           {emotionalSummary ?? '——'}
         </div>
-        {actionSuggestion && (
+        {resonanceStory && (
           <div
             style={{
-              marginTop: 18,
+              marginTop: 22,
               background: 'rgba(255,255,255,0.55)',
-              borderRadius: 20,
-              padding: '18px 24px',
+              borderRadius: 28,
+              padding: '24px 28px',
             }}
           >
-            <div
-              style={{
-                fontSize: 13,
-                letterSpacing: 5,
-                fontWeight: 800,
-                color: '#3b56a8',
-                opacity: 0.7,
-                marginBottom: 8,
-              }}
-            >
-              行動建議
-            </div>
-            <div style={{ fontSize: 19, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-              {actionSuggestion}
+            <div style={{ fontSize: 27, lineHeight: 1.65, whiteSpace: 'pre-wrap', opacity: 0.85 }}>
+              {resonanceStory}
             </div>
           </div>
         )}
@@ -1358,25 +1366,25 @@ function ShareCard({
       {streak !== null && (
         <div
           style={{
-            background: 'linear-gradient(135deg,#3b56a8 0%,#6b7fd4 100%)',
-            borderRadius: 32,
-            padding: '26px 36px',
+            background: 'linear-gradient(135deg, #9fc6dc 0%, #88B8CE 100%)',
+            borderRadius: 40,
+            padding: '30px 36px',
             textAlign: 'center',
-            color: '#fff',
+            color: '#FEFAF0',
           }}
         >
-          <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
-            恭喜完成第 {streak} 天感恩日記 🎉
+          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
+            恭喜完成第 {streak} 天感恩日記
           </div>
         </div>
       )}
 
-      {/* PSYbyPSY logo */}
+      {/* PSY by PSY logo */}
       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
         <img
-          src="/assets/logo-full-color.png"
-          alt="PSYbyPSY"
-          style={{ height: 48, objectFit: 'contain', opacity: 0.75 }}
+          src="/assets/logo-wordmark.png"
+          alt="PSY by PSY"
+          style={{ height: 44, objectFit: 'contain', opacity: 0.8 }}
           crossOrigin="anonymous"
         />
       </div>
@@ -1403,11 +1411,11 @@ const TARGET_INSIGHT: Record<TargetCode, string> = {
 }
 
 const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
-  others:      { title: '👥 身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
-  self:        { title: '🙋 自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
-  environment: { title: '🌳 環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
-  experience:  { title: '✨ 體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
-  custom:      { title: '🏷️ 自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
+  others:      { title: '身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
+  self:        { title: '自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
+  environment: { title: '環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
+  experience:  { title: '體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
+  custom:      { title: '自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
 }
 
 function DonutChart({ segments }: { segments: { code: TargetCode; count: number; pct: number }[] }) {
@@ -1571,8 +1579,8 @@ function CelebrateStage({
         <BackIcon />
       </button>
 
-      <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-primary text-5xl shadow-soft">
-        🎉
+      <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-primary shadow-soft">
+        <CelebrateCheckIcon />
       </div>
       <h2 className="mb-2 text-center text-2xl font-extrabold text-foreground">
         今日感恩練習完成！
@@ -1593,7 +1601,7 @@ function CelebrateStage({
         </div>
         <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
           <span className="text-xl font-extrabold text-primary">
-            {streak !== null ? streak : '—'} 🔥
+            {streak !== null ? streak : '—'}
           </span>
           <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
             連續紀錄
@@ -1664,7 +1672,7 @@ function CelebrateStage({
                         style={{ background: TARGET_COLORS[code] }}
                       />
                       <span className="flex-1 text-xs text-foreground/80">
-                        {meta.emoji} {meta.label}
+                        {meta.label}
                       </span>
                       <span className="text-xs font-bold text-foreground">
                         {Math.round(pct * 100)}%
@@ -1700,7 +1708,6 @@ function CelebrateStage({
                     : 'border-border bg-muted/40 hover:bg-muted'
                 }`}
               >
-                <span className="text-lg leading-none">{opt.emoji}</span>
                 <span className="flex-1">
                   <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
                     {opt.label}
@@ -1729,7 +1736,7 @@ function CelebrateStage({
           disabled={saving}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >
-          ✅ 結束今天練習
+          結束今天練習
         </button>
       </div>
 

@@ -2,7 +2,7 @@ import { DIMENSION_CONFIGS, DIMENSION_ORDER } from './types'
 
 interface Props {
   onStart: () => void
-  onGoHome?: () => void
+  onSkip: () => void
 }
 
 const DOT_COLOR: Record<string, string> = {
@@ -13,7 +13,7 @@ const DOT_COLOR: Record<string, string> = {
   A: '#FFDDB9',
 }
 
-export default function LandingPage({ onStart, onGoHome }: Props) {
+export default function LandingPage({ onStart, onSkip }: Props) {
   return (
     <div
       className="screen-enter"
@@ -104,20 +104,20 @@ export default function LandingPage({ onStart, onGoHome }: Props) {
         />
       </div>
 
-      {/* CTA */}
-      <div style={{ padding: '20px 24px 8px' }}>
+      {/* CTA：開始測驗（實心）／跳過測驗（白底），並排讓兩個選擇同樣清楚可見 */}
+      <div style={{ padding: '20px 24px 8px', display: 'flex', gap: 12 }}>
         <button
           onClick={onStart}
           style={{
-            width: '100%',
+            flex: 1.3,
             height: 64,
             borderRadius: 99,
             background: '#292F56',
             color: '#fff',
             border: 'none',
-            fontSize: 24,
+            fontSize: 20,
             fontWeight: 900,
-            letterSpacing: 4,
+            letterSpacing: 2,
             cursor: 'pointer',
             fontFamily: 'inherit',
             boxShadow:
@@ -128,6 +128,27 @@ export default function LandingPage({ onStart, onGoHome }: Props) {
           }}
         >
           開始測驗
+        </button>
+        <button
+          onClick={onSkip}
+          style={{
+            flex: 1,
+            height: 64,
+            borderRadius: 99,
+            background: '#fff',
+            color: '#292F56',
+            border: '2px solid #E4E4E4',
+            fontSize: 16,
+            fontWeight: 800,
+            letterSpacing: 1,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          跳過測驗
         </button>
       </div>
 
@@ -207,28 +228,6 @@ export default function LandingPage({ onStart, onGoHome }: Props) {
       >
         約 5 分鐘 · 5 題開放問答 · 全程匿名
       </div>
-
-      {onGoHome && (
-        <div style={{ padding: '0 24px 32px', textAlign: 'center' }}>
-          <button
-            onClick={onGoHome}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#959595',
-              fontSize: 13,
-              fontWeight: 600,
-              fontFamily: 'inherit',
-              cursor: 'pointer',
-              letterSpacing: 0.3,
-              textDecoration: 'underline',
-              textUnderlineOffset: 3,
-            }}
-          >
-            返回首頁
-          </button>
-        </div>
-      )}
     </div>
   )
 }

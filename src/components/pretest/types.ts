@@ -8,7 +8,6 @@ export const DIMENSION_ORDER: DimensionKey[] = ['P', 'E', 'R', 'M', 'A']
 
 export interface DimensionConfig {
   key: DimensionKey
-  icon: string
   label: string
   sublabel: string
   description: string
@@ -26,7 +25,6 @@ export interface DimensionConfig {
 export const DIMENSION_CONFIGS: Record<DimensionKey, DimensionConfig> = {
   P: {
     key: 'P',
-    icon: '☀️',
     label: '情緒力',
     sublabel: 'Positive Emotion',
     description: '感受日常喜悅、享受生命美好時刻的能力。',
@@ -46,7 +44,6 @@ export const DIMENSION_CONFIGS: Record<DimensionKey, DimensionConfig> = {
   },
   E: {
     key: 'E',
-    icon: '🌊',
     label: '投入力',
     sublabel: 'Engagement',
     description: '全神貫注投入一件事、進入心流狀態的能力。',
@@ -66,7 +63,6 @@ export const DIMENSION_CONFIGS: Record<DimensionKey, DimensionConfig> = {
   },
   R: {
     key: 'R',
-    icon: '🧲',
     label: '連結力',
     sublabel: 'Relationships',
     description: '與他人建立深刻連結、感受支持與歸屬感的能力。',
@@ -86,7 +82,6 @@ export const DIMENSION_CONFIGS: Record<DimensionKey, DimensionConfig> = {
   },
   M: {
     key: 'M',
-    icon: '🏔',
     label: '意義力',
     sublabel: 'Meaning',
     description: '找到生命目的、讓行動與內在價值觀一致的能力。',
@@ -106,7 +101,6 @@ export const DIMENSION_CONFIGS: Record<DimensionKey, DimensionConfig> = {
   },
   A: {
     key: 'A',
-    icon: '⚡',
     label: '成就力',
     sublabel: 'Accomplishment',
     description: '設定目標、持續推進並看見自身成長的能力。',

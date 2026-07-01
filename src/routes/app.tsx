@@ -15,6 +15,7 @@ import { registerForPush } from '../lib/pushNotifications'
 import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/communityModeration'
 import { useGlobalKeyboard } from '../lib/keyboard'
 import { hardRefresh } from '../lib/refresh'
+import { useScrollDirection } from '../lib/useScrollDirection'
 import logoWordmark from '../assets/ui/logo-wordmark.png'
 
 export const Route = createFileRoute('/app')({
@@ -34,6 +35,17 @@ function AppShell() {
   // 全站鍵盤行為（規格 [2][5]）：點空白處收鍵盤、鍵盤彈出時補底部留白。
   useGlobalKeyboard()
 
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  // 練習進行中（感恩日記／過程目標覺察／工作坊練習）：底部工具列暫時隱藏，讓畫面更沉浸。
+  const isExercise =
+    pathname.startsWith('/app/gratitude') ||
+    pathname.startsWith('/app/process-goal') ||
+    pathname.startsWith('/app/workshop')
+  // 社群頁：往下捲動收起工具列、往上捲動時跳出（比照 Facebook 的捲動體驗）。
+  const isCommunity = pathname.startsWith('/app/community')
+  const scrolledDown = useScrollDirection(isCommunity)
+  const hideNav = isExercise || scrolledDown
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopHeader />
@@ -41,7 +53,7 @@ function AppShell() {
       <main className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(6rem+var(--keyboard-height,0px))]">
         <Outlet />
       </main>
-      <BottomNav />
+      <BottomNav hidden={hideNav} />
     </div>
   )
 }
@@ -128,18 +140,18 @@ function TopHeader() {
           <DrawerLink
             to="/onboarding"
             search={{ reassess: true }}
-            icon="📋"
+            icon={<ClipboardIcon />}
             label="InMind 心理健康測驗"
             onClick={() => setDrawerOpen(false)}
           />
           <DrawerExternalLink
             href="https://line.me/ti/g2/s8BmdrBAelUmNj858hi5iHzhJ-vhTQVCqTSokQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
-            icon="🧠"
+            icon={<UsersIcon />}
             label="PSY by PSY 社群"
           />
           <DrawerExternalLink
             href="https://www.instagram.com/psy_by_psy/"
-            icon="📸"
+            icon={<CameraIcon />}
             label="IG 追蹤我們"
           />
 
@@ -148,7 +160,7 @@ function TopHeader() {
           {/* 字體大小（無障礙大字模式） */}
           <div className="px-3 py-1">
             <div className="flex items-center gap-3">
-              <span className="text-xl">🔠</span>
+              <FontSizeIcon />
               <span className="text-lg font-black tracking-[0.03em] text-foreground">字體大小</span>
             </div>
             <div className="mt-4 flex items-center gap-3">
@@ -261,7 +273,7 @@ function NotificationSetting() {
   return (
     <div className="rounded-2xl px-4 py-3">
       <div className="flex items-center gap-3">
-        <span className="text-xl">🔔</span>
+        <span className="flex h-6 w-6 items-center justify-center"><BellIcon /></span>
         <span className="font-bold text-foreground">通知</span>
       </div>
       {body}
@@ -309,7 +321,7 @@ function BlockedListSection({ active }: { active: boolean }) {
         className="flex w-full items-center gap-3"
         aria-expanded={open}
       >
-        <span className="text-xl">🚫</span>
+        <BlockIcon />
         <span className="font-bold text-foreground">封鎖名單</span>
         {loaded && list.length > 0 && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
@@ -329,8 +341,8 @@ function BlockedListSection({ active }: { active: boolean }) {
             <ul className="flex flex-col gap-2">
               {list.map((b) => (
                 <li key={b.blocked_id} className="flex items-center gap-2.5 rounded-2xl bg-muted px-3 py-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-peach text-sm">
-                    🚫
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-peach">
+                    <BlockIcon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-bold text-foreground">
@@ -489,8 +501,8 @@ function NotificationBell() {
                           isUnread ? 'bg-primary/5' : ''
                         }`}
                       >
-                        <span className="mt-0.5 text-lg leading-none">
-                          {item.type === 'like' ? '❤️' : '💬'}
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                          {item.type === 'like' ? <NotifHeartIcon /> : <NotifCommentIcon />}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-semibold text-foreground">{item.title}</span>
@@ -535,7 +547,7 @@ function DrawerLink({
 }: {
   to: string
   search?: Record<string, unknown>
-  icon: string
+  icon: ReactNode
   label: string
   onClick: () => void
 }) {
@@ -546,7 +558,7 @@ function DrawerLink({
       onClick={onClick}
       className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground transition hover:bg-muted active:scale-[0.98]"
     >
-      <span className="text-xl">{icon}</span>
+      <span className="flex h-6 w-6 items-center justify-center">{icon}</span>
       <span className="font-bold">{label}</span>
     </Link>
   )
@@ -559,7 +571,7 @@ function DrawerExternalLink({
   note,
 }: {
   href: string
-  icon: string
+  icon: ReactNode
   label: string
   note?: string
 }) {
@@ -568,7 +580,7 @@ function DrawerExternalLink({
       href={href}
       className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground transition hover:bg-muted active:scale-[0.98]"
     >
-      <span className="text-xl">{icon}</span>
+      <span className="flex h-6 w-6 items-center justify-center">{icon}</span>
       <span className="font-bold">{label}</span>
       {note && (
         <span className="ml-auto text-[10px] font-bold text-muted-foreground">{note}</span>
@@ -577,7 +589,7 @@ function DrawerExternalLink({
   )
 }
 
-function BottomNav() {
+function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   const tabs = [
@@ -587,7 +599,11 @@ function BottomNav() {
   ] as const
 
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-[calc(1.4rem+env(safe-area-inset-bottom))]">
+    <nav
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-[calc(1.4rem+env(safe-area-inset-bottom))] transition-transform duration-300 ${
+        hidden ? 'translate-y-[150%]' : 'translate-y-0'
+      }`}
+    >
       <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border-2 border-[#542916] bg-[#FEFAF0]/[0.92] px-3.5 py-2.5 shadow-[0_8px_20px_rgba(40,24,12,0.18)] backdrop-blur-md">
         {tabs.map((tab) => {
           const isActive = pathname === tab.to || pathname.startsWith(tab.to + '/')
@@ -665,6 +681,59 @@ function UserIcon() {
     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="8" r="3.6" />
       <path d="M5 20a7 7 0 0 1 14 0" />
+    </svg>
+  )
+}
+
+function ClipboardIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="4" width="12" height="17" rx="2" />
+      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+      <path d="M9 11h6M9 15h6" />
+    </svg>
+  )
+}
+
+function CameraIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+      <circle cx="12" cy="12.5" r="3.5" />
+    </svg>
+  )
+}
+
+function FontSizeIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 19l4-13 4 13M6.2 15h5.6" />
+      <path d="M15.5 19V9.5M13 12l2.5-2.5L18 12" />
+    </svg>
+  )
+}
+
+function NotifHeartIcon() {
+  return (
+    <svg className="h-4 w-4 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
+    </svg>
+  )
+}
+
+function NotifCommentIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-4-1L3 20l1-5.5a8.5 8.5 0 1 1 17-3z" />
+    </svg>
+  )
+}
+
+function BlockIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.5 5.5l13 13" />
     </svg>
   )
 }

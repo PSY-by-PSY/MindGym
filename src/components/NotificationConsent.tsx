@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react'
 import { isNativeApp } from '../lib/nativeAuth'
 import { enableNotifications, NOTIF_CONSENT_KEY as CONSENT_KEY } from '../lib/localNotifications'
 
+function BellIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+
 // 詢問並取得使用者同意，讓 App / Web App 能傳送系統通知。
 // 不論是否登入皆會出現（掛在最外層），每位使用者只問一次（已回應就不再打擾）。
 // 原生 App：走 Local Notifications 權限（WKWebView 沒有 Web Notification API）。
@@ -47,7 +56,7 @@ export function NotificationConsent() {
         if (result === 'granted') {
           try {
             new Notification('PSY by PSY', {
-              body: '通知已開啟！有人為你的貼文按讚或留言時會提醒你 🎉',
+              body: '通知已開啟！有人為你的貼文按讚或留言時會提醒你',
             })
           } catch { /* 部分平台需 SW 才能顯示，忽略 */ }
         }
@@ -70,7 +79,9 @@ export function NotificationConsent() {
     <div className="fixed inset-x-0 bottom-0 z-[80] flex justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
       <div className="animate-slide-up w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-soft">
         <div className="flex items-start gap-3">
-          <span className="text-2xl leading-none">🔔</span>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center text-foreground">
+            <BellIcon />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-extrabold text-foreground">開啟通知</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">

@@ -604,7 +604,7 @@ async def gratitude_summary(
         msg = await claude().messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=512,
-            system="你是一位心理學取向的健心教練，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳 JSON，不要加任何前言或 markdown。",
+            system="你是 BOUBA，一位心理學取向的健心陪伴者，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳 JSON，不要加任何前言或 markdown。",
             messages=[{
                 "role": "user",
                 "content": (
@@ -615,10 +615,12 @@ async def gratitude_summary(
                     f"{tone}\n\n"
                     "請生成兩段回饋：\n"
                     "1. emotional_summary：一句話溫柔反映使用者今天整體的正向情緒狀態（30 字以內，不批判）\n"
-                    "2. action_suggestion：\n"
-                    "   - 若感恩內容提及他人（家人/朋友/同事/任何人名或人際關係詞）→ 鼓勵直接分享給對方（例：不妨今天讓對方知道你的感謝）\n"
-                    "   - 否則 → 提供一個生活中可留意或行動的建設性建議（30 字以內）\n\n"
-                    '只回傳 JSON：{"emotional_summary":"...","action_suggestion":"..."}'
+                    "2. resonance_story：用「我曾經聽過有人……」之類的口吻，講一個與使用者今天感恩內容高度相似、"
+                    "但屬於『別人』的簡短情境（60～90 字），故事本身不必真實存在，重點是與使用者的內容貼合、"
+                    "讀起來有共鳴；並在故事最後自然帶出一個能給使用者不同視角或啟發的小小體悟。"
+                    "絕對不要提供任何行動建議、不要要求或鼓勵使用者去做什麼（例如分享給某人、留意某事），"
+                    "只單純分享故事與體悟即可。\n\n"
+                    '只回傳 JSON：{"emotional_summary":"...","resonance_story":"..."}'
                 ),
             }],
         )
@@ -814,7 +816,7 @@ async def pg_focus_insight(req: FocusInsightRequest, authorization: str = Header
         )
         data = await _pg_claude_json(
             "pg-focus-insight", user_id,
-            "你是溫暖、敏銳的專注力教練，擅長看穿條件背後真正的需求。回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
+            "你是 BOUBA，一位溫暖、敏銳的專注力陪伴者，擅長看穿條件背後真正的需求。回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
             content,
         )
         cat = (data.get("category") or "other").strip().lower()
@@ -888,7 +890,7 @@ async def pg_focus_boost(req: FocusBoostRequest, authorization: str = Header(...
         )
         data = await _pg_claude_json(
             "pg-focus-boost", user_id,
-            "你是了解使用者的專注力教練，最重要的紀律是『絕不做跨活動類型的錯誤類比』。"
+            "你是 BOUBA，了解使用者的專注力陪伴者，最重要的紀律是『絕不做跨活動類型的錯誤類比』。"
             "回應請使用繁體中文，只回傳 JSON，不要任何前言或 markdown。",
             content,
             max_tokens=640,

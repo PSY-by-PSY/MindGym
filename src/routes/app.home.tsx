@@ -3,6 +3,7 @@ import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
+import { hasSkippedOnboarding } from '../lib/onboardingSkip'
 import homeMascot from '../assets/ui/home-mascot.png'
 import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
 import sleepingMascot from '../assets/ui/sleeping-mascot.png'
@@ -43,7 +44,8 @@ export const Route = createFileRoute('/app/home')({
       .order('created_at', { ascending: false })
       .limit(1)
 
-    if (!scores || scores.length === 0) {
+    // 心理測驗不再強制：使用者可以先跳過，之後不會每次回首頁都被攔下來重問。
+    if ((!scores || scores.length === 0) && !hasSkippedOnboarding()) {
       throw redirect({ to: '/onboarding' })
     }
 
@@ -58,7 +60,7 @@ export const Route = createFileRoute('/app/home')({
       .limit(1)
 
     // 由雷達圖（最新 PERMA 分數）決定今天推薦的練習
-    const recommendation = recommendPractice(scores[0] ?? null)
+    const recommendation = recommendPractice(scores?.[0] ?? null)
 
     return { userName, hasGratitudeToday: (todayGratitude?.length ?? 0) > 0, recommendation }
   },
@@ -209,7 +211,6 @@ function FeaturedModuleCard({ name, meta }: ModuleProps) {
         alt=""
         className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
       />
-      <span className="absolute right-5 top-4 text-[26px]">✨</span>
       <div className="relative z-10 p-5 pb-6">
         <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{name}</div>
         <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{meta}</div>
@@ -226,7 +227,11 @@ function ActiveModuleCard({ name, meta, to }: ModuleProps) {
       className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
       style={{ background: 'linear-gradient(160deg,#F1C166 0%,#e0a93f 100%)' }}
     >
-      <span className="absolute right-5 top-4 text-[26px]">🔍</span>
+      <img
+        src={featuredGratitude}
+        alt=""
+        className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
+      />
       <div className="relative z-10 p-5 pb-6">
         <div className="text-[34px] font-black tracking-[0.04em] text-[#5b3a12]">{name}</div>
         <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-[#8a6320]">{meta}</div>
@@ -494,7 +499,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
             />
             <ExerciseCard
               to="/app/process-goal"
-              img={gratitudeMascot}
+              img={exerciseGratitude}
               name="過程目標覺察"
               meta="初階·三分鐘"
               badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
@@ -507,8 +512,8 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
 
       {activeTab === 'new' && (
         <div className="flex flex-col gap-2.5">
-          <NewRow emoji="🔍" iconBg="#cfe2ee" name="過程目標覺察" meta="新上架 · 找回你的專注狀態" tag="NEW" to="/app/process-goal" />
-          <NewRow emoji="☑️" iconBg="#f3e3c4" name="三件好事" meta="即將上架 · 情緒力 · 成就力" dimmed />
+          <NewRow icon={<SearchIcon />} iconBg="#cfe2ee" name="過程目標覺察" meta="新上架 · 找回你的專注狀態" tag="NEW" to="/app/process-goal" />
+          <NewRow icon={<CheckSquareIcon />} iconBg="#f3e3c4" name="三件好事" meta="即將上架 · 情緒力 · 成就力" dimmed />
         </div>
       )}
 
@@ -517,7 +522,9 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
           to="/app/gratitude"
           className="flex items-center gap-3.5 rounded-[22px] bg-[#d7ebd9] px-[18px] py-4 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition active:scale-[0.98]"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-2xl">⭐</span>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-[#5b6b4a]">
+            <StarIcon />
+          </span>
           <span className="min-w-0 flex-1">
             <b className="text-[15px] font-black text-foreground">感恩日記</b>
             <span className="mt-1.5 flex flex-wrap gap-1.5">
@@ -535,7 +542,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
 }
 
 function NewRow({
-  emoji,
+  icon,
   iconBg,
   name,
   meta,
@@ -543,7 +550,7 @@ function NewRow({
   to,
   dimmed,
 }: {
-  emoji: string
+  icon: ReactNode
   iconBg: string
   name: string
   meta: string
@@ -554,10 +561,10 @@ function NewRow({
   const body: ReactNode = (
     <>
       <span
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-2xl"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px]"
         style={{ background: iconBg }}
       >
-        {emoji}
+        {icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
@@ -583,4 +590,30 @@ function NewRow({
     )
   }
   return <div className={cls}>{body}</div>
+}
+
+function SearchIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
+    </svg>
+  )
+}
+
+function CheckSquareIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8.5 12.5l2.2 2.2L16 9.5" />
+    </svg>
+  )
+}
+
+function StarIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.5l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.7 5.9 21.1l1.4-6.8-5.1-4.7 6.9-.8z" />
+    </svg>
+  )
 }

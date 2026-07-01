@@ -9,10 +9,10 @@ export type Privacy = 'community' | 'anonymous' | 'private'
 
 export const DEFAULT_PRIVACY: Privacy = 'community'
 
-export const PRIVACY_OPTIONS: { value: Privacy; label: string; emoji: string; hint: string }[] = [
-  { value: 'community', label: '分享到社群', emoji: '🌟', hint: '你的名字會顯示在打卡牆上' },
-  { value: 'anonymous', label: '匿名分享',   emoji: '🌙', hint: '以「能量代號」匿名出現在打卡牆' },
-  { value: 'private',   label: '僅限本人',   emoji: '🔒', hint: '只有你看得到，不會出現在打卡牆' },
+export const PRIVACY_OPTIONS: { value: Privacy; label: string; hint: string }[] = [
+  { value: 'community', label: '分享到社群', hint: '你的名字會顯示在打卡牆上' },
+  { value: 'anonymous', label: '匿名分享',   hint: '以「能量代號」匿名出現在打卡牆' },
+  { value: 'private',   label: '僅限本人',   hint: '只有你看得到，不會出現在打卡牆' },
 ]
 
 // 由隱私選項推回兩個資料庫欄位的值

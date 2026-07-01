@@ -143,8 +143,27 @@ export function StepProgress({ current, total }: { current: number; total: numbe
 export function TimeBadge({ minutes }: { minutes: number }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-bold text-primary">
-      ⏱ 建議參考 {minutes} 分鐘
+      <StopwatchIcon />
+      建議參考 {minutes} 分鐘
     </span>
+  )
+}
+
+function StopwatchIcon() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l3 2M9 2h6M12 2v3" />
+    </svg>
+  )
+}
+
+function PauseHandIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="4" width="2.5" height="16" rx="1" />
+      <rect x="14.5" y="4" width="2.5" height="16" rx="1" />
+    </svg>
   )
 }
 
@@ -236,8 +255,8 @@ function AdvanceConfirmDialog({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
       <div className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 shadow-soft">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-2xl">
-          ✋
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+          <PauseHandIcon />
         </div>
         <p className="text-base font-extrabold leading-relaxed text-foreground">
           {ADVANCE_HINT}

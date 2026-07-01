@@ -8,6 +8,7 @@ interface Props {
   startAtLast: boolean
   apiError: string
   onSubmit: (answers: NarrativeAnswers) => void
+  onExit: () => void
 }
 
 const MIN_CHARS = 30
@@ -31,7 +32,7 @@ const DARK_GLYPH: Record<DimensionKey, boolean> = {
 const ORDINAL = ['一', '二', '三', '四', '五']
 
 // ── Top bar with progress dots ──────────────────────────────
-function ProgressHeader({ step }: { step: number }) {
+function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) {
   const total = DIMENSION_ORDER.length
   const cfg = DIMENSION_CONFIGS[DIMENSION_ORDER[step]]
   return (
@@ -45,6 +46,29 @@ function ProgressHeader({ step }: { step: number }) {
           marginBottom: 18,
         }}
       >
+        <button
+          onClick={onExit}
+          aria-label="返回"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 32,
+            height: 32,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            border: '1.5px solid #EAEAEA',
+            background: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#151515" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
         <img
           src="/assets/psy-by-psy-logo.png"
           alt="PSY by PSY"
@@ -145,7 +169,7 @@ function ProgressHeader({ step }: { step: number }) {
 }
 
 // ── Main quiz component ─────────────────────────────────────
-export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, onSubmit }: Props) {
+export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, onSubmit, onExit }: Props) {
   const [step, setStep] = useState(startAtLast ? DIMENSION_ORDER.length - 1 : 0)
   const [answers, setAnswers] = useState<NarrativeAnswers>(initialAnswers)
   const [showHint, setShowHint] = useState(false)
@@ -197,7 +221,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
       className="screen-enter"
       style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: '#fff' }}
     >
-      <ProgressHeader step={step} />
+      <ProgressHeader step={step} onExit={onExit} />
 
       {/* Prompt block */}
       <div style={{ padding: '8px 24px 14px', textAlign: 'center' }}>
@@ -315,7 +339,6 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
         >
           {cfg.hints.map((hint, i) => (
             <div key={i} style={{ display: 'flex', gap: 6 }}>
-              <span style={{ flexShrink: 0 }}>{i === 0 ? '💡' : ''}</span>
               <span>
                 {i + 1}. {hint}
               </span>
@@ -402,7 +425,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
             fontSize: 12.5,
           }}
         >
-          ⚠️ {apiError}
+          {apiError}
         </div>
       )}
 

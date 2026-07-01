@@ -9,12 +9,12 @@ import avatar2 from '../assets/ui/avatar-2.png'
 
 type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
 
-const TARGET_META: Record<TargetCode, { emoji: string; label: string }> = {
-  others:      { emoji: '👥', label: '身邊他人' },
-  self:        { emoji: '🙋', label: '自己' },
-  environment: { emoji: '🌳', label: '環境' },
-  experience:  { emoji: '✨', label: '體驗' },
-  custom:      { emoji: '🏷️', label: '自訂' },
+const TARGET_META: Record<TargetCode, { label: string }> = {
+  others:      { label: '身邊他人' },
+  self:        { label: '自己' },
+  environment: { label: '環境' },
+  experience:  { label: '體驗' },
+  custom:      { label: '自訂' },
 }
 
 // 暖色重設計：對齊附圖五（自己=金、身邊他人=藍、自訂=粉），其餘沿用全站語意色
@@ -35,11 +35,11 @@ const TARGET_INSIGHT: Record<TargetCode, string> = {
 }
 
 const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
-  others:      { title: '👥 身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
-  self:        { title: '🙋 自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
-  environment: { title: '🌳 環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
-  experience:  { title: '✨ 體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
-  custom:      { title: '🏷️ 自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
+  others:      { title: '身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
+  self:        { title: '自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
+  environment: { title: '環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
+  experience:  { title: '體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
+  custom:      { title: '自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
 }
 
 type AvatarCode = 'avatar-1' | 'avatar-2'
@@ -97,10 +97,45 @@ type PgItem =
       ai_suggestion?: string | null
     }
 
-const PG_KIND_META: Record<PgItem['kind'], { emoji: string; label: string }> = {
-  moment: { emoji: '📝', label: '專注時刻記錄' },
-  boost: { emoji: '🧭', label: '提升專注錦囊' },
-  morning: { emoji: '🌅', label: '早晨啟動' },
+const PG_KIND_META: Record<PgItem['kind'], { label: string }> = {
+  moment: { label: '專注時刻記錄' },
+  boost: { label: '提升專注錦囊' },
+  morning: { label: '早晨啟動' },
+}
+
+function EditPencilIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  )
+}
+
+function FlameIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22c4 0 6.5-2.5 6.5-6 0-2.5-1.5-4-2.5-5.5.3 2-.7 3-1.5 3 .5-3-1-5.5-3.5-7 .5 2.5-.5 4-2 5.5-1.3 1.3-2.5 2.8-2.5 5 0 3.5 2.5 6 5.5 6z" />
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4M8 3v4M3 10h18" />
+    </svg>
+  )
+}
+
+function StopwatchIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l3 2M9 2h6M12 2v3" />
+    </svg>
+  )
 }
 
 export const Route = createFileRoute('/app/profile')({
@@ -709,8 +744,8 @@ function GratitudeCalendar({
                     onClick={() => setModalEntry(selectedEntry)}
                     className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint text-base">
-                      📔
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">感恩日記</span>
                     <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
@@ -722,8 +757,8 @@ function GratitudeCalendar({
                     onClick={() => setPgModal(it)}
                     className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-blue text-base">
-                      {PG_KIND_META[it.kind].emoji}
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-blue">
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">
                       過程目標覺察 · {PG_KIND_META[it.kind].label}
@@ -779,7 +814,7 @@ function GratitudeCalendar({
             {modalEntry.ai_feedback && (
               <div className="mt-3 rounded-2xl bg-primary-soft p-4">
                 <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
-                  安安回饋
+                  BOUBA 回饋
                 </p>
                 <p className="text-sm leading-relaxed text-foreground">{modalEntry.ai_feedback}</p>
               </div>
@@ -1136,8 +1171,8 @@ function ProfilePage() {
               alt="使用者頭像"
               className="h-[72px] w-[72px] rounded-[20px] border-[3px] border-[#542916] object-cover"
             />
-            <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#542916] bg-cream text-[10px] shadow">
-              ✏️
+            <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#542916] bg-cream shadow">
+              <EditPencilIcon className="h-3 w-3" />
             </span>
           </button>
           <div className="flex-1">
@@ -1175,10 +1210,10 @@ function ProfilePage() {
                 <p className="text-lg font-extrabold text-foreground">{nameValue || '未設定名稱'}</p>
                 <button
                   onClick={() => setEditingName(true)}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
                   aria-label="編輯名稱"
                 >
-                  ✏️
+                  <EditPencilIcon className="h-3 w-3" />
                 </button>
               </div>
             )}
@@ -1188,17 +1223,17 @@ function ProfilePage() {
         {/* 三個統計數字框 */}
         <div className="grid grid-cols-3 gap-3">
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-xl text-primary">🔥</span>
+            <span className="mb-1 text-primary"><FlameIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">天</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">連續打卡</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-xl text-primary">📅</span>
+            <span className="mb-1 text-primary"><CalendarIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">次</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">本月完成</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-xl text-primary">⏱️</span>
+            <span className="mb-1 text-primary"><StopwatchIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{practiceTime.value}<span className="text-base font-bold">{practiceTime.unit}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">總練習時間</span>
           </div>
@@ -1226,7 +1261,6 @@ function ProfilePage() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-12 text-muted-foreground shadow-soft">
-            <span className="mb-2 text-3xl">📋</span>
             <p className="text-sm font-medium">尚未完成 PERMA 評估</p>
           </div>
         )}

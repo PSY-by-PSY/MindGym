@@ -54,7 +54,7 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
       type: 'like',
       entryId: l.entry_id as string,
       createdAt: l.created_at as string,
-      title: '有人為你的感恩貼文按讚 ❤️',
+      title: '有人為你的感恩貼文按讚',
       snippet: snippetById[l.entry_id as string] ?? '',
     })
   }

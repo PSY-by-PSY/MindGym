@@ -144,7 +144,7 @@ function AuthenticSelfFlow() {
   }
 
   const today = formatDate(new Date())
-  const downloadLabel = isMobileDevice() ? '📲 分享圖片' : '⬇️ 儲存圖片'
+  const downloadLabel = isMobileDevice() ? '分享圖片' : '儲存圖片'
 
   // ── 步驟 1：覺察重要生命事件（工作） ──────────────────────────────
   if (step === 1) {
@@ -283,7 +283,7 @@ function AuthenticSelfFlow() {
         </div>
 
         <div className="mt-4 rounded-3xl bg-gradient-soft p-4 shadow-soft">
-          <p className="text-xs font-extrabold text-primary">💡 範例</p>
+          <p className="text-xs font-extrabold text-primary">範例</p>
           <div className="mt-2 flex flex-col gap-2.5 text-sm leading-relaxed text-foreground/80">
             <div>
               <p className="font-bold text-foreground">工作：選擇心理學學科</p>
@@ -391,7 +391,7 @@ function AuthenticSelfFlow() {
         </div>
 
         <div className="mt-4 rounded-3xl bg-gradient-soft p-4 shadow-soft">
-          <p className="text-xs font-extrabold text-primary">💡 舉例</p>
+          <p className="text-xs font-extrabold text-primary">舉例</p>
           <p className="mt-2 text-sm leading-relaxed text-foreground/80">
             我是 王慈恩，因為我做了選擇心理學學科、常與朋友分享與聯繫的人，所以我是一個希望透過心理學促進自我與他人對生命的理解，重視人際連結，並熱衷於創造人與人相互連結的人。
           </p>
@@ -431,7 +431,7 @@ function AuthenticSelfFlow() {
         <NarrativeShareCard narrative={assembleNarrative(narrative)} topWork={topWork} topLife={topLife} date={today} />
       </div>
 
-      <WorkshopLayout step={9} total={TOTAL_STEPS} title="你的自我敘事 🌟">
+      <WorkshopLayout step={9} total={TOTAL_STEPS} title="你的自我敘事">
         <p className="text-sm leading-relaxed text-muted-foreground">這是你今天為自己寫下的敘事：</p>
 
         <div className="mt-5 rounded-3xl bg-gradient-soft p-6 shadow-soft">
@@ -459,7 +459,7 @@ function AuthenticSelfFlow() {
             disabled={publishing || published || !userId}
             className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {publishing ? '發佈中…' : published ? '已發佈 ✓' : '🌟 發佈到工作坊貼文'}
+            {publishing ? '發佈中…' : published ? '已發佈' : '發佈到工作坊貼文'}
           </button>
           {!userId && (
             <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>

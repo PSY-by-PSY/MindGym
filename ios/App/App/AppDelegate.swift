@@ -1,6 +1,16 @@
 import UIKit
 import Capacitor
 
+// 讓 WKWebView 支援「邊緣滑動返回上一頁」的原生手勢（等同 Safari 的體驗）。
+// Capacitor 預設不會開啟這個手勢；開啟後，SPA 內以 History API（pushState／popstate）
+// 記錄的每一步（例如練習內部的分頁）都能被滑動手勢正確地一層層退回。
+// Main.storyboard 的 customClass 需指向這裡（見該檔案內 customClass="MainViewController"）。
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        webView?.allowsBackForwardNavigationGestures = true
+    }
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 

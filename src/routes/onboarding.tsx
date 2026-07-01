@@ -7,6 +7,8 @@ import InMindReportPage from '../components/pretest/ResultsScreen'
 import type { NarrativeAnswers, InMindReport } from '../components/pretest/types'
 import { reconstructReportFromScores } from '../lib/reconstructReport'
 import { track } from '../lib/analytics'
+import { useStageBack } from '../lib/useStageBack'
+import { markOnboardingSkipped } from '../lib/onboardingSkip'
 
 // ── Route ─────────────────────────────────────────────────────────────────
 
@@ -141,7 +143,7 @@ function LoadingScreen() {
           ? '大約再等 10 秒…'
           : elapsed < 35
           ? 'AI 正在深度思考，快好了…'
-          : '伺服器剛喚醒中，再給一點時間 ☕'}
+          : '伺服器剛喚醒中，再給一點時間'}
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 24 }}>
         {[0, 1, 2, 3].map((i) => (
@@ -161,6 +163,24 @@ function LoadingScreen() {
   )
 }
 
+function WakeUpIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l3 2M9 2h6" />
+    </svg>
+  )
+}
+
+function AlertIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l9.5 17H2.5z" />
+      <path d="M12 10v4M12 17.5v.01" />
+    </svg>
+  )
+}
+
 function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () => void }) {
   return (
     <div
@@ -175,7 +195,9 @@ function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () =
         textAlign: 'center',
       }}
     >
-      <div style={{ fontSize: 48, marginBottom: 16 }}>{isTimeout ? '☕' : '😓'}</div>
+      <div style={{ marginBottom: 16, color: '#E26D5C' }}>
+        {isTimeout ? <WakeUpIcon /> : <AlertIcon />}
+      </div>
       <div
         style={{
           fontSize: 20,
@@ -228,6 +250,14 @@ function OnboardingPage() {
   const [apiError, setApiError] = useState('')
   const [isTimeoutError, setIsTimeoutError] = useState(false)
 
+  // 測驗不再強制：進行到一半也能由左往右滑或按返回鍵放棄，退回到可以「跳過測驗」的入口頁。
+  const triggerBack = useStageBack(screen, (s) => s !== 'quiz', () => setScreen('intro'))
+
+  function handleSkip() {
+    markOnboardingSkipped()
+    navigate({ to: '/app/home' })
+  }
+
   async function handleSubmit(finalAnswers: NarrativeAnswers) {
     setAnswers(finalAnswers)
     setScreen('loading')
@@ -278,7 +308,10 @@ function OnboardingPage() {
             track('quiz_started', { reassess: Boolean(reassess) })
             setScreen('quiz')
           }}
-          onGoHome={reassess || showResult ? () => navigate({ to: '/app/home' }) : undefined}
+          onSkip={() => {
+            track('quiz_skipped', { reassess: Boolean(reassess) })
+            handleSkip()
+          }}
         />
       </div>
     )
@@ -328,6 +361,7 @@ function OnboardingPage() {
         startAtLast={apiError !== ''}
         apiError={apiError}
         onSubmit={handleSubmit}
+        onExit={triggerBack}
       />
     </div>
   )

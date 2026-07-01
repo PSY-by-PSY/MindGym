@@ -88,12 +88,12 @@ type GratitudeTargetTag = {
   label: string
 }
 
-const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { emoji: string; color: string }> = {
-  others:      { emoji: '👥', color: 'bg-tile-peach text-foreground' },
-  self:        { emoji: '🙋', color: 'bg-tile-mint text-foreground' },
-  environment: { emoji: '🌳', color: 'bg-tile-blue text-foreground' },
-  experience:  { emoji: '✨', color: 'bg-tile-pink text-foreground' },
-  custom:      { emoji: '🏷️', color: 'bg-muted text-muted-foreground' },
+const TARGET_CONFIG: Record<GratitudeTargetTag['target'], { color: string }> = {
+  others:      { color: 'bg-tile-peach text-foreground' },
+  self:        { color: 'bg-tile-mint text-foreground' },
+  environment: { color: 'bg-tile-blue text-foreground' },
+  experience:  { color: 'bg-tile-pink text-foreground' },
+  custom:      { color: 'bg-muted text-muted-foreground' },
 }
 
 const TARGET_LABELS: Record<GratitudeTargetTag['target'], string> = {
@@ -470,6 +470,67 @@ function VerticalDotsIcon() {
   )
 }
 
+function HeartIcon({ filled, className = 'h-4 w-4' }: { filled?: boolean; className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
+    </svg>
+  )
+}
+
+function CommentIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-4-1L3 20l1-5.5a8.5 8.5 0 1 1 17-3z" />
+    </svg>
+  )
+}
+
+function FlagIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <path d="M4 22V4" />
+    </svg>
+  )
+}
+
+function BlockIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.5 5.5l13 13" />
+    </svg>
+  )
+}
+
+function WorkshopBlockIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  )
+}
+
+function CelebrateCheckIconSmall() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  )
+}
+
 function Header() {
   return (
     <header className="mb-1">
@@ -666,7 +727,7 @@ function DailyModal({
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
                     >
-                      <span className="text-base leading-none">🚩</span>檢舉貼文
+                      <FlagIcon />檢舉貼文
                     </button>
                     <button
                       onClick={() => {
@@ -675,7 +736,7 @@ function DailyModal({
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
                     >
-                      <span className="text-base leading-none">🚫</span>封鎖此使用者
+                      <BlockIcon />封鎖此使用者
                     </button>
                   </div>
                 </>
@@ -695,8 +756,8 @@ function DailyModal({
               ${like.liked ? 'bg-tile-pink text-foreground' : 'text-muted-foreground hover:bg-muted'}
               ${!userId ? 'cursor-default opacity-50' : ''}`}
           >
-            <span className={`text-base leading-none transition-transform ${liking ? 'scale-110' : ''}`}>
-              {like.liked ? '❤️' : '🤍'}
+            <span className={`transition-transform ${liking ? 'scale-110' : ''}`}>
+              <HeartIcon filled={like.liked} />
             </span>
             <span>{like.count > 0 ? like.count : '按讚'}</span>
           </button>
@@ -704,12 +765,12 @@ function DailyModal({
 
         {/* 直接留言（不需要先按任何按鈕） */}
         <div className="mt-3 flex flex-col gap-2">
-          <p className="text-sm font-semibold text-foreground">留下你的鼓勵 💬</p>
+          <p className="text-sm font-semibold text-foreground">留下你的鼓勵</p>
           {userId ? (
             <>
               {sentCount > 0 && (
                 <p className="text-xs font-semibold text-primary">
-                  已送出 {sentCount} 則留言，謝謝你的鼓勵 🎉
+                  已送出 {sentCount} 則留言，謝謝你的鼓勵
                 </p>
               )}
               <div className="flex items-end gap-2">
@@ -1122,8 +1183,7 @@ function CommunityPage() {
           <>
             {myEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-                <span className="text-4xl">🏋️</span>
-                <p className="mt-3 text-sm font-medium">還沒有打卡紀錄，快按下訓練中心，開始第一次訓練！</p>
+                <p className="text-sm font-medium">還沒有打卡紀錄，快按下訓練中心，開始第一次訓練！</p>
               </div>
             ) : (
               <>
@@ -1184,8 +1244,7 @@ function CommunityPage() {
             <CommunitySortSelect sort={communitySort} onChange={setCommunitySort} />
             {orderedEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
-                <span className="text-4xl">💫</span>
-                <p className="mt-3 text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
+                <p className="text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
               </div>
             ) : (
               <>
@@ -1233,8 +1292,8 @@ function ScrollEndModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
       <div className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 text-center shadow-soft">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-3xl">
-          ✅
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+          <CelebrateCheckIconSmall />
         </div>
         <p className="text-base font-extrabold leading-relaxed text-foreground">
           看完所有貼文囉！
@@ -1295,8 +1354,7 @@ function WorkshopTab({
   if (!userId) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-        <span className="text-4xl">🔒</span>
-        <p className="mt-3 text-sm font-medium">請先登入，並完成工作坊練習後，即可在此看到你參加過的工作坊貼文。</p>
+        <p className="text-sm font-medium">請先登入，並完成工作坊練習後，即可在此看到你參加過的工作坊貼文。</p>
       </div>
     )
   }
@@ -1318,8 +1376,7 @@ function WorkshopTab({
 
         {selectedEntries.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-            <span className="text-4xl">📝</span>
-            <p className="mt-3 text-sm font-medium">這個工作坊還沒有公開的貼文。</p>
+            <p className="text-sm font-medium">這個工作坊還沒有公開的貼文。</p>
           </div>
         ) : (
           <>
@@ -1359,8 +1416,7 @@ function WorkshopTab({
   if (blocks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-        <span className="text-4xl">🪧</span>
-        <p className="mt-3 text-sm font-medium">完成並發佈工作坊練習後，這裡會出現你參加過的工作坊。</p>
+        <p className="text-sm font-medium">完成並發佈工作坊練習後，這裡會出現你參加過的工作坊。</p>
       </div>
     )
   }
@@ -1374,8 +1430,8 @@ function WorkshopTab({
           onClick={() => onSelect(b.id)}
           className="flex items-center gap-4 rounded-3xl bg-card p-5 text-left shadow-soft transition active:scale-[0.98]"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-2xl">
-            🪐
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+            <WorkshopBlockIcon />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-base font-extrabold text-foreground">
@@ -1468,9 +1524,9 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
   }
   // 【專注時刻記錄】：最讓我感到專注的（事）＋ 我通常在這樣的條件下完成（人/時/地）＋ AI 回饋
   const conditions = [
-    { emoji: '👤', k: '人', v: payload.who },
-    { emoji: '🕐', k: '時', v: payload.when },
-    { emoji: '📍', k: '地', v: payload.where },
+    { k: '人', v: payload.who },
+    { k: '時', v: payload.when },
+    { k: '地', v: payload.where },
   ].filter((c) => c.v && String(c.v).trim())
   return (
     <div className="mt-4 flex flex-col gap-2">
@@ -1483,7 +1539,7 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
           <div className="flex flex-col gap-1.5">
             {conditions.map((c) => (
               <div key={c.k} className="flex items-baseline gap-2">
-                <span className="shrink-0 text-xs font-bold text-foreground/70">{c.emoji} {c.k}</span>
+                <span className="shrink-0 text-xs font-bold text-foreground/70">{c.k}</span>
                 <span className="text-sm leading-relaxed text-foreground/85">{String(c.v)}</span>
               </div>
             ))}
@@ -1989,7 +2045,7 @@ function EntryCard({
   if (postReported) {
     return (
       <article className="rounded-3xl bg-card p-6 text-center shadow-soft">
-        <p className="text-sm font-extrabold text-foreground">✅ 已收到你的檢舉</p>
+        <p className="text-sm font-extrabold text-foreground">已收到你的檢舉</p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           我們會盡快審核，感謝你協助維護社群。
         </p>
@@ -2019,10 +2075,10 @@ function EntryCard({
           <div className="flex items-center gap-2">
             <p className="font-en text-sm font-semibold text-muted-foreground">{formatDate(entry.entry_date)}</p>
             {entry.current_streak != null && entry.current_streak > 0 && (
-              <span className="text-xs font-semibold text-orange-500">🔥 連續 {entry.current_streak} 天</span>
+              <span className="text-xs font-semibold text-orange-500">連續 {entry.current_streak} 天</span>
             )}
             {isOwn && localPrivacy === 'private' && (
-              <span className="text-xs font-semibold text-muted-foreground">🔒 僅限本人</span>
+              <span className="text-xs font-semibold text-muted-foreground">僅限本人</span>
             )}
           </div>
         </div>
@@ -2055,7 +2111,6 @@ function EntryCard({
                           active ? 'bg-primary/10' : 'hover:bg-muted'
                         }`}
                       >
-                        <span className="text-base leading-none">{opt.emoji}</span>
                         <span className="flex-1">
                           <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
                             {opt.label}
@@ -2093,7 +2148,7 @@ function EntryCard({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
                   >
-                    <span className="text-base leading-none">🚩</span>檢舉貼文
+                    <FlagIcon />檢舉貼文
                   </button>
                   {entry.user_id && (
                     <button
@@ -2103,7 +2158,7 @@ function EntryCard({
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
                     >
-                      <span className="text-base leading-none">🚫</span>封鎖此使用者
+                      <BlockIcon />封鎖此使用者
                     </button>
                   )}
                 </div>
@@ -2126,7 +2181,7 @@ function EntryCard({
                 key={i}
                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cfg.color}`}
               >
-                {cfg.emoji} {tag.label}
+                {tag.label}
               </span>
             )
           })}
@@ -2145,8 +2200,8 @@ function EntryCard({
             }
             ${!userId ? 'cursor-default opacity-50' : ''}`}
         >
-          <span className={`text-base leading-none transition-transform ${liking ? 'scale-110' : ''}`}>
-            {likeInfo.liked ? '❤️' : '🤍'}
+          <span className={`transition-transform ${liking ? 'scale-110' : ''}`}>
+            <HeartIcon filled={likeInfo.liked} />
           </span>
           <span>{likeInfo.count > 0 ? likeInfo.count : ''}</span>
         </button>
@@ -2155,7 +2210,7 @@ function EntryCard({
           onClick={() => (showComments ? setShowComments(false) : openComments())}
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
         >
-          <span className="text-base leading-none">💬</span>
+          <CommentIcon />
           <span>{visibleComments.length > 0 ? `${visibleComments.length} 則留言` : '留言'}</span>
         </button>
       </div>
@@ -2165,7 +2220,7 @@ function EntryCard({
         <div className="mt-3 flex flex-col gap-2">
           {commentReportDone && (
             <p className="rounded-xl bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
-              ✅ 已收到你的留言檢舉，我們會盡快審核。
+              已收到你的留言檢舉，我們會盡快審核。
             </p>
           )}
           {topLevelComments.length > 0 && (
@@ -2192,7 +2247,7 @@ function EntryCard({
                           disabled={!userId || likingComment === c.id}
                           className={`flex items-center gap-0.5 text-[11px] text-muted-foreground transition hover:text-foreground ${!userId ? 'cursor-default opacity-50' : ''}`}
                         >
-                          <span className="text-sm leading-none">{cLike.liked ? '❤️' : '🤍'}</span>
+                          <HeartIcon filled={cLike.liked} className="h-3.5 w-3.5" />
                           {cLike.count > 0 && <span>{cLike.count}</span>}
                         </button>
                         {userId && (
@@ -2223,7 +2278,7 @@ function EntryCard({
                                     }}
                                     className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
                                   >
-                                    🚩 檢舉留言
+                                    <FlagIcon className="h-3.5 w-3.5" />檢舉留言
                                   </button>
                                   {c.user_id && (
                                     <button
@@ -2233,7 +2288,7 @@ function EntryCard({
                                       }}
                                       className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-red-500 transition hover:bg-muted"
                                     >
-                                      🚫 封鎖此使用者
+                                      <BlockIcon className="h-3.5 w-3.5" />封鎖此使用者
                                     </button>
                                   )}
                                 </div>
@@ -2265,7 +2320,7 @@ function EntryCard({
                                 disabled={!userId || likingComment === r.id}
                                 className={`flex shrink-0 items-center gap-0.5 self-start pt-0.5 text-[11px] text-muted-foreground transition hover:text-foreground ${!userId ? 'cursor-default opacity-50' : ''}`}
                               >
-                                <span className="text-xs leading-none">{rLike.liked ? '❤️' : '🤍'}</span>
+                                <HeartIcon filled={rLike.liked} className="h-3.5 w-3.5" />
                                 {rLike.count > 0 && <span>{rLike.count}</span>}
                               </button>
                               {userId && r.user_id !== userId && (
@@ -2288,7 +2343,7 @@ function EntryCard({
                                           }}
                                           className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
                                         >
-                                          🚩 檢舉留言
+                                          <FlagIcon className="h-3.5 w-3.5" />檢舉留言
                                         </button>
                                         {r.user_id && (
                                           <button
@@ -2298,7 +2353,7 @@ function EntryCard({
                                             }}
                                             className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-red-500 transition hover:bg-muted"
                                           >
-                                            🚫 封鎖此使用者
+                                            <BlockIcon className="h-3.5 w-3.5" />封鎖此使用者
                                           </button>
                                         )}
                                       </div>

@@ -26,7 +26,6 @@ export type PermaScoreRow = {
 export type Recommendation = {
   key: PracticeKey
   name: string
-  emoji: string
   to: string
   search?: Record<string, string>
   /** 一句話：為什麼今天推薦這個練習 */
@@ -54,7 +53,6 @@ const SCORE_KEY: Record<PermaLetter, keyof PermaScoreRow> = {
 type PracticeMeta = {
   key: PracticeKey
   name: string
-  emoji: string
   to: string
   search?: Record<string, string>
   /** 各 PERMA 維度的對應強度（1=主要對應、0.5=部分對應） */
@@ -67,7 +65,6 @@ const PRACTICES: PracticeMeta[] = [
   {
     key: 'gratitude',
     name: '感恩日記',
-    emoji: '⭐',
     to: '/app/gratitude',
     targets: { P: 1, R: 1, M: 1 },
     available: true,
@@ -75,7 +72,6 @@ const PRACTICES: PracticeMeta[] = [
   {
     key: 'process-goal',
     name: '過程目標覺察',
-    emoji: '🔍',
     to: '/app/process-goal',
     targets: { E: 1, M: 1, A: 1 },
     available: true,
@@ -83,7 +79,6 @@ const PRACTICES: PracticeMeta[] = [
   {
     key: 'three-good-things',
     name: '三件好事',
-    emoji: '☑️',
     to: '/app/placeholder',
     search: { name: '三件好事' },
     targets: { P: 1, A: 1 },
@@ -145,7 +140,6 @@ export function recommendPractice(
   return {
     key: winner.p.key,
     name: winner.p.name,
-    emoji: winner.p.emoji,
     to: winner.p.to,
     search: winner.p.search,
     reason: scores

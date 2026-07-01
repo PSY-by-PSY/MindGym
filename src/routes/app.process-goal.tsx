@@ -5,8 +5,10 @@ import { computeUnifiedStreak } from '../lib/streak'
 import { isoLocalDate } from '../lib/date'
 import { saveOrShareImage } from '../lib/shareImage'
 import { track } from '../lib/analytics'
+import { useStageBack } from '../lib/useStageBack'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
+import heartsBanner from '../assets/ui/hearts-banner.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -335,17 +337,32 @@ function AiBlock({ text, loading }: { text: string; loading?: boolean }) {
   )
 }
 
+function PgBackIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
+function PgCelebrateCheckIcon() {
+  return (
+    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="#FEFAF0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  )
+}
+
+// 返回鍵：比照感恩日記，左上角圓形白底按鈕，讓滑動手勢／返回鍵／按鍵三種操作視覺一致。
 function BackBar({ onBack }: { onBack: () => void }) {
   return (
     <button
       type="button"
       onClick={onBack}
-      className="mb-4 flex items-center gap-1 text-sm font-bold text-muted-foreground transition hover:text-foreground"
+      className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+      aria-label="返回"
     >
-      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 12H5M12 19l-7-7 7-7" />
-      </svg>
-      返回
+      <PgBackIcon />
     </button>
   )
 }
@@ -357,6 +374,17 @@ function ProcessGoalPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('LOADING')
   const [momentCount, setMomentCount] = useState(0)
+
+  // 練習內部的 phase 也要能被瀏覽器返回／邊緣滑動手勢／畫面返回鍵一致地「退一層」
+  // （比照感恩日記），而不是直接跳出整個練習回首頁。LOADING／INTRO 是最外層。
+  const stageBack = () => {
+    if (phase === 'R_INPUT' || phase === 'B_INPUT') setPhase('INTRO')
+    else if (phase === 'R_INSIGHT') setPhase('R_INPUT')
+    else if (phase === 'R_CELEBRATE') setPhase('R_INSIGHT')
+    else if (phase === 'B_RESULT') setPhase('B_INPUT')
+    else if (phase === 'B_CELEBRATE') setPhase('B_RESULT')
+  }
+  const triggerBack = useStageBack(phase, (p) => p === 'INTRO' || p === 'LOADING', stageBack)
 
   useEffect(() => {
     let cancelled = false
@@ -405,6 +433,7 @@ function ProcessGoalPage() {
         momentCount={momentCount}
         onRecord={() => setPhase('R_INPUT')}
         onBoost={() => setPhase('B_INPUT')}
+        onGoBack={() => window.history.back()}
       />
     )
   }
@@ -415,8 +444,8 @@ function ProcessGoalPage() {
         phase={phase}
         setPhase={setPhase}
         userId={userId!}
-        onHome={() => navigate({ to: '/app/home' })}
         toIntro={() => setPhase('INTRO')}
+        onBack={triggerBack}
       />
     )
   }
@@ -426,8 +455,8 @@ function ProcessGoalPage() {
       phase={phase}
       setPhase={setPhase}
       userId={userId!}
-      onHome={() => navigate({ to: '/app/home' })}
       toIntro={() => setPhase('INTRO')}
+      onBack={triggerBack}
     />
   )
 }
@@ -439,92 +468,110 @@ function Intro({
   momentCount,
   onRecord,
   onBoost,
+  onGoBack,
 }: {
   momentCount: number
   onRecord: () => void
   onBoost: () => void
+  onGoBack: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="animate-fade-up mx-auto max-w-3xl px-6 pb-8 pt-5 md:px-10">
-      <h1 className="text-[1.9rem] font-extrabold leading-tight text-foreground">過程目標覺察練習</h1>
-
-      <div className="mt-5 flex items-end gap-8">
-        <div>
-          <p className="text-3xl font-extrabold text-foreground">3</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">分鐘</p>
-        </div>
-        <div>
-          <p className="text-3xl font-extrabold text-foreground">初階</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">難度</p>
+    <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
+      {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
+      <div className="relative -mx-5 h-[170px] overflow-hidden">
+        <img
+          src={heartsBanner}
+          alt=""
+          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+        />
+        <button
+          onClick={onGoBack}
+          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          aria-label="返回"
+        >
+          <PgBackIcon />
+        </button>
+        <div className="absolute right-5 top-16 z-[2] flex h-[70px] w-[70px] flex-col items-center justify-center rounded-xl border-[3px] border-[#88B8CE] bg-cream">
+          <span className="font-en text-[30px] font-bold leading-none text-foreground">3</span>
+          <span className="mt-0.5 text-xs text-muted-foreground">分鐘</span>
         </div>
       </div>
 
-      <div className="mt-5 rounded-2xl bg-card p-4 text-sm leading-relaxed text-foreground/80 shadow-soft">
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">過程目標覺察練習</h1>
+      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Process Goal Awareness</p>
+
+      <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。
-      </div>
-
-      <div className="mt-3 flex items-start gap-3 rounded-2xl p-4" style={PURPLE_BG}>
-        <span className="text-xl">💡</span>
-        <p className="text-sm font-bold leading-relaxed">
-          你記錄的「專注時刻」越多、越完整，AI 在「提升專注錦囊」中能為你量身打造的專注策略就會越精準、越豐富。
-        </p>
       </div>
 
       <div className="mt-3">
         {!expanded ? (
-          <button onClick={() => setExpanded(true)} className="text-xs font-bold text-primary">查看更多 ▾</button>
+          <button onClick={() => setExpanded(true)} className="text-xs font-bold text-primary">
+            查看更多 ▾
+          </button>
         ) : (
-          <div className="flex flex-col gap-4 rounded-2xl bg-card p-4 text-sm leading-relaxed shadow-soft">
+          <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
             <div>
-              <p className="mb-1.5 font-extrabold text-foreground">核心目標</p>
-              <ul className="flex flex-col gap-1 pl-3 text-foreground/75">
+              <p className="font-extrabold text-foreground mb-1.5">核心目標</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>・看見自己最容易專注的條件（人、時、地）</li>
                 <li>・理解這些條件背後真正滿足的心理需求</li>
                 <li>・卡住時，把過去的成功條件遷移到眼前的難事</li>
               </ul>
             </div>
             <div>
-              <p className="mb-1.5 font-extrabold text-foreground">怎麼進行</p>
-              <ul className="flex flex-col gap-1 pl-3 text-foreground/75">
+              <p className="font-extrabold text-foreground mb-1.5">怎麼進行</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>・平常：用【專注時刻記錄】把投入的片刻存下來</li>
                 <li>・卡關：用【提升專注錦囊】拿到一個能立刻試的方法</li>
               </ul>
             </div>
             <div>
-              <p className="mb-1.5 font-extrabold text-foreground">研究指出的效益</p>
-              <ul className="flex flex-col gap-1 pl-3 text-foreground/75">
+              <p className="font-extrabold text-foreground mb-1.5">研究指出的效益</p>
+              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>・成就力（Accomplishment）與意義力（Meaning）</li>
                 <li>・投入力（Engagement）與心流體驗</li>
                 <li>・降低拖延、提升行動的啟動力</li>
               </ul>
             </div>
-            <button onClick={() => setExpanded(false)} className="text-left text-xs font-bold text-primary">收合 ▴</button>
+            <button onClick={() => setExpanded(false)} className="text-xs font-bold text-primary text-left">
+              收合 ▴
+            </button>
           </div>
         )}
       </div>
 
-      <p className="mt-7 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">CHOOSE A MODULE</p>
-      <div className="mt-1 flex items-baseline justify-between">
-        <h3 className="text-base font-extrabold text-foreground">今天想做哪一個？</h3>
-        <div className="whitespace-nowrap text-xs text-muted-foreground">
-          {PG_BOOSTS.map(({ label, delta }) => (
-            <span key={label} className="mr-3">{label} <strong className="text-foreground">+{delta}</strong></span>
-          ))}
-        </div>
+      {/* 練習內容清單（比照感恩日記進入頁） */}
+      <div className="mt-5 flex flex-col gap-3.5">
+        {['選擇今天要做的模組', '記下一個投入的時刻或卡關的困境', '閱讀 BOUBA 觀察'].map((item) => (
+          <div key={item} className="flex items-center gap-3 text-base text-foreground">
+            <span className="h-[22px] w-[22px] shrink-0 rounded-full bg-[#88B8CE]" />
+            {item}
+          </div>
+        ))}
       </div>
 
-      <div className="mt-3 flex flex-col gap-3">
+      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">今天想做哪一個？</h3>
+      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose a Module</p>
+      <p className="mb-3 text-sm text-muted-foreground">
+        {PG_BOOSTS.map(({ label, delta }) => (
+          <span key={label} className="mr-3">
+            {label} <strong className="text-foreground">+{delta}</strong>
+          </span>
+        ))}
+      </p>
+
+      <div className="flex flex-col gap-3">
         <button
           type="button"
           onClick={onRecord}
-          className="flex items-center gap-4 rounded-3xl bg-tile-blue p-5 text-left shadow-soft ring-2 ring-orange-400 transition active:scale-[0.98]"
+          className="flex items-center gap-4 rounded-3xl border-[3px] border-gold-deep bg-gold p-5 text-left shadow-soft transition active:scale-[0.98]"
         >
-          <span className="text-3xl">📝</span>
           <div className="flex-1">
-            <p className="font-extrabold text-blue-900">專注時刻記錄</p>
-            <p className="mt-0.5 text-sm text-blue-800/80">記下一個你特別投入的時刻，AI 幫你看見背後的需求</p>
-            <p className="mt-1 text-[11px] font-bold text-blue-700">
+            <p className="font-extrabold text-[#5b4226]">專注時刻記錄</p>
+            <p className="mt-0.5 text-sm text-[#5b4226]/75">記下一個你特別投入的時刻，AI 幫你看見背後的需求</p>
+            <p className="mt-1 text-[11px] font-bold text-[#8a6320]">
               {momentCount > 0 ? `你已記錄 ${momentCount} 個專注時刻` : '從你的第一個專注時刻開始'}
             </p>
           </div>
@@ -533,15 +580,13 @@ function Intro({
         <button
           type="button"
           onClick={onBoost}
-          className="flex items-center gap-4 rounded-3xl p-5 text-left shadow-soft transition active:scale-[0.98]"
-          style={{ backgroundColor: '#EEF6FF' }}
+          className="flex items-center gap-4 rounded-3xl bg-card p-5 text-left shadow-soft transition active:scale-[0.98]"
         >
-          <span className="text-3xl">🧭</span>
           <div className="flex-1">
             <p className="font-extrabold text-foreground">提升專注錦囊</p>
             <p className="mt-0.5 text-sm text-muted-foreground">卡住了？用你過去的專注經驗，給你一個能立刻試的方法</p>
             {momentCount === 0 && (
-              <p className="mt-1 text-[11px] font-bold text-[#5B8DEF]">建議先記錄幾個專注時刻，建議會更準</p>
+              <p className="mt-1 text-[11px] font-bold text-primary">建議先記錄幾個專注時刻，建議會更準</p>
             )}
           </div>
         </button>
@@ -557,14 +602,14 @@ function RecordModule({
   phase,
   setPhase,
   userId,
-  onHome: _onHome,
   toIntro,
+  onBack,
 }: {
   phase: Phase
   setPhase: (p: Phase) => void
   userId: string
-  onHome: () => void
   toIntro: () => void
+  onBack: () => void
 }) {
   const [event, setEvent] = useState('')
   const [who, setWho] = useState('')
@@ -617,8 +662,7 @@ function RecordModule({
         height: 1440,
         pixelRatio: 2,
         cacheBust: true,
-        backgroundColor: '#ffffff',
-        skipFonts: true,
+        backgroundColor: '#FEFAF0',
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
       const filename = `focus-moment-${isoLocalDate(new Date())}.png`
@@ -689,8 +733,7 @@ function RecordModule({
     const ready = event.trim() && who.trim() && whenTime.trim() && wherePlace.trim()
     return (
       <Screen>
-        <BackBar onBack={toIntro} />
-        <span className="text-3xl">📝</span>
+        <BackBar onBack={onBack} />
         <h1 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">記下一個你專注的時刻</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           回想一個你特別「在狀態」的片段——時間過得很快、腦子很清晰、有種自然的流動感。
@@ -743,6 +786,7 @@ function RecordModule({
         </div>
 
         <Screen>
+          <BackBar onBack={onBack} />
           <h2 className="text-xl font-extrabold leading-snug text-foreground">我從你的描述裡，聽見了…</h2>
           <p className="mt-2 text-sm text-muted-foreground">這是你這個專注時刻背後，可能真正需要的條件。你可以把這張圖儲存下來。</p>
 
@@ -772,7 +816,7 @@ function RecordModule({
               disabled={sharing || loadingAi}
               className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
             >
-              {sharing ? '正在生成圖片…' : isMobile ? '📲 分享圖片' : '⬇️ 下載圖片'}
+              {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
             </button>
             {/* 下一步：儲存後進入完成頁 */}
             <button
@@ -781,7 +825,7 @@ function RecordModule({
               className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
               style={{ backgroundColor: submitting || loadingAi ? '#cfe2ee' : PURPLE }}
             >
-              {submitting ? '處理中…' : '下一步 →'}
+              {submitting ? '處理中…' : '下一步'}
             </button>
           </div>
         </Screen>
@@ -792,7 +836,6 @@ function RecordModule({
   // R_CELEBRATE
   return (
     <PgCelebrateStage
-      emoji="📝"
       title="今日專注時刻記錄完成！"
       subtitle="每記一筆，你的專注地圖就更完整一點。"
       streak={streak}
@@ -819,14 +862,14 @@ function BoostModule({
   phase,
   setPhase,
   userId,
-  onHome: _onHome,
   toIntro,
+  onBack,
 }: {
   phase: Phase
   setPhase: (p: Phase) => void
   userId: string
-  onHome: () => void
   toIntro: () => void
+  onBack: () => void
 }) {
   const [situation, setSituation] = useState('')
   const [suggestion, setSuggestion] = useState('')
@@ -882,8 +925,7 @@ function BoostModule({
         height: 1440,
         pixelRatio: 2,
         cacheBust: true,
-        backgroundColor: '#ffffff',
-        skipFonts: true,
+        backgroundColor: '#FEFAF0',
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
       const filename = `focus-boost-${isoLocalDate(new Date())}.png`
@@ -944,8 +986,7 @@ function BoostModule({
   if (phase === 'B_INPUT') {
     return (
       <Screen>
-        <BackBar onBack={toIntro} />
-        <span className="text-3xl">🧭</span>
+        <BackBar onBack={onBack} />
         <h1 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">現在，什麼事讓你卡住了？</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           說說現在這件難以專注、提不起勁的事，連同當下的情境一起講。我會從你過去的專注經驗裡，找一個能立刻試的方法。
@@ -986,6 +1027,7 @@ function BoostModule({
         </div>
 
         <Screen>
+          <BackBar onBack={onBack} />
           <h2 className="text-xl font-extrabold leading-snug text-foreground">你的專注錦囊</h2>
           {!loadingAi && hasMatch && matchedSummary && (
             <p className="mt-2 text-sm text-muted-foreground">參考了你過去的經驗：{matchedSummary}</p>
@@ -1014,7 +1056,7 @@ function BoostModule({
               disabled={sharing || loadingAi}
               className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
             >
-              {sharing ? '正在生成圖片…' : isMobile ? '📲 分享圖片' : '⬇️ 下載圖片'}
+              {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
             </button>
             <button
               onClick={save}
@@ -1022,7 +1064,7 @@ function BoostModule({
               className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
               style={{ backgroundColor: submitting || loadingAi ? '#cfe2ee' : PURPLE }}
             >
-              {submitting ? '處理中…' : '下一步 →'}
+              {submitting ? '處理中…' : '下一步'}
             </button>
           </div>
         </Screen>
@@ -1033,7 +1075,6 @@ function BoostModule({
   // B_CELEBRATE
   return (
     <PgCelebrateStage
-      emoji="🧭"
       title="今日專注錦囊完成！"
       subtitle="帶著這個方法去試試，開始比完成更重要。"
       streak={streak}
@@ -1064,62 +1105,63 @@ function PgShareCard({
 }) {
   const isRecord = kind === 'record'
   const mainLen = mainText.length
-  const mainFontSize = mainLen < 60 ? 26 : mainLen < 120 ? 22 : 18
+  const mainFontSize = mainLen < 60 ? 40 : mainLen < 120 ? 34 : 29
 
   return (
     <div
       style={{
         width: '1080px',
         height: '1440px',
-        background: isRecord
-          ? 'linear-gradient(150deg,#dbeafe 0%,#ede9fe 55%,#e0f2fe 100%)'
-          : 'linear-gradient(150deg,#ede9fe 0%,#dbeafe 55%,#e0f2fe 100%)',
-        padding: '72px 72px 60px',
+        background: 'linear-gradient(180deg, #FEFAF0 0%, #f6efe0 55%, #efe2c9 100%)',
+        padding: '76px 72px 56px',
         boxSizing: 'border-box',
-        fontFamily: 'PingFang TC, Microsoft JhengHei, sans-serif',
-        color: '#1f2742',
+        color: '#542916',
         display: 'flex',
         flexDirection: 'column',
-        gap: 32,
+        gap: 30,
       }}
     >
       <div>
-        <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.55 }}>
+        <div style={{ fontSize: 18, letterSpacing: 8, fontWeight: 800, color: '#88B8CE' }}>
           PSY BY PSY · {isRecord ? 'FOCUS MOMENT' : 'FOCUS BOOST'}
         </div>
-        <div style={{ fontSize: 52, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>
+        <div style={{ fontSize: 58, fontWeight: 900, marginTop: 16, lineHeight: 1.25, letterSpacing: 1 }}>
           {isRecord ? '今天的專注時刻' : '今天的專注錦囊'}
         </div>
-        <div style={{ fontSize: 22, opacity: 0.65, marginTop: 10 }}>{date}</div>
+        <div style={{ fontSize: 26, fontWeight: 700, opacity: 0.6, marginTop: 12 }}>{date}</div>
       </div>
 
       {/* 主體內容（事件 or 困境） */}
       <div
         style={{
-          background: 'rgba(255,255,255,0.72)',
-          borderRadius: 32,
-          padding: '28px 36px',
+          background: '#ffffff',
+          borderRadius: 40,
+          padding: '34px 38px',
+          boxShadow: '0 8px 22px -10px rgba(40,24,12,0.18)',
         }}
       >
-        <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#542916', marginBottom: 14 }}>
+        <div style={{ fontSize: 18, letterSpacing: 6, fontWeight: 800, color: '#88B8CE', marginBottom: 14 }}>
           {isRecord ? '我的專注時刻' : '遇到的困境'}
         </div>
-        <div style={{ fontSize: mainFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{mainText}</div>
+        <div style={{ fontSize: mainFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap', opacity: 0.85 }}>
+          {mainText}
+        </div>
       </div>
 
       {/* AI 洞察 or 建議 */}
       {aiText ? (
         <div
           style={{
-            background: 'rgba(255,255,255,0.55)',
-            borderRadius: 32,
-            padding: '28px 32px',
+            background: 'linear-gradient(135deg, #f6efe0 0%, #efe2c9 100%)',
+            borderRadius: 40,
+            padding: '34px 38px',
+            boxShadow: '0 8px 22px -10px rgba(40,24,12,0.18)',
           }}
         >
-          <div style={{ fontSize: 14, letterSpacing: 6, fontWeight: 800, color: '#542916', marginBottom: 14 }}>
-            {isRecord ? 'AI 教練觀察' : '我的專注錦囊'}
+          <div style={{ fontSize: 18, letterSpacing: 6, fontWeight: 800, color: '#88B8CE', marginBottom: 14 }}>
+            {isRecord ? 'BOUBA 觀察' : '我的專注錦囊'}
           </div>
-          <div style={{ fontSize: 20, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{aiText}</div>
+          <div style={{ fontSize: 32, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{aiText}</div>
         </div>
       ) : null}
 
@@ -1127,15 +1169,15 @@ function PgShareCard({
       {streak !== null && streak > 0 && (
         <div
           style={{
-            background: 'linear-gradient(135deg,#542916 0%,#88B8CE 100%)',
-            borderRadius: 32,
-            padding: '26px 36px',
+            background: 'linear-gradient(135deg, #9fc6dc 0%, #88B8CE 100%)',
+            borderRadius: 40,
+            padding: '30px 36px',
             textAlign: 'center',
-            color: '#fff',
+            color: '#FEFAF0',
           }}
         >
-          <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
-            連續健心第 {streak} 天 🔥
+          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
+            連續健心第 {streak} 天
           </div>
         </div>
       )}
@@ -1143,9 +1185,9 @@ function PgShareCard({
       {/* Logo */}
       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
         <img
-          src="/assets/logo-full-color.png"
-          alt="PSYbyPSY"
-          style={{ height: 48, objectFit: 'contain', opacity: 0.75 }}
+          src="/assets/logo-wordmark.png"
+          alt="PSY by PSY"
+          style={{ height: 44, objectFit: 'contain', opacity: 0.8 }}
           crossOrigin="anonymous"
         />
       </div>
@@ -1158,7 +1200,6 @@ function PgShareCard({
 // 顯示：連續打卡 + 今日完成 → PERMA 幸福力成長 → 隱私設定 → 結束練習
 // ════════════════════════════════════════════════════════════════════════
 function PgCelebrateStage({
-  emoji,
   title,
   subtitle,
   streak,
@@ -1168,7 +1209,6 @@ function PgCelebrateStage({
   againLabel,
   onIntro,
 }: {
-  emoji: string
   title: string
   subtitle: string
   streak: number | null
@@ -1215,9 +1255,9 @@ function PgCelebrateStage({
 
   return (
     <div className="animate-fade-up mx-auto flex max-w-3xl flex-col items-center px-6 pb-8 pt-5 md:px-10">
-      {/* 完成 emoji */}
-      <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full text-5xl shadow-soft" style={{ backgroundColor: '#D1FAE5' }}>
-        {emoji}
+      {/* 完成圖示 */}
+      <div className="celebrate-pop mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-primary shadow-soft">
+        <PgCelebrateCheckIcon />
       </div>
       <h2 className="mb-2 text-center text-2xl font-extrabold text-foreground">{title}</h2>
       <p className="mb-6 max-w-md text-center text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
@@ -1234,7 +1274,7 @@ function PgCelebrateStage({
         </div>
         <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
           <span className="text-xl font-extrabold text-primary">
-            {streak !== null ? `${streak} 🔥` : '—'}
+            {streak !== null ? streak : '—'}
           </span>
           <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
             連續健心
@@ -1293,7 +1333,6 @@ function PgCelebrateStage({
                     : 'border-border bg-muted/40 hover:bg-muted'
                 }`}
               >
-                <span className="text-lg leading-none">{opt.emoji}</span>
                 <span className="flex-1">
                   <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
                     {opt.label}
@@ -1323,7 +1362,7 @@ function PgCelebrateStage({
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           style={{ backgroundColor: saving ? '#cfe2ee' : PURPLE }}
         >
-          ✅ 結束今天練習
+          結束今天練習
         </button>
         {onAgain && againLabel && (
           <GhostButton onClick={onAgain}>{againLabel}</GhostButton>

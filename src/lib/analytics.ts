@@ -35,6 +35,7 @@ export type AnalyticsEvent =
   | 'login_error'                    // 登入流程發生錯誤
   | 'quiz_started'         // 開始心理測驗
   | 'quiz_completed'       // 完成心理測驗
+  | 'quiz_skipped'         // 跳過心理測驗
   | 'gratitude_started'    // 開始寫感恩日記
   | 'gratitude_completed'  // 完成感恩日記
   | 'module_opened'        // 點開訓練中心的某個模組

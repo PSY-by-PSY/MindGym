@@ -9,6 +9,15 @@ import {
 // 工作坊模塊的密碼閘門：未通過驗證時顯示密碼輸入畫面，通過後才渲染 children
 // （也就是該模塊的練習內容）。三個工作坊模塊共用同一個 sessionStorage 解鎖狀態，
 // 因此通過一次後，本次使用階段內切換其他模塊都不會再被擋下。
+function LockIcon() {
+  return (
+    <svg className="h-11 w-11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
 export function WorkshopGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState(() => isWorkshopUnlocked())
 
@@ -35,8 +44,8 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
     <div className="animate-fade-up mx-auto flex min-h-[calc(100vh-9rem)] max-w-3xl flex-col items-center justify-center px-6 text-center md:px-10">
       <div className="relative mb-7 animate-float">
         <div className="absolute inset-0 -z-10 translate-x-3 translate-y-4 rounded-[45%] bg-primary-soft" />
-        <div className="flex h-28 w-28 items-center justify-center rounded-[45%] bg-gradient-soft text-5xl">
-          🔒
+        <div className="flex h-28 w-28 items-center justify-center rounded-[45%] bg-gradient-soft text-muted-foreground">
+          <LockIcon />
         </div>
       </div>
 
