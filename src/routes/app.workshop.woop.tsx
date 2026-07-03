@@ -348,7 +348,7 @@ function WoopFlow() {
         </span>
         <div className="min-w-0">
           <p className="text-lg font-extrabold leading-tight text-foreground">
-            {meta.titleEn}　{meta.titleZh}
+            {meta.titleEn}{'　'}{meta.titleZh}
           </p>
           <p className="mt-0.5 text-sm text-muted-foreground">{meta.subtitle}</p>
         </div>

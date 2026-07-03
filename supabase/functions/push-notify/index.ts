@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     }
 
     // 通知文案
-    let title = 'PSY by PSY'
+    const title = 'PSY by PSY'
     let body: string
     if (table === 'likes') {
       body = '有人為你的感恩貼文按讚 ❤️'
