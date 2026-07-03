@@ -6,6 +6,7 @@ import math
 import os
 import re
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 import anthropic
 import httpx
@@ -908,6 +909,266 @@ async def pg_focus_boost(req: FocusBoostRequest, authorization: str = Header(...
         raise
     except Exception as exc:
         logger.error("pg_focus_boost failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+# ── 專業模組區（Professional Modules）─────────────────────────────────────
+# 兩個端點：模組送審（AI 安全標籤）＋ 個案打卡的危機判讀。沿用既有慣例：
+# Authorization → get_user_id、meter_claude 記帳、prompt 要求只回 JSON、regex 抽 JSON、
+# logger.error + 500。與前端純用 anon key + RLS 不同，這兩個端點需要用 service key
+# 讀寫追蹤資料（繞過 RLS），因此寫表放在後端。
+
+_PRO_REVIEW_MODEL = "claude-sonnet-4-5"
+_CRISIS_MODEL = "claude-haiku-4-5-20251001"
+
+
+# 危機偵測關鍵字（保守、低誤報）。
+# ⚠️ 修改時要同步前端 src/lib/proModules.ts 的同一份 CRISIS_KEYWORDS。
+# 刻意不收「要死」「死了」這類高誤報詞——語意層交給 AI（第二層）。
+CRISIS_KEYWORDS = [
+    "自殺", "自傷", "想死", "想不開", "不想活", "活不下去", "結束生命",
+    "結束自己", "傷害自己", "割腕", "輕生", "尋短", "想消失", "沒有活下去",
+    "燒炭", "跳樓", "了結",
+]
+
+_PRO_REVIEW_SYSTEM = """你是心理健康 App 的安全審核助手，審核標準以心理學為依據。
+你要審核一份由助人工作者設計、即將提供給個案（可能處於心理脆弱狀態）使用的練習模組。
+請逐項檢查：
+(a) 心理安全：羞辱或批判性語言、可能誘發創傷或自傷意念的引導、對脆弱族群不當的技術、
+    誇大療效承諾、危機情境下的不當指示。
+(b) 資訊安全：要求個案填寫個資（身分證/住址/財務/病歷）、引導至站外連結或私下聯絡、
+    任何可能損害個案權益的資料蒐集。
+(c) 心理學根據：內容是否有可辨識的心理學理論基礎（僅註記，不評分）。
+你只做安全「標籤」，供人工審核參考，絕不做最終裁決。
+只回傳 JSON，不要任何前言或 markdown：
+{"risk_level":"low|medium|high",
+ "psych_safety":[{"severity":"low|medium|high","quote":"原文引用","reason":"為何有疑慮"}],
+ "info_safety":[{"severity":"low|medium|high","quote":"原文引用","reason":"為何有疑慮"}],
+ "psychology_basis_note":"對心理學根據的簡短說明",
+ "summary":"一句話總結整體風險"}
+沒有疑慮時對應陣列回空陣列 []。"""
+
+
+class SubmitModuleRequest(BaseModel):
+    module_id: str
+
+
+class EntrySafetyCheckRequest(BaseModel):
+    entry_id: str
+    texts: list[str] = Field(default_factory=list)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def _is_practitioner(user_id: str) -> bool:
+    """用 service key 查 user_roles 確認呼叫者是專業夥伴（繞過 RLS）。"""
+    resp = await db().get(
+        f"{SUPABASE_REST}/user_roles",
+        headers=SUPABASE_HEADERS,
+        params={"user_id": f"eq.{user_id}", "role": "eq.practitioner", "select": "role"},
+    )
+    return resp.status_code == 200 and len(resp.json()) > 0
+
+
+async def _pro_ai_review(user_id: str, title: str, description: str, draft_content) -> dict:
+    """對模組跑 AI 安全標籤。任何失敗都回 {"error": ...}，交由人工審核兜底（不阻擋送審）。"""
+    try:
+        content = (
+            "請審核以下由專業夥伴設計、即將提供給個案使用的心理練習模組。\n\n"
+            f"【標題】{title}\n"
+            f"【說明】{description}\n"
+            f"【內容 JSON】\n{json.dumps(draft_content, ensure_ascii=False)}\n"
+        )
+        msg = await claude().messages.create(
+            model=_PRO_REVIEW_MODEL,
+            max_tokens=1500,
+            temperature=0.2,
+            system=_PRO_REVIEW_SYSTEM,
+            messages=[{"role": "user", "content": content}],
+        )
+        meter_claude("pro-submit-module", _PRO_REVIEW_MODEL, msg.usage, user_id)
+        raw = msg.content[0].text if msg.content else ""
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match:
+            return {"error": "AI 審核暫時無法使用"}
+        return json.loads(match.group())
+    except Exception as exc:
+        logger.warning("pro_ai_review failed [%s]: %s", type(exc).__name__, exc)
+        return {"error": "AI 審核暫時無法使用"}
+
+
+@app.post("/api/pro/submit-module")
+async def pro_submit_module(req: SubmitModuleRequest, authorization: str = Header(...)):
+    """送審＝AI 標籤 + 改狀態，一次完成。AI 只是輔助，失敗也照常進人工佇列。"""
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+
+        # 1. 取模組、驗證擁有者／角色／狀態／草稿非空
+        resp = await db().get(
+            f"{SUPABASE_REST}/pro_modules",
+            headers=SUPABASE_HEADERS,
+            params={
+                "id": f"eq.{req.module_id}",
+                "select": "id,owner_id,title,description,draft_content,status",
+            },
+        )
+        rows = resp.json() if resp.status_code == 200 else []
+        if not rows:
+            raise HTTPException(status_code=404, detail="模組不存在")
+        module = rows[0]
+        if module.get("owner_id") != user_id:
+            raise HTTPException(status_code=403, detail="僅限模組擁有者送審")
+        if not await _is_practitioner(user_id):
+            raise HTTPException(status_code=403, detail="僅限專業夥伴送審")
+        if module.get("status") not in ("draft", "rejected", "approved"):
+            raise HTTPException(status_code=409, detail="此狀態無法送審")
+        draft = module.get("draft_content")
+        if not draft:
+            raise HTTPException(status_code=400, detail="草稿內容為空，無法送審")
+
+        # 2~3. AI 安全標籤（失敗回 {"error": ...}，不阻擋）
+        ai_review = await _pro_ai_review(
+            user_id, module.get("title") or "", module.get("description") or "", draft
+        )
+
+        # 4. service key 更新狀態 + 寫審核軌跡
+        await db().patch(
+            f"{SUPABASE_REST}/pro_modules",
+            headers=SUPABASE_HEADERS,
+            params={"id": f"eq.{req.module_id}"},
+            json={
+                "ai_review": ai_review,
+                "status": "pending_review",
+                "submitted_at": _now_iso(),
+            },
+        )
+        await db().post(
+            f"{SUPABASE_REST}/pro_module_review_log",
+            headers=SUPABASE_HEADERS,
+            json={
+                "module_id": req.module_id,
+                "action": "submitted",
+                "actor_id": user_id,
+                "content_snapshot": draft,
+                "ai_review": ai_review,
+            },
+        )
+
+        # 5. 回傳
+        return {"ok": True, "risk_level": ai_review.get("risk_level")}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pro_submit_module failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+async def _insert_crisis_alert(
+    user_id: str, practitioner_id: str, module_id, entry_id, source: str, severity: str, matched_terms: list
+) -> None:
+    """用 service key 寫入 crisis_alerts（後端主路徑，不受 RLS 限制）。"""
+    try:
+        await db().post(
+            f"{SUPABASE_REST}/crisis_alerts",
+            headers=SUPABASE_HEADERS,
+            json={
+                "user_id": user_id,
+                "practitioner_id": practitioner_id,
+                "module_id": module_id,
+                "entry_id": entry_id,
+                "source": source,
+                "severity": severity,
+                "matched_terms": matched_terms,
+            },
+        )
+    except Exception as exc:
+        logger.error("insert crisis_alert failed [%s]: %s", type(exc).__name__, exc)
+
+
+@app.post("/api/pro/entry-safety-check")
+async def pro_entry_safety_check(req: EntrySafetyCheckRequest, authorization: str = Header(...)):
+    """危機判讀：第一層關鍵字（零成本、命中即 high），未命中才走第二層 AI 語意。
+    寧可誤報、不可漏報；有風險就寫 crisis_alerts 並回傳給前端顯示求助資源。"""
+    try:
+        token = authorization.removeprefix("Bearer ").strip()
+        user_id = await get_user_id(token)
+
+        # 1. 取 entry、驗證屬於此人，並找對應 active enrollment 取 practitioner/module
+        resp = await db().get(
+            f"{SUPABASE_REST}/pro_entries",
+            headers=SUPABASE_HEADERS,
+            params={"id": f"eq.{req.entry_id}", "select": "id,user_id,module_id"},
+        )
+        rows = resp.json() if resp.status_code == 200 else []
+        if not rows or rows[0].get("user_id") != user_id:
+            return {"risk": "none"}
+        module_id = rows[0].get("module_id")
+
+        enr = await db().get(
+            f"{SUPABASE_REST}/pro_enrollments",
+            headers=SUPABASE_HEADERS,
+            params={
+                "module_id": f"eq.{module_id}",
+                "user_id": f"eq.{user_id}",
+                "status": "eq.active",
+                "select": "practitioner_id",
+                "limit": "1",
+            },
+        )
+        enr_rows = enr.json() if enr.status_code == 200 else []
+        if not enr_rows:
+            return {"risk": "none"}
+        practitioner_id = enr_rows[0]["practitioner_id"]
+
+        joined = "\n".join(t for t in req.texts if t and t.strip())
+        if not joined.strip():
+            return {"risk": "none"}
+
+        # 2. 第一層：關鍵字（零成本）。命中直接判 high，不再呼叫 AI。
+        matched = [kw for kw in CRISIS_KEYWORDS if kw in joined]
+        if matched:
+            await _insert_crisis_alert(user_id, practitioner_id, module_id, req.entry_id, "keyword", "high", matched)
+            return {"risk": "high", "matched_terms": matched}
+
+        # 3. 第二層：AI 語意（關鍵字未命中才呼叫）。AI 失敗視為 none（前端另有 fallback）。
+        risk = "none"
+        try:
+            msg = await claude().messages.create(
+                model=_CRISIS_MODEL,
+                max_tokens=256,
+                system="你是心理危機辨識助手，只回傳 JSON，不要任何前言或 markdown。",
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "判斷以下文字是否流露自我傷害、自殺意念或嚴重心理危機（含隱晦表達，"
+                        "如告別、交代後事、覺得自己是負擔）。寧可誤報、不可漏報。\n\n"
+                        f"{joined}\n\n"
+                        '只回傳 JSON：{"risk":"none|medium|high","reason":"..."}'
+                    ),
+                }],
+            )
+            meter_claude("pro-entry-safety", _CRISIS_MODEL, msg.usage, user_id)
+            raw = msg.content[0].text if msg.content else ""
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
+            if m:
+                data = json.loads(m.group())
+                r = str(data.get("risk", "none")).lower()
+                if r in ("medium", "high"):
+                    risk = r
+        except Exception as exc:
+            logger.warning("pro_entry_safety AI failed [%s]: %s", type(exc).__name__, exc)
+            risk = "none"
+
+        if risk != "none":
+            await _insert_crisis_alert(user_id, practitioner_id, module_id, req.entry_id, "ai", risk, [])
+        return {"risk": risk, "matched_terms": []}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pro_entry_safety_check failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
