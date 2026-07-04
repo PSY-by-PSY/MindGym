@@ -60,12 +60,7 @@ export function ProModuleSection() {
     track('pro_module_redeemed', { module_id: result.module_id })
     setPreview(null)
     setCode('')
-    // 路由 app.pro-module.$moduleId 於步驟 4 建立、routeTree.gen.ts 屆時才有其型別；
-    // 此步驟先以 unknown 收斂，步驟 4 建好路由後改回一般型別化呼叫。
-    void navigate({
-      to: '/app/pro-module/$moduleId',
-      params: { moduleId: result.module_id },
-    } as unknown as Parameters<typeof navigate>[0])
+    void navigate({ to: '/app/pro-module/$moduleId', params: { moduleId: result.module_id } })
   }
 
   return (
@@ -131,10 +126,8 @@ function ModuleCard({ m }: { m: ProModuleInfo }) {
   const updated = isModuleUpdated(m.module_id, m.published_at)
   return (
     <Link
-      {...({
-        to: '/app/pro-module/$moduleId',
-        params: { moduleId: m.module_id },
-      } as unknown as Parameters<typeof Link>[0])}
+      to="/app/pro-module/$moduleId"
+      params={{ moduleId: m.module_id }}
       onClick={() => track('module_opened', { module: m.title })}
       className="flex items-center gap-3.5 rounded-2xl bg-cream px-4 py-3.5 shadow-[0_2px_5px_rgba(0,0,0,0.08)] transition active:scale-[0.98]"
     >

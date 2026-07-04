@@ -26,6 +26,7 @@ import { Route as AppWorkshopWoopImport } from './routes/app.workshop.woop'
 import { Route as AppWorkshopWarmupImport } from './routes/app.workshop.warmup'
 import { Route as AppWorkshopLastDayImport } from './routes/app.workshop.last-day'
 import { Route as AppWorkshopAuthenticSelfImport } from './routes/app.workshop.authentic-self'
+import { Route as AppProModuleModuleIdImport } from './routes/app.pro-module.$moduleId'
 
 // Create/Update Routes
 
@@ -119,6 +120,12 @@ const AppWorkshopAuthenticSelfRoute = AppWorkshopAuthenticSelfImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 
+const AppProModuleModuleIdRoute = AppProModuleModuleIdImport.update({
+  id: '/pro-module/$moduleId',
+  path: '/pro-module/$moduleId',
+  getParentRoute: () => AppRoute,
+} as any)
+
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
@@ -200,6 +207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileImport
       parentRoute: typeof AppImport
     }
+    '/app/pro-module/$moduleId': {
+      id: '/app/pro-module/$moduleId'
+      path: '/pro-module/$moduleId'
+      fullPath: '/app/pro-module/$moduleId'
+      preLoaderRoute: typeof AppProModuleModuleIdImport
+      parentRoute: typeof AppImport
+    }
     '/app/workshop/authentic-self': {
       id: '/app/workshop/authentic-self'
       path: '/workshop/authentic-self'
@@ -240,6 +254,7 @@ interface AppRouteChildren {
   AppPlaceholderRoute: typeof AppPlaceholderRoute
   AppProcessGoalRoute: typeof AppProcessGoalRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppProModuleModuleIdRoute: typeof AppProModuleModuleIdRoute
   AppWorkshopAuthenticSelfRoute: typeof AppWorkshopAuthenticSelfRoute
   AppWorkshopLastDayRoute: typeof AppWorkshopLastDayRoute
   AppWorkshopWarmupRoute: typeof AppWorkshopWarmupRoute
@@ -253,6 +268,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPlaceholderRoute: AppPlaceholderRoute,
   AppProcessGoalRoute: AppProcessGoalRoute,
   AppProfileRoute: AppProfileRoute,
+  AppProModuleModuleIdRoute: AppProModuleModuleIdRoute,
   AppWorkshopAuthenticSelfRoute: AppWorkshopAuthenticSelfRoute,
   AppWorkshopLastDayRoute: AppWorkshopLastDayRoute,
   AppWorkshopWarmupRoute: AppWorkshopWarmupRoute,
@@ -273,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
   '/app/workshop/warmup': typeof AppWorkshopWarmupRoute
@@ -291,6 +308,7 @@ export interface FileRoutesByTo {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
   '/app/workshop/warmup': typeof AppWorkshopWarmupRoute
@@ -310,6 +328,7 @@ export interface FileRoutesById {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
   '/app/workshop/warmup': typeof AppWorkshopWarmupRoute
@@ -330,6 +349,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
     | '/app/workshop/warmup'
@@ -347,6 +367,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
     | '/app/workshop/warmup'
@@ -364,6 +385,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
     | '/app/workshop/warmup'
@@ -416,6 +438,7 @@ export const routeTree = rootRoute
         "/app/placeholder",
         "/app/process-goal",
         "/app/profile",
+        "/app/pro-module/$moduleId",
         "/app/workshop/authentic-self",
         "/app/workshop/last-day",
         "/app/workshop/warmup",
@@ -453,6 +476,10 @@ export const routeTree = rootRoute
     },
     "/app/profile": {
       "filePath": "app.profile.tsx",
+      "parent": "/app"
+    },
+    "/app/pro-module/$moduleId": {
+      "filePath": "app.pro-module.$moduleId.tsx",
       "parent": "/app"
     },
     "/app/workshop/authentic-self": {

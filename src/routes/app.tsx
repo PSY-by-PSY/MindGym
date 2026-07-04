@@ -40,7 +40,8 @@ function AppShell() {
   const isExercise =
     pathname.startsWith('/app/gratitude') ||
     pathname.startsWith('/app/process-goal') ||
-    pathname.startsWith('/app/workshop')
+    pathname.startsWith('/app/workshop') ||
+    pathname.startsWith('/app/pro-module')
   // 社群頁：往下捲動收起工具列、往上捲動時跳出（比照 Facebook 的捲動體驗）。
   const isCommunity = pathname.startsWith('/app/community')
   const scrolledDown = useScrollDirection(isCommunity)

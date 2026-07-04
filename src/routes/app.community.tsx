@@ -68,6 +68,9 @@ type PracticePayload = {
   outcome?: string
   obstacle?: string
   plan?: string
+  // 專業模組（v='pro_module'）：不標註是哪位專業夥伴（拍板決策）
+  module_title?: string
+  excerpt?: string
   [k: string]: unknown
 }
 
@@ -1457,6 +1460,8 @@ function practiceTag(practiceType: string | null): { label: string; tile: string
       return { label: '生命最後一天', tile: 'bg-tile-peach' }
     case 'workshop_woop':
       return { label: 'WOOP 目標實踐地圖', tile: 'bg-tile-lemon' }
+    case 'pro_module':
+      return { label: '專業模組', tile: 'bg-tile-peach' }
     default:
       return { label: '感恩日記', tile: 'bg-tile-mint' }
   }
@@ -1479,6 +1484,9 @@ function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   }
   if (entry.practice_type === 'workshop_woop' && entry.payload) {
     return <WoopBody payload={entry.payload} />
+  }
+  if (entry.practice_type === 'pro_module' && entry.payload) {
+    return <ProModuleBody payload={entry.payload} />
   }
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   return (
@@ -1600,6 +1608,22 @@ function WoopBody({ payload }: { payload: PracticePayload }) {
       {outcome && <PgFieldBlock label="O・看見結果" value={outcome} />}
       {obstacle && <PgFieldBlock label="O・覺察阻礙" value={obstacle} />}
       {ifThen && <PgAiBlock label="P・If-Then 執行計畫" value={ifThen} />}
+    </div>
+  )
+}
+
+// 專業模組：顯示模組名稱標籤 + 練習摘要（不標註是哪位專業夥伴，拍板決策）。
+function ProModuleBody({ payload }: { payload: PracticePayload }) {
+  const moduleTitle = (payload.module_title ?? '').trim()
+  const excerpt = (payload.excerpt ?? '').trim()
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {moduleTitle && (
+        <span className="self-start rounded-full bg-tile-peach px-3 py-1 text-xs font-extrabold text-foreground">
+          {moduleTitle}
+        </span>
+      )}
+      {excerpt && <PgFieldBlock label="練習摘要" value={excerpt} />}
     </div>
   )
 }

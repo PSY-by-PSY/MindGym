@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
 import { hasSkippedOnboarding } from '../lib/onboardingSkip'
+import { ProModuleSection } from '../components/pro/ProModuleSection'
 import homeMascot from '../assets/ui/home-mascot.png'
 import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
 import sleepingMascot from '../assets/ui/sleeping-mascot.png'
@@ -158,6 +159,9 @@ function HomePage() {
 
       {/* 工作坊專屬練習 */}
       <WorkshopSection />
+
+      {/* 專業模組區 */}
+      <ProModuleSection />
 
       {/* 健心訓練中心 */}
       <TrainingCenter recommendation={recommendation} />
