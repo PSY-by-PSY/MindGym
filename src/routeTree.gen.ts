@@ -11,6 +11,7 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as TherapistImport } from './routes/therapist'
 import { Route as PrivacyImport } from './routes/privacy'
 import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
@@ -29,6 +30,12 @@ import { Route as AppWorkshopAuthenticSelfImport } from './routes/app.workshop.a
 import { Route as AppProModuleModuleIdImport } from './routes/app.pro-module.$moduleId'
 
 // Create/Update Routes
+
+const TherapistRoute = TherapistImport.update({
+  id: '/therapist',
+  path: '/therapist',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const PrivacyRoute = PrivacyImport.update({
   id: '/privacy',
@@ -165,6 +172,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyImport
       parentRoute: typeof rootRoute
     }
+    '/therapist': {
+      id: '/therapist'
+      path: '/therapist'
+      fullPath: '/therapist'
+      preLoaderRoute: typeof TherapistImport
+      parentRoute: typeof rootRoute
+    }
     '/app/community': {
       id: '/app/community'
       path: '/community'
@@ -283,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/therapist': typeof TherapistRoute
   '/app/community': typeof AppCommunityRoute
   '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
@@ -302,6 +317,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/therapist': typeof TherapistRoute
   '/app/community': typeof AppCommunityRoute
   '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
@@ -322,6 +338,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/therapist': typeof TherapistRoute
   '/app/community': typeof AppCommunityRoute
   '/app/gratitude': typeof AppGratitudeRoute
   '/app/home': typeof AppHomeRoute
@@ -343,6 +360,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/therapist'
     | '/app/community'
     | '/app/gratitude'
     | '/app/home'
@@ -361,6 +379,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/therapist'
     | '/app/community'
     | '/app/gratitude'
     | '/app/home'
@@ -379,6 +398,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/therapist'
     | '/app/community'
     | '/app/gratitude'
     | '/app/home'
@@ -399,6 +419,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
+  TherapistRoute: typeof TherapistRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -407,6 +428,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
+  TherapistRoute: TherapistRoute,
 }
 
 export const routeTree = rootRoute
@@ -423,7 +445,8 @@ export const routeTree = rootRoute
         "/app",
         "/login",
         "/onboarding",
-        "/privacy"
+        "/privacy",
+        "/therapist"
       ]
     },
     "/": {
@@ -453,6 +476,9 @@ export const routeTree = rootRoute
     },
     "/privacy": {
       "filePath": "privacy.tsx"
+    },
+    "/therapist": {
+      "filePath": "therapist.tsx"
     },
     "/app/community": {
       "filePath": "app.community.tsx",

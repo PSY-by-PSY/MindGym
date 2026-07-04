@@ -1,0 +1,1159 @@
+// 專業夥伴工作台（/therapist）— 隱藏頂層路由，桌機優先、responsive 向下相容。
+// 三態：非專業夥伴（申請表單）／審核中／被退件；已是專業夥伴 → 主控台（我的模組／邀請碼／個案追蹤）。
+// 角色與資料一律走 anon key + RLS；送審走後端 /api/pro/submit-module（要先跑 AI）。
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { track } from '../lib/analytics'
+import { BlockEditor } from '../components/pro/BlockEditor'
+import { BlockRenderer } from '../components/pro/BlockRenderer'
+import {
+  MODULE_TEMPLATES,
+  type ProModuleRow,
+  type ProModuleContent,
+  type ProModuleStatus,
+  type ProAnswers,
+  type ProAnswerValue,
+} from '../lib/proModules'
+import logoWordmark from '../assets/ui/logo-wordmark.png'
+
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+
+export const Route = createFileRoute('/therapist')({
+  beforeLoad: ({ context }) => {
+    if (!context.session) throw redirect({ to: '/login' })
+  },
+  component: TherapistPage,
+})
+
+const STATUS_META: Record<ProModuleStatus, { label: string; cls: string }> = {
+  draft: { label: '草稿', cls: 'bg-muted text-muted-foreground' },
+  pending_review: { label: '審核中', cls: 'bg-tile-peach text-[#8a6320]' },
+  approved: { label: '已上架', cls: 'bg-tile-mint text-[#3f6b46]' },
+  rejected: { label: '已退件', cls: 'bg-tile-pink text-rust' },
+  archived: { label: '已下架', cls: 'bg-muted text-muted-foreground' },
+}
+
+const EMPTY_CONTENT: ProModuleContent = { v: 1, intro: '', blocks: [], outro: '' }
+
+// ── 頂層 shell ─────────────────────────────────────────────────────────────
+
+function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+  const navigate = useNavigate()
+  const logout = async () => {
+    await supabase.auth.signOut()
+    navigate({ to: '/login' })
+  }
+  return (
+    <div className="min-h-screen bg-page">
+      <header className="border-b border-border bg-[#FEFAF0]/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-3">
+            <img src={logoWordmark} alt="PSY by PSY" className="h-[22px] w-auto object-contain" />
+            <span className="text-sm font-bold text-muted-foreground">{title}</span>
+          </div>
+          <button
+            onClick={logout}
+            className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
+          >
+            登出
+          </button>
+        </div>
+      </header>
+      <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
+    </div>
+  )
+}
+
+function Spinner() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  )
+}
+
+// ── 頁面：角色三態閘門 ──────────────────────────────────────────────────────
+
+type PractitionerApp = {
+  id: string
+  status: 'pending' | 'approved' | 'rejected'
+  admin_note: string | null
+  name: string | null
+  title: string | null
+  organization: string | null
+  license_info: string | null
+  motivation: string | null
+}
+
+function TherapistPage() {
+  const [userId, setUserId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isPractitioner, setIsPractitioner] = useState(false)
+  const [application, setApplication] = useState<PractitionerApp | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user.id ?? null
+    setUserId(uid)
+    if (!uid) {
+      setLoading(false)
+      return
+    }
+    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', uid)
+    const practitioner = (roles ?? []).some((r) => r.role === 'practitioner')
+    setIsPractitioner(practitioner)
+    if (!practitioner) {
+      const { data: app } = await supabase
+        .from('practitioner_applications')
+        .select('id, status, admin_note, name, title, organization, license_info, motivation')
+        .eq('user_id', uid)
+        .maybeSingle()
+      setApplication((app as PractitionerApp) ?? null)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  if (loading) {
+    return (
+      <Shell title="專業夥伴工作台">
+        <Spinner />
+      </Shell>
+    )
+  }
+
+  if (isPractitioner && userId) {
+    return (
+      <Shell title="專業夥伴工作台">
+        <Console ownerId={userId} />
+      </Shell>
+    )
+  }
+
+  return (
+    <Shell title="專業夥伴工作台">
+      <ApplicationGate userId={userId} application={application} onChanged={refresh} />
+    </Shell>
+  )
+}
+
+// ── 申請表單 / 審核中 / 被退件 ───────────────────────────────────────────────
+
+function ApplicationGate({
+  userId,
+  application,
+  onChanged,
+}: {
+  userId: string | null
+  application: PractitionerApp | null
+  onChanged: () => void
+}) {
+  const editable = !application || application.status === 'rejected'
+
+  const [name, setName] = useState(application?.name ?? '')
+  const [title, setTitle] = useState(application?.title ?? '')
+  const [organization, setOrganization] = useState(application?.organization ?? '')
+  const [licenseInfo, setLicenseInfo] = useState(application?.license_info ?? '')
+  const [motivation, setMotivation] = useState(application?.motivation ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (application && application.status === 'pending') {
+    return (
+      <div className="mx-auto max-w-xl rounded-[22px] border border-border bg-card p-8 shadow-soft">
+        <h1 className="text-xl font-black text-foreground">審核中</h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+          我們已收到你的申請，正在審核中。通過後這裡會變成你的工作台。
+        </p>
+      </div>
+    )
+  }
+
+  const submit = async () => {
+    if (!userId || busy) return
+    if (!name.trim()) {
+      setError('請填寫姓名')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    const payload = {
+      name: name.trim(),
+      title: title.trim() || null,
+      organization: organization.trim() || null,
+      license_info: licenseInfo.trim() || null,
+      motivation: motivation.trim() || null,
+    }
+    let dbError
+    if (application && application.status === 'rejected') {
+      // 被退件後重新送出：本人可把自己的申請改回 pending（RLS 已允許 rejected → pending）。
+      const { error } = await supabase
+        .from('practitioner_applications')
+        .update({ ...payload, status: 'pending', admin_note: null })
+        .eq('user_id', userId)
+      dbError = error
+    } else {
+      const { error } = await supabase
+        .from('practitioner_applications')
+        .insert({ user_id: userId, ...payload })
+      dbError = error
+    }
+    setBusy(false)
+    if (dbError) {
+      console.error('[application]', dbError)
+      setError('送出失敗，請稍後再試。')
+      return
+    }
+    onChanged()
+  }
+
+  return (
+    <div className="mx-auto max-w-xl rounded-[22px] border border-border bg-card p-8 shadow-soft">
+      <h1 className="text-xl font-black text-foreground">申請成為專業夥伴</h1>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        填寫以下資訊，通過審核後即可建立你自己的練習模組，發給個案使用。
+      </p>
+
+      {application?.status === 'rejected' && application.admin_note && (
+        <div className="mt-4 rounded-2xl bg-tile-pink px-4 py-3">
+          <p className="text-sm font-bold text-rust">申請未通過</p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground/80">{application.admin_note}</p>
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-col gap-4">
+        <FormField label="姓名" required value={name} onChange={setName} disabled={!editable} />
+        <FormField label="職稱" value={title} onChange={setTitle} disabled={!editable} placeholder="例：諮商心理師、輔導老師" />
+        <FormField label="服務單位" value={organization} onChange={setOrganization} disabled={!editable} />
+        <FormArea label="專業證照 / 資歷說明" value={licenseInfo} onChange={setLicenseInfo} disabled={!editable} />
+        <FormArea label="想如何使用本平台" value={motivation} onChange={setMotivation} disabled={!editable} />
+      </div>
+
+      {error && <p className="mt-3 text-sm font-bold text-rust">{error}</p>}
+
+      <button
+        onClick={submit}
+        disabled={busy}
+        className="mt-6 w-full rounded-full bg-gradient-primary py-3.5 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60 sm:w-auto sm:px-10"
+      >
+        {busy ? '送出中…' : application?.status === 'rejected' ? '重新送出申請' : '送出申請'}
+      </button>
+    </div>
+  )
+}
+
+// ── 主控台（三分頁）─────────────────────────────────────────────────────────
+
+type Tab = 'modules' | 'invites' | 'clients'
+
+function Console({ ownerId }: { ownerId: string }) {
+  const [tab, setTab] = useState<Tab>('modules')
+  const [modules, setModules] = useState<ProModuleRow[] | null>(null)
+
+  const loadModules = useCallback(async () => {
+    const { data } = await supabase
+      .from('pro_modules')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('updated_at', { ascending: false })
+    setModules((data as ProModuleRow[]) ?? [])
+  }, [ownerId])
+
+  useEffect(() => {
+    track('therapist_console_opened')
+  }, [])
+  useEffect(() => {
+    void loadModules()
+  }, [loadModules])
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'modules', label: '我的模組' },
+    { key: 'invites', label: '邀請碼' },
+    { key: 'clients', label: '個案追蹤' },
+  ]
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+      <aside className="flex gap-2 lg:flex-col">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`rounded-2xl px-4 py-2.5 text-left text-[15px] font-bold transition ${
+              tab === t.key ? 'bg-foreground text-cream shadow-soft' : 'bg-card text-foreground hover:bg-muted'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </aside>
+
+      <section className="min-w-0">
+        {modules === null ? (
+          <Spinner />
+        ) : tab === 'modules' ? (
+          <MyModulesTab ownerId={ownerId} modules={modules} reload={loadModules} />
+        ) : tab === 'invites' ? (
+          <InviteCodesTab modules={modules} />
+        ) : (
+          <ClientTrackingTab ownerId={ownerId} modules={modules} />
+        )}
+      </section>
+    </div>
+  )
+}
+
+// ── 我的模組 ────────────────────────────────────────────────────────────────
+
+function MyModulesTab({
+  ownerId,
+  modules,
+  reload,
+}: {
+  ownerId: string
+  modules: ProModuleRow[]
+  reload: () => Promise<void>
+}) {
+  const [editing, setEditing] = useState<ProModuleRow | null | 'new'>(null)
+  const [picking, setPicking] = useState(false)
+  const [templateContent, setTemplateContent] = useState<ProModuleContent>(EMPTY_CONTENT)
+
+  if (editing === 'new' || editing) {
+    const mod = editing === 'new' ? null : editing
+    return (
+      <ModuleEditor
+        ownerId={ownerId}
+        module={mod}
+        initialContent={editing === 'new' ? templateContent : undefined}
+        onDone={async () => {
+          setEditing(null)
+          await reload()
+        }}
+        onCancel={() => setEditing(null)}
+      />
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-xl font-black text-foreground">我的模組</h1>
+        <button
+          onClick={() => setPicking(true)}
+          className="rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
+        >
+          建立新模組
+        </button>
+      </div>
+
+      {modules.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          還沒有任何模組。點「建立新模組」從模板開始。
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {modules.map((m) => (
+            <div key={m.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="truncate text-[17px] font-black text-foreground">{m.title}</h2>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${STATUS_META[m.status].cls}`}>
+                      {STATUS_META[m.status].label}
+                    </span>
+                  </div>
+                  {m.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>}
+                  {m.status === 'rejected' && m.admin_note && (
+                    <p className="mt-2 rounded-xl bg-tile-pink px-3 py-2 text-sm text-rust">退件理由：{m.admin_note}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setEditing(m)}
+                  className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
+                >
+                  編輯
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {picking && (
+        <TemplatePicker
+          onPick={(content) => {
+            setTemplateContent(content)
+            setPicking(false)
+            setEditing('new')
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function TemplatePicker({ onPick, onClose }: { onPick: (c: ProModuleContent) => void; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1714]/40 px-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-[24px] bg-background p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-black text-foreground">選一個模板開始</h2>
+        <div className="mt-4 flex flex-col gap-2.5">
+          {MODULE_TEMPLATES.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => onPick(t.build())}
+              className="rounded-2xl border border-border bg-card px-4 py-3 text-left transition hover:bg-muted active:scale-[0.99]"
+            >
+              <p className="text-[15px] font-black text-foreground">{t.label}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t.hint}</p>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-4 w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
+          取消
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── 模組編輯器 ──────────────────────────────────────────────────────────────
+
+function ModuleEditor({
+  ownerId,
+  module,
+  initialContent,
+  onDone,
+  onCancel,
+}: {
+  ownerId: string
+  module: ProModuleRow | null
+  initialContent?: ProModuleContent
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const [moduleId, setModuleId] = useState<string | null>(module?.id ?? null)
+  const [title, setTitle] = useState(module?.title ?? '')
+  const [description, setDescription] = useState(module?.description ?? '')
+  const [estMinutes, setEstMinutes] = useState(module?.est_minutes != null ? String(module.est_minutes) : '')
+  const [content, setContent] = useState<ProModuleContent>(
+    module?.draft_content ?? module?.published_content ?? initialContent ?? EMPTY_CONTENT,
+  )
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
+
+  const isPublished = !!module?.published_content
+
+  const parseEst = (): number | null => {
+    const n = parseInt(estMinutes, 10)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const saveDraft = async (): Promise<string | null> => {
+    if (!title.trim()) {
+      setError('請填寫模組標題')
+      return null
+    }
+    setError(null)
+    if (moduleId) {
+      const { error } = await supabase.rpc('update_module_draft', {
+        p_module_id: moduleId,
+        p_title: title.trim(),
+        p_description: description.trim() || null,
+        p_est_minutes: parseEst(),
+        p_draft_content: content,
+      })
+      if (error) {
+        console.error('[save draft]', error)
+        setError('儲存失敗，請稍後再試。')
+        return null
+      }
+      return moduleId
+    }
+    const { data, error } = await supabase
+      .from('pro_modules')
+      .insert({
+        owner_id: ownerId,
+        title: title.trim(),
+        description: description.trim() || null,
+        est_minutes: parseEst(),
+        draft_content: content,
+        status: 'draft',
+      })
+      .select('id')
+      .single()
+    if (error || !data) {
+      console.error('[create module]', error)
+      setError('建立失敗，請稍後再試。')
+      return null
+    }
+    setModuleId(data.id as string)
+    return data.id as string
+  }
+
+  const handleSave = async () => {
+    setBusy(true)
+    const id = await saveDraft()
+    setBusy(false)
+    if (id) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
+  const handleSubmit = async () => {
+    setBusy(true)
+    const id = await saveDraft()
+    if (!id) {
+      setBusy(false)
+      return
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch(`${API_URL}/api/pro/submit-module`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ module_id: id }),
+      })
+      if (!resp.ok) throw new Error(`submit ${resp.status}`)
+      track('pro_module_submitted', { module_id: id })
+      onDone()
+    } catch (e) {
+      console.error('[submit module]', e)
+      setError('送審失敗，請稍後再試。')
+    } finally {
+      setBusy(false)
+      setConfirmSubmit(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={onCancel} className="text-sm font-bold text-muted-foreground transition hover:text-foreground">
+          ← 返回列表
+        </button>
+        <div className="flex items-center gap-2">
+          {saved && <span className="text-sm font-bold text-[#3f6b46]">已儲存</span>}
+          <button
+            onClick={handleSave}
+            disabled={busy}
+            className="rounded-full border border-border bg-card px-4 py-2 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-60"
+          >
+            儲存草稿
+          </button>
+          <button
+            onClick={() => setConfirmSubmit(true)}
+            disabled={busy}
+            className="rounded-full bg-gradient-primary px-5 py-2 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+          >
+            送審
+          </button>
+        </div>
+      </div>
+
+      {isPublished && (
+        <p className="mb-4 rounded-2xl bg-tile-peach px-4 py-3 text-sm font-medium text-[#8a6320]">
+          個案目前使用的是已上架版本；修改內容需重新審核通過後才會生效。
+        </p>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 左：編輯 */}
+        <div className="flex flex-col gap-4">
+          <FormField label="模組標題" required value={title} onChange={setTitle} />
+          <FormArea label="模組說明" value={description} onChange={setDescription} />
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">預估時間（分鐘）</span>
+            <input
+              type="number"
+              value={estMinutes}
+              onChange={(e) => setEstMinutes(e.target.value)}
+              className="w-32 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">開場引導語（選填）</span>
+            <textarea
+              value={content.intro ?? ''}
+              rows={2}
+              onChange={(e) => setContent((c) => ({ ...c, intro: e.target.value }))}
+              className="w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </label>
+
+          <div>
+            <p className="mb-2 text-sm font-black text-foreground">題目積木</p>
+            <BlockEditor blocks={content.blocks} onChange={(blocks) => setContent((c) => ({ ...c, blocks }))} />
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">結語（選填）</span>
+            <textarea
+              value={content.outro ?? ''}
+              rows={2}
+              onChange={(e) => setContent((c) => ({ ...c, outro: e.target.value }))}
+              className="w-full resize-none rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </label>
+        </div>
+
+        {/* 右：即時預覽 */}
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <p className="mb-2 text-sm font-black text-foreground">個案看到的樣子</p>
+          <div className="rounded-[22px] border border-border bg-background p-5 shadow-soft">
+            {content.blocks.length === 0 && !content.intro && !content.outro ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">新增題目後這裡會即時預覽。</p>
+            ) : (
+              <ReadOnlyPreview content={content} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="mt-4 text-sm font-bold text-rust">{error}</p>}
+
+      {confirmSubmit && (
+        <ConfirmDialog
+          title="送審這個模組？"
+          body="送審後將由管理員依心理學標準審核，通過後個案才能使用新內容。"
+          confirmLabel={busy ? '送審中…' : '確認送審'}
+          onConfirm={handleSubmit}
+          onCancel={() => !busy && setConfirmSubmit(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// 即時預覽：用 BlockRenderer 的 disabled 模式，維持一份 answers state 讓互動看起來真實。
+function ReadOnlyPreview({ content }: { content: ProModuleContent }) {
+  const [answers, setAnswers] = useState<ProAnswers>({})
+  const onChange = (id: string, value: ProAnswerValue) => setAnswers((prev) => ({ ...prev, [id]: value }))
+  return <BlockRenderer content={content} answers={answers} onChange={onChange} />
+}
+
+// ── 邀請碼 ──────────────────────────────────────────────────────────────────
+
+function InviteCodesTab({ modules }: { modules: ProModuleRow[] }) {
+  const published = modules.filter((m) => m.published_content && m.status !== 'archived')
+  const unpublished = modules.filter((m) => !m.published_content || m.status === 'archived')
+
+  return (
+    <div>
+      <h1 className="mb-4 text-xl font-black text-foreground">邀請碼</h1>
+      {published.length === 0 && unpublished.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          還沒有任何模組。
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {published.map((m) => (
+            <InviteCodeRow key={m.id} module={m} />
+          ))}
+          {unpublished.map((m) => (
+            <div key={m.id} className="rounded-2xl border border-border bg-card p-4 opacity-70 shadow-soft">
+              <p className="text-[15px] font-black text-foreground">{m.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">模組上架後才能產生邀請碼。</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InviteCodeRow({ module }: { module: ProModuleRow }) {
+  const [code, setCode] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('invite_codes')
+      .select('code')
+      .eq('module_id', module.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    setCode((data?.code as string) ?? null)
+    setLoaded(true)
+  }, [module.id])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const regenerate = async () => {
+    setBusy(true)
+    const { data, error } = await supabase.rpc('regenerate_invite_code', { p_module_id: module.id })
+    setBusy(false)
+    setConfirming(false)
+    if (error) {
+      console.error('[regenerate]', error)
+      return
+    }
+    setCode((data as string) ?? null)
+    track('invite_code_regenerated', { module_id: module.id })
+  }
+
+  const copy = async () => {
+    if (!code) return
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* 忽略 */
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+      <p className="text-[15px] font-black text-foreground">{module.title}</p>
+      {!loaded ? (
+        <p className="mt-2 text-sm text-muted-foreground">讀取中…</p>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {code ? (
+            <span className="rounded-xl bg-muted px-4 py-2 font-mono text-xl font-black tracking-[0.25em] text-foreground">
+              {code}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">尚未產生邀請碼</span>
+          )}
+          {code && (
+            <button
+              onClick={copy}
+              className="rounded-full border border-border bg-background px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
+            >
+              {copied ? '已複製' : '複製'}
+            </button>
+          )}
+          <button
+            onClick={() => (code ? setConfirming(true) : void regenerate())}
+            disabled={busy}
+            className="rounded-full bg-foreground px-4 py-1.5 text-sm font-bold text-cream transition active:scale-[0.98] disabled:opacity-60"
+          >
+            {busy ? '…' : code ? '重新產生' : '產生邀請碼'}
+          </button>
+        </div>
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title="重新產生邀請碼？"
+          body="舊的邀請碼將立即失效，尚未加入的個案需使用新碼。"
+          confirmLabel={busy ? '產生中…' : '確認重新產生'}
+          onConfirm={regenerate}
+          onCancel={() => !busy && setConfirming(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── 個案追蹤 ────────────────────────────────────────────────────────────────
+
+type Enrollment = {
+  module_id: string
+  user_id: string
+  share_perma: boolean
+  consented_at: string
+}
+type CrisisAlert = {
+  id: string
+  user_id: string
+  module_id: string | null
+  severity: string
+  matched_terms: string[] | null
+  acknowledged_at: string | null
+  created_at: string
+}
+
+function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: ProModuleRow[] }) {
+  const [enrollments, setEnrollments] = useState<Enrollment[] | null>(null)
+  const [names, setNames] = useState<Record<string, string>>({})
+  const [alerts, setAlerts] = useState<CrisisAlert[]>([])
+  const [selected, setSelected] = useState<Enrollment | null>(null)
+
+  const loadEnrollments = useCallback(async () => {
+    const { data } = await supabase
+      .from('pro_enrollments')
+      .select('module_id, user_id, share_perma, consented_at')
+      .eq('practitioner_id', ownerId)
+      .eq('status', 'active')
+      .order('consented_at', { ascending: false })
+    const list = (data as Enrollment[]) ?? []
+    setEnrollments(list)
+    const ids = [...new Set(list.map((e) => e.user_id))]
+    if (ids.length > 0) {
+      const { data: profs } = await supabase.from('profiles').select('id, name').in('id', ids)
+      const map: Record<string, string> = {}
+      ;(profs ?? []).forEach((p) => {
+        map[p.id as string] = (p.name as string) || '個案'
+      })
+      setNames(map)
+    }
+  }, [ownerId])
+
+  const loadAlerts = useCallback(async () => {
+    const { data } = await supabase
+      .from('crisis_alerts')
+      .select('id, user_id, module_id, severity, matched_terms, acknowledged_at, created_at')
+      .eq('practitioner_id', ownerId)
+      .order('created_at', { ascending: false })
+    setAlerts((data as CrisisAlert[]) ?? [])
+  }, [ownerId])
+
+  useEffect(() => {
+    void loadEnrollments()
+    void loadAlerts()
+    // MVP 不做 realtime：頁面開著時每 60 秒 refetch 危機警示即達到「即時跳出」的體感。
+    const timer = setInterval(() => void loadAlerts(), 60000)
+    return () => clearInterval(timer)
+  }, [loadEnrollments, loadAlerts])
+
+  const unreadFor = (userId: string) =>
+    alerts.filter((a) => a.user_id === userId && !a.acknowledged_at).length
+
+  if (enrollments === null) return <Spinner />
+
+  return (
+    <div>
+      <h1 className="mb-4 text-xl font-black text-foreground">個案追蹤</h1>
+      {enrollments.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          還沒有個案加入。上架模組並把邀請碼發給個案吧。
+        </p>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          <div className="flex flex-col gap-2">
+            {enrollments.map((e) => {
+              const unread = unreadFor(e.user_id)
+              const active = selected?.user_id === e.user_id && selected?.module_id === e.module_id
+              const mod = modules.find((m) => m.id === e.module_id)
+              return (
+                <button
+                  key={`${e.module_id}:${e.user_id}`}
+                  onClick={() => setSelected(e)}
+                  className={`rounded-2xl border px-4 py-3 text-left transition ${
+                    active ? 'border-foreground bg-cream' : 'border-border bg-card hover:bg-muted'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-black text-foreground">
+                      {names[e.user_id] ?? '個案'}
+                    </span>
+                    {unread > 0 && (
+                      <span className="shrink-0 rounded-full bg-rust px-2 py-0.5 text-[11px] font-extrabold text-white">
+                        {unread}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{mod?.title ?? '模組'}</p>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="min-w-0">
+            {selected ? (
+              <ClientDetail
+                key={`${selected.module_id}:${selected.user_id}`}
+                ownerId={ownerId}
+                enrollment={selected}
+                name={names[selected.user_id] ?? '個案'}
+                module={modules.find((m) => m.id === selected.module_id) ?? null}
+                onAcknowledged={loadAlerts}
+              />
+            ) : (
+              <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+                從左側選一位個案查看紀錄。
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+type ProEntry = { id: string; answers: ProAnswers; created_at: string }
+type PermaRow = { p_score: number; e_score: number; r_score: number; m_score: number; a_score: number; created_at: string }
+
+function ClientDetail({
+  ownerId,
+  enrollment,
+  name,
+  module,
+  onAcknowledged,
+}: {
+  ownerId: string
+  enrollment: Enrollment
+  name: string
+  module: ProModuleRow | null
+  onAcknowledged: () => void
+}) {
+  const [entries, setEntries] = useState<ProEntry[] | null>(null)
+  const [alerts, setAlerts] = useState<CrisisAlert[]>([])
+  const [perma, setPerma] = useState<PermaRow | null>(null)
+
+  const load = useCallback(async () => {
+    const [{ data: e }, { data: a }] = await Promise.all([
+      supabase
+        .from('pro_entries')
+        .select('id, answers, created_at')
+        .eq('module_id', enrollment.module_id)
+        .eq('user_id', enrollment.user_id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('crisis_alerts')
+        .select('id, user_id, module_id, severity, matched_terms, acknowledged_at, created_at')
+        .eq('practitioner_id', ownerId)
+        .eq('user_id', enrollment.user_id)
+        .is('acknowledged_at', null)
+        .order('created_at', { ascending: false }),
+    ])
+    setEntries((e as ProEntry[]) ?? [])
+    setAlerts((a as CrisisAlert[]) ?? [])
+    if (enrollment.share_perma) {
+      const { data: p } = await supabase
+        .from('perma_scores')
+        .select('p_score, e_score, r_score, m_score, a_score, created_at')
+        .eq('user_id', enrollment.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+      setPerma(((p as PermaRow[]) ?? [])[0] ?? null)
+    }
+  }, [ownerId, enrollment])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const acknowledge = async (id: string) => {
+    await supabase.from('crisis_alerts').update({ acknowledged_at: new Date().toISOString() }).eq('id', id)
+    setAlerts((prev) => prev.filter((x) => x.id !== id))
+    onAcknowledged()
+  }
+
+  const now = Date.now()
+  const last7 = (entries ?? []).filter((e) => now - new Date(e.created_at).getTime() <= 7 * 86400000)
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h2 className="text-lg font-black text-foreground">{name}</h2>
+
+      {/* (a) 未確認危機警示 */}
+      {alerts.length > 0 && (
+        <div className="rounded-2xl border-2 border-rust bg-tile-pink p-4">
+          <p className="text-sm font-black text-rust">危機警示（{alerts.length}）</p>
+          <div className="mt-2 flex flex-col gap-2">
+            {alerts.map((a) => (
+              <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">
+                    {a.severity === 'high' ? '高風險' : '中度風險'}
+                    {a.matched_terms && a.matched_terms.length > 0 && (
+                      <span className="ml-2 font-normal text-muted-foreground">關鍵字：{a.matched_terms.join('、')}</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDateTime(a.created_at)}</p>
+                </div>
+                <button
+                  onClick={() => acknowledge(a.id)}
+                  className="shrink-0 rounded-full bg-rust px-3 py-1.5 text-xs font-bold text-white transition active:scale-[0.98]"
+                >
+                  標記已知悉
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* (b) 統計 */}
+      <div className="flex gap-3">
+        <StatCard label="總打卡次數" value={entries === null ? '…' : String(entries.length)} />
+        <StatCard label="最近 7 天" value={entries === null ? '…' : String(last7.length)} />
+      </div>
+
+      {/* (d) PERMA（若已同意分享） */}
+      {enrollment.share_perma && perma && (
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+          <p className="mb-2 text-sm font-black text-foreground">最新 PERMA 五力</p>
+          <div className="flex flex-wrap gap-3">
+            {([['P 情緒力', perma.p_score], ['E 投入力', perma.e_score], ['R 連結力', perma.r_score], ['M 意義力', perma.m_score], ['A 成就力', perma.a_score]] as const).map(
+              ([label, v]) => (
+                <div key={label} className="rounded-xl bg-muted px-3 py-2 text-center">
+                  <p className="text-lg font-black text-foreground">{v}</p>
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* (c) 紀錄時間軸 */}
+      <div>
+        <p className="mb-2 text-sm font-black text-foreground">紀錄時間軸</p>
+        {entries === null ? (
+          <p className="text-sm text-muted-foreground">讀取中…</p>
+        ) : entries.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            這位個案還沒有任何打卡紀錄。
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {entries.map((e) => (
+              <div key={e.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+                <p className="mb-2 text-xs font-bold text-muted-foreground">{formatDateTime(e.created_at)}</p>
+                <EntryAnswersView content={module?.published_content ?? module?.draft_content ?? null} answers={e.answers} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function EntryAnswersView({ content, answers }: { content: ProModuleContent | null; answers: ProAnswers }) {
+  const blocks = content?.blocks ?? []
+  const entries = Object.entries(answers)
+  if (entries.length === 0) return <p className="text-sm text-muted-foreground">（未填寫）</p>
+  const fmt = (v: ProAnswerValue): string => (Array.isArray(v) ? v.join('、') : String(v))
+  return (
+    <div className="flex flex-col gap-2">
+      {entries.map(([id, v]) => {
+        const b = blocks.find((x) => x.id === id)
+        if (b && b.type === 'instruction') return null
+        const label = b?.label || b?.text || '題目'
+        return (
+          <div key={id} className="rounded-xl bg-muted px-3 py-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground/85">{fmt(v)}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex-1 rounded-2xl border border-border bg-card p-4 text-center shadow-soft">
+      <p className="text-2xl font-black text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+    </div>
+  )
+}
+
+// ── 共用小元件 ──────────────────────────────────────────────────────────────
+
+function FormField({
+  label,
+  value,
+  onChange,
+  required,
+  disabled,
+  placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  required?: boolean
+  disabled?: boolean
+  placeholder?: string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-bold text-foreground">
+        {label}
+        {required && <span className="ml-1 text-rust">*</span>}
+      </span>
+      <input
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-[15px] text-foreground outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-70"
+      />
+    </label>
+  )
+}
+
+function FormArea({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-bold text-foreground">{label}</span>
+      <textarea
+        value={value}
+        rows={3}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full resize-none rounded-xl border border-border bg-card px-4 py-2.5 text-[15px] leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-70"
+      />
+    </label>
+  )
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  body: string
+  confirmLabel: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1c1714]/40 px-6" onClick={onCancel}>
+      <div className="w-full max-w-sm rounded-[24px] bg-background p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-black text-foreground">{title}</h2>
+        <p className="mt-2 text-[15px] leading-relaxed text-foreground-soft">{body}</p>
+        <div className="mt-5 flex flex-col gap-2">
+          <button
+            onClick={onConfirm}
+            className="w-full rounded-full bg-gradient-primary py-3 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            {confirmLabel}
+          </button>
+          <button onClick={onCancel} className="w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
