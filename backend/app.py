@@ -923,7 +923,7 @@ _CRISIS_MODEL = "claude-haiku-4-5-20251001"
 
 
 # 危機偵測關鍵字（保守、低誤報）。
-# ⚠️ 修改時要同步前端 src/lib/proModules.ts 的同一份 CRISIS_KEYWORDS。
+# 注意：修改時要同步前端 src/lib/proModules.ts 的同一份 CRISIS_KEYWORDS。
 # 刻意不收「要死」「死了」這類高誤報詞——語意層交給 AI（第二層）。
 CRISIS_KEYWORDS = [
     "自殺", "自傷", "想死", "想不開", "不想活", "活不下去", "結束生命",

@@ -181,7 +181,7 @@ export async function entrySafetyCheck(entryId: string, texts: string[]): Promis
 }
 
 // 危機偵測關鍵字（保守、低誤報）。
-// ⚠️ 修改時要同步後端 backend/app.py 的 CRISIS_KEYWORDS。
+// 注意：修改時要同步後端 backend/app.py 的 CRISIS_KEYWORDS。
 // 刻意不收「要死」「死了」這類高誤報詞——語意層交給後端 AI（第二層）。
 export const CRISIS_KEYWORDS = [
   '自殺', '自傷', '想死', '想不開', '不想活', '活不下去', '結束生命',
