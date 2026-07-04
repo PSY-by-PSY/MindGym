@@ -45,6 +45,15 @@ export type AnalyticsEvent =
   | 'process_goal_morning_done'     // （舊版）完成過程目標覺察早晨啟動
   | 'process_goal_moment_recorded'  // 完成【專注時刻記錄】
   | 'process_goal_boost_done'       // 完成【提升專注錦囊】
+  | 'pro_module_redeemed'        // 個案兌換邀請碼、同意解鎖專業模組
+  | 'pro_module_completed'       // 個案完成一次專業模組練習
+  | 'pro_module_shared'          // 個案把專業模組成果分享到社群
+  | 'pro_enrollment_stopped'     // 個案停止與專業夥伴的追蹤關係
+  | 'therapist_console_opened'   // 專業夥伴開啟工作台
+  | 'pro_module_submitted'       // 專業夥伴送審模組
+  | 'invite_code_regenerated'    // 專業夥伴重新產生邀請碼
+  | 'admin_module_approved'      // 管理員核准模組上架
+  | 'admin_module_rejected'      // 管理員退回模組
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null
