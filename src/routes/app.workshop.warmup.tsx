@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { WorkshopGate } from '../components/workshop/WorkshopGate'
 import {
@@ -51,6 +51,8 @@ function WarmupFlow() {
   const [step, setStep] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  // 放大檢視的卡牌；點縮圖開啟、按叉叉或點背景關閉。
+  const [zoomedCard, setZoomedCard] = useState<WarmupCard | null>(null)
 
   const selectedCard = WARMUP_CARDS.find((c) => c.id === selectedId) ?? null
 
@@ -60,9 +62,11 @@ function WarmupFlow() {
     setStep(1)
   }
 
+  let content: ReactNode
+
   // 步驟 1：指導語 + 選擇卡牌
   if (step === 1) {
-    return (
+    content = (
       <WorkshopLayout
         step={1}
         total={TOTAL_STEPS}
@@ -85,6 +89,7 @@ function WarmupFlow() {
               card={card}
               selected={selectedId === card.id}
               onSelect={() => setSelectedId(card.id)}
+              onZoom={() => setZoomedCard(card)}
             />
           ))}
         </div>
@@ -93,8 +98,8 @@ function WarmupFlow() {
   }
 
   // 步驟 2：書寫連結原因（關鍵字）
-  if (step === 2) {
-    return (
+  else if (step === 2) {
+    content = (
       <WorkshopLayout
         step={2}
         total={TOTAL_STEPS}
@@ -130,7 +135,8 @@ function WarmupFlow() {
   }
 
   // 步驟 3：分享——呈現所選卡牌 + 邀請與夥伴分享 + 再次呈現所有卡牌
-  return (
+  else {
+    content = (
     <WorkshopLayout step={3} total={TOTAL_STEPS} title="與夥伴分享">
       <p className="text-sm leading-relaxed text-muted-foreground">
         你所選擇的卡牌為：
@@ -165,7 +171,14 @@ function WarmupFlow() {
       <div className="mt-3 grid grid-cols-3 gap-3">
         {WARMUP_CARDS.map((card) => (
           <div key={card.id} className="overflow-hidden rounded-2xl p-1.5">
-            <CardFace card={card} className="aspect-[3/4] w-full" />
+            <button
+              type="button"
+              onClick={() => setZoomedCard(card)}
+              className="block w-full cursor-zoom-in"
+              aria-label={`放大檢視卡牌 ${card.number}`}
+            >
+              <CardFace card={card} className="aspect-[3/4] w-full" />
+            </button>
             <span className="mt-1.5 block text-center text-xs font-extrabold text-foreground">
               {card.number}
             </span>
@@ -175,6 +188,16 @@ function WarmupFlow() {
 
       <CompletionActions onRestart={restart} />
     </WorkshopLayout>
+    )
+  }
+
+  return (
+    <>
+      {content}
+      {zoomedCard && (
+        <CardLightbox card={zoomedCard} onClose={() => setZoomedCard(null)} />
+      )}
+    </>
   )
 }
 
@@ -182,30 +205,79 @@ function CardTile({
   card,
   selected,
   onSelect,
+  onZoom,
 }: {
   card: WarmupCard
   selected: boolean
   onSelect: () => void
+  onZoom: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`group relative overflow-hidden rounded-2xl p-1.5 shadow-soft transition active:scale-[0.97] ${
+    <div
+      className={`relative overflow-hidden rounded-2xl p-1.5 shadow-soft transition ${
         selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
       }`}
-      aria-pressed={selected}
     >
-      <CardFace card={card} className="aspect-[3/4] w-full" />
+      {/* 點圖片放大檢視 */}
+      <button
+        type="button"
+        onClick={onZoom}
+        className="block w-full cursor-zoom-in active:scale-[0.97]"
+        aria-label={`放大檢視卡牌 ${card.number}`}
+      >
+        <CardFace card={card} className="aspect-[3/4] w-full" />
+      </button>
       <span className="mt-1.5 block text-center text-xs font-extrabold text-foreground">
         {card.number}
       </span>
-      {selected && (
-        <span className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground shadow-sm">
-          ✓
+
+      {/* 右上角勾選鈕：點這裡才是選擇卡牌 */}
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={selected ? `取消選擇卡牌 ${card.number}` : `選擇卡牌 ${card.number}`}
+        className={`absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-extrabold shadow-sm transition active:scale-90 ${
+          selected
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-white/75 text-transparent ring-1 ring-foreground/25'
+        }`}
+      >
+        ✓
+      </button>
+    </div>
+  )
+}
+
+/** 卡牌放大檢視：全螢幕遮罩置中顯示，按叉叉或點背景關閉。 */
+function CardLightbox({ card, onClose }: { card: WarmupCard; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={card.image}
+          alt={`卡牌 ${card.number}`}
+          className="w-full rounded-3xl object-cover shadow-soft"
+        />
+        <span className="absolute left-3 top-3 flex h-8 min-w-8 items-center justify-center rounded-full bg-black/55 px-2 text-sm font-extrabold text-white">
+          {card.number}
         </span>
-      )}
-    </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="關閉"
+          className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-card text-lg font-bold text-foreground shadow-soft transition active:scale-90"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   )
 }
 
