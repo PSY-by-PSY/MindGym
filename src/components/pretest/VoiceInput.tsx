@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useLanguage } from '../../lib/i18n/context'
 
 type Status = 'idle' | 'recording' | 'transcribing' | 'error'
 
@@ -37,6 +38,7 @@ function pickMimeType(): string {
 }
 
 export default function VoiceInput({ onTranscript, accent }: Props) {
+  const { t } = useLanguage()
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [levels, setLevels] = useState<number[]>(IDLE_LEVELS)
@@ -116,7 +118,7 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
       }
       const text: string = (data.text ?? '').trim()
       if (!text) {
-        setErrorMsg('沒有辨識到內容，請靠近麥克風再試一次。')
+        setErrorMsg(t('沒有辨識到內容，請靠近麥克風再試一次。'))
         setStatus('error')
         return
       }
@@ -124,9 +126,9 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
       setStatus('idle')
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setErrorMsg('辨識逾時，請檢查網路後重試。')
+        setErrorMsg(t('辨識逾時，請檢查網路後重試。'))
       } else {
-        setErrorMsg(err instanceof Error ? err.message : '辨識失敗，請重試。')
+        setErrorMsg(err instanceof Error ? err.message : t('辨識失敗，請重試。'))
       }
       setStatus('error')
     } finally {
@@ -139,7 +141,7 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
     const blob = new Blob(chunksRef.current, { type: mimeRef.current || 'audio/webm' })
     chunksRef.current = []
     if (blob.size === 0) {
-      setErrorMsg('沒有錄到聲音，請重試。')
+      setErrorMsg(t('沒有錄到聲音，請重試。'))
       setStatus('error')
       return
     }
@@ -155,11 +157,11 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
     } catch (err) {
       const name = err instanceof DOMException ? err.name : ''
       if (name === 'NotAllowedError' || name === 'SecurityError') {
-        setErrorMsg('麥克風尚未授權。請點擊網址列左側的圖示開啟麥克風權限後再試。')
+        setErrorMsg(t('麥克風尚未授權。請點擊網址列左側的圖示開啟麥克風權限後再試。'))
       } else if (name === 'NotFoundError') {
-        setErrorMsg('找不到麥克風裝置，請確認麥克風已連接。')
+        setErrorMsg(t('找不到麥克風裝置，請確認麥克風已連接。'))
       } else {
-        setErrorMsg('無法啟用麥克風，請重試。')
+        setErrorMsg(t('無法啟用麥克風，請重試。'))
       }
       setStatus('error')
       return
@@ -236,9 +238,9 @@ export default function VoiceInput({ onTranscript, accent }: Props) {
   const error = status === 'error'
 
   const label =
-    recording ? '錄音中…' : transcribing ? '辨識中…' : error ? '辨識失敗，請重試' : '語音輸入'
+    recording ? t('錄音中…') : transcribing ? t('辨識中…') : error ? t('辨識失敗，請重試') : t('語音輸入')
   const ariaLabel =
-    recording ? '停止錄音' : transcribing ? '辨識中，請稍候' : error ? '重試語音輸入' : '開始語音輸入'
+    recording ? t('停止錄音') : transcribing ? t('辨識中，請稍候') : error ? t('重試語音輸入') : t('開始語音輸入')
 
   const danger = recording || error
   const borderColor = danger ? '#E26D5C' : '#D8D8D8'

@@ -6,6 +6,7 @@ import {
   WorkshopTextarea,
   CompletionActions,
 } from '../components/workshop/WorkshopUI'
+import { useLanguage } from '../lib/i18n/context'
 
 export const Route = createFileRoute('/app/workshop/warmup')({
   component: WarmupModule,
@@ -48,6 +49,7 @@ const WARMUP_CARDS: WarmupCard[] = Object.keys(cardImageModules)
 const TOTAL_STEPS = 3
 
 function WarmupFlow() {
+  const { t } = useLanguage()
   const [step, setStep] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
@@ -70,16 +72,16 @@ function WarmupFlow() {
       <WorkshopLayout
         step={1}
         total={TOTAL_STEPS}
-        title="暖身卡牌活動"
+        title={t('暖身卡牌活動')}
         onNext={() => setStep(2)}
         nextDisabled={!selectedCard}
       >
         <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/80">
-          現在讓我們忙碌的思緒停下來，把關注回到自己身上。選擇下列一張最能代表你現在的生涯狀態的卡牌。一邊選擇的過程中，也可以想想為什麼這張卡牌讓你連結到自己現在的生涯狀態哦！
+          {t('現在讓我們忙碌的思緒停下來，把關注回到自己身上。選擇下列一張最能代表你現在的生涯狀態的卡牌。一邊選擇的過程中，也可以想想為什麼這張卡牌讓你連結到自己現在的生涯狀態哦！')}
         </div>
 
         <p className="mt-6 text-sm font-bold text-foreground">
-          {selectedCard ? `已選擇：第 ${selectedCard.number} 張卡牌` : '請選擇一張卡牌'}
+          {selectedCard ? t('已選擇：第 {n} 張卡牌', { n: selectedCard.number }) : t('請選擇一張卡牌')}
         </p>
 
         <div className="mt-3 grid grid-cols-3 gap-3">
@@ -103,31 +105,31 @@ function WarmupFlow() {
       <WorkshopLayout
         step={2}
         total={TOTAL_STEPS}
-        title="寫下你的連結"
+        title={t('寫下你的連結')}
         onBack={() => setStep(1)}
         onNext={() => setStep(3)}
-        nextLabel="完成"
+        nextLabel={t('完成')}
         nextVariant="done"
       >
         {selectedCard && (
           <div className="mb-5 flex items-center gap-4 rounded-3xl bg-card p-4 shadow-soft">
             <CardFace card={selectedCard} className="h-24 w-20 shrink-0" />
             <div>
-              <p className="text-xs text-muted-foreground">你選擇的卡牌</p>
+              <p className="text-xs text-muted-foreground">{t('你選擇的卡牌')}</p>
               <p className="mt-0.5 text-lg font-extrabold text-foreground">
-                第 {selectedCard.number} 張
+                {t('第 {n} 張', { n: selectedCard.number })}
               </p>
             </div>
           </div>
         )}
 
         <p className="mb-3 text-sm leading-relaxed text-foreground/80">
-          為什麼這張卡牌讓你連結到自己現在的生涯狀態？你可以根據心裡浮現的畫面與想法，寫下一些關鍵字。
+          {t('為什麼這張卡牌讓你連結到自己現在的生涯狀態？你可以根據心裡浮現的畫面與想法，寫下一些關鍵字。')}
         </p>
         <WorkshopTextarea
           value={reason}
           onChange={setReason}
-          placeholder="例如：迷霧、轉彎、往前走……"
+          placeholder={t('例如：迷霧、轉彎、往前走……')}
           rows={7}
         />
       </WorkshopLayout>
@@ -137,18 +139,18 @@ function WarmupFlow() {
   // 步驟 3：分享——呈現所選卡牌 + 邀請與夥伴分享 + 再次呈現所有卡牌
   else {
     content = (
-    <WorkshopLayout step={3} total={TOTAL_STEPS} title="與夥伴分享">
+    <WorkshopLayout step={3} total={TOTAL_STEPS} title={t('與夥伴分享')}>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        你所選擇的卡牌為：
+        {t('你所選擇的卡牌為：')}
       </p>
 
       {selectedCard && (
         <div className="mt-3 flex items-center gap-4 rounded-3xl bg-card p-4 shadow-soft">
           <CardFace card={selectedCard} className="h-28 w-24 shrink-0" />
           <div>
-            <p className="text-xs text-muted-foreground">代表現在生涯狀態的卡牌</p>
+            <p className="text-xs text-muted-foreground">{t('代表現在生涯狀態的卡牌')}</p>
             <p className="mt-0.5 text-lg font-extrabold text-foreground">
-              第 {selectedCard.number} 張
+              {t('第 {n} 張', { n: selectedCard.number })}
             </p>
           </div>
         </div>
@@ -156,7 +158,7 @@ function WarmupFlow() {
 
       {reason.trim() && (
         <div className="mt-4 rounded-3xl bg-card p-4 shadow-soft">
-          <p className="text-xs font-bold text-muted-foreground">我的關鍵字</p>
+          <p className="text-xs font-bold text-muted-foreground">{t('我的關鍵字')}</p>
           <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
             {reason}
           </p>
@@ -164,10 +166,10 @@ function WarmupFlow() {
       )}
 
       <div className="mt-6 rounded-3xl bg-primary-soft p-4 text-sm font-bold leading-relaxed text-foreground">
-        邀請你與夥伴分享你的卡牌。
+        {t('邀請你與夥伴分享你的卡牌。')}
       </div>
 
-      <p className="mt-6 text-xs font-bold text-muted-foreground">所有卡牌</p>
+      <p className="mt-6 text-xs font-bold text-muted-foreground">{t('所有卡牌')}</p>
       <div className="mt-3 grid grid-cols-3 gap-3">
         {WARMUP_CARDS.map((card) => (
           <div key={card.id} className="overflow-hidden rounded-2xl p-1.5">
@@ -175,7 +177,7 @@ function WarmupFlow() {
               type="button"
               onClick={() => setZoomedCard(card)}
               className="block w-full cursor-zoom-in"
-              aria-label={`放大檢視卡牌 ${card.number}`}
+              aria-label={t('放大檢視卡牌 {n}', { n: card.number })}
             >
               <CardFace card={card} className="aspect-[3/4] w-full" />
             </button>
@@ -212,6 +214,7 @@ function CardTile({
   onSelect: () => void
   onZoom: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div
       className={`relative overflow-hidden rounded-2xl p-1.5 shadow-soft transition ${
@@ -223,7 +226,7 @@ function CardTile({
         type="button"
         onClick={onZoom}
         className="block w-full cursor-zoom-in active:scale-[0.97]"
-        aria-label={`放大檢視卡牌 ${card.number}`}
+        aria-label={t('放大檢視卡牌 {n}', { n: card.number })}
       >
         <CardFace card={card} className="aspect-[3/4] w-full" />
       </button>
@@ -236,7 +239,7 @@ function CardTile({
         type="button"
         onClick={onSelect}
         aria-pressed={selected}
-        aria-label={selected ? `取消選擇卡牌 ${card.number}` : `選擇卡牌 ${card.number}`}
+        aria-label={selected ? t('取消選擇卡牌 {n}', { n: card.number }) : t('選擇卡牌 {n}', { n: card.number })}
         className={`absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-extrabold shadow-sm transition active:scale-90 ${
           selected
             ? 'bg-primary text-primary-foreground'
@@ -251,6 +254,7 @@ function CardTile({
 
 /** 卡牌放大檢視：全螢幕遮罩置中顯示，按叉叉或點背景關閉。 */
 function CardLightbox({ card, onClose }: { card: WarmupCard; onClose: () => void }) {
+  const { t } = useLanguage()
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
@@ -262,7 +266,7 @@ function CardLightbox({ card, onClose }: { card: WarmupCard; onClose: () => void
       >
         <img
           src={card.image}
-          alt={`卡牌 ${card.number}`}
+          alt={t('卡牌 {n}', { n: card.number })}
           className="w-full rounded-3xl object-cover shadow-soft"
         />
         <span className="absolute left-3 top-3 flex h-8 min-w-8 items-center justify-center rounded-full bg-black/55 px-2 text-sm font-extrabold text-white">
@@ -271,7 +275,7 @@ function CardLightbox({ card, onClose }: { card: WarmupCard; onClose: () => void
         <button
           type="button"
           onClick={onClose}
-          aria-label="關閉"
+          aria-label={t('關閉')}
           className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-card text-lg font-bold text-foreground shadow-soft transition active:scale-90"
         >
           ✕
@@ -283,11 +287,12 @@ function CardLightbox({ card, onClose }: { card: WarmupCard; onClose: () => void
 
 /** 卡牌正面：卡牌圖片 + 左上角數字徽章。 */
 function CardFace({ card, className }: { card: WarmupCard; className?: string }) {
+  const { t } = useLanguage()
   return (
     <span className={`relative block overflow-hidden rounded-xl ${className ?? ''}`}>
       <img
         src={card.image}
-        alt={`卡牌 ${card.number}`}
+        alt={t('卡牌 {n}', { n: card.number })}
         className="h-full w-full object-cover"
       />
       <span className="absolute left-1.5 top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-black/55 px-1.5 text-xs font-extrabold text-white">

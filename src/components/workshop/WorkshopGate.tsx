@@ -5,6 +5,7 @@ import {
   isWorkshopUnlocked,
   unlockWorkshop,
 } from '../../lib/workshop'
+import { useLanguage } from '../../lib/i18n/context'
 
 // 工作坊模塊的密碼閘門：未通過驗證時顯示密碼輸入畫面，通過後才渲染 children
 // （也就是該模塊的練習內容）。三個工作坊模塊共用同一個 sessionStorage 解鎖狀態，
@@ -26,6 +27,7 @@ export function WorkshopGate({ children }: { children: React.ReactNode }) {
 }
 
 function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
+  const { t } = useLanguage()
   const [value, setValue] = useState('')
   const [error, setError] = useState(false)
 
@@ -49,12 +51,12 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
         </div>
       </div>
 
-      <p className="font-handwriting text-2xl text-muted-foreground">工作坊專屬</p>
+      <p className="font-handwriting text-2xl text-muted-foreground">{t('工作坊專屬')}</p>
       <h1 className="mt-1 text-2xl font-extrabold text-foreground md:text-3xl">
-        請輸入工作坊密碼
+        {t('請輸入工作坊密碼')}
       </h1>
       <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-        這些練習是為線上工作坊設計的限定內容，請輸入帶領者提供的當日密碼後開始。
+        {t('這些練習是為線上工作坊設計的限定內容，請輸入帶領者提供的當日密碼後開始。')}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 w-full max-w-sm">
@@ -65,7 +67,7 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
             setValue(e.target.value)
             if (error) setError(false)
           }}
-          placeholder="輸入密碼"
+          placeholder={t('輸入密碼')}
           autoFocus
           className={`w-full rounded-2xl bg-card px-5 py-4 text-center text-base font-bold text-foreground shadow-soft placeholder:font-normal placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 ${
             error ? 'ring-2 ring-red-400' : 'focus:ring-primary/40'
@@ -73,7 +75,7 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
         />
         {error && (
           <p className="mt-2 text-sm font-bold text-red-500">
-            密碼不正確，請再試一次
+            {t('密碼不正確，請再試一次')}
           </p>
         )}
 
@@ -86,7 +88,7 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
               : 'bg-gradient-primary text-primary-foreground shadow-soft'
           }`}
         >
-          進入練習
+          {t('進入練習')}
         </button>
       </form>
 
@@ -94,7 +96,7 @@ function PasswordScreen({ onUnlock }: { onUnlock: () => void }) {
         to="/app/home"
         className="mt-6 text-sm font-bold text-muted-foreground transition hover:text-foreground"
       >
-        ← 返回訓練中心
+        ← {t('返回訓練中心')}
       </Link>
     </div>
   )

@@ -1,4 +1,5 @@
 import { DIMENSION_CONFIGS, DIMENSION_ORDER } from './types'
+import { useLanguage } from '../../lib/i18n/context'
 
 interface Props {
   onStart: () => void
@@ -14,6 +15,7 @@ const DOT_COLOR: Record<string, string> = {
 }
 
 export default function LandingPage({ onStart, onSkip }: Props) {
+  const { t } = useLanguage()
   return (
     <div
       className="screen-enter"
@@ -51,7 +53,7 @@ export default function LandingPage({ onStart, onSkip }: Props) {
             whiteSpace: 'nowrap',
           }}
         >
-          心理健康的 InBody
+          {t('心理健康的 InBody')}
         </span>
       </div>
 
@@ -67,10 +69,10 @@ export default function LandingPage({ onStart, onSkip }: Props) {
             color: '#151515',
           }}
         >
-          你的<span style={{ color: '#E26D5C' }}>幸福</span>指數有多高？
+          {t('你的')}<span style={{ color: '#E26D5C' }}>{t('幸福')}</span>{t('指數有多高？')}
         </h2>
         <p style={{ margin: '10px 0 0', fontSize: 18, lineHeight: 1.5, color: '#151515', fontWeight: 700 }}>
-          測出你的隱藏心理優勢
+          {t('測出你的隱藏心理優勢')}
         </p>
       </div>
 
@@ -92,7 +94,7 @@ export default function LandingPage({ onStart, onSkip }: Props) {
         />
         <img
           src="/assets/brain-lifter.png"
-          alt="心理健身房吉祥物：舉啞鈴的腦"
+          alt={t('心理健身房吉祥物：舉啞鈴的腦')}
           style={{
             width: 220,
             height: 220,
@@ -127,7 +129,7 @@ export default function LandingPage({ onStart, onSkip }: Props) {
             justifyContent: 'center',
           }}
         >
-          開始測驗
+          {t('開始測驗')}
         </button>
         <button
           onClick={onSkip}
@@ -148,14 +150,14 @@ export default function LandingPage({ onStart, onSkip }: Props) {
             justifyContent: 'center',
           }}
         >
-          跳過測驗
+          {t('跳過測驗')}
         </button>
       </div>
 
       {/* PERMA list intro line */}
       <div style={{ padding: '14px 24px 6px', color: '#6A6A6A', fontSize: 13, fontWeight: 500 }}>
-        測量心理學上的{' '}
-        <strong style={{ color: '#151515', fontWeight: 700 }}>PERMA</strong> 五大幸福指數：
+        {t('測量心理學上的')}{' '}
+        <strong style={{ color: '#151515', fontWeight: 700 }}>PERMA</strong>{t(' 五大幸福指數：')}
       </div>
 
       {/* PERMA list */}
@@ -197,7 +199,7 @@ export default function LandingPage({ onStart, onSkip }: Props) {
                   {key}
                 </div>
                 <div style={{ lineHeight: 1.1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#151515' }}>{cfg.label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#151515' }}>{t(cfg.label)}</div>
                   <div
                     style={{
                       fontSize: 10,
@@ -226,7 +228,7 @@ export default function LandingPage({ onStart, onSkip }: Props) {
           letterSpacing: 0.3,
         }}
       >
-        約 5 分鐘 · 5 題開放問答 · 全程匿名
+        {t('約 5 分鐘 · 5 題開放問答 · 全程匿名')}
       </div>
     </div>
   )

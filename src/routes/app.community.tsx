@@ -12,6 +12,7 @@ import {
 } from '../lib/communityModeration'
 import { usePullToRefresh, PULL_THRESHOLD } from '../lib/pullToRefresh'
 import { hardRefresh } from '../lib/refresh'
+import { useLanguage } from '../lib/i18n/context'
 import wordCloudImg from '../assets/ui/wordcloud.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
@@ -535,11 +536,12 @@ function CelebrateCheckIconSmall() {
 }
 
 function Header() {
+  const { t } = useLanguage()
   return (
     <header className="mb-1">
-      <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">健身房動態</h1>
+      <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">{t('健身房動態')}</h1>
       <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">PSY by PSY Feed</p>
-      <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">大家今天感謝了什麼？</p>
+      <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">{t('大家今天感謝了什麼？')}</p>
     </header>
   )
 }
@@ -559,10 +561,11 @@ function LoadingState() {
 
 // 往下滑載入下一批時的提示。
 function LoadMoreHint() {
+  const { t } = useLanguage()
   return (
     <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
-      載入更多…
+      {t('載入更多…')}
     </div>
   )
 }
@@ -607,6 +610,7 @@ function DailyModal({
   onCommentAdded: (c: Comment) => void
   onBlock: (blockedUserId: string) => void
 }) {
+  const { t } = useLanguage()
   const avatar = avatarFor(entry.anon_name, 0, entry.avatar)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -688,25 +692,25 @@ function DailyModal({
         {/* 右上角關閉叉叉 */}
         <button
           onClick={onClose}
-          aria-label="關閉"
+          aria-label={t('關閉')}
           className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-lg text-muted-foreground transition hover:bg-muted active:scale-90"
         >
           ✕
         </button>
 
         <p className="mb-4 text-center text-sm font-medium text-muted-foreground">
-          今日社群動態
+          {t('今日社群動態')}
         </p>
 
         <div className="flex items-center gap-3">
           <img
             src={avatar.src}
-            alt="頭像"
+            alt={t('頭像')}
             className="h-11 w-11 rounded-full object-cover"
           />
           <div className="min-w-0 flex-1">
             <p className="truncate font-extrabold text-foreground">
-              {entry.anon_name ?? '匿名使用者'}
+              {entry.anon_name ?? t('匿名使用者')}
             </p>
             <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
           </div>
@@ -714,7 +718,7 @@ function DailyModal({
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowMenu((p) => !p)}
-                aria-label="檢舉或封鎖"
+                aria-label={t('檢舉或封鎖')}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
               >
                 <VerticalDotsIcon />
@@ -730,16 +734,16 @@ function DailyModal({
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
                     >
-                      <FlagIcon />檢舉貼文
+                      <FlagIcon />{t('檢舉貼文')}
                     </button>
                     <button
                       onClick={() => {
                         setShowMenu(false)
-                        openBlock({ userId: entry.user_id as string, label: entry.anon_name ?? '這位使用者' })
+                        openBlock({ userId: entry.user_id as string, label: entry.anon_name ?? t('這位使用者') })
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
                     >
-                      <BlockIcon />封鎖此使用者
+                      <BlockIcon />{t('封鎖此使用者')}
                     </button>
                   </div>
                 </>
@@ -762,18 +766,18 @@ function DailyModal({
             <span className={`transition-transform ${liking ? 'scale-110' : ''}`}>
               <HeartIcon filled={like.liked} />
             </span>
-            <span>{like.count > 0 ? like.count : '按讚'}</span>
+            <span>{like.count > 0 ? like.count : t('按讚')}</span>
           </button>
         </div>
 
         {/* 直接留言（不需要先按任何按鈕） */}
         <div className="mt-3 flex flex-col gap-2">
-          <p className="text-sm font-semibold text-foreground">留下你的鼓勵</p>
+          <p className="text-sm font-semibold text-foreground">{t('留下你的鼓勵')}</p>
           {userId ? (
             <>
               {sentCount > 0 && (
                 <p className="text-xs font-semibold text-primary">
-                  已送出 {sentCount} 則留言，謝謝你的鼓勵
+                  {t('已送出 {n} 則留言，謝謝你的鼓勵', { n: sentCount })}
                 </p>
               )}
               <div className="flex items-end gap-2">
@@ -781,7 +785,7 @@ function DailyModal({
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="留下鼓勵的話… (Enter 送出)"
+                  placeholder={t('留下鼓勵的話… (Enter 送出)')}
                   rows={2}
                   className="flex-1 resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
@@ -790,12 +794,12 @@ function DailyModal({
                   disabled={!commentText.trim() || submitting}
                   className="shrink-0 rounded-2xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
                 >
-                  送出
+                  {t('送出')}
                 </button>
               </div>
             </>
           ) : (
-            <p className="text-center text-xs text-muted-foreground">請先登入才能留言</p>
+            <p className="text-center text-xs text-muted-foreground">{t('請先登入才能留言')}</p>
           )}
         </div>
       </div>
@@ -814,10 +818,11 @@ function FeedModeToggle({
   onChange: (m: FeedMode) => void
   userId: string | null
 }) {
+  const { t } = useLanguage()
   const options: { value: FeedMode; label: string }[] = [
-    { value: 'community', label: '社群貼文' },
-    { value: 'workshop', label: '工作坊貼文' },
-    ...(userId ? [{ value: 'my' as FeedMode, label: '我的貼文' }] : []),
+    { value: 'community', label: t('社群貼文') },
+    { value: 'workshop', label: t('工作坊貼文') },
+    ...(userId ? [{ value: 'my' as FeedMode, label: t('我的貼文') }] : []),
   ]
   return (
     <div className="mb-4 flex justify-center">
@@ -851,17 +856,18 @@ function CommunitySortSelect({
   sort: CommunitySort
   onChange: (s: CommunitySort) => void
 }) {
+  const { t } = useLanguage()
   return (
     <div className="mb-4 flex items-center justify-end gap-2">
-      <span className="text-xs font-semibold text-muted-foreground">排序</span>
+      <span className="text-xs font-semibold text-muted-foreground">{t('排序')}</span>
       <div className="relative">
         <select
           value={sort}
           onChange={(e) => onChange(e.target.value as CommunitySort)}
           className="appearance-none rounded-full bg-card py-1.5 pl-4 pr-9 text-sm font-bold text-foreground shadow-soft focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
-          <option value="latest">最新</option>
-          <option value="relevant">最相關</option>
+          <option value="latest">{t('最新')}</option>
+          <option value="relevant">{t('最相關')}</option>
         </select>
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">▾</span>
       </div>
@@ -881,6 +887,7 @@ function mergeEntries(prev: GratitudeEntry[], next: GratitudeEntry[]): Gratitude
 }
 
 function CommunityPage() {
+  const { t } = useLanguage()
   const loaderData = Route.useLoaderData()
   const { showEntry, focus, workshop } = Route.useSearch()
   const modalEntry = loaderData.modalEntry
@@ -1149,7 +1156,7 @@ function CommunityPage() {
               className={`h-4 w-4 rounded-full border-2 border-muted-foreground/30 border-t-primary ${refreshing ? 'animate-spin' : ''}`}
               style={refreshing ? undefined : { transform: `rotate(${pull * 4}deg)` }}
             />
-            {refreshing ? '更新中…' : pull >= PULL_THRESHOLD ? '放開以重整' : '下拉重整'}
+            {refreshing ? t('更新中…') : pull >= PULL_THRESHOLD ? t('放開以重整') : t('下拉重整')}
           </div>
         </div>
       )}
@@ -1175,7 +1182,7 @@ function CommunityPage() {
         >
           <img
             src={wordCloudImg}
-            alt="感恩文字雲"
+            alt={t('感恩文字雲')}
             className="h-[184px] w-auto object-contain"
           />
         </div>
@@ -1186,7 +1193,7 @@ function CommunityPage() {
           <>
             {myEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-                <p className="text-sm font-medium">還沒有打卡紀錄，快按下訓練中心，開始第一次訓練！</p>
+                <p className="text-sm font-medium">{t('還沒有打卡紀錄，快按下訓練中心，開始第一次訓練！')}</p>
               </div>
             ) : (
               <>
@@ -1216,7 +1223,7 @@ function CommunityPage() {
                 {myLoading && <LoadMoreHint />}
                 {!myHasMore && !myLoading && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    已經看完所有打卡紀錄囉！
+                    {t('已經看完所有打卡紀錄囉！')}
                   </p>
                 )}
               </>
@@ -1247,7 +1254,7 @@ function CommunityPage() {
             <CommunitySortSelect sort={communitySort} onChange={setCommunitySort} />
             {orderedEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-muted-foreground shadow-soft">
-                <p className="text-sm font-medium">還沒有人分享，快去寫感恩日記吧！</p>
+                <p className="text-sm font-medium">{t('還沒有人分享，快去寫感恩日記吧！')}</p>
               </div>
             ) : (
               <>
@@ -1276,7 +1283,7 @@ function CommunityPage() {
                 {communityLoading && <LoadMoreHint />}
                 {!communityHasMore && !communityLoading && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    已經看完所有打卡紀錄囉！
+                    {t('已經看完所有打卡紀錄囉！')}
                   </p>
                 )}
               </>
@@ -1292,6 +1299,7 @@ function CommunityPage() {
 
 // 規格 [3]：在工作坊區塊滑到底部彈出，提醒回到原本頁面繼續活動。
 function ScrollEndModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6 backdrop-blur-sm">
       <div className="w-full max-w-sm animate-fade-up rounded-3xl bg-card p-6 text-center shadow-soft">
@@ -1299,17 +1307,17 @@ function ScrollEndModal({ onClose }: { onClose: () => void }) {
           <CelebrateCheckIconSmall />
         </div>
         <p className="text-base font-extrabold leading-relaxed text-foreground">
-          看完所有貼文囉！
+          {t('看完所有貼文囉！')}
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          請回到原本的頁面繼續進行活動。
+          {t('請回到原本的頁面繼續進行活動。')}
         </p>
         <button
           type="button"
           onClick={onClose}
           className="mt-5 flex h-14 w-full items-center justify-center rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98]"
         >
-          我知道了
+          {t('我知道了')}
         </button>
       </div>
     </div>
@@ -1354,10 +1362,11 @@ function WorkshopTab({
   onCommentLikeChange: (commentId: string, info: LikeInfo) => void
   onBlock: (blockedUserId: string) => void
 }) {
+  const { t } = useLanguage()
   if (!userId) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-        <p className="text-sm font-medium">請先登入，並完成工作坊練習後，即可在此看到你參加過的工作坊貼文。</p>
+        <p className="text-sm font-medium">{t('請先登入，並完成工作坊練習後，即可在此看到你參加過的工作坊貼文。')}</p>
       </div>
     )
   }
@@ -1371,15 +1380,15 @@ function WorkshopTab({
           onClick={() => onSelect(null)}
           className="mb-3 flex items-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-bold text-foreground/70 shadow-soft transition active:scale-[0.97]"
         >
-          ← 工作坊列表
+          ← {t('工作坊列表')}
         </button>
         <h2 className="mb-4 text-lg font-extrabold text-foreground">
-          {formatWorkshopLabel(selectedWorkshop)}
+          {formatWorkshopLabel(selectedWorkshop, t)}
         </h2>
 
         {selectedEntries.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-            <p className="text-sm font-medium">這個工作坊還沒有公開的貼文。</p>
+            <p className="text-sm font-medium">{t('這個工作坊還沒有公開的貼文。')}</p>
           </div>
         ) : (
           <>
@@ -1407,7 +1416,7 @@ function WorkshopTab({
             </div>
             <div ref={scrollEndRef} className="h-4" />
             <p className="py-8 text-center text-sm text-muted-foreground">
-              已經看完所有貼文囉！
+              {t('已經看完所有貼文囉！')}
             </p>
           </>
         )}
@@ -1419,7 +1428,7 @@ function WorkshopTab({
   if (blocks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center text-muted-foreground shadow-soft">
-        <p className="text-sm font-medium">完成並發佈工作坊練習後，這裡會出現你參加過的工作坊。</p>
+        <p className="text-sm font-medium">{t('完成並發佈工作坊練習後，這裡會出現你參加過的工作坊。')}</p>
       </div>
     )
   }
@@ -1438,9 +1447,9 @@ function WorkshopTab({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-base font-extrabold text-foreground">
-              {formatWorkshopLabel(b.id)}
+              {formatWorkshopLabel(b.id, t)}
             </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">{b.entries.length} 則貼文</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">{t('{n} 則貼文', { n: b.entries.length })}</span>
           </span>
           <span className="shrink-0 text-muted-foreground">›</span>
         </button>
@@ -1521,28 +1530,29 @@ function PgAiBlock({ label, value }: { label: string; value: string }) {
 }
 
 function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
+  const { t } = useLanguage()
   // 【提升專注錦囊】：困境 + AI 錦囊
   if (payload.v === 'boost') {
     return (
       <div className="mt-4 flex flex-col gap-2">
-        {payload.situation && <PgFieldBlock label="我遇到的困境" value={payload.situation} />}
-        {payload.suggestion && <PgAiBlock label="AI 專注錦囊" value={payload.suggestion} />}
+        {payload.situation && <PgFieldBlock label={t('我遇到的困境')} value={payload.situation} />}
+        {payload.suggestion && <PgAiBlock label={t('AI 專注錦囊')} value={payload.suggestion} />}
       </div>
     )
   }
   // 【專注時刻記錄】：最讓我感到專注的（事）＋ 我通常在這樣的條件下完成（人/時/地）＋ AI 回饋
   const conditions = [
-    { k: '人', v: payload.who },
-    { k: '時', v: payload.when },
-    { k: '地', v: payload.where },
+    { k: t('人'), v: payload.who },
+    { k: t('時'), v: payload.when },
+    { k: t('地'), v: payload.where },
   ].filter((c) => c.v && String(c.v).trim())
   return (
     <div className="mt-4 flex flex-col gap-2">
-      {payload.event && <PgFieldBlock label="最讓我感到專注的" value={payload.event} />}
+      {payload.event && <PgFieldBlock label={t('最讓我感到專注的')} value={payload.event} />}
       {conditions.length > 0 && (
         <div className="rounded-2xl bg-muted px-3.5 py-3">
           <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
-            我通常在這樣的條件下完成
+            {t('我通常在這樣的條件下完成')}
           </p>
           <div className="flex flex-col gap-1.5">
             {conditions.map((c) => (
@@ -1554,31 +1564,33 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
           </div>
         </div>
       )}
-      {payload.insight && <PgAiBlock label="AI 回饋" value={payload.insight} />}
+      {payload.insight && <PgAiBlock label={t('AI 回饋')} value={payload.insight} />}
     </div>
   )
 }
 
 // 找尋真實自我：工作／生活最重要的事件（含背後原因）+ 自我敘事（亮色強調）。
 function AuthenticSelfBody({ payload }: { payload: PracticePayload }) {
+  const { t } = useLanguage()
   const topWork = (payload.top_work ?? '').trim()
   const topLife = (payload.top_life ?? '').trim()
   const workReason = (payload.work_reason ?? '').trim()
   const lifeReason = (payload.life_reason ?? '').trim()
   const narrative = (payload.narrative ?? '').trim()
   const compose = (event: string, reason: string) =>
-    reason ? `${event}\n原因：${reason}` : event
+    reason ? `${event}\n${t('原因：{reason}', { reason })}` : event
   return (
     <div className="mt-4 flex flex-col gap-2">
-      {topWork && <PgFieldBlock label="工作中最重要的事件" value={compose(topWork, workReason)} />}
-      {topLife && <PgFieldBlock label="生活中最重要的事件" value={compose(topLife, lifeReason)} />}
-      {narrative && <PgAiBlock label="我的自我敘事" value={narrative} />}
+      {topWork && <PgFieldBlock label={t('工作中最重要的事件')} value={compose(topWork, workReason)} />}
+      {topLife && <PgFieldBlock label={t('生活中最重要的事件')} value={compose(topLife, lifeReason)} />}
+      {narrative && <PgAiBlock label={t('我的自我敘事')} value={narrative} />}
     </div>
   )
 }
 
 // 生命最後一天：希望被記得的樣子（自我告別敘事）+ 接下來一個月的行動（亮色強調）。
 function LastDayBody({ payload }: { payload: PracticePayload }) {
+  const { t } = useLanguage()
   // 新版：farewell（自我告別敘事）；舊版：description（被記得的樣子）。
   const farewell = (payload.farewell ?? '').trim()
   const description = (payload.description ?? '').trim()
@@ -1586,34 +1598,36 @@ function LastDayBody({ payload }: { payload: PracticePayload }) {
   return (
     <div className="mt-4 flex flex-col gap-2">
       {farewell ? (
-        <PgFieldBlock label="我希望被記得的樣子" value={farewell} />
+        <PgFieldBlock label={t('我希望被記得的樣子')} value={farewell} />
       ) : (
-        description && <PgFieldBlock label="我希望被記得的樣子" value={`一個「${description}」的人`} />
+        description && <PgFieldBlock label={t('我希望被記得的樣子')} value={t('一個「{description}」的人', { description })} />
       )}
-      {action && <PgAiBlock label="接下來一個月，我想要" value={action} />}
+      {action && <PgAiBlock label={t('接下來一個月，我想要')} value={action} />}
     </div>
   )
 }
 
 // WOOP 目標實踐地圖：願望／結果／阻礙 + If-Then 執行計畫（亮色強調）。
 function WoopBody({ payload }: { payload: PracticePayload }) {
+  const { t } = useLanguage()
   const wish = (payload.wish ?? '').trim()
   const outcome = (payload.outcome ?? '').trim()
   const obstacle = (payload.obstacle ?? '').trim()
   const plan = (payload.plan ?? '').trim()
-  const ifThen = obstacle && plan ? `如果${obstacle}，那麼我就${plan}。` : plan
+  const ifThen = obstacle && plan ? t('如果{obstacle}，那麼我就{plan}。', { obstacle, plan }) : plan
   return (
     <div className="mt-4 flex flex-col gap-2">
-      {wish && <PgFieldBlock label="W・設定目標" value={wish} />}
-      {outcome && <PgFieldBlock label="O・看見結果" value={outcome} />}
-      {obstacle && <PgFieldBlock label="O・覺察阻礙" value={obstacle} />}
-      {ifThen && <PgAiBlock label="P・If-Then 執行計畫" value={ifThen} />}
+      {wish && <PgFieldBlock label={t('W・設定目標')} value={wish} />}
+      {outcome && <PgFieldBlock label={t('O・看見結果')} value={outcome} />}
+      {obstacle && <PgFieldBlock label={t('O・覺察阻礙')} value={obstacle} />}
+      {ifThen && <PgAiBlock label={t('P・If-Then 執行計畫')} value={ifThen} />}
     </div>
   )
 }
 
 // 專業模組：顯示模組名稱標籤 + 練習摘要（不標註是哪位專業夥伴，拍板決策）。
 function ProModuleBody({ payload }: { payload: PracticePayload }) {
+  const { t } = useLanguage()
   const moduleTitle = (payload.module_title ?? '').trim()
   const excerpt = (payload.excerpt ?? '').trim()
   return (
@@ -1623,7 +1637,7 @@ function ProModuleBody({ payload }: { payload: PracticePayload }) {
           {moduleTitle}
         </span>
       )}
-      {excerpt && <PgFieldBlock label="練習摘要" value={excerpt} />}
+      {excerpt && <PgFieldBlock label={t('練習摘要')} value={excerpt} />}
     </div>
   )
 }
@@ -1651,6 +1665,7 @@ function ReportSheet({
   onSubmit: (reasons: string[], note: string) => void
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [note, setNote] = useState('')
 
@@ -1672,11 +1687,11 @@ function ReportSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <p className="text-base font-extrabold text-foreground">檢舉這則{targetLabel}</p>
-          <button onClick={onClose} aria-label="關閉" className="text-muted-foreground hover:text-foreground">✕</button>
+          <p className="text-base font-extrabold text-foreground">{t('檢舉這則{targetLabel}', { targetLabel })}</p>
+          <button onClick={onClose} aria-label={t('關閉')} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
         <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-          請選擇檢舉原因（可複選），我們會盡快審核。系統不會通知對方。
+          {t('請選擇檢舉原因（可複選），我們會盡快審核。系統不會通知對方。')}
         </p>
 
         <div className="flex flex-col gap-2">
@@ -1692,7 +1707,7 @@ function ReportSheet({
                     : 'border-border bg-background text-foreground hover:bg-muted'
                 }`}
               >
-                <span>{r.label}</span>
+                <span>{t(r.label)}</span>
                 <span
                   className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
                     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
@@ -1708,19 +1723,19 @@ function ReportSheet({
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="補充說明（選填）"
+          placeholder={t('補充說明（選填）')}
           rows={2}
           className="mt-3 w-full resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
         />
 
-        {errored && <p className="mt-2 text-xs font-semibold text-red-500">送出失敗，請稍後再試。</p>}
+        {errored && <p className="mt-2 text-xs font-semibold text-red-500">{t('送出失敗，請稍後再試。')}</p>}
 
         <button
           onClick={() => canSubmit && onSubmit([...selected], note)}
           disabled={!canSubmit}
           className="mt-4 w-full rounded-full bg-gradient-primary py-3.5 text-sm font-extrabold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
         >
-          {submitting ? '送出中…' : '送出檢舉'}
+          {submitting ? t('送出中…') : t('送出檢舉')}
         </button>
       </div>
     </div>
@@ -1741,30 +1756,31 @@ function ConfirmBlock({
   onConfirm: () => void
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div
         className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-6 shadow-soft"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-base font-extrabold text-foreground">封鎖 {label}？</p>
+        <p className="text-base font-extrabold text-foreground">{t('封鎖 {label}？', { label })}</p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          封鎖後，你將不會再看到這位使用者的貼文與留言。你可以隨時到「個人檔案」解除封鎖。
+          {t('封鎖後，你將不會再看到這位使用者的貼文與留言。你可以隨時到「個人檔案」解除封鎖。')}
         </p>
-        {errored && <p className="mt-2 text-xs font-semibold text-red-500">封鎖失敗，請稍後再試。</p>}
+        {errored && <p className="mt-2 text-xs font-semibold text-red-500">{t('封鎖失敗，請稍後再試。')}</p>}
         <div className="mt-5 flex gap-3">
           <button
             onClick={onClose}
             className="flex-1 rounded-full border border-border bg-background py-3 text-sm font-bold text-foreground transition hover:bg-muted"
           >
-            取消
+            {t('取消')}
           </button>
           <button
             onClick={onConfirm}
             disabled={submitting}
             className="flex-1 rounded-full bg-red-500 py-3 text-sm font-extrabold text-white transition hover:opacity-90 disabled:opacity-50"
           >
-            {submitting ? '封鎖中…' : '封鎖'}
+            {submitting ? t('封鎖中…') : t('封鎖')}
           </button>
         </div>
       </div>
@@ -1783,18 +1799,19 @@ function useModeration({
   onBlock: (blockedUserId: string) => void
   onReported: (target: ReportState) => void
 }) {
+  const { t } = useLanguage()
   const [reportTarget, setReportTarget] = useState<ReportState | null>(null)
   const [blockTarget, setBlockTarget] = useState<{ userId: string; label: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [errored, setErrored] = useState(false)
 
-  function openReport(t: ReportState) {
+  function openReport(target: ReportState) {
     setErrored(false)
-    setReportTarget(t)
+    setReportTarget(target)
   }
-  function openBlock(t: { userId: string; label: string }) {
+  function openBlock(target: { userId: string; label: string }) {
     setErrored(false)
-    setBlockTarget(t)
+    setBlockTarget(target)
   }
   function closeAll() {
     setReportTarget(null)
@@ -1842,7 +1859,7 @@ function useModeration({
     <>
       {reportTarget && (
         <ReportSheet
-          targetLabel={reportTarget.type === 'entry' ? '貼文' : '留言'}
+          targetLabel={reportTarget.type === 'entry' ? t('貼文') : t('留言')}
           submitting={submitting}
           errored={errored}
           onSubmit={doReport}
@@ -1897,6 +1914,7 @@ function EntryCard({
   onCommentLikeChange: (commentId: string, info: LikeInfo) => void
   onBlock: (blockedUserId: string) => void
 }) {
+  const { t } = useLanguage()
   const articleRef = useRef<HTMLElement>(null)
   // 工作坊貼文不顯示「隱私／匿名分享」選單（規格 [4]）：工作坊貼文是隨工作坊發佈，
   // 不需要切換公開／匿名／實名。他人貼文的檢舉／封鎖選單仍保留（App Store UGC 要求）。
@@ -1918,11 +1936,11 @@ function EntryCard({
   const { openReport, openBlock, sheets } = useModeration({
     userId,
     onBlock,
-    onReported: (t) => {
-      if (t.type === 'entry') {
+    onReported: (target) => {
+      if (target.type === 'entry') {
         setPostReported(true)
-      } else if (t.commentId) {
-        setHiddenCommentIds((prev) => new Set(prev).add(t.commentId as string))
+      } else if (target.commentId) {
+        setHiddenCommentIds((prev) => new Set(prev).add(target.commentId as string))
         setCommentReportDone(true)
       }
     },
@@ -1932,10 +1950,10 @@ function EntryCard({
   useEffect(() => {
     if (!autoFocus) return
     setShowComments(true)
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       articleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 250)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [autoFocus])
 
   async function changePrivacy(next: Privacy) {
@@ -2069,9 +2087,9 @@ function EntryCard({
   if (postReported) {
     return (
       <article className="rounded-3xl bg-card p-6 text-center shadow-soft">
-        <p className="text-sm font-extrabold text-foreground">已收到你的檢舉</p>
+        <p className="text-sm font-extrabold text-foreground">{t('已收到你的檢舉')}</p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          我們會盡快審核，感謝你協助維護社群。
+          {t('我們會盡快審核，感謝你協助維護社群。')}
         </p>
       </article>
     )
@@ -2089,33 +2107,33 @@ function EntryCard({
       <div className="flex items-center gap-3">
         <img
           src={avatar.src}
-          alt="頭像"
+          alt={t('頭像')}
           className="h-[54px] w-[54px] rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[21px] font-black tracking-[0.03em] text-foreground">
-            {localAnonName ?? '匿名使用者'}
+            {localAnonName ?? t('匿名使用者')}
           </p>
           <div className="flex items-center gap-2">
             <p className="font-en text-sm font-semibold text-muted-foreground">{formatDate(entry.entry_date)}</p>
             {entry.current_streak != null && entry.current_streak > 0 && (
-              <span className="text-xs font-semibold text-orange-500">連續 {entry.current_streak} 天</span>
+              <span className="text-xs font-semibold text-orange-500">{t('連續 {n} 天', { n: entry.current_streak })}</span>
             )}
             {isOwn && localPrivacy === 'private' && (
-              <span className="text-xs font-semibold text-muted-foreground">僅限本人</span>
+              <span className="text-xs font-semibold text-muted-foreground">{t('僅限本人')}</span>
             )}
           </div>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#876B5F] bg-cream px-2.5 py-1 text-[13px] font-bold text-foreground">
           <i className="h-2 w-2 rounded-full bg-[#71744F]" />
-          {practiceTag(entry.practice_type).label}
+          {t(practiceTag(entry.practice_type).label)}
         </span>
         {isOwn && !isWorkshopEntry && (
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu((prev) => !prev)}
               className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
-              aria-label="更多選項"
+              aria-label={t('更多選項')}
             >
               <VerticalDotsIcon />
             </button>
@@ -2123,7 +2141,7 @@ function EntryCard({
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                 <div className="absolute right-0 top-9 z-20 min-w-[208px] rounded-2xl border border-border bg-card p-2 shadow-soft">
-                  <p className="px-2 pb-1 pt-1 text-xs font-bold text-muted-foreground">隱私設定</p>
+                  <p className="px-2 pb-1 pt-1 text-xs font-bold text-muted-foreground">{t('隱私設定')}</p>
                   {PRIVACY_OPTIONS.map((opt) => {
                     const active = localPrivacy === opt.value
                     return (
@@ -2137,10 +2155,10 @@ function EntryCard({
                       >
                         <span className="flex-1">
                           <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
-                            {opt.label}
+                            {t(opt.label)}
                           </span>
                           <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                            {opt.hint}
+                            {t(opt.hint)}
                           </span>
                         </span>
                         {active && <span className="text-primary">✓</span>}
@@ -2157,7 +2175,7 @@ function EntryCard({
             <button
               onClick={() => setShowMenu((prev) => !prev)}
               className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
-              aria-label="檢舉或封鎖"
+              aria-label={t('檢舉或封鎖')}
             >
               <VerticalDotsIcon />
             </button>
@@ -2172,17 +2190,17 @@ function EntryCard({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
                   >
-                    <FlagIcon />檢舉貼文
+                    <FlagIcon />{t('檢舉貼文')}
                   </button>
                   {entry.user_id && (
                     <button
                       onClick={() => {
                         setShowMenu(false)
-                        openBlock({ userId: entry.user_id as string, label: localAnonName ?? '這位使用者' })
+                        openBlock({ userId: entry.user_id as string, label: localAnonName ?? t('這位使用者') })
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
                     >
-                      <BlockIcon />封鎖此使用者
+                      <BlockIcon />{t('封鎖此使用者')}
                     </button>
                   )}
                 </div>
@@ -2205,7 +2223,7 @@ function EntryCard({
                 key={i}
                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cfg.color}`}
               >
-                {tag.label}
+                {t(tag.label)}
               </span>
             )
           })}
@@ -2235,7 +2253,7 @@ function EntryCard({
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
         >
           <CommentIcon />
-          <span>{visibleComments.length > 0 ? `${visibleComments.length} 則留言` : '留言'}</span>
+          <span>{visibleComments.length > 0 ? t('{n} 則留言', { n: visibleComments.length }) : t('留言')}</span>
         </button>
       </div>
 
@@ -2244,7 +2262,7 @@ function EntryCard({
         <div className="mt-3 flex flex-col gap-2">
           {commentReportDone && (
             <p className="rounded-xl bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
-              已收到你的留言檢舉，我們會盡快審核。
+              {t('已收到你的留言檢舉，我們會盡快審核。')}
             </p>
           )}
           {topLevelComments.length > 0 && (
@@ -2257,11 +2275,11 @@ function EntryCard({
                     {/* Top-level comment */}
                     <div className="flex items-start gap-2.5 rounded-2xl bg-muted px-3.5 py-2.5">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-tile-blue text-xs font-bold text-foreground">
-                        {(c.anon_name ?? '匿')[0]}
+                        {(c.anon_name ?? t('匿'))[0]}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold text-muted-foreground">
-                          {c.anon_name ?? '匿名使用者'}
+                          {c.anon_name ?? t('匿名使用者')}
                         </p>
                         <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{c.content}</p>
                       </div>
@@ -2279,14 +2297,14 @@ function EntryCard({
                             onClick={() => (replyingTo === c.id ? setReplyingTo(null) : startReplying(c.id))}
                             className="text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
                           >
-                            回覆
+                            {t('回覆')}
                           </button>
                         )}
                         {userId && c.user_id !== userId && (
                           <div className="relative">
                             <button
                               onClick={() => setOpenCommentMenu(openCommentMenu === c.id ? null : c.id)}
-                              aria-label="檢舉或封鎖留言"
+                              aria-label={t('檢舉或封鎖留言')}
                               className="px-0.5 text-[13px] font-bold leading-none text-muted-foreground transition hover:text-foreground"
                             >
                               ⋯
@@ -2302,17 +2320,17 @@ function EntryCard({
                                     }}
                                     className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
                                   >
-                                    <FlagIcon className="h-3.5 w-3.5" />檢舉留言
+                                    <FlagIcon className="h-3.5 w-3.5" />{t('檢舉留言')}
                                   </button>
                                   {c.user_id && (
                                     <button
                                       onClick={() => {
                                         setOpenCommentMenu(null)
-                                        openBlock({ userId: c.user_id as string, label: c.anon_name ?? '這位使用者' })
+                                        openBlock({ userId: c.user_id as string, label: c.anon_name ?? t('這位使用者') })
                                       }}
                                       className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-red-500 transition hover:bg-muted"
                                     >
-                                      <BlockIcon className="h-3.5 w-3.5" />封鎖此使用者
+                                      <BlockIcon className="h-3.5 w-3.5" />{t('封鎖此使用者')}
                                     </button>
                                   )}
                                 </div>
@@ -2331,11 +2349,11 @@ function EntryCard({
                           return (
                             <li key={r.id} className="flex items-start gap-2 rounded-2xl border border-border bg-background px-3 py-2">
                               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-tile-mint text-[10px] font-bold text-foreground">
-                                {(r.anon_name ?? '匿')[0]}
+                                {(r.anon_name ?? t('匿'))[0]}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <p className="text-[11px] font-semibold text-muted-foreground">
-                                  {r.anon_name ?? '匿名使用者'}
+                                  {r.anon_name ?? t('匿名使用者')}
                                 </p>
                                 <p className="mt-0.5 text-xs leading-relaxed text-foreground/80">{r.content}</p>
                               </div>
@@ -2351,7 +2369,7 @@ function EntryCard({
                                 <div className="relative shrink-0 self-start pt-0.5">
                                   <button
                                     onClick={() => setOpenCommentMenu(openCommentMenu === r.id ? null : r.id)}
-                                    aria-label="檢舉或封鎖留言"
+                                    aria-label={t('檢舉或封鎖留言')}
                                     className="px-0.5 text-[13px] font-bold leading-none text-muted-foreground transition hover:text-foreground"
                                   >
                                     ⋯
@@ -2367,17 +2385,17 @@ function EntryCard({
                                           }}
                                           className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
                                         >
-                                          <FlagIcon className="h-3.5 w-3.5" />檢舉留言
+                                          <FlagIcon className="h-3.5 w-3.5" />{t('檢舉留言')}
                                         </button>
                                         {r.user_id && (
                                           <button
                                             onClick={() => {
                                               setOpenCommentMenu(null)
-                                              openBlock({ userId: r.user_id as string, label: r.anon_name ?? '這位使用者' })
+                                              openBlock({ userId: r.user_id as string, label: r.anon_name ?? t('這位使用者') })
                                             }}
                                             className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs font-semibold text-red-500 transition hover:bg-muted"
                                           >
-                                            <BlockIcon className="h-3.5 w-3.5" />封鎖此使用者
+                                            <BlockIcon className="h-3.5 w-3.5" />{t('封鎖此使用者')}
                                           </button>
                                         )}
                                       </div>
@@ -2399,7 +2417,7 @@ function EntryCard({
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
                           onKeyDown={handleReplyKeyDown}
-                          placeholder={`回覆 ${c.anon_name ?? '匿名使用者'}… (Enter 送出)`}
+                          placeholder={t('回覆 {name}… (Enter 送出)', { name: c.anon_name ?? t('匿名使用者') })}
                           rows={1}
                           className="flex-1 resize-none rounded-2xl border border-primary bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                         />
@@ -2408,7 +2426,7 @@ function EntryCard({
                           disabled={!replyText.trim() || submitting}
                           className="shrink-0 rounded-2xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
                         >
-                          送出
+                          {t('送出')}
                         </button>
                       </div>
                     )}
@@ -2425,7 +2443,7 @@ function EntryCard({
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="留下鼓勵的話… (Enter 送出)"
+                placeholder={t('留下鼓勵的話… (Enter 送出)')}
                 rows={1}
                 className="flex-1 resize-none rounded-2xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
@@ -2434,11 +2452,11 @@ function EntryCard({
                 disabled={!commentText.trim() || submitting}
                 className="shrink-0 rounded-2xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90 disabled:opacity-40"
               >
-                送出
+                {t('送出')}
               </button>
             </div>
           ) : (
-            <p className="text-center text-xs text-muted-foreground">請先登入才能留言</p>
+            <p className="text-center text-xs text-muted-foreground">{t('請先登入才能留言')}</p>
           )}
         </div>
       )}

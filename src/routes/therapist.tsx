@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockEditor } from '../components/pro/BlockEditor'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
+import { useLanguage } from '../lib/i18n/context'
+import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import {
   MODULE_TEMPLATES,
   type ProModuleRow,
@@ -39,6 +41,7 @@ const EMPTY_CONTENT: ProModuleContent = { v: 1, intro: '', blocks: [], outro: ''
 // ── 頂層 shell ─────────────────────────────────────────────────────────────
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const logout = async () => {
     await supabase.auth.signOut()
@@ -52,12 +55,15 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
             <img src={logoWordmark} alt="PSY by PSY" className="h-[22px] w-auto object-contain" />
             <span className="text-sm font-bold text-muted-foreground">{title}</span>
           </div>
-          <button
-            onClick={logout}
-            className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
-          >
-            登出
-          </button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcherCompact />
+            <button
+              onClick={logout}
+              className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
+            >
+              {t('登出')}
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
@@ -87,6 +93,7 @@ type PractitionerApp = {
 }
 
 function TherapistPage() {
+  const { t } = useLanguage()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isPractitioner, setIsPractitioner] = useState(false)
@@ -121,7 +128,7 @@ function TherapistPage() {
 
   if (loading) {
     return (
-      <Shell title="專業夥伴工作台">
+      <Shell title={t('專業夥伴工作台')}>
         <Spinner />
       </Shell>
     )
@@ -129,14 +136,14 @@ function TherapistPage() {
 
   if (isPractitioner && userId) {
     return (
-      <Shell title="專業夥伴工作台">
+      <Shell title={t('專業夥伴工作台')}>
         <Console ownerId={userId} />
       </Shell>
     )
   }
 
   return (
-    <Shell title="專業夥伴工作台">
+    <Shell title={t('專業夥伴工作台')}>
       <ApplicationGate userId={userId} application={application} onChanged={refresh} />
     </Shell>
   )
@@ -153,6 +160,7 @@ function ApplicationGate({
   application: PractitionerApp | null
   onChanged: () => void
 }) {
+  const { t } = useLanguage()
   const editable = !application || application.status === 'rejected'
 
   const [name, setName] = useState(application?.name ?? '')
@@ -166,9 +174,9 @@ function ApplicationGate({
   if (application && application.status === 'pending') {
     return (
       <div className="mx-auto max-w-xl rounded-[22px] border border-border bg-card p-8 shadow-soft">
-        <h1 className="text-xl font-black text-foreground">審核中</h1>
+        <h1 className="text-xl font-black text-foreground">{t('審核中')}</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-          我們已收到你的申請，正在審核中。通過後這裡會變成你的工作台。
+          {t('我們已收到你的申請，正在審核中。通過後這裡會變成你的工作台。')}
         </p>
       </div>
     )
@@ -177,7 +185,7 @@ function ApplicationGate({
   const submit = async () => {
     if (!userId || busy) return
     if (!name.trim()) {
-      setError('請填寫姓名')
+      setError(t('請填寫姓名'))
       return
     }
     setBusy(true)
@@ -206,7 +214,7 @@ function ApplicationGate({
     setBusy(false)
     if (dbError) {
       console.error('[application]', dbError)
-      setError('送出失敗，請稍後再試。')
+      setError(t('送出失敗，請稍後再試。'))
       return
     }
     onChanged()
@@ -214,24 +222,24 @@ function ApplicationGate({
 
   return (
     <div className="mx-auto max-w-xl rounded-[22px] border border-border bg-card p-8 shadow-soft">
-      <h1 className="text-xl font-black text-foreground">申請成為專業夥伴</h1>
+      <h1 className="text-xl font-black text-foreground">{t('申請成為專業夥伴')}</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        填寫以下資訊，通過審核後即可建立你自己的練習模組，發給個案使用。
+        {t('填寫以下資訊，通過審核後即可建立你自己的練習模組，發給個案使用。')}
       </p>
 
       {application?.status === 'rejected' && application.admin_note && (
         <div className="mt-4 rounded-2xl bg-tile-pink px-4 py-3">
-          <p className="text-sm font-bold text-rust">申請未通過</p>
+          <p className="text-sm font-bold text-rust">{t('申請未通過')}</p>
           <p className="mt-1 text-sm leading-relaxed text-foreground/80">{application.admin_note}</p>
         </div>
       )}
 
       <div className="mt-5 flex flex-col gap-4">
-        <FormField label="姓名" required value={name} onChange={setName} disabled={!editable} />
-        <FormField label="職稱" value={title} onChange={setTitle} disabled={!editable} placeholder="例：諮商心理師、輔導老師" />
-        <FormField label="服務單位" value={organization} onChange={setOrganization} disabled={!editable} />
-        <FormArea label="專業證照 / 資歷說明" value={licenseInfo} onChange={setLicenseInfo} disabled={!editable} />
-        <FormArea label="想如何使用本平台" value={motivation} onChange={setMotivation} disabled={!editable} />
+        <FormField label={t('姓名')} required value={name} onChange={setName} disabled={!editable} />
+        <FormField label={t('職稱')} value={title} onChange={setTitle} disabled={!editable} placeholder={t('例：諮商心理師、輔導老師')} />
+        <FormField label={t('服務單位')} value={organization} onChange={setOrganization} disabled={!editable} />
+        <FormArea label={t('專業證照 / 資歷說明')} value={licenseInfo} onChange={setLicenseInfo} disabled={!editable} />
+        <FormArea label={t('想如何使用本平台')} value={motivation} onChange={setMotivation} disabled={!editable} />
       </div>
 
       {error && <p className="mt-3 text-sm font-bold text-rust">{error}</p>}
@@ -241,7 +249,7 @@ function ApplicationGate({
         disabled={busy}
         className="mt-6 w-full rounded-full bg-gradient-primary py-3.5 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60 sm:w-auto sm:px-10"
       >
-        {busy ? '送出中…' : application?.status === 'rejected' ? '重新送出申請' : '送出申請'}
+        {busy ? t('送出中…') : application?.status === 'rejected' ? t('重新送出申請') : t('送出申請')}
       </button>
     </div>
   )
@@ -252,6 +260,7 @@ function ApplicationGate({
 type Tab = 'modules' | 'invites' | 'clients'
 
 function Console({ ownerId }: { ownerId: string }) {
+  const { t } = useLanguage()
   const [tab, setTab] = useState<Tab>('modules')
   const [modules, setModules] = useState<ProModuleRow[] | null>(null)
 
@@ -272,9 +281,9 @@ function Console({ ownerId }: { ownerId: string }) {
   }, [loadModules])
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'modules', label: '我的模組' },
-    { key: 'invites', label: '邀請碼' },
-    { key: 'clients', label: '個案追蹤' },
+    { key: 'modules', label: t('我的模組') },
+    { key: 'invites', label: t('邀請碼') },
+    { key: 'clients', label: t('個案追蹤') },
   ]
 
   return (
@@ -319,6 +328,7 @@ function MyModulesTab({
   modules: ProModuleRow[]
   reload: () => Promise<void>
 }) {
+  const { t } = useLanguage()
   const [editing, setEditing] = useState<ProModuleRow | null | 'new'>(null)
   const [picking, setPicking] = useState(false)
   const [templateContent, setTemplateContent] = useState<ProModuleContent>(EMPTY_CONTENT)
@@ -342,18 +352,18 @@ function MyModulesTab({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-black text-foreground">我的模組</h1>
+        <h1 className="text-xl font-black text-foreground">{t('我的模組')}</h1>
         <button
           onClick={() => setPicking(true)}
           className="rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
         >
-          建立新模組
+          {t('建立新模組')}
         </button>
       </div>
 
       {modules.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          還沒有任何模組。點「建立新模組」從模板開始。
+          {t('還沒有任何模組。點「建立新模組」從模板開始。')}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -364,19 +374,19 @@ function MyModulesTab({
                   <div className="flex items-center gap-2">
                     <h2 className="truncate text-[17px] font-black text-foreground">{m.title}</h2>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${STATUS_META[m.status].cls}`}>
-                      {STATUS_META[m.status].label}
+                      {t(STATUS_META[m.status].label)}
                     </span>
                   </div>
                   {m.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>}
                   {m.status === 'rejected' && m.admin_note && (
-                    <p className="mt-2 rounded-xl bg-tile-pink px-3 py-2 text-sm text-rust">退件理由：{m.admin_note}</p>
+                    <p className="mt-2 rounded-xl bg-tile-pink px-3 py-2 text-sm text-rust">{t('退件理由：{note}', { note: m.admin_note })}</p>
                   )}
                 </div>
                 <button
                   onClick={() => setEditing(m)}
                   className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
                 >
-                  編輯
+                  {t('編輯')}
                 </button>
               </div>
             </div>
@@ -399,24 +409,25 @@ function MyModulesTab({
 }
 
 function TemplatePicker({ onPick, onClose }: { onPick: (c: ProModuleContent) => void; onClose: () => void }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1714]/40 px-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-[24px] bg-background p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-black text-foreground">選一個模板開始</h2>
+        <h2 className="text-lg font-black text-foreground">{t('選一個模板開始')}</h2>
         <div className="mt-4 flex flex-col gap-2.5">
-          {MODULE_TEMPLATES.map((t) => (
+          {MODULE_TEMPLATES.map((tpl) => (
             <button
-              key={t.key}
-              onClick={() => onPick(t.build())}
+              key={tpl.key}
+              onClick={() => onPick(tpl.build())}
               className="rounded-2xl border border-border bg-card px-4 py-3 text-left transition hover:bg-muted active:scale-[0.99]"
             >
-              <p className="text-[15px] font-black text-foreground">{t.label}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">{t.hint}</p>
+              <p className="text-[15px] font-black text-foreground">{t(tpl.label)}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t(tpl.hint)}</p>
             </button>
           ))}
         </div>
         <button onClick={onClose} className="mt-4 w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
-          取消
+          {t('取消')}
         </button>
       </div>
     </div>
@@ -438,6 +449,7 @@ function ModuleEditor({
   onDone: () => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   const [moduleId, setModuleId] = useState<string | null>(module?.id ?? null)
   const [title, setTitle] = useState(module?.title ?? '')
   const [description, setDescription] = useState(module?.description ?? '')
@@ -459,7 +471,7 @@ function ModuleEditor({
 
   const saveDraft = async (): Promise<string | null> => {
     if (!title.trim()) {
-      setError('請填寫模組標題')
+      setError(t('請填寫模組標題'))
       return null
     }
     setError(null)
@@ -473,7 +485,7 @@ function ModuleEditor({
       })
       if (error) {
         console.error('[save draft]', error)
-        setError('儲存失敗，請稍後再試。')
+        setError(t('儲存失敗，請稍後再試。'))
         return null
       }
       return moduleId
@@ -492,7 +504,7 @@ function ModuleEditor({
       .single()
     if (error || !data) {
       console.error('[create module]', error)
-      setError('建立失敗，請稍後再試。')
+      setError(t('建立失敗，請稍後再試。'))
       return null
     }
     setModuleId(data.id as string)
@@ -528,7 +540,7 @@ function ModuleEditor({
       onDone()
     } catch (e) {
       console.error('[submit module]', e)
-      setError('送審失敗，請稍後再試。')
+      setError(t('送審失敗，請稍後再試。'))
     } finally {
       setBusy(false)
       setConfirmSubmit(false)
@@ -539,40 +551,40 @@ function ModuleEditor({
     <div>
       <div className="mb-4 flex items-center justify-between">
         <button onClick={onCancel} className="text-sm font-bold text-muted-foreground transition hover:text-foreground">
-          ← 返回列表
+          {t('← 返回列表')}
         </button>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm font-bold text-[#3f6b46]">已儲存</span>}
+          {saved && <span className="text-sm font-bold text-[#3f6b46]">{t('已儲存')}</span>}
           <button
             onClick={handleSave}
             disabled={busy}
             className="rounded-full border border-border bg-card px-4 py-2 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-60"
           >
-            儲存草稿
+            {t('儲存草稿')}
           </button>
           <button
             onClick={() => setConfirmSubmit(true)}
             disabled={busy}
             className="rounded-full bg-gradient-primary px-5 py-2 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            送審
+            {t('送審')}
           </button>
         </div>
       </div>
 
       {isPublished && (
         <p className="mb-4 rounded-2xl bg-tile-peach px-4 py-3 text-sm font-medium text-[#8a6320]">
-          個案目前使用的是已上架版本；修改內容需重新審核通過後才會生效。
+          {t('個案目前使用的是已上架版本；修改內容需重新審核通過後才會生效。')}
         </p>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 左：編輯 */}
         <div className="flex flex-col gap-4">
-          <FormField label="模組標題" required value={title} onChange={setTitle} />
-          <FormArea label="模組說明" value={description} onChange={setDescription} />
+          <FormField label={t('模組標題')} required value={title} onChange={setTitle} />
+          <FormArea label={t('模組說明')} value={description} onChange={setDescription} />
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">預估時間（分鐘）</span>
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('預估時間（分鐘）')}</span>
             <input
               type="number"
               value={estMinutes}
@@ -581,7 +593,7 @@ function ModuleEditor({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">開場引導語（選填）</span>
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('開場引導語（選填）')}</span>
             <textarea
               value={content.intro ?? ''}
               rows={2}
@@ -591,12 +603,12 @@ function ModuleEditor({
           </label>
 
           <div>
-            <p className="mb-2 text-sm font-black text-foreground">題目積木</p>
+            <p className="mb-2 text-sm font-black text-foreground">{t('題目積木')}</p>
             <BlockEditor blocks={content.blocks} onChange={(blocks) => setContent((c) => ({ ...c, blocks }))} />
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">結語（選填）</span>
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('結語（選填）')}</span>
             <textarea
               value={content.outro ?? ''}
               rows={2}
@@ -608,10 +620,10 @@ function ModuleEditor({
 
         {/* 右：即時預覽 */}
         <div className="lg:sticky lg:top-6 lg:self-start">
-          <p className="mb-2 text-sm font-black text-foreground">個案看到的樣子</p>
+          <p className="mb-2 text-sm font-black text-foreground">{t('個案看到的樣子')}</p>
           <div className="rounded-[22px] border border-border bg-background p-5 shadow-soft">
             {content.blocks.length === 0 && !content.intro && !content.outro ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">新增題目後這裡會即時預覽。</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t('新增題目後這裡會即時預覽。')}</p>
             ) : (
               <ReadOnlyPreview content={content} />
             )}
@@ -623,9 +635,9 @@ function ModuleEditor({
 
       {confirmSubmit && (
         <ConfirmDialog
-          title="送審這個模組？"
-          body="送審後將由管理員依心理學標準審核，通過後個案才能使用新內容。"
-          confirmLabel={busy ? '送審中…' : '確認送審'}
+          title={t('送審這個模組？')}
+          body={t('送審後將由管理員依心理學標準審核，通過後個案才能使用新內容。')}
+          confirmLabel={busy ? t('送審中…') : t('確認送審')}
           onConfirm={handleSubmit}
           onCancel={() => !busy && setConfirmSubmit(false)}
         />
@@ -644,15 +656,16 @@ function ReadOnlyPreview({ content }: { content: ProModuleContent }) {
 // ── 邀請碼 ──────────────────────────────────────────────────────────────────
 
 function InviteCodesTab({ modules }: { modules: ProModuleRow[] }) {
+  const { t } = useLanguage()
   const published = modules.filter((m) => m.published_content && m.status !== 'archived')
   const unpublished = modules.filter((m) => !m.published_content || m.status === 'archived')
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">邀請碼</h1>
+      <h1 className="mb-4 text-xl font-black text-foreground">{t('邀請碼')}</h1>
       {published.length === 0 && unpublished.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          還沒有任何模組。
+          {t('還沒有任何模組。')}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -662,7 +675,7 @@ function InviteCodesTab({ modules }: { modules: ProModuleRow[] }) {
           {unpublished.map((m) => (
             <div key={m.id} className="rounded-2xl border border-border bg-card p-4 opacity-70 shadow-soft">
               <p className="text-[15px] font-black text-foreground">{m.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">模組上架後才能產生邀請碼。</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('模組上架後才能產生邀請碼。')}</p>
             </div>
           ))}
         </div>
@@ -672,6 +685,7 @@ function InviteCodesTab({ modules }: { modules: ProModuleRow[] }) {
 }
 
 function InviteCodeRow({ module }: { module: ProModuleRow }) {
+  const { t } = useLanguage()
   const [code, setCode] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -721,7 +735,7 @@ function InviteCodeRow({ module }: { module: ProModuleRow }) {
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
       <p className="text-[15px] font-black text-foreground">{module.title}</p>
       {!loaded ? (
-        <p className="mt-2 text-sm text-muted-foreground">讀取中…</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t('讀取中…')}</p>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-3">
           {code ? (
@@ -729,14 +743,14 @@ function InviteCodeRow({ module }: { module: ProModuleRow }) {
               {code}
             </span>
           ) : (
-            <span className="text-sm text-muted-foreground">尚未產生邀請碼</span>
+            <span className="text-sm text-muted-foreground">{t('尚未產生邀請碼')}</span>
           )}
           {code && (
             <button
               onClick={copy}
               className="rounded-full border border-border bg-background px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
             >
-              {copied ? '已複製' : '複製'}
+              {copied ? t('已複製') : t('複製')}
             </button>
           )}
           <button
@@ -744,16 +758,16 @@ function InviteCodeRow({ module }: { module: ProModuleRow }) {
             disabled={busy}
             className="rounded-full bg-foreground px-4 py-1.5 text-sm font-bold text-cream transition active:scale-[0.98] disabled:opacity-60"
           >
-            {busy ? '…' : code ? '重新產生' : '產生邀請碼'}
+            {busy ? '…' : code ? t('重新產生') : t('產生邀請碼')}
           </button>
         </div>
       )}
 
       {confirming && (
         <ConfirmDialog
-          title="重新產生邀請碼？"
-          body="舊的邀請碼將立即失效，尚未加入的個案需使用新碼。"
-          confirmLabel={busy ? '產生中…' : '確認重新產生'}
+          title={t('重新產生邀請碼？')}
+          body={t('舊的邀請碼將立即失效，尚未加入的個案需使用新碼。')}
+          confirmLabel={busy ? t('產生中…') : t('確認重新產生')}
           onConfirm={regenerate}
           onCancel={() => !busy && setConfirming(false)}
         />
@@ -781,6 +795,7 @@ type CrisisAlert = {
 }
 
 function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: ProModuleRow[] }) {
+  const { t } = useLanguage()
   const [enrollments, setEnrollments] = useState<Enrollment[] | null>(null)
   const [names, setNames] = useState<Record<string, string>>({})
   const [alerts, setAlerts] = useState<CrisisAlert[]>([])
@@ -800,11 +815,11 @@ function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: Pro
       const { data: profs } = await supabase.from('profiles').select('id, name').in('id', ids)
       const map: Record<string, string> = {}
       ;(profs ?? []).forEach((p) => {
-        map[p.id as string] = (p.name as string) || '個案'
+        map[p.id as string] = (p.name as string) || t('個案')
       })
       setNames(map)
     }
-  }, [ownerId])
+  }, [ownerId, t])
 
   const loadAlerts = useCallback(async () => {
     const { data } = await supabase
@@ -830,10 +845,10 @@ function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: Pro
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">個案追蹤</h1>
+      <h1 className="mb-4 text-xl font-black text-foreground">{t('個案追蹤')}</h1>
       {enrollments.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          還沒有個案加入。上架模組並把邀請碼發給個案吧。
+          {t('還沒有個案加入。上架模組並把邀請碼發給個案吧。')}
         </p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
@@ -852,7 +867,7 @@ function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: Pro
                 >
                   <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate text-[15px] font-black text-foreground">
-                      {names[e.user_id] ?? '個案'}
+                      {names[e.user_id] ?? t('個案')}
                     </span>
                     {unread > 0 && (
                       <span className="shrink-0 rounded-full bg-rust px-2 py-0.5 text-[11px] font-extrabold text-white">
@@ -860,7 +875,7 @@ function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: Pro
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{mod?.title ?? '模組'}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{mod?.title ?? t('模組')}</p>
                 </button>
               )
             })}
@@ -872,13 +887,13 @@ function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: Pro
                 key={`${selected.module_id}:${selected.user_id}`}
                 ownerId={ownerId}
                 enrollment={selected}
-                name={names[selected.user_id] ?? '個案'}
+                name={names[selected.user_id] ?? t('個案')}
                 module={modules.find((m) => m.id === selected.module_id) ?? null}
                 onAcknowledged={loadAlerts}
               />
             ) : (
               <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-                從左側選一位個案查看紀錄。
+                {t('從左側選一位個案查看紀錄。')}
               </p>
             )}
           </div>
@@ -904,6 +919,7 @@ function ClientDetail({
   module: ProModuleRow | null
   onAcknowledged: () => void
 }) {
+  const { t } = useLanguage()
   const [entries, setEntries] = useState<ProEntry[] | null>(null)
   const [alerts, setAlerts] = useState<CrisisAlert[]>([])
   const [perma, setPerma] = useState<PermaRow | null>(null)
@@ -957,15 +973,15 @@ function ClientDetail({
       {/* (a) 未確認危機警示 */}
       {alerts.length > 0 && (
         <div className="rounded-2xl border-2 border-rust bg-tile-pink p-4">
-          <p className="text-sm font-black text-rust">危機警示（{alerts.length}）</p>
+          <p className="text-sm font-black text-rust">{t('危機警示（{n}）', { n: alerts.length })}</p>
           <div className="mt-2 flex flex-col gap-2">
             {alerts.map((a) => (
               <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground">
-                    {a.severity === 'high' ? '高風險' : '中度風險'}
+                    {a.severity === 'high' ? t('高風險') : t('中度風險')}
                     {a.matched_terms && a.matched_terms.length > 0 && (
-                      <span className="ml-2 font-normal text-muted-foreground">關鍵字：{a.matched_terms.join('、')}</span>
+                      <span className="ml-2 font-normal text-muted-foreground">{t('關鍵字：{terms}', { terms: a.matched_terms.join('、') })}</span>
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDateTime(a.created_at)}</p>
@@ -974,7 +990,7 @@ function ClientDetail({
                   onClick={() => acknowledge(a.id)}
                   className="shrink-0 rounded-full bg-rust px-3 py-1.5 text-xs font-bold text-white transition active:scale-[0.98]"
                 >
-                  標記已知悉
+                  {t('標記已知悉')}
                 </button>
               </div>
             ))}
@@ -984,16 +1000,16 @@ function ClientDetail({
 
       {/* (b) 統計 */}
       <div className="flex gap-3">
-        <StatCard label="總打卡次數" value={entries === null ? '…' : String(entries.length)} />
-        <StatCard label="最近 7 天" value={entries === null ? '…' : String(last7.length)} />
+        <StatCard label={t('總打卡次數')} value={entries === null ? '…' : String(entries.length)} />
+        <StatCard label={t('最近 7 天')} value={entries === null ? '…' : String(last7.length)} />
       </div>
 
       {/* (d) PERMA（若已同意分享） */}
       {enrollment.share_perma && perma && (
         <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <p className="mb-2 text-sm font-black text-foreground">最新 PERMA 五力</p>
+          <p className="mb-2 text-sm font-black text-foreground">{t('最新 PERMA 五力')}</p>
           <div className="flex flex-wrap gap-3">
-            {([['P 情緒力', perma.p_score], ['E 投入力', perma.e_score], ['R 連結力', perma.r_score], ['M 意義力', perma.m_score], ['A 成就力', perma.a_score]] as const).map(
+            {([[t('P 情緒力'), perma.p_score], [t('E 投入力'), perma.e_score], [t('R 連結力'), perma.r_score], [t('M 意義力'), perma.m_score], [t('A 成就力'), perma.a_score]] as const).map(
               ([label, v]) => (
                 <div key={label} className="rounded-xl bg-muted px-3 py-2 text-center">
                   <p className="text-lg font-black text-foreground">{v}</p>
@@ -1007,12 +1023,12 @@ function ClientDetail({
 
       {/* (c) 紀錄時間軸 */}
       <div>
-        <p className="mb-2 text-sm font-black text-foreground">紀錄時間軸</p>
+        <p className="mb-2 text-sm font-black text-foreground">{t('紀錄時間軸')}</p>
         {entries === null ? (
-          <p className="text-sm text-muted-foreground">讀取中…</p>
+          <p className="text-sm text-muted-foreground">{t('讀取中…')}</p>
         ) : entries.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            這位個案還沒有任何打卡紀錄。
+            {t('這位個案還沒有任何打卡紀錄。')}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -1030,16 +1046,17 @@ function ClientDetail({
 }
 
 function EntryAnswersView({ content, answers }: { content: ProModuleContent | null; answers: ProAnswers }) {
+  const { t } = useLanguage()
   const blocks = content?.blocks ?? []
   const entries = Object.entries(answers)
-  if (entries.length === 0) return <p className="text-sm text-muted-foreground">（未填寫）</p>
+  if (entries.length === 0) return <p className="text-sm text-muted-foreground">{t('（未填寫）')}</p>
   const fmt = (v: ProAnswerValue): string => (Array.isArray(v) ? v.join('、') : String(v))
   return (
     <div className="flex flex-col gap-2">
       {entries.map(([id, v]) => {
         const b = blocks.find((x) => x.id === id)
         if (b && b.type === 'instruction') return null
-        const label = b?.label || b?.text || '題目'
+        const label = b?.label || b?.text || t('題目')
         return (
           <div key={id} className="rounded-xl bg-muted px-3 py-2">
             <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
@@ -1132,6 +1149,7 @@ function ConfirmDialog({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1c1714]/40 px-6" onClick={onCancel}>
       <div className="w-full max-w-sm rounded-[24px] bg-background p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
@@ -1145,7 +1163,7 @@ function ConfirmDialog({
             {confirmLabel}
           </button>
           <button onClick={onCancel} className="w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
-            取消
+            {t('取消')}
           </button>
         </div>
       </div>

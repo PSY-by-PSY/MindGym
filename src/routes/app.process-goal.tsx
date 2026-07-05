@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../lib/i18n/context'
 import { computeUnifiedStreak } from '../lib/streak'
 import { isoLocalDate } from '../lib/date'
 import { saveOrShareImage } from '../lib/shareImage'
@@ -17,42 +18,52 @@ const TEAL = { backgroundColor: '#d7ebd9', color: '#3f6b46' }
 const PURPLE_BG = { backgroundColor: '#f3ead9', color: '#542916' }
 const PURPLE = '#542916'
 
+// 匿名顯示名稱：直接寫入 DB 的 anon_name 欄位，故意不走 t() 翻譯——
+// 這是儲存進資料庫的資料值（非畫面即時渲染文字），若隨語言切換翻譯，
+// 同一篇貼文在不同語言使用者眼中會顯示不同名字，並非預期行為。
 const ANON_NAMES = ['溫暖的星火', '清晨的微風', '靜謐的月光', '晴天的微笑', '輕盈的雲朵']
 function pickAnonName() {
   return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)]
 }
 
+// t() 的型別別名，供元件外的純函式接參數用（不能在裡面呼叫 useLanguage）。
+type TFn = (text: string, vars?: Record<string, string | number>) => string
+
 // PERMA 加分項目（用於完成頁）
-const PG_PERMA_BOOSTS = [
-  {
-    key: 'A',
-    label: '成就力',
-    delta: 3,
-    bar: 'bg-tile-blue',
-    description: '看見自己的專注條件，是找回行動力的第一步。',
-  },
-  {
-    key: 'M',
-    label: '意義力',
-    delta: 2,
-    bar: 'bg-tile-peach',
-    description: '理解「為什麼投入」，讓你的努力更有方向感與意義感。',
-  },
-  {
-    key: 'E',
-    label: '投入力',
-    delta: 2,
-    bar: 'bg-tile-mint',
-    description: '觀察心流條件，你離沈浸的狀態又近了一步。',
-  },
-] as const
+function getPgPermaBoosts(t: TFn) {
+  return [
+    {
+      key: 'A',
+      label: t('成就力'),
+      delta: 3,
+      bar: 'bg-tile-blue',
+      description: t('看見自己的專注條件，是找回行動力的第一步。'),
+    },
+    {
+      key: 'M',
+      label: t('意義力'),
+      delta: 2,
+      bar: 'bg-tile-peach',
+      description: t('理解「為什麼投入」，讓你的努力更有方向感與意義感。'),
+    },
+    {
+      key: 'E',
+      label: t('投入力'),
+      delta: 2,
+      bar: 'bg-tile-mint',
+      description: t('觀察心流條件，你離沈浸的狀態又近了一步。'),
+    },
+  ] as const
+}
 
 // 進入頁分鐘/強度說明
-const PG_BOOSTS = [
-  { label: '意義力', delta: 2 },
-  { label: '成就力', delta: 3 },
-  { label: '投入力', delta: 2 },
-]
+function getPgBoosts(t: TFn) {
+  return [
+    { label: t('意義力'), delta: 2 },
+    { label: t('成就力'), delta: 3 },
+    { label: t('投入力'), delta: 2 },
+  ]
+}
 
 export const Route = createFileRoute('/app/process-goal')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -94,12 +105,13 @@ interface ShareContent {
 }
 
 // ── 工具 ─────────────────────────────────────────────────────────────────
-function formatDate(date: Date): string {
-  const days = ['日', '一', '二', '三', '四', '五', '六']
+const WEEKDAY_LABELS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+
+function formatDate(date: Date, t: TFn): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
-  return `${y} / ${m} / ${d}（星期${days[date.getDay()]}）`
+  return `${y} / ${m} / ${d}（${t(WEEKDAY_LABELS[date.getDay()])}）`
 }
 
 const AI_TIMEOUT_MS = 30000
@@ -325,12 +337,13 @@ function Field({
 }
 
 function AiBlock({ text, loading }: { text: string; loading?: boolean }) {
+  const { t } = useLanguage()
   return (
     <div className="overflow-hidden rounded-2xl" style={PURPLE_BG}>
       <div className="flex gap-3 p-4">
         <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
         <p className="text-[15px] font-medium leading-relaxed">
-          {loading ? '正在為你整理…' : text}
+          {loading ? t('正在為你整理…') : text}
         </p>
       </div>
     </div>
@@ -355,12 +368,13 @@ function PgCelebrateCheckIcon() {
 
 // 返回鍵：比照感恩日記，左上角圓形白底按鈕，讓滑動手勢／返回鍵／按鍵三種操作視覺一致。
 function BackBar({ onBack }: { onBack: () => void }) {
+  const { t } = useLanguage()
   return (
     <button
       type="button"
       onClick={onBack}
       className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
-      aria-label="返回"
+      aria-label={t('返回')}
     >
       <PgBackIcon />
     </button>
@@ -369,6 +383,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
 
 // ── 主元件 ───────────────────────────────────────────────────────────────
 function ProcessGoalPage() {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const search = Route.useSearch()
   const [userId, setUserId] = useState<string | null>(null)
@@ -421,7 +436,7 @@ function ProcessGoalPage() {
       <Screen>
         <div className="mt-20 flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-soft border-t-[#542916]" />
-          <p className="text-sm text-muted-foreground">載入中…</p>
+          <p className="text-sm text-muted-foreground">{t('載入中…')}</p>
         </div>
       </Screen>
     )
@@ -475,6 +490,7 @@ function Intro({
   onBoost: () => void
   onGoBack: () => void
 }) {
+  const { t } = useLanguage()
   const [expanded, setExpanded] = useState(false)
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
@@ -488,55 +504,55 @@ function Intro({
         <button
           onClick={onGoBack}
           className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
-          aria-label="返回"
+          aria-label={t('返回')}
         >
           <PgBackIcon />
         </button>
         <div className="absolute right-5 top-16 z-[2] flex h-[70px] w-[70px] flex-col items-center justify-center rounded-xl border-[3px] border-[#88B8CE] bg-cream">
           <span className="font-en text-[30px] font-bold leading-none text-foreground">3</span>
-          <span className="mt-0.5 text-xs text-muted-foreground">分鐘</span>
+          <span className="mt-0.5 text-xs text-muted-foreground">{t('分鐘')}</span>
         </div>
       </div>
 
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">過程目標覺察練習</h1>
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('過程目標覺察練習')}</h1>
       <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Process Goal Awareness</p>
 
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
-        過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。
+        {t('過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。')}
       </div>
 
       <div className="mt-3">
         {!expanded ? (
           <button onClick={() => setExpanded(true)} className="text-xs font-bold text-primary">
-            查看更多 ▾
+            {t('查看更多 ▾')}
           </button>
         ) : (
           <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
             <div>
-              <p className="font-extrabold text-foreground mb-1.5">核心目標</p>
+              <p className="font-extrabold text-foreground mb-1.5">{t('核心目標')}</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>・看見自己最容易專注的條件（人、時、地）</li>
-                <li>・理解這些條件背後真正滿足的心理需求</li>
-                <li>・卡住時，把過去的成功條件遷移到眼前的難事</li>
+                <li>{t('・看見自己最容易專注的條件（人、時、地）')}</li>
+                <li>{t('・理解這些條件背後真正滿足的心理需求')}</li>
+                <li>{t('・卡住時，把過去的成功條件遷移到眼前的難事')}</li>
               </ul>
             </div>
             <div>
-              <p className="font-extrabold text-foreground mb-1.5">怎麼進行</p>
+              <p className="font-extrabold text-foreground mb-1.5">{t('怎麼進行')}</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>・平常：用【專注時刻記錄】把投入的片刻存下來</li>
-                <li>・卡關：用【提升專注錦囊】拿到一個能立刻試的方法</li>
+                <li>{t('・平常：用【專注時刻記錄】把投入的片刻存下來')}</li>
+                <li>{t('・卡關：用【提升專注錦囊】拿到一個能立刻試的方法')}</li>
               </ul>
             </div>
             <div>
-              <p className="font-extrabold text-foreground mb-1.5">研究指出的效益</p>
+              <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>・成就力（Accomplishment）與意義力（Meaning）</li>
-                <li>・投入力（Engagement）與心流體驗</li>
-                <li>・降低拖延、提升行動的啟動力</li>
+                <li>{t('・成就力（Accomplishment）與意義力（Meaning）')}</li>
+                <li>{t('・投入力（Engagement）與心流體驗')}</li>
+                <li>{t('・降低拖延、提升行動的啟動力')}</li>
               </ul>
             </div>
             <button onClick={() => setExpanded(false)} className="text-xs font-bold text-primary text-left">
-              收合 ▴
+              {t('收合 ▴')}
             </button>
           </div>
         )}
@@ -544,7 +560,7 @@ function Intro({
 
       {/* 練習內容清單（比照感恩日記進入頁） */}
       <div className="mt-5 flex flex-col gap-3.5">
-        {['選擇今天要做的模組', '記下一個投入的時刻或卡關的困境', '閱讀 BOUBA 觀察'].map((item) => (
+        {[t('選擇今天要做的模組'), t('記下一個投入的時刻或卡關的困境'), t('閱讀 BOUBA 觀察')].map((item) => (
           <div key={item} className="flex items-center gap-3 text-base text-foreground">
             <span className="h-[22px] w-[22px] shrink-0 rounded-full bg-[#88B8CE]" />
             {item}
@@ -552,10 +568,10 @@ function Intro({
         ))}
       </div>
 
-      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">今天想做哪一個？</h3>
+      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('今天想做哪一個？')}</h3>
       <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose a Module</p>
       <p className="mb-3 text-sm text-muted-foreground">
-        {PG_BOOSTS.map(({ label, delta }) => (
+        {getPgBoosts(t).map(({ label, delta }) => (
           <span key={label} className="mr-3">
             {label} <strong className="text-foreground">+{delta}</strong>
           </span>
@@ -569,10 +585,10 @@ function Intro({
           className="flex items-center gap-4 rounded-3xl border-[3px] border-gold-deep bg-gold p-5 text-left shadow-soft transition active:scale-[0.98]"
         >
           <div className="flex-1">
-            <p className="font-extrabold text-[#5b4226]">專注時刻記錄</p>
-            <p className="mt-0.5 text-sm text-[#5b4226]/75">記下一個你特別投入的時刻，AI 幫你看見背後的需求</p>
+            <p className="font-extrabold text-[#5b4226]">{t('專注時刻記錄')}</p>
+            <p className="mt-0.5 text-sm text-[#5b4226]/75">{t('記下一個你特別投入的時刻，AI 幫你看見背後的需求')}</p>
             <p className="mt-1 text-[11px] font-bold text-[#8a6320]">
-              {momentCount > 0 ? `你已記錄 ${momentCount} 個專注時刻` : '從你的第一個專注時刻開始'}
+              {momentCount > 0 ? t('你已記錄 {n} 個專注時刻', { n: momentCount }) : t('從你的第一個專注時刻開始')}
             </p>
           </div>
         </button>
@@ -583,10 +599,10 @@ function Intro({
           className="flex items-center gap-4 rounded-3xl bg-card p-5 text-left shadow-soft transition active:scale-[0.98]"
         >
           <div className="flex-1">
-            <p className="font-extrabold text-foreground">提升專注錦囊</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">卡住了？用你過去的專注經驗，給你一個能立刻試的方法</p>
+            <p className="font-extrabold text-foreground">{t('提升專注錦囊')}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{t('卡住了？用你過去的專注經驗，給你一個能立刻試的方法')}</p>
             {momentCount === 0 && (
-              <p className="mt-1 text-[11px] font-bold text-primary">建議先記錄幾個專注時刻，建議會更準</p>
+              <p className="mt-1 text-[11px] font-bold text-primary">{t('建議先記錄幾個專注時刻，建議會更準')}</p>
             )}
           </div>
         </button>
@@ -621,14 +637,15 @@ function RecordModule({
   const [loadingAi, setLoadingAi] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const { t } = useLanguage()
   const [streak, setStreak] = useState<number | null>(null)
   const savedRef = useRef(false)
   const savedEntryIdRef = useRef<string | null>(null)
   const shareCardRef = useRef<HTMLDivElement>(null)
-  const today = useMemo(() => formatDate(new Date()), [])
+  const today = useMemo(() => formatDate(new Date(), t), [t])
 
   const fallbackInsight = () =>
-    '從你的描述裡，能感覺到你在那個情境特別投入。多記幾次，AI 就能更準地看出你需要的專注條件。'
+    t('從你的描述裡，能感覺到你在那個情境特別投入。多記幾次，AI 就能更準地看出你需要的專注條件。')
 
   const runInsight = async () => {
     setLoadingAi(true)
@@ -666,7 +683,7 @@ function RecordModule({
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
       const filename = `focus-moment-${isoLocalDate(new Date())}.png`
-      await saveOrShareImage(dataUrl, filename, '我的專注時刻')
+      await saveOrShareImage(dataUrl, filename, t('我的專注時刻'))
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
     } finally {
@@ -700,7 +717,7 @@ function RecordModule({
       // 2. 建立社群貼文（預設隱私，之後在完成頁可改）
       //    payload 承載「專注時刻記錄」客製版型：事件／人時地／AI 回饋。
       const entryId = await insertCommunityPost(userId, {
-        item_1: event || '記下了一個專注時刻',
+        item_1: event || t('記下了一個專注時刻'),
         item_2: insight || null,
         item_3: null,
         ai_feedback: insight || null,
@@ -721,7 +738,7 @@ function RecordModule({
     } catch (e: unknown) {
       savedRef.current = false
       const msg = e instanceof Error ? e.message : String(e)
-      alert(`儲存失敗：${msg}`)
+      alert(t('儲存失敗：{msg}', { msg }))
     } finally {
       setSubmitting(false)
     }
@@ -734,33 +751,33 @@ function RecordModule({
     return (
       <Screen>
         <BackBar onBack={onBack} />
-        <h1 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">記下一個你專注的時刻</h1>
+        <h1 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">{t('記下一個你專注的時刻')}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          回想一個你特別「在狀態」的片段——時間過得很快、腦子很清晰、有種自然的流動感。
+          {t('回想一個你特別「在狀態」的片段——時間過得很快、腦子很清晰、有種自然的流動感。')}
         </p>
 
         <div className="mt-6">
-          <p className="mb-1.5 text-sm font-bold text-foreground">那是什麼事？當下的感受是什麼？</p>
+          <p className="mb-1.5 text-sm font-bold text-foreground">{t('那是什麼事？當下的感受是什麼？')}</p>
           <AutoTextarea
             value={event}
             onChange={setEvent}
-            placeholder="例：在咖啡廳寫報告，一直被推著往前，覺得很投入、忘記時間"
+            placeholder={t('例：在咖啡廳寫報告，一直被推著往前，覺得很投入、忘記時間')}
             autoFocus
             minHeight={110}
           />
         </div>
 
         <div className="mt-7 rounded-2xl bg-muted/40 p-4">
-          <p className="mb-3 text-sm font-bold text-foreground">當時的人、時、地：</p>
+          <p className="mb-3 text-sm font-bold text-foreground">{t('當時的人、時、地：')}</p>
           <div className="flex flex-col gap-4">
-            <Field label="人物 · 一個人，還是有別人在？" value={who} onChange={setWho} placeholder="例：一個人／和同學一起" />
-            <Field label="時間 · 什麼時候？" value={whenTime} onChange={setWhenTime} placeholder="例：週六下午、深夜" />
-            <Field label="地點 · 在哪裡？" value={wherePlace} onChange={setWherePlace} placeholder="例：咖啡廳、圖書館" />
+            <Field label={t('人物 · 一個人，還是有別人在？')} value={who} onChange={setWho} placeholder={t('例：一個人／和同學一起')} />
+            <Field label={t('時間 · 什麼時候？')} value={whenTime} onChange={setWhenTime} placeholder={t('例：週六下午、深夜')} />
+            <Field label={t('地點 · 在哪裡？')} value={wherePlace} onChange={setWherePlace} placeholder={t('例：咖啡廳、圖書館')} />
           </div>
         </div>
 
         <div className="mt-6">
-          <PurpleCta disabled={!ready} onClick={runInsight}>看看 AI 的觀察</PurpleCta>
+          <PurpleCta disabled={!ready} onClick={runInsight}>{t('看看 AI 的觀察')}</PurpleCta>
         </div>
       </Screen>
     )
@@ -787,8 +804,8 @@ function RecordModule({
 
         <Screen>
           <BackBar onBack={onBack} />
-          <h2 className="text-xl font-extrabold leading-snug text-foreground">我從你的描述裡，聽見了…</h2>
-          <p className="mt-2 text-sm text-muted-foreground">這是你這個專注時刻背後，可能真正需要的條件。你可以把這張圖儲存下來。</p>
+          <h2 className="text-xl font-extrabold leading-snug text-foreground">{t('我從你的描述裡，聽見了…')}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{t('這是你這個專注時刻背後，可能真正需要的條件。你可以把這張圖儲存下來。')}</p>
 
           <div className="mt-6">
             {loadingAi ? <AiBlock text="" loading /> : (
@@ -803,8 +820,8 @@ function RecordModule({
 
           {!loadingAi && conditionTags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {conditionTags.map((t) => (
-                <span key={t} className="rounded-full px-3 py-1 text-sm font-bold" style={TEAL}>{t}</span>
+              {conditionTags.map((tag) => (
+                <span key={tag} className="rounded-full px-3 py-1 text-sm font-bold" style={TEAL}>{tag}</span>
               ))}
             </div>
           )}
@@ -816,7 +833,7 @@ function RecordModule({
               disabled={sharing || loadingAi}
               className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
             >
-              {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
+              {sharing ? t('正在生成圖片…') : isMobile ? t('分享圖片') : t('下載圖片')}
             </button>
             {/* 下一步：儲存後進入完成頁 */}
             <button
@@ -825,7 +842,7 @@ function RecordModule({
               className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
               style={{ backgroundColor: submitting || loadingAi ? '#cfe2ee' : PURPLE }}
             >
-              {submitting ? '處理中…' : '下一步'}
+              {submitting ? t('處理中…') : t('下一步')}
             </button>
           </div>
         </Screen>
@@ -836,8 +853,8 @@ function RecordModule({
   // R_CELEBRATE
   return (
     <PgCelebrateStage
-      title="今日專注時刻記錄完成！"
-      subtitle="每記一筆，你的專注地圖就更完整一點。"
+      title={t('今日專注時刻記錄完成！')}
+      subtitle={t('每記一筆，你的專注地圖就更完整一點。')}
       streak={streak}
       savedEntryId={savedEntryIdRef.current}
       userId={userId}
@@ -849,7 +866,7 @@ function RecordModule({
         setStreak(null); setSubmitting(false)
         setPhase('R_INPUT')
       }}
-      againLabel="再記一個專注時刻"
+      againLabel={t('再記一個專注時刻')}
       onIntro={toIntro}
     />
   )
@@ -878,19 +895,20 @@ function BoostModule({
   const [loadingAi, setLoadingAi] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const { t } = useLanguage()
   const [streak, setStreak] = useState<number | null>(null)
   const savedRef = useRef(false)
   const savedEntryIdRef = useRef<string | null>(null)
   const shareCardRef = useRef<HTMLDivElement>(null)
-  const today = useMemo(() => formatDate(new Date()), [])
+  const today = useMemo(() => formatDate(new Date(), t), [t])
 
   const fallbackSuggestion = (records: MomentRecord[]) => {
     if (!records.length) {
-      return '先別急著逼自己。去【專注時刻記錄】補一筆相近的時刻——記得越多，我就越知道你需要什麼條件。現在，先把這件事拆到「只做最小的第一步」。'
+      return t('先別急著逼自己。去【專注時刻記錄】補一筆相近的時刻——記得越多，我就越知道你需要什麼條件。現在，先把這件事拆到「只做最小的第一步」。')
     }
     const r = records[0]
-    const cond = [r.where_place, r.who].filter(Boolean).join('、') || '你熟悉的條件'
-    return `想想你以前在「${cond}」很投入的樣子，把那個氛圍帶過來：先換到類似的環境，只做這件事的第一個 10 分鐘。開始比完成更重要。`
+    const cond = [r.where_place, r.who].filter(Boolean).join('、') || t('你熟悉的條件')
+    return t('想想你以前在「{cond}」很投入的樣子，把那個氛圍帶過來：先換到類似的環境，只做這件事的第一個 10 分鐘。開始比完成更重要。', { cond })
   }
 
   const runBoost = async () => {
@@ -929,7 +947,7 @@ function BoostModule({
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
       const filename = `focus-boost-${isoLocalDate(new Date())}.png`
-      await saveOrShareImage(dataUrl, filename, '我的專注錦囊')
+      await saveOrShareImage(dataUrl, filename, t('我的專注錦囊'))
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
     } finally {
@@ -957,7 +975,7 @@ function BoostModule({
 
       // payload 承載「提升專注錦囊」客製版型：困境 + AI 錦囊。
       const entryId = await insertCommunityPost(userId, {
-        item_1: situation ? `卡關：${situation}` : '今天有件事提不起勁。',
+        item_1: situation ? t('卡關：{situation}', { situation }) : t('今天有件事提不起勁。'),
         item_2: suggestion || null,
         item_3: null,
         ai_feedback: suggestion || null,
@@ -975,7 +993,7 @@ function BoostModule({
     } catch (e: unknown) {
       savedRef.current = false
       const msg = e instanceof Error ? e.message : String(e)
-      alert(`儲存失敗：${msg}`)
+      alert(t('儲存失敗：{msg}', { msg }))
     } finally {
       setSubmitting(false)
     }
@@ -987,21 +1005,21 @@ function BoostModule({
     return (
       <Screen>
         <BackBar onBack={onBack} />
-        <h1 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">現在，什麼事讓你卡住了？</h1>
+        <h1 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">{t('現在，什麼事讓你卡住了？')}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          說說現在這件難以專注、提不起勁的事，連同當下的情境一起講。我會從你過去的專注經驗裡，找一個能立刻試的方法。
+          {t('說說現在這件難以專注、提不起勁的事，連同當下的情境一起講。我會從你過去的專注經驗裡，找一個能立刻試的方法。')}
         </p>
         <div className="mt-6">
           <AutoTextarea
             value={situation}
             onChange={setSituation}
-            placeholder="例：要背一堆單字但完全靜不下心，坐在房間滑手機一小時了"
+            placeholder={t('例：要背一堆單字但完全靜不下心，坐在房間滑手機一小時了')}
             autoFocus
             minHeight={120}
           />
         </div>
         <div className="mt-7">
-          <PurpleCta disabled={!situation.trim()} onClick={runBoost}>為我找一個方法</PurpleCta>
+          <PurpleCta disabled={!situation.trim()} onClick={runBoost}>{t('為我找一個方法')}</PurpleCta>
         </div>
       </Screen>
     )
@@ -1028,9 +1046,9 @@ function BoostModule({
 
         <Screen>
           <BackBar onBack={onBack} />
-          <h2 className="text-xl font-extrabold leading-snug text-foreground">你的專注錦囊</h2>
+          <h2 className="text-xl font-extrabold leading-snug text-foreground">{t('你的專注錦囊')}</h2>
           {!loadingAi && hasMatch && matchedSummary && (
-            <p className="mt-2 text-sm text-muted-foreground">參考了你過去的經驗：{matchedSummary}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{t('參考了你過去的經驗：{summary}', { summary: matchedSummary })}</p>
           )}
 
           <div className="mt-5">
@@ -1046,7 +1064,7 @@ function BoostModule({
 
           {!loadingAi && !hasMatch && (
             <div className="mt-4 rounded-2xl bg-muted/50 p-4 text-sm leading-relaxed text-muted-foreground">
-              這類活動還沒有你的專注紀錄。先去【專注時刻記錄】補幾筆相近的時刻，下次的錦囊就會更貼近你。
+              {t('這類活動還沒有你的專注紀錄。先去【專注時刻記錄】補幾筆相近的時刻，下次的錦囊就會更貼近你。')}
             </div>
           )}
 
@@ -1056,7 +1074,7 @@ function BoostModule({
               disabled={sharing || loadingAi}
               className="flex h-16 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-base font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
             >
-              {sharing ? '正在生成圖片…' : isMobile ? '分享圖片' : '下載圖片'}
+              {sharing ? t('正在生成圖片…') : isMobile ? t('分享圖片') : t('下載圖片')}
             </button>
             <button
               onClick={save}
@@ -1064,7 +1082,7 @@ function BoostModule({
               className="h-14 w-full rounded-full text-sm font-extrabold tracking-[0.2em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
               style={{ backgroundColor: submitting || loadingAi ? '#cfe2ee' : PURPLE }}
             >
-              {submitting ? '處理中…' : '下一步'}
+              {submitting ? t('處理中…') : t('下一步')}
             </button>
           </div>
         </Screen>
@@ -1075,13 +1093,13 @@ function BoostModule({
   // B_CELEBRATE
   return (
     <PgCelebrateStage
-      title="今日專注錦囊完成！"
-      subtitle="帶著這個方法去試試，開始比完成更重要。"
+      title={t('今日專注錦囊完成！')}
+      subtitle={t('帶著這個方法去試試，開始比完成更重要。')}
       streak={streak}
       savedEntryId={savedEntryIdRef.current}
       userId={userId}
       onAgain={() => setPhase('R_INPUT')}
-      againLabel="順手記一個專注時刻"
+      againLabel={t('順手記一個專注時刻')}
       onIntro={toIntro}
     />
   )
@@ -1103,6 +1121,7 @@ function PgShareCard({
   date: string
   streak: number | null
 }) {
+  const { t } = useLanguage()
   const isRecord = kind === 'record'
   const mainLen = mainText.length
   const mainFontSize = mainLen < 60 ? 40 : mainLen < 120 ? 34 : 29
@@ -1126,7 +1145,7 @@ function PgShareCard({
           PSY BY PSY · {isRecord ? 'FOCUS MOMENT' : 'FOCUS BOOST'}
         </div>
         <div style={{ fontSize: 58, fontWeight: 900, marginTop: 16, lineHeight: 1.25, letterSpacing: 1 }}>
-          {isRecord ? '今天的專注時刻' : '今天的專注錦囊'}
+          {isRecord ? t('今天的專注時刻') : t('今天的專注錦囊')}
         </div>
         <div style={{ fontSize: 26, fontWeight: 700, opacity: 0.6, marginTop: 12 }}>{date}</div>
       </div>
@@ -1141,7 +1160,7 @@ function PgShareCard({
         }}
       >
         <div style={{ fontSize: 18, letterSpacing: 6, fontWeight: 800, color: '#88B8CE', marginBottom: 14 }}>
-          {isRecord ? '我的專注時刻' : '遇到的困境'}
+          {isRecord ? t('我的專注時刻') : t('遇到的困境')}
         </div>
         <div style={{ fontSize: mainFontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap', opacity: 0.85 }}>
           {mainText}
@@ -1159,7 +1178,7 @@ function PgShareCard({
           }}
         >
           <div style={{ fontSize: 18, letterSpacing: 6, fontWeight: 800, color: '#88B8CE', marginBottom: 14 }}>
-            {isRecord ? 'BOUBA 觀察' : '我的專注錦囊'}
+            {isRecord ? t('BOUBA 觀察') : t('我的專注錦囊')}
           </div>
           <div style={{ fontSize: 32, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{aiText}</div>
         </div>
@@ -1177,7 +1196,7 @@ function PgShareCard({
           }}
         >
           <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: 2, lineHeight: 1.3 }}>
-            連續健心第 {streak} 天
+            {t('連續健心第 {n} 天', { n: streak })}
           </div>
         </div>
       )}
@@ -1218,6 +1237,7 @@ function PgCelebrateStage({
   againLabel?: string
   onIntro: () => void
 }) {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const router = useRouter()
   const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
@@ -1269,7 +1289,7 @@ function PgCelebrateStage({
             {todayCount !== null ? todayCount : '—'}
           </span>
           <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            今日完成
+            {t('今日完成')}
           </span>
         </div>
         <div className="flex flex-1 flex-col items-center rounded-2xl bg-card px-4 py-3 shadow-soft">
@@ -1277,7 +1297,7 @@ function PgCelebrateStage({
             {streak !== null ? streak : '—'}
           </span>
           <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            連續健心
+            {t('連續健心')}
           </span>
         </div>
       </div>
@@ -1285,10 +1305,10 @@ function PgCelebrateStage({
       {/* PERMA 幸福力成長（含動態進度條） */}
       <div className="mb-6 w-full rounded-3xl bg-card p-6 shadow-soft">
         <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-          練習後 PERMA 幸福力成長
+          {t('練習後 PERMA 幸福力成長')}
         </p>
         <div className="flex flex-col gap-5">
-          {PG_PERMA_BOOSTS.map(({ key, label, delta, bar, description }, i) => (
+          {getPgPermaBoosts(t).map(({ key, label, delta, bar, description }, i) => (
             <div
               key={key}
               className="celebrate-row flex flex-col gap-2"
@@ -1318,7 +1338,7 @@ function PgCelebrateStage({
 
       {/* 隱私設定（決定是否公開這次打卡到社群） */}
       <div className="mb-7 w-full rounded-3xl bg-card px-5 py-4 shadow-soft">
-        <p className="text-sm font-extrabold text-foreground">分享到社群的隱私設定</p>
+        <p className="text-sm font-extrabold text-foreground">{t('分享到社群的隱私設定')}</p>
         <div className="mt-3 flex flex-col gap-2">
           {PRIVACY_OPTIONS.map((opt) => {
             const active = privacy === opt.value
@@ -1335,10 +1355,10 @@ function PgCelebrateStage({
               >
                 <span className="flex-1">
                   <span className={`block text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
-                    {opt.label}
+                    {t(opt.label)}
                   </span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                    {opt.hint}
+                    {t(opt.hint)}
                   </span>
                 </span>
                 <span
@@ -1362,12 +1382,12 @@ function PgCelebrateStage({
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full text-sm font-extrabold tracking-[0.15em] text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           style={{ backgroundColor: saving ? '#cfe2ee' : PURPLE }}
         >
-          結束今天練習
+          {t('結束今天練習')}
         </button>
         {onAgain && againLabel && (
           <GhostButton onClick={onAgain}>{againLabel}</GhostButton>
         )}
-        <GhostButton onClick={onIntro}>回練習選單</GhostButton>
+        <GhostButton onClick={onIntro}>{t('回練習選單')}</GhostButton>
       </div>
     </div>
   )

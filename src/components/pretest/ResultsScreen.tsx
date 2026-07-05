@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import type { InMindReport, DimensionKey } from './types'
 import { DIMENSION_CONFIGS, DIMENSION_ORDER } from './types'
 import { saveOrShareImage } from '../../lib/shareImage'
+import { useLanguage } from '../../lib/i18n/context'
 
 interface Props {
   report: InMindReport
@@ -38,6 +39,7 @@ const FOOD: Record<InMindReport['body_type'], { zh: string; img: string; trait: 
 
 // ── Radar chart with big PERMA letter labels ────────────────
 function RadarChart({ scores, max = 5 }: { scores: InMindReport['scores']; max?: number }) {
+  const { t } = useLanguage()
   const cx = 160
   const cy = 140
   const R = 100
@@ -109,10 +111,10 @@ function RadarChart({ scores, max = 5 }: { scores: InMindReport['scores']; max?:
               {k}
             </text>
             <text x={L.smallX} y={L.smallY} fontFamily="Noto Sans TC" fontWeight="700" fontSize="11" textAnchor={L.smallAnchor} fill="#151515">
-              {PERMA[k].zh}
+              {t(PERMA[k].zh)}
             </text>
             <text x={L.smallX} y={L.smallY + 14} fontFamily="Inter" fontWeight="500" fontSize="11" textAnchor={L.smallAnchor} fill="#959595">
-              {score}分
+              {t('{score}分', { score })}
             </text>
           </g>
         )
@@ -167,6 +169,7 @@ function DimensionCard({
   complementType?: string | null
   complementHow?: string | null
 }) {
+  const { t } = useLanguage()
   return (
     <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '1px solid #ECECEC', background: '#fff' }}>
       {/* Navy banner */}
@@ -199,7 +202,7 @@ function DimensionCard({
           </div>
           <div style={{ lineHeight: 1.1 }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.2 }}>
-              {p.zh}{' '}
+              {t(p.zh)}{' '}
               <span style={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 500, opacity: 0.7 }}>{p.en}</span>
             </div>
           </div>
@@ -255,7 +258,7 @@ function DimensionCard({
                 marginBottom: 4,
               }}
             >
-              健心練習 · Try this
+              {t('健心練習 · Try this')}
             </div>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#151515', fontWeight: 500 }}>{action}</div>
           </div>
@@ -271,7 +274,7 @@ function DimensionCard({
             }}
           >
             <div style={{ fontSize: 11, fontFamily: 'Inter', fontWeight: 700, letterSpacing: 0.4, color: '#6A6A6A', marginBottom: 4 }}>
-              # 適合互補的人
+              {t('# 適合互補的人')}
             </div>
             {complementType && (
               <div style={{ fontSize: 13, fontWeight: 700, color: '#151515', marginBottom: complementHow ? 4 : 0 }}>
@@ -306,6 +309,7 @@ function RoadmapRow({ when, body, dot, last }: { when: string; body: string; dot
 
 // ── Main report screen ──────────────────────────────────────
 export default function InMindReportPage({ report, onRestart, onComplete, onGoHome }: Props) {
+  const { t } = useLanguage()
   const {
     scores,
     individual_analysis,
@@ -378,7 +382,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
             capsule.parentNode.insertBefore(wrap, capsule)
             wrap.appendChild(capsule)
             const trimmedLabel = (body_type_label || '').split(/[·•・/\s]/)[0].trim()
-            capsule.textContent = `InBody對應：${trimmedLabel}`
+            capsule.textContent = t('InBody對應：{label}', { label: trimmedLabel })
           }
 
           const radar = clonedEl.querySelector('[data-share-radar]') as SVGSVGElement | null
@@ -447,7 +451,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
       ctx.textAlign = 'center'
       ctx.font = `700 26px "Noto Sans TC", ${fontFamily}`
       ctx.fillStyle = '#959595'
-      ctx.fillText('心理健康的 InBody · 立即測測你的', footerCenterX, footerCenterY + 48)
+      ctx.fillText(t('心理健康的 InBody · 立即測測你的'), footerCenterX, footerCenterY + 48)
 
       const blob = await new Promise<Blob | null>((resolve) =>
         finalCanvas.toBlob((b) => resolve(b), 'image/png'),
@@ -464,8 +468,8 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
       await saveOrShareImage(
         dataUrl,
         filename,
-        'InMind 心理健身報告',
-        `我的心理體型是＃${celeb_match.name}型！來測測你的吧。`,
+        t('InMind 心理健身報告'),
+        t('我的心理體型是＃{name}型！來測測你的吧。', { name: celeb_match.name }),
       )
     } finally {
       setSharing(false)
@@ -497,7 +501,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
           InMind<span style={{ color: '#E26D5C' }}>.</span>
         </h1>
         <div data-share-subtitle style={{ fontSize: 14, color: '#959595', marginTop: 8, fontWeight: 600, letterSpacing: 0.2 }}>
-          心理健康的 InBody <span style={{ fontFamily: 'Inter', fontWeight: 500 }}>·</span> 測驗結果
+          {t('心理健康的 InBody')} <span style={{ fontFamily: 'Inter', fontWeight: 500 }}>·</span> {t('測驗結果')}
         </div>
       </div>
 
@@ -515,17 +519,17 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
             flexDirection: 'column',
           }}
         >
-          <div style={{ fontSize: 11, color: '#fff', fontWeight: 600, letterSpacing: 0.2, marginBottom: 2 }}>你的心理體型是…</div>
+          <div style={{ fontSize: 11, color: '#fff', fontWeight: 600, letterSpacing: 0.2, marginBottom: 2 }}>{t('你的心理體型是…')}</div>
           <div style={{ position: 'relative', height: 90, margin: '2px -4px 0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img
               data-share-food-img
               src={food.img}
-              alt={food.zh}
+              alt={t(food.zh)}
               style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,.15))' }}
             />
           </div>
           <div style={{ fontFamily: 'Noto Sans TC', fontWeight: 800, fontSize: 38, color: '#fff', letterSpacing: -1, lineHeight: 1, marginTop: 4 }}>
-            ＃{food.zh}
+            ＃{t(food.zh)}
           </div>
           <div
             data-share-capsule
@@ -542,7 +546,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
               whiteSpace: 'nowrap',
             }}
           >
-            InBody對應：{inbodyLabel}
+            {t('InBody對應：{label}', { label: inbodyLabel })}
           </div>
           <div style={{ display: 'flex', gap: 2, marginTop: 10 }}>
             {Array.from({ length: totalCells }).map((_, i) => (
@@ -558,7 +562,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
             ))}
           </div>
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'baseline', gap: 3, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>總分：</span>
+            <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>{t('總分：')}</span>
             <span className="num" style={{ fontFamily: 'Inter', fontWeight: 800, fontSize: 28, letterSpacing: -1, color: '#fff', lineHeight: 1 }}>
               {total_score.toFixed(1)}
             </span>
@@ -566,7 +570,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
               /25.0
             </span>
           </div>
-          <div style={{ marginTop: 4, fontSize: 11, color: '#FFDDB9', fontWeight: 700, letterSpacing: 0.2 }}>{food.trait}</div>
+          <div style={{ marginTop: 4, fontSize: 11, color: '#FFDDB9', fontWeight: 700, letterSpacing: 0.2 }}>{t(food.trait)}</div>
         </div>
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -584,7 +588,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
               letterSpacing: 0.2,
             }}
           >
-            <span style={{ color: '#E26D5C', fontWeight: 800 }}>＃</span> PERMA 各指數明細
+            <span style={{ color: '#E26D5C', fontWeight: 800 }}>＃</span> {t('PERMA 各指數明細')}
           </div>
         </div>
       </section>
@@ -610,7 +614,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
       </section>
 
       {/* Celebrity match */}
-      <HashHeading>與你最相似的名人是…</HashHeading>
+      <HashHeading>{t('與你最相似的名人是…')}</HashHeading>
       <section style={sectionStyle}>
         <div style={{ display: 'flex', alignItems: 'stretch', borderRadius: 12, overflow: 'hidden', border: '1px solid #DCE6FA' }}>
           <div
@@ -660,7 +664,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
                 textTransform: 'uppercase',
               }}
             >
-              類型 · {celeb_match.archetype}
+              {t('類型 · ')}{celeb_match.archetype}
             </div>
             <div style={{ fontSize: 12, color: '#404040', marginBottom: 6, lineHeight: 1.5 }}>{celeb_match.description}</div>
             <div style={{ fontSize: 13, lineHeight: 1.75, color: '#151515', fontWeight: 500 }}>{celeb_match.reason}</div>
@@ -694,7 +698,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
           }}
         >
           {sharing ? (
-            <>產生分享圖中…</>
+            <>{t('產生分享圖中…')}</>
           ) : (
             <>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#292F56" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -702,17 +706,17 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
                 <path d="M7 8l5-5 5 5" />
                 <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
               </svg>
-              分享我的報告
+              {t('分享我的報告')}
             </>
           )}
         </button>
         <div style={{ marginTop: 8, fontSize: 12, color: '#959595', textAlign: 'center', lineHeight: 1.55 }}>
-          將以圖片形式分享：可存到相簿、傳到 LINE 或其他 App
+          {t('將以圖片形式分享：可存到相簿、傳到 LINE 或其他 App')}
         </div>
       </section>
 
       {/* 適合你健心練習 */}
-      <HashHeading>適合你健心練習！</HashHeading>
+      <HashHeading>{t('適合你健心練習！')}</HashHeading>
       <section style={{ padding: '0 20px 8px' }}>
         <div style={{ display: 'flex', gap: 3, height: 14, margin: '2px 0 14px' }}>
           {Array.from({ length: 48 }).map((_, i) => (
@@ -735,15 +739,15 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
                 marginBottom: 4,
               }}
             >
-              每日微習慣 · 30 SEC
+              {t('每日微習慣 · 30 SEC')}
             </div>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#151515', letterSpacing: -0.2 }}>
-              {DIMENSION_CONFIGS[balance.min_dim].label}・每日健心練習
+              {t(DIMENSION_CONFIGS[balance.min_dim].label)}{t('・每日健心練習')}
             </div>
           </div>
           <div style={{ padding: '14px 16px 16px' }}>
             <div style={{ fontSize: 12, fontFamily: 'Noto Sans TC', fontWeight: 800, color: '#6A6A6A', marginBottom: 10, letterSpacing: 0.4 }}>
-              短期與長期計畫
+              {t('短期與長期計畫')}
             </div>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 9 }}>
               {[constitution_advice.short_term_plan, constitution_advice.long_term_plan].map((o, i) => (
@@ -761,7 +765,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
       </section>
 
       {/* 五大指數 · 細項建議與行動 */}
-      <HashHeading sub="Five dimensions · per-axis advice">五大指數 · 細項建議與行動</HashHeading>
+      <HashHeading sub="Five dimensions · per-axis advice">{t('五大指數 · 細項建議與行動')}</HashHeading>
       <section style={{ padding: '0 16px 4px' }}>
         {DIMENSION_ORDER.map((k) => {
           const analysis = individual_analysis[k]
@@ -780,13 +784,13 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
       </section>
 
       {/* Roadmap */}
-      <HashHeading sub="Your 30-day journey">接下來會發生什麼</HashHeading>
+      <HashHeading sub="Your 30-day journey">{t('接下來會發生什麼')}</HashHeading>
       <section style={{ padding: '8px 24px 4px' }}>
-        <RoadmapRow when="從今天開始" body={take_action.daily_habit} dot="#6A6A6A" />
-        <RoadmapRow when="第 3 天" body={take_action.after_3_days} dot="#E26D5C" />
-        <RoadmapRow when="第 1 週" body={take_action.after_1_week} dot="#FFDDB9" />
-        <RoadmapRow when="第 2 週" body={take_action.after_2_weeks} dot="#D6FFB7" />
-        <RoadmapRow when="第 1 個月" body={take_action.after_1_month} dot="#5C95FF" last />
+        <RoadmapRow when={t('從今天開始')} body={take_action.daily_habit} dot="#6A6A6A" />
+        <RoadmapRow when={t('第 3 天')} body={take_action.after_3_days} dot="#E26D5C" />
+        <RoadmapRow when={t('第 1 週')} body={take_action.after_1_week} dot="#FFDDB9" />
+        <RoadmapRow when={t('第 2 週')} body={take_action.after_2_weeks} dot="#D6FFB7" />
+        <RoadmapRow when={t('第 1 個月')} body={take_action.after_1_month} dot="#5C95FF" last />
       </section>
 
       {/* 開始第一次練習 CTA */}
@@ -803,7 +807,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
             boxShadow: '0 8px 24px -8px rgba(92,149,255,.55)',
           }}
         >
-          開始第一次練習 →
+          {t('開始第一次練習 →')}
         </button>
       </section>
 
@@ -825,7 +829,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
             letterSpacing: 0.3,
           }}
         >
-          重新檢測
+          {t('重新檢測')}
         </button>
         {onGoHome && (
           <button
@@ -844,7 +848,7 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
               letterSpacing: 0.3,
             }}
           >
-            返回首頁
+            {t('返回首頁')}
           </button>
         )}
       </div>

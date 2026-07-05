@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
+import { useLanguage } from '../lib/i18n/context'
+import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import type { ProModuleRow, AiReview } from '../lib/proModules'
 import logoWordmark from '../assets/ui/logo-wordmark.png'
 
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/admin')({
 // ── 角色閘門 ────────────────────────────────────────────────────────────────
 
 function AdminPage() {
+  const { t } = useLanguage()
   const [state, setState] = useState<'loading' | 'admin' | 'denied'>('loading')
 
   useEffect(() => {
@@ -52,7 +55,7 @@ function AdminPage() {
   if (state === 'denied') return <NotFound />
 
   return (
-    <Shell title="管理後台">
+    <Shell title={t('管理後台')}>
       <AdminConsole />
     </Shell>
   )
@@ -60,10 +63,11 @@ function AdminPage() {
 
 // 通用「找不到頁面」：不透露這是後台。
 function NotFound() {
+  const { t } = useLanguage()
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
       <p className="text-5xl font-black text-foreground/20">404</p>
-      <p className="mt-3 text-lg font-bold text-muted-foreground">找不到頁面</p>
+      <p className="mt-3 text-lg font-bold text-muted-foreground">{t('找不到頁面')}</p>
     </div>
   )
 }
@@ -71,6 +75,7 @@ function NotFound() {
 // ── shell ───────────────────────────────────────────────────────────────────
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const logout = async () => {
     await supabase.auth.signOut()
@@ -84,12 +89,15 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
             <img src={logoWordmark} alt="PSY by PSY" className="h-[22px] w-auto object-contain" />
             <span className="text-sm font-bold text-muted-foreground">{title}</span>
           </div>
-          <button
-            onClick={logout}
-            className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
-          >
-            登出
-          </button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcherCompact />
+            <button
+              onClick={logout}
+              className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
+            >
+              {t('登出')}
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
@@ -110,13 +118,14 @@ function Spinner() {
 type Tab = 'applications' | 'reviews' | 'published' | 'crises'
 
 function AdminConsole() {
+  const { t } = useLanguage()
   const [tab, setTab] = useState<Tab>('applications')
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'applications', label: '夥伴申請' },
-    { key: 'reviews', label: '模組審核' },
-    { key: 'published', label: '已上架模組' },
-    { key: 'crises', label: '危機警示總覽' },
+    { key: 'applications', label: t('夥伴申請') },
+    { key: 'reviews', label: t('模組審核') },
+    { key: 'published', label: t('已上架模組') },
+    { key: 'crises', label: t('危機警示總覽') },
   ]
 
   return (
@@ -157,6 +166,7 @@ type ApplicationRow = {
 }
 
 function ApplicationsTab() {
+  const { t } = useLanguage()
   const [apps, setApps] = useState<ApplicationRow[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<ApplicationRow | null>(null)
@@ -202,19 +212,19 @@ function ApplicationsTab() {
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">夥伴申請</h1>
+      <h1 className="mb-4 text-xl font-black text-foreground">{t('夥伴申請')}</h1>
       {apps.length === 0 ? (
-        <EmptyHint>目前沒有待審核的申請。</EmptyHint>
+        <EmptyHint>{t('目前沒有待審核的申請。')}</EmptyHint>
       ) : (
         <div className="flex flex-col gap-3">
           {apps.map((a) => (
             <div key={a.id} className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <h2 className="text-[17px] font-black text-foreground">{a.name || '（未填姓名）'}</h2>
+              <h2 className="text-[17px] font-black text-foreground">{a.name || t('（未填姓名）')}</h2>
               <div className="mt-2 flex flex-col gap-1.5 text-sm">
-                <Detail label="職稱" value={a.title} />
-                <Detail label="服務單位" value={a.organization} />
-                <Detail label="證照 / 資歷" value={a.license_info} />
-                <Detail label="使用動機" value={a.motivation} />
+                <Detail label={t('職稱')} value={a.title} />
+                <Detail label={t('服務單位')} value={a.organization} />
+                <Detail label={t('證照 / 資歷')} value={a.license_info} />
+                <Detail label={t('使用動機')} value={a.motivation} />
               </div>
               <div className="mt-4 flex gap-2">
                 <button
@@ -222,14 +232,14 @@ function ApplicationsTab() {
                   disabled={busy === a.id}
                   className="rounded-full bg-gradient-primary px-5 py-2 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
                 >
-                  核准
+                  {t('核准')}
                 </button>
                 <button
                   onClick={() => setRejecting(a)}
                   disabled={busy === a.id}
                   className="rounded-full border border-border bg-background px-5 py-2 text-sm font-bold text-rust transition hover:bg-muted disabled:opacity-60"
                 >
-                  退件
+                  {t('退件')}
                 </button>
               </div>
             </div>
@@ -239,9 +249,9 @@ function ApplicationsTab() {
 
       {rejecting && (
         <ReasonDialog
-          title="退回這份申請"
-          placeholder="請說明退件理由（申請人可見）"
-          confirmLabel="確認退件"
+          title={t('退回這份申請')}
+          placeholder={t('請說明退件理由（申請人可見）')}
+          confirmLabel={t('確認退件')}
           onConfirm={reject}
           onCancel={() => setRejecting(null)}
         />
@@ -253,6 +263,7 @@ function ApplicationsTab() {
 // ── 模組審核 ────────────────────────────────────────────────────────────────
 
 function ModuleReviewTab() {
+  const { t } = useLanguage()
   const [modules, setModules] = useState<ProModuleRow[] | null>(null)
   const [selected, setSelected] = useState<ProModuleRow | null>(null)
   const [busy, setBusy] = useState(false)
@@ -310,7 +321,7 @@ function ModuleReviewTab() {
           onClick={() => setSelected(null)}
           className="mb-4 text-sm font-bold text-muted-foreground transition hover:text-foreground"
         >
-          ← 返回佇列
+          {t('← 返回佇列')}
         </button>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* 左：模組完整內容（唯讀） */}
@@ -318,13 +329,13 @@ function ModuleReviewTab() {
             <h2 className="text-xl font-black text-foreground">{selected.title}</h2>
             {selected.description && <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>}
             {selected.est_minutes != null && (
-              <p className="mt-1 text-sm text-muted-foreground">預估 {selected.est_minutes} 分鐘</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('預估 {n} 分鐘', { n: selected.est_minutes })}</p>
             )}
             <div className="mt-4 rounded-[22px] border border-border bg-background p-5 shadow-soft">
               {content ? (
                 <BlockRenderer content={content} answers={{}} disabled />
               ) : (
-                <p className="text-sm text-muted-foreground">（沒有內容）</p>
+                <p className="text-sm text-muted-foreground">{t('（沒有內容）')}</p>
               )}
             </div>
           </div>
@@ -338,14 +349,14 @@ function ModuleReviewTab() {
                 disabled={busy}
                 className="rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
               >
-                核准上架
+                {t('核准上架')}
               </button>
               <button
                 onClick={() => setRejecting(true)}
                 disabled={busy}
                 className="rounded-full border border-border bg-background px-5 py-2.5 text-sm font-bold text-rust transition hover:bg-muted disabled:opacity-60"
               >
-                退回修改
+                {t('退回修改')}
               </button>
             </div>
           </div>
@@ -353,9 +364,9 @@ function ModuleReviewTab() {
 
         {rejecting && (
           <ReasonDialog
-            title="退回修改"
-            placeholder="請說明退件理由（專業夥伴可見）"
-            confirmLabel="確認退回"
+            title={t('退回修改')}
+            placeholder={t('請說明退件理由（專業夥伴可見）')}
+            confirmLabel={t('確認退回')}
             onConfirm={reject}
             onCancel={() => setRejecting(false)}
           />
@@ -366,9 +377,9 @@ function ModuleReviewTab() {
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">模組審核</h1>
+      <h1 className="mb-4 text-xl font-black text-foreground">{t('模組審核')}</h1>
       {modules.length === 0 ? (
-        <EmptyHint>目前沒有待審核的模組。</EmptyHint>
+        <EmptyHint>{t('目前沒有待審核的模組。')}</EmptyHint>
       ) : (
         <div className="flex flex-col gap-3">
           {modules.map((m) => (
@@ -397,37 +408,39 @@ const RISK_META: Record<string, { label: string; cls: string }> = {
 }
 
 function RiskBadge({ level, error }: { level?: string; error?: boolean }) {
-  if (error) return <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">AI 未完成</span>
+  const { t } = useLanguage()
+  if (error) return <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{t('AI 未完成')}</span>
   const meta = level ? RISK_META[level] : null
   if (!meta) return null
-  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${meta.cls}`}>{meta.label}</span>
+  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${meta.cls}`}>{t(meta.label)}</span>
 }
 
 function AiReviewPanel({ review }: { review: AiReview | null }) {
+  const { t } = useLanguage()
   return (
     <div className="rounded-[22px] border border-border bg-card p-5 shadow-soft">
       <p className="mb-3 rounded-xl bg-muted px-3 py-2 text-xs font-bold text-muted-foreground">
-        AI 標籤僅供參考，最終判斷以人工審核為準。
+        {t('AI 標籤僅供參考，最終判斷以人工審核為準。')}
       </p>
       {!review || review.error ? (
-        <p className="text-sm text-muted-foreground">AI 審核未完成，請直接人工審核。</p>
+        <p className="text-sm text-muted-foreground">{t('AI 審核未完成，請直接人工審核。')}</p>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-foreground">整體風險</span>
+            <span className="text-sm font-bold text-foreground">{t('整體風險')}</span>
             <RiskBadge level={review.risk_level} />
           </div>
           {review.summary && (
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">總結</p>
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('總結')}</p>
               <p className="mt-1 text-sm leading-relaxed text-foreground/85">{review.summary}</p>
             </div>
           )}
-          <FindingList title="心理安全" findings={review.psych_safety} />
-          <FindingList title="資訊安全" findings={review.info_safety} />
+          <FindingList title={t('心理安全')} findings={review.psych_safety} />
+          <FindingList title={t('資訊安全')} findings={review.info_safety} />
           {review.psychology_basis_note && (
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">心理學根據</p>
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('心理學根據')}</p>
               <p className="mt-1 text-sm leading-relaxed text-foreground/85">{review.psychology_basis_note}</p>
             </div>
           )}
@@ -438,11 +451,12 @@ function AiReviewPanel({ review }: { review: AiReview | null }) {
 }
 
 function FindingList({ title, findings }: { title: string; findings?: AiReview['psych_safety'] }) {
+  const { t } = useLanguage()
   if (!findings || findings.length === 0) {
     return (
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
-        <p className="mt-1 text-sm text-[#3f6b46]">未發現疑慮。</p>
+        <p className="mt-1 text-sm text-[#3f6b46]">{t('未發現疑慮。')}</p>
       </div>
     )
   }
@@ -455,7 +469,7 @@ function FindingList({ title, findings }: { title: string; findings?: AiReview['
             <div className="flex items-center gap-2">
               {f.severity && (
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${RISK_META[f.severity]?.cls ?? 'bg-background text-muted-foreground'}`}>
-                  {RISK_META[f.severity]?.label ?? f.severity}
+                  {RISK_META[f.severity] ? t(RISK_META[f.severity].label) : f.severity}
                 </span>
               )}
             </div>
@@ -471,6 +485,7 @@ function FindingList({ title, findings }: { title: string; findings?: AiReview['
 // ── 已上架模組 ──────────────────────────────────────────────────────────────
 
 function PublishedModulesTab() {
+  const { t } = useLanguage()
   const [modules, setModules] = useState<ProModuleRow[] | null>(null)
   const [taking, setTaking] = useState<ProModuleRow | null>(null)
   const [busy, setBusy] = useState(false)
@@ -505,9 +520,9 @@ function PublishedModulesTab() {
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">已上架模組</h1>
+      <h1 className="mb-4 text-xl font-black text-foreground">{t('已上架模組')}</h1>
       {modules.length === 0 ? (
-        <EmptyHint>目前沒有已上架的模組。</EmptyHint>
+        <EmptyHint>{t('目前沒有已上架的模組。')}</EmptyHint>
       ) : (
         <div className="flex flex-col gap-3">
           {modules.map((m) => (
@@ -521,7 +536,7 @@ function PublishedModulesTab() {
                 disabled={busy}
                 className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-sm font-bold text-rust transition hover:bg-muted disabled:opacity-60"
               >
-                下架
+                {t('下架')}
               </button>
             </div>
           ))}
@@ -530,9 +545,9 @@ function PublishedModulesTab() {
 
       {taking && (
         <ReasonDialog
-          title={`下架「${taking.title}」`}
-          placeholder="請說明下架理由（專業夥伴可見）"
-          confirmLabel="確認下架"
+          title={t('下架「{title}」', { title: taking.title })}
+          placeholder={t('請說明下架理由（專業夥伴可見）')}
+          confirmLabel={t('確認下架')}
           onConfirm={takedown}
           onCancel={() => setTaking(null)}
         />
@@ -553,6 +568,7 @@ type CrisisRow = {
 }
 
 function CrisisOverviewTab() {
+  const { t } = useLanguage()
   const [rows, setRows] = useState<CrisisRow[] | null>(null)
 
   useEffect(() => {
@@ -574,19 +590,19 @@ function CrisisOverviewTab() {
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">危機警示總覽</h1>
+      <h1 className="mb-4 text-xl font-black text-foreground">{t('危機警示總覽')}</h1>
       {rows.length === 0 ? (
-        <EmptyHint>目前沒有任何危機警示。</EmptyHint>
+        <EmptyHint>{t('目前沒有任何危機警示。')}</EmptyHint>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                <th className="px-4 py-3 font-bold">時間</th>
-                <th className="px-4 py-3 font-bold">風險</th>
-                <th className="px-4 py-3 font-bold">來源</th>
-                <th className="px-4 py-3 font-bold">關鍵字</th>
-                <th className="px-4 py-3 font-bold">狀態</th>
+                <th className="px-4 py-3 font-bold">{t('時間')}</th>
+                <th className="px-4 py-3 font-bold">{t('風險')}</th>
+                <th className="px-4 py-3 font-bold">{t('來源')}</th>
+                <th className="px-4 py-3 font-bold">{t('關鍵字')}</th>
+                <th className="px-4 py-3 font-bold">{t('狀態')}</th>
               </tr>
             </thead>
             <tbody>
@@ -595,16 +611,16 @@ function CrisisOverviewTab() {
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatDateTime(r.created_at)}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${RISK_META[r.severity]?.cls ?? 'bg-muted text-muted-foreground'}`}>
-                      {RISK_META[r.severity]?.label ?? r.severity}
+                      {RISK_META[r.severity] ? t(RISK_META[r.severity].label) : r.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.source === 'keyword' ? '關鍵字' : r.source === 'ai' ? 'AI' : '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{r.source === 'keyword' ? t('關鍵字') : r.source === 'ai' ? 'AI' : '—'}</td>
                   <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
                   <td className="px-4 py-3">
                     {r.acknowledged_at ? (
-                      <span className="text-[#3f6b46]">已知悉</span>
+                      <span className="text-[#3f6b46]">{t('已知悉')}</span>
                     ) : (
-                      <span className="font-bold text-rust">未處理</span>
+                      <span className="font-bold text-rust">{t('未處理')}</span>
                     )}
                   </td>
                 </tr>
@@ -650,6 +666,7 @@ function ReasonDialog({
   onConfirm: (note: string) => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   const [note, setNote] = useState('')
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1c1714]/40 px-6" onClick={onCancel}>
@@ -672,7 +689,7 @@ function ReasonDialog({
             {confirmLabel}
           </button>
           <button onClick={onCancel} className="w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
-            取消
+            {t('取消')}
           </button>
         </div>
       </div>

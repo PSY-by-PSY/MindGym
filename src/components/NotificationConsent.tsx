@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { isNativeApp } from '../lib/nativeAuth'
 import { enableNotifications, NOTIF_CONSENT_KEY as CONSENT_KEY } from '../lib/localNotifications'
+import { useLanguage } from '../lib/i18n/context'
 
 function BellIcon() {
   return (
@@ -16,6 +17,7 @@ function BellIcon() {
 // 原生 App：走 Local Notifications 權限（WKWebView 沒有 Web Notification API）。
 // 純網頁：走瀏覽器 Notification 權限。
 export function NotificationConsent() {
+  const { t } = useLanguage()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export function NotificationConsent() {
         if (result === 'granted') {
           try {
             new Notification('PSY by PSY', {
-              body: '通知已開啟！有人為你的貼文按讚或留言時會提醒你',
+              body: t('通知已開啟！有人為你的貼文按讚或留言時會提醒你'),
             })
           } catch { /* 部分平台需 SW 才能顯示，忽略 */ }
         }
@@ -83,9 +85,9 @@ export function NotificationConsent() {
             <BellIcon />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-extrabold text-foreground">開啟通知</p>
+            <p className="text-sm font-extrabold text-foreground">{t('開啟通知')}</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              想在有人為你的貼文按讚、留言，以及每晚提醒打卡時收到通知嗎？開啟後我們才能傳送系統通知給你。
+              {t('想在有人為你的貼文按讚、留言，以及每晚提醒打卡時收到通知嗎？開啟後我們才能傳送系統通知給你。')}
             </p>
           </div>
         </div>
@@ -94,13 +96,13 @@ export function NotificationConsent() {
             onClick={later}
             className="flex-1 rounded-full border border-border py-2.5 text-sm font-bold text-muted-foreground transition hover:bg-muted"
           >
-            稍後再說
+            {t('稍後再說')}
           </button>
           <button
             onClick={allow}
             className="flex-1 rounded-full bg-gradient-primary py-2.5 text-sm font-bold text-white shadow-soft transition active:scale-[0.98]"
           >
-            開啟通知
+            {t('開啟通知')}
           </button>
         </div>
       </div>

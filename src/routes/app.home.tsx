@@ -5,6 +5,7 @@ import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
 import { hasSkippedOnboarding } from '../lib/onboardingSkip'
 import { ProModuleSection } from '../components/pro/ProModuleSection'
+import { useLanguage } from '../lib/i18n/context'
 import homeMascot from '../assets/ui/home-mascot.png'
 import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
 import sleepingMascot from '../assets/ui/sleeping-mascot.png'
@@ -123,6 +124,7 @@ const workshopModules = [
 
 function HomePage() {
   const { userName, recommendation } = Route.useRouteContext()
+  const { t } = useLanguage()
 
   return (
     <div className="mx-auto max-w-md animate-fade-up px-5 pt-3 pb-28">
@@ -133,14 +135,14 @@ function HomePage() {
           alt=""
           className="pointer-events-none absolute -right-2 -top-4 w-[140px] opacity-95"
         />
-        <p className="pt-1.5 text-base font-light tracking-[0.05em] text-foreground">嗨，歡迎回來</p>
+        <p className="pt-1.5 text-base font-light tracking-[0.05em] text-foreground">{t('嗨，歡迎回來')}</p>
         <h1 className="mt-3 max-w-[64%] text-[25px] font-black leading-[1.32] tracking-[0.03em] text-muted-foreground">
-          {userName}，今天想練哪塊心理肌肉？
+          {t('{name}，今天想練哪塊心理肌肉？', { name: userName })}
         </h1>
       </div>
 
       {/* 健心訓練模組—大卡、左右滑動 */}
-      <SectionTitle zh="健心訓練模組" en="PSY by PSY Training Modules" />
+      <SectionTitle zh={t('健心訓練模組')} en="PSY by PSY Training Modules" />
       <div className="scroll -mx-5 flex gap-3.5 overflow-x-auto px-5 pb-1.5 no-scrollbar">
         {modules.map((mod) =>
           mod.featured ? (
@@ -152,7 +154,7 @@ function HomePage() {
           ),
         )}
       </div>
-      <p className="mt-2.5 text-center text-xs text-[#a99a86]">← 左右滑動瀏覽更多模組 →</p>
+      <p className="mt-2.5 text-center text-xs text-[#a99a86]">{t('← 左右滑動瀏覽更多模組 →')}</p>
 
       {/* 今日練習快速啟動橫幅—依雷達圖推薦 */}
       <TodayPracticeBanner recommendation={recommendation} />
@@ -203,6 +205,7 @@ function CloudIcon() {
 type ModuleProps = (typeof modules)[number]
 
 function FeaturedModuleCard({ name, meta }: ModuleProps) {
+  const { t } = useLanguage()
   return (
     <Link
       to="/app/gratitude"
@@ -216,14 +219,15 @@ function FeaturedModuleCard({ name, meta }: ModuleProps) {
         className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
       />
       <div className="relative z-10 p-5 pb-6">
-        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{name}</div>
-        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{meta}</div>
+        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{t(name)}</div>
+        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
       </div>
     </Link>
   )
 }
 
 function ActiveModuleCard({ name, meta, to }: ModuleProps) {
+  const { t } = useLanguage()
   return (
     <Link
       to={to}
@@ -237,20 +241,21 @@ function ActiveModuleCard({ name, meta, to }: ModuleProps) {
         className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
       />
       <div className="relative z-10 p-5 pb-6">
-        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{name}</div>
-        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{meta}</div>
+        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{t(name)}</div>
+        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
       </div>
     </Link>
   )
 }
 
 function LockedModuleCard({ name }: ModuleProps) {
+  const { t } = useLanguage()
   return (
     <div className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col items-center justify-center gap-3.5 overflow-hidden rounded-[22px] bg-[#B79858] shadow-[0_5px_14px_rgba(0,0,0,0.16)]">
       <span className="rounded-[18px] border-2 border-[#FEFAF0] px-4 py-1 text-[19px] font-semibold tracking-[0.04em] text-[#FEFAF0]">
-        {name}
+        {t(name)}
       </span>
-      <span className="text-[42px] font-black tracking-[0.05em] text-[#FEFAF0]">施工中…</span>
+      <span className="text-[42px] font-black tracking-[0.05em] text-[#FEFAF0]">{t('施工中…')}</span>
       <img src={sleepingMascot} alt="" className="mt-1 h-[120px] w-auto object-contain opacity-90" />
     </div>
   )
@@ -259,6 +264,7 @@ function LockedModuleCard({ name }: ModuleProps) {
 // ─── today practice banner ──────────────────────────────────────────────────────
 
 function TodayPracticeBanner({ recommendation }: { recommendation: Recommendation }) {
+  const { t } = useLanguage()
   const linkProps = recommendation.search
     ? { to: recommendation.to, search: recommendation.search }
     : { to: recommendation.to }
@@ -271,7 +277,7 @@ function TodayPracticeBanner({ recommendation }: { recommendation: Recommendatio
     >
       <div className="absolute left-2 top-1.5 z-10 max-w-[200px] rounded-[22px] border-2 border-foreground bg-cream px-4 py-3.5">
         <p className="text-base font-bold leading-[1.5] tracking-[0.02em] text-foreground">
-          點擊直接開始<br />今天的{recommendation.name}！
+          {t('點擊直接開始')}<br />{t('今天的{name}！', { name: t(recommendation.name) })}
         </p>
       </div>
       <img
@@ -291,9 +297,10 @@ function TodayPracticeBanner({ recommendation }: { recommendation: Recommendatio
 // ─── Workshop Section ─────────────────────────────────────────────────────────
 
 function WorkshopSection() {
+  const { t } = useLanguage()
   return (
     <section>
-      <SectionTitle zh="工作坊專屬練習" en="Workshop Exclusive Practice" />
+      <SectionTitle zh={t('工作坊專屬練習')} en="Workshop Exclusive Practice" />
       <div className="flex flex-col gap-3 rounded-[22px] bg-[#88B8CE]/55 p-4">
         {workshopModules.map((mod) => (
           <Link
@@ -303,7 +310,7 @@ function WorkshopSection() {
             className="flex items-center gap-3.5 rounded-2xl bg-cream px-4 py-3.5 shadow-[0_2px_5px_rgba(0,0,0,0.08)] transition active:scale-[0.98]"
           >
             <CloudIcon />
-            <span className="flex-1 text-[20px] font-bold tracking-[0.03em] text-foreground">{mod.name}</span>
+            <span className="flex-1 text-[20px] font-bold tracking-[0.03em] text-foreground">{t(mod.name)}</span>
             <ArrowCircle />
           </Link>
         ))}
@@ -323,6 +330,7 @@ const PERMA_CARDS = [
 ]
 
 function PermaCards() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-4">
       {PERMA_CARDS.map((c) => (
@@ -338,16 +346,16 @@ function PermaCards() {
           />
           <div className="absolute left-3.5 right-3.5 top-4 text-center">
             <div className="text-[23px] font-black leading-[1.1] text-foreground">{c.en}</div>
-            <div className="mt-1.5 text-[15px] font-bold text-[#6f5547]">·{c.zh}·</div>
+            <div className="mt-1.5 text-[15px] font-bold text-[#6f5547]">·{t(c.zh)}·</div>
           </div>
           <div className="absolute bottom-4 right-3.5 flex flex-col items-end gap-2">
-            {c.tags.map((t) => (
+            {c.tags.map((tag) => (
               <span
-                key={t.t}
+                key={tag.t}
                 className="flex items-center gap-1.5 rounded-full border-[1.5px] border-[#6f5547] bg-cream px-3 py-1 text-sm font-bold text-foreground"
               >
-                <i className="h-2 w-2 rounded-full" style={{ background: t.c }} />
-                {t.t}
+                <i className="h-2 w-2 rounded-full" style={{ background: tag.c }} />
+                {t(tag.t)}
               </span>
             ))}
           </div>
@@ -381,6 +389,7 @@ function WeekCalendar({
   selectedDay: Date
   onSelectDay: (d: Date) => void
 }) {
+  const { t } = useLanguage()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const days = getWeekDays()
@@ -404,7 +413,7 @@ function WeekCalendar({
                   : 'border border-[#e3dccd] bg-cream text-muted-foreground'
               }`}
             >
-              {isToday ? '今' : DAY_NAMES[i]}
+              {isToday ? t('今') : t(DAY_NAMES[i])}
             </div>
             <span className="text-[11px] text-[#a99a86]">{day.getDate()}</span>
           </button>
@@ -425,6 +434,7 @@ type ExerciseCardProps = {
 }
 
 function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream' }: ExerciseCardProps) {
+  const { t } = useLanguage()
   const linkProps = search ? { to, search } : { to }
   const isGold = tone === 'gold'
   return (
@@ -441,12 +451,12 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream' }: Ex
         className={`shrink-0 object-contain ${isGold ? 'h-[88px] w-[88px]' : 'h-[72px] w-[72px]'}`}
       />
       <span className="min-w-0 flex-1">
-        <b className={`text-[25px] font-black tracking-[0.03em] ${isGold ? 'text-[#5b3a12]' : 'text-foreground'}`}>{name}</b>
-        <span className={`mt-1 block text-[15px] font-light tracking-[0.03em] ${isGold ? 'text-[#8a6320]' : 'text-foreground'}`}>{meta}</span>
+        <b className={`text-[25px] font-black tracking-[0.03em] ${isGold ? 'text-[#5b3a12]' : 'text-foreground'}`}>{t(name)}</b>
+        <span className={`mt-1 block text-[15px] font-light tracking-[0.03em] ${isGold ? 'text-[#8a6320]' : 'text-foreground'}`}>{t(meta)}</span>
       </span>
       {badge && (
         <span className="absolute right-3.5 top-3 rounded-full bg-[#d7ebd9] px-2.5 py-1 text-[11px] font-extrabold text-[#3f6b46]">
-          {badge}
+          {t(badge)}
         </span>
       )}
     </Link>
@@ -463,6 +473,7 @@ const TABS: { key: TrainingTab; label: string }[] = [
 ]
 
 function TrainingCenter({ recommendation }: { recommendation: Recommendation }) {
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState<TrainingTab>('schedule')
   const [selectedDay, setSelectedDay] = useState<Date>(() => {
     const d = new Date()
@@ -472,7 +483,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
 
   return (
     <section className="pb-4">
-      <SectionTitle zh="健心訓練中心" en="PSY by PSY Training Center" />
+      <SectionTitle zh={t('健心訓練中心')} en="PSY by PSY Training Center" />
 
       <div className="scroll -mx-5 mb-3.5 flex gap-3.5 overflow-x-auto px-5 pb-1 no-scrollbar">
         {TABS.map((tab) => (
@@ -484,7 +495,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
               activeTab === tab.key ? 'bg-foreground text-cream' : 'bg-cream text-foreground'
             }`}
           >
-            {tab.label}
+            {t(tab.label)}
           </button>
         ))}
       </div>
@@ -530,11 +541,11 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
             <StarIcon />
           </span>
           <span className="min-w-0 flex-1">
-            <b className="text-[15px] font-black text-foreground">感恩日記</b>
+            <b className="text-[15px] font-black text-foreground">{t('感恩日記')}</b>
             <span className="mt-1.5 flex flex-wrap gap-1.5">
               {['P 情緒力', 'R 連結力', 'M 意義力'].map((tag) => (
                 <i key={tag} className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-extrabold not-italic text-[#5b6b4a]">
-                  {tag}
+                  {t(tag)}
                 </i>
               ))}
             </span>
@@ -562,6 +573,7 @@ function NewRow({
   to?: '/app/process-goal'
   dimmed?: boolean
 }) {
+  const { t } = useLanguage()
   const body: ReactNode = (
     <>
       <span
@@ -572,12 +584,12 @@ function NewRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <b className="text-base font-extrabold text-foreground">{name}</b>
+          <b className="text-base font-extrabold text-foreground">{t(name)}</b>
           {tag && (
             <i className="rounded-full bg-[#cfe2ee] px-2 py-0.5 text-[10px] font-extrabold not-italic text-[#2f5b78]">{tag}</i>
           )}
         </span>
-        <span className="mt-0.5 block text-xs text-[#a99a86]">{meta}</span>
+        <span className="mt-0.5 block text-xs text-[#a99a86]">{t(meta)}</span>
       </span>
     </>
   )

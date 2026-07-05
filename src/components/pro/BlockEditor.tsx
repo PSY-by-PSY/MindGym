@@ -1,5 +1,6 @@
 // 積木編輯器（專業夥伴端）：管理 blocks 陣列——新增（選題型）、刪除、上移/下移、
 // 編輯各欄位。即時預覽由呼叫端用 BlockRenderer 呈現。
+import { useLanguage } from '../../lib/i18n/context'
 import { newBlockId, type ProBlock, type ProBlockType } from '../../lib/proModules'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -53,9 +54,10 @@ function TextField({ label, value, onChange, placeholder }: {
 
 // options 陣列（choice / checklist 共用）
 function OptionsEditor({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
+  const { t } = useLanguage()
   return (
     <div>
-      <FieldLabel>選項</FieldLabel>
+      <FieldLabel>{t('選項')}</FieldLabel>
       <div className="flex flex-col gap-2">
         {options.map((opt, i) => (
           <div key={i} className="flex gap-2">
@@ -68,7 +70,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (op
               type="button"
               onClick={() => onChange(options.filter((_, idx) => idx !== i))}
               className="shrink-0 rounded-xl border border-border px-3 text-sm font-bold text-muted-foreground transition hover:bg-muted"
-              aria-label="刪除選項"
+              aria-label={t('刪除選項')}
             >
               ✕
             </button>
@@ -79,7 +81,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (op
           onClick={() => onChange([...options, ''])}
           className="self-start rounded-xl border border-dashed border-border px-3 py-1.5 text-xs font-bold text-muted-foreground transition hover:bg-muted"
         >
-          ＋ 新增選項
+          ＋ {t('新增選項')}
         </button>
       </div>
     </div>
@@ -89,11 +91,12 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (op
 // ── 各題型的欄位編輯 ──────────────────────────────────────────────────────
 
 function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Partial<ProBlock>) => void }) {
+  const { t } = useLanguage()
   switch (block.type) {
     case 'instruction':
       return (
         <label className="block">
-          <FieldLabel>引導文字</FieldLabel>
+          <FieldLabel>{t('引導文字')}</FieldLabel>
           <textarea
             value={block.text ?? ''}
             rows={2}
@@ -105,21 +108,21 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
     case 'choice':
       return (
         <div className="flex flex-col gap-3">
-          <TextField label="題目" value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
+          <TextField label={t('題目')} value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
           <OptionsEditor options={block.options ?? []} onChange={(opts) => onPatch({ options: opts })} />
           <label className="flex items-center gap-2 text-sm font-bold text-foreground">
             <input type="checkbox" checked={!!block.multi} onChange={(e) => onPatch({ multi: e.target.checked })} />
-            允許複選
+            {t('允許複選')}
           </label>
         </div>
       )
     case 'scale':
       return (
         <div className="flex flex-col gap-3">
-          <TextField label="題目" value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
+          <TextField label={t('題目')} value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
           <div className="flex gap-3">
             <label className="flex-1">
-              <FieldLabel>最小值</FieldLabel>
+              <FieldLabel>{t('最小值')}</FieldLabel>
               <input
                 type="number"
                 value={block.min ?? 1}
@@ -128,7 +131,7 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
               />
             </label>
             <label className="flex-1">
-              <FieldLabel>最大值</FieldLabel>
+              <FieldLabel>{t('最大值')}</FieldLabel>
               <input
                 type="number"
                 value={block.max ?? 5}
@@ -139,10 +142,10 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <TextField label="低分標籤" value={block.minLabel ?? ''} onChange={(v) => onPatch({ minLabel: v })} />
+              <TextField label={t('低分標籤')} value={block.minLabel ?? ''} onChange={(v) => onPatch({ minLabel: v })} />
             </div>
             <div className="flex-1">
-              <TextField label="高分標籤" value={block.maxLabel ?? ''} onChange={(v) => onPatch({ maxLabel: v })} />
+              <TextField label={t('高分標籤')} value={block.maxLabel ?? ''} onChange={(v) => onPatch({ maxLabel: v })} />
             </div>
           </div>
         </div>
@@ -150,7 +153,7 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
     case 'checklist':
       return (
         <div className="flex flex-col gap-3">
-          <TextField label="題目" value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
+          <TextField label={t('題目')} value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
           <OptionsEditor options={block.options ?? []} onChange={(opts) => onPatch({ options: opts })} />
         </div>
       )
@@ -158,11 +161,11 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
       // short_text / long_text
       return (
         <div className="flex flex-col gap-3">
-          <TextField label="題目" value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
-          <TextField label="提示文字（選填）" value={block.placeholder ?? ''} onChange={(v) => onPatch({ placeholder: v })} />
+          <TextField label={t('題目')} value={block.label ?? ''} onChange={(v) => onPatch({ label: v })} />
+          <TextField label={t('提示文字（選填）')} value={block.placeholder ?? ''} onChange={(v) => onPatch({ placeholder: v })} />
           <label className="flex items-center gap-2 text-sm font-bold text-foreground">
             <input type="checkbox" checked={!!block.required} onChange={(e) => onPatch({ required: e.target.checked })} />
-            必填
+            {t('必填')}
           </label>
         </div>
       )
@@ -170,6 +173,7 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
 }
 
 export function BlockEditor({ blocks, onChange }: { blocks: ProBlock[]; onChange: (blocks: ProBlock[]) => void }) {
+  const { t } = useLanguage()
   const patch = (i: number, p: Partial<ProBlock>) =>
     onChange(blocks.map((b, idx) => (idx === i ? { ...b, ...p } : b)))
   const remove = (i: number) => onChange(blocks.filter((_, idx) => idx !== i))
@@ -185,7 +189,7 @@ export function BlockEditor({ blocks, onChange }: { blocks: ProBlock[]; onChange
     <div className="flex flex-col gap-3">
       {blocks.length === 0 && (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-          還沒有任何題目。從下方新增第一個積木。
+          {t('還沒有任何題目。從下方新增第一個積木。')}
         </p>
       )}
 
@@ -193,16 +197,16 @@ export function BlockEditor({ blocks, onChange }: { blocks: ProBlock[]; onChange
         <div key={block.id} className="rounded-2xl border border-border bg-background p-4 shadow-soft">
           <div className="mb-3 flex items-center justify-between">
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">
-              {TYPE_LABELS[block.type] ?? block.type}
+              {t(TYPE_LABELS[block.type] ?? block.type)}
             </span>
             <div className="flex items-center gap-1">
-              <IconBtn label="上移" disabled={i === 0} onClick={() => move(i, -1)}>
+              <IconBtn label={t('上移')} disabled={i === 0} onClick={() => move(i, -1)}>
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15l6-6 6 6" /></svg>
               </IconBtn>
-              <IconBtn label="下移" disabled={i === blocks.length - 1} onClick={() => move(i, 1)}>
+              <IconBtn label={t('下移')} disabled={i === blocks.length - 1} onClick={() => move(i, 1)}>
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
               </IconBtn>
-              <IconBtn label="刪除" onClick={() => remove(i)}>
+              <IconBtn label={t('刪除')} onClick={() => remove(i)}>
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M7 7l1 13h8l1-13" /></svg>
               </IconBtn>
             </div>
@@ -212,16 +216,16 @@ export function BlockEditor({ blocks, onChange }: { blocks: ProBlock[]; onChange
       ))}
 
       <div className="rounded-2xl border border-dashed border-border p-3">
-        <p className="mb-2 text-xs font-bold text-muted-foreground">新增積木</p>
+        <p className="mb-2 text-xs font-bold text-muted-foreground">{t('新增積木')}</p>
         <div className="flex flex-wrap gap-2">
-          {ADDABLE_TYPES.map((t) => (
+          {ADDABLE_TYPES.map((type) => (
             <button
-              key={t}
+              key={type}
               type="button"
-              onClick={() => onChange([...blocks, makeBlock(t)])}
+              onClick={() => onChange([...blocks, makeBlock(type)])}
               className="rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted active:scale-[0.98]"
             >
-              ＋ {TYPE_LABELS[t]}
+              ＋ {t(TYPE_LABELS[type])}
             </button>
           ))}
         </div>

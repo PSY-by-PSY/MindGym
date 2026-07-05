@@ -5,6 +5,7 @@ import { streakFromDates } from '../lib/streak'
 import playingMascot from '../assets/ui/playing-mascot.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
+import { useLanguage } from '../lib/i18n/context'
 
 type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
 
@@ -248,6 +249,7 @@ function starPolygon(cx: number, cy: number, outer: number, inner: number): stri
 }
 
 function PermaRadar({ scores }: { scores: PermaScores }) {
+  const { t } = useLanguage()
   const cx = 160
   const cy = 150
   const maxR = 80
@@ -308,7 +310,7 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
               fontWeight="800"
               fill="#542916"
             >
-              {d.letter} {d.label}
+              {d.letter} {t(d.label)}
             </text>
             <rect x={lx - 16} y={by - 11} width="32" height="22" rx="7" fill="#FEFAF0" stroke="#542916" strokeWidth="1.5" />
             <text
@@ -330,11 +332,12 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
 }
 
 function Header() {
+  const { t } = useLanguage()
   return (
     <div className="px-5 pt-4 text-center">
-      <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">我的健心檔案</h1>
+      <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">{t('我的健心檔案')}</h1>
       <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">My PSY by PSY Profile</p>
-      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-foreground">本週進度，小改變促進大改變</p>
+      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-foreground">{t('本週進度，小改變促進大改變')}</p>
     </div>
   )
 }
@@ -407,6 +410,7 @@ function DonutChart({ segments }: { segments: { code: TargetCode; count: number;
 }
 
 function GratitudeTargetMap({ userId }: { userId: string | null }) {
+  const { t } = useLanguage()
   const [segments, setSegments] = useState<{ code: TargetCode; count: number; pct: number }[]>([])
   const [showInfoModal, setShowInfoModal] = useState(false)
 
@@ -449,7 +453,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
             <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
               Gratitude Map
             </p>
-            <h2 className="text-lg font-extrabold text-foreground">感恩對象地圖</h2>
+            <h2 className="text-lg font-extrabold text-foreground">{t('感恩對象地圖')}</h2>
           </div>
           <button
             onClick={() => setShowInfoModal(true)}
@@ -466,7 +470,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
           <div className="flex flex-1 flex-col gap-2.5">
             {segments.length === 0 ? (
               <p className="text-xs leading-relaxed text-muted-foreground">
-                完成更多感恩練習後，這裡會顯示你的感恩對象分佈。
+                {t('完成更多感恩練習後，這裡會顯示你的感恩對象分佈。')}
               </p>
             ) : (
               segments.map(({ code, pct }) => {
@@ -478,7 +482,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
                       style={{ background: TARGET_COLORS[code] }}
                     />
                     <span className="flex-1 text-sm font-bold text-foreground">
-                      {meta.label}
+                      {t(meta.label)}
                     </span>
                     <span className="text-sm font-extrabold text-foreground">
                       {Math.round(pct * 100)}%
@@ -492,7 +496,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
 
         {insight && (
           <p className="mt-3 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-            {insight}
+            {t(insight)}
           </p>
         )}
       </div>
@@ -507,7 +511,7 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-extrabold text-foreground">感恩對象的心理學意義</p>
+              <p className="text-sm font-extrabold text-foreground">{t('感恩對象的心理學意義')}</p>
               <button
                 onClick={() => setShowInfoModal(false)}
                 className="text-muted-foreground hover:text-foreground"
@@ -518,8 +522,8 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
             <div className="flex flex-col gap-4">
               {(Object.entries(TARGET_INFO) as [TargetCode, { title: string; desc: string }][]).map(([, info]) => (
                 <div key={info.title}>
-                  <p className="text-xs font-extrabold text-foreground">{info.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{info.desc}</p>
+                  <p className="text-xs font-extrabold text-foreground">{t(info.title)}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t(info.desc)}</p>
                 </div>
               ))}
             </div>
@@ -539,6 +543,7 @@ function GratitudeCalendar({
   initialEntries: GratitudeEntry[]
   userId: string | null
 }) {
+  const { t } = useLanguage()
   const todayDate = new Date()
   const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`
 
@@ -667,7 +672,7 @@ function GratitudeCalendar({
         <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
           Mental Training Log
         </p>
-        <h2 className="mb-4 text-lg font-extrabold text-foreground">我的健心日記</h2>
+        <h2 className="mb-4 text-lg font-extrabold text-foreground">{t('我的健心日記')}</h2>
 
         {/* 月份導覽 */}
         <div className="mb-4 flex items-center justify-between">
@@ -678,7 +683,7 @@ function GratitudeCalendar({
             ‹
           </button>
           <span className="font-extrabold text-foreground">
-            {year} 年 {MONTH_NAMES[month]}
+            {t('{year} 年 {month}', { year, month: t(MONTH_NAMES[month]) })}
           </span>
           <button
             onClick={nextMonth}
@@ -692,7 +697,7 @@ function GratitudeCalendar({
         <div className="mb-1 grid grid-cols-7 text-center">
           {WEEK_DAYS.map((d) => (
             <span key={d} className="py-1 text-[10px] font-bold text-muted-foreground">
-              {d}
+              {t(d)}
             </span>
           ))}
         </div>
@@ -736,7 +741,7 @@ function GratitudeCalendar({
             {selectedEntry || selectedPg.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <p className="mb-1 text-xs font-bold text-muted-foreground">
-                  {selectedDate} 的練習紀錄
+                  {t('{date} 的練習紀錄', { date: selectedDate })}
                 </p>
                 {selectedEntry && (
                   <button
@@ -746,8 +751,8 @@ function GratitudeCalendar({
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint">
                       <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
                     </span>
-                    <span className="flex-1 text-sm font-bold text-foreground">感恩日記</span>
-                    <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
+                    <span className="flex-1 text-sm font-bold text-foreground">{t('感恩日記')}</span>
+                    <span className="text-xs font-extrabold text-primary">✓ {t('已完成')}</span>
                   </button>
                 )}
                 {selectedPg.map((it, i) => (
@@ -760,15 +765,15 @@ function GratitudeCalendar({
                       <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">
-                      過程目標覺察 · {PG_KIND_META[it.kind].label}
+                      {t('過程目標覺察')} · {t(PG_KIND_META[it.kind].label)}
                     </span>
-                    <span className="text-xs font-extrabold text-primary">✓ 已完成</span>
+                    <span className="text-xs font-extrabold text-primary">✓ {t('已完成')}</span>
                   </button>
                 ))}
               </div>
             ) : (
               <p className="py-1 text-center text-sm text-muted-foreground">
-                這天還沒有紀錄
+                {t('這天還沒有紀錄')}
               </p>
             )}
           </div>
@@ -790,7 +795,7 @@ function GratitudeCalendar({
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
                   Gratitude journal
                 </p>
-                <h3 className="text-lg font-extrabold text-foreground">感恩日記</h3>
+                <h3 className="text-lg font-extrabold text-foreground">{t('感恩日記')}</h3>
                 <p className="text-xs text-muted-foreground">{modalEntry.entry_date}</p>
               </div>
               <button
@@ -813,7 +818,7 @@ function GratitudeCalendar({
             {modalEntry.ai_feedback && (
               <div className="mt-3 rounded-2xl bg-primary-soft p-4">
                 <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
-                  BOUBA 回饋
+                  BOUBA {t('回饋')}
                 </p>
                 <p className="text-sm leading-relaxed text-foreground">{modalEntry.ai_feedback}</p>
               </div>
@@ -838,7 +843,7 @@ function GratitudeCalendar({
                   Process Goal Awareness
                 </p>
                 <h3 className="text-lg font-extrabold text-foreground">
-                  過程目標覺察 · {PG_KIND_META[pgModal.kind].label}
+                  {t('過程目標覺察')} · {t(PG_KIND_META[pgModal.kind].label)}
                 </h3>
                 <p className="text-xs text-muted-foreground">{pgModal.log_date}</p>
               </div>
@@ -854,13 +859,13 @@ function GratitudeCalendar({
                 <>
                   {pgModal.today_task && (
                     <div className="rounded-2xl bg-tile-blue p-4">
-                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">今天要做的事</p>
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">{t('今天要做的事')}</p>
                       <p className="text-sm leading-relaxed text-foreground">{pgModal.today_task}</p>
                     </div>
                   )}
                   {pgModal.ai_suggestion && (
                     <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
-                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">啟動建議</p>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">{t('啟動建議')}</p>
                       <p className="text-sm leading-relaxed">{pgModal.ai_suggestion}</p>
                     </div>
                   )}
@@ -870,13 +875,13 @@ function GratitudeCalendar({
                 <>
                   {pgModal.focus_description && (
                     <div className="rounded-2xl bg-tile-blue p-4">
-                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">專注時刻</p>
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">{t('專注時刻')}</p>
                       <p className="text-sm leading-relaxed text-foreground">{pgModal.focus_description}</p>
                     </div>
                   )}
                   {pgModal.insight && (
                     <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
-                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">AI 洞察</p>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">{t('AI 洞察')}</p>
                       <p className="text-sm leading-relaxed">{pgModal.insight}</p>
                     </div>
                   )}
@@ -886,13 +891,13 @@ function GratitudeCalendar({
                 <>
                   {pgModal.difficult_task && (
                     <div className="rounded-2xl bg-muted p-4">
-                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">卡關的事</p>
+                      <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/60">{t('卡關的事')}</p>
                       <p className="text-sm leading-relaxed text-foreground">{pgModal.difficult_task}</p>
                     </div>
                   )}
                   {pgModal.ai_feedback && (
                     <div className="rounded-2xl p-4" style={{ backgroundColor: '#EEEDFE', color: '#26215C' }}>
-                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">專注錦囊</p>
+                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em]">{t('專注錦囊')}</p>
                       <p className="text-sm leading-relaxed">{pgModal.ai_feedback}</p>
                     </div>
                   )}
@@ -908,11 +913,14 @@ function GratitudeCalendar({
 
 // ── 主頁面 ────────────────────────────────────────────────────────────────
 
-function formatPracticeTime(totalMinutes: number): { value: string; unit: string } {
-  if (totalMinutes < 60) return { value: String(totalMinutes), unit: '分鐘' }
+function formatPracticeTime(
+  totalMinutes: number,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): { value: string; unit: string } {
+  if (totalMinutes < 60) return { value: String(totalMinutes), unit: t('分鐘') }
   const hours = totalMinutes / 60
   const text = Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
-  return { value: text, unit: '小時' }
+  return { value: text, unit: t('小時') }
 }
 
 
@@ -925,6 +933,7 @@ function AvatarPicker({
   onSelect: (code: AvatarCode) => void
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
@@ -935,7 +944,7 @@ function AvatarPicker({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <p className="text-sm font-extrabold text-foreground">選擇你的頭像</p>
+          <p className="text-sm font-extrabold text-foreground">{t('選擇你的頭像')}</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -953,10 +962,10 @@ function AvatarPicker({
               >
                 <img
                   src={opt.src}
-                  alt={opt.label}
+                  alt={t(opt.label)}
                   className="h-20 w-20 rounded-full object-cover shadow-soft"
                 />
-                <span className="text-xs font-bold text-foreground">{opt.label}</span>
+                <span className="text-xs font-bold text-foreground">{t(opt.label)}</span>
               </button>
             )
           })}
@@ -1061,6 +1070,7 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 }
 
 function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
+  const { t } = useLanguage()
   const hasScore = !!scores
   const xs = [36, 74, 112, 150, 188]
   return (
@@ -1086,7 +1096,7 @@ function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
               {d.letter}
             </text>
             <text x={xs[i]} y={253} textAnchor="middle" fontSize="12" fontWeight="800" fill="#542916">
-              {d.label}
+              {t(d.label)}
             </text>
           </g>
         ))}
@@ -1104,13 +1114,14 @@ function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
 function ProfilePage() {
   const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
   const router = useRouter()
+  const { t } = useLanguage()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
   const [showPicker, setShowPicker] = useState(false)
   const [nameValue, setNameValue] = useState<string>(name ?? '')
   const [editingName, setEditingName] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const totalMinutes = totalCount * 5
-  const practiceTime = formatPracticeTime(totalMinutes)
+  const practiceTime = formatPracticeTime(totalMinutes, t)
 
   const handleSaveName = async () => {
     const trimmed = nameValue.trim()
@@ -1163,11 +1174,11 @@ function ProfilePage() {
           <button
             onClick={() => setShowPicker(true)}
             className="relative shrink-0 transition active:scale-95"
-            aria-label="更換頭像"
+            aria-label={t('更換頭像')}
           >
             <img
               src={avatarSrc}
-              alt="使用者頭像"
+              alt={t('使用者頭像')}
               className="h-[72px] w-[72px] rounded-[20px] border-[3px] border-[#542916] object-cover"
             />
             <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#542916] bg-cream shadow">
@@ -1195,7 +1206,7 @@ function ProfilePage() {
                   disabled={savingName}
                   className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground transition active:scale-95 disabled:opacity-60"
                 >
-                  {savingName ? '…' : '儲存'}
+                  {savingName ? '…' : t('儲存')}
                 </button>
                 <button
                   onClick={() => { setNameValue(name ?? ''); setEditingName(false) }}
@@ -1206,11 +1217,11 @@ function ProfilePage() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <p className="text-lg font-extrabold text-foreground">{nameValue || '未設定名稱'}</p>
+                <p className="text-lg font-extrabold text-foreground">{nameValue || t('未設定名稱')}</p>
                 <button
                   onClick={() => setEditingName(true)}
                   className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
-                  aria-label="編輯名稱"
+                  aria-label={t('編輯名稱')}
                 >
                   <EditPencilIcon className="h-3 w-3" />
                 </button>
@@ -1223,24 +1234,24 @@ function ProfilePage() {
         <div className="grid grid-cols-3 gap-3">
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
             <span className="mb-1 text-primary"><FlameIcon /></span>
-            <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">天</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">連續打卡</span>
+            <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">{t('天')}</span></span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('連續打卡')}</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
             <span className="mb-1 text-primary"><CalendarIcon /></span>
-            <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">次</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">本月完成</span>
+            <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">{t('次')}</span></span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('本月完成')}</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
             <span className="mb-1 text-primary"><StopwatchIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{practiceTime.value}<span className="text-base font-bold">{practiceTime.unit}</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">總練習時間</span>
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('總練習時間')}</span>
           </div>
         </div>
 
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
-          <SectionLabel zh="我的健心夥伴" en="Mental Training Partner" />
+          <SectionLabel zh={t('我的健心夥伴')} en="Mental Training Partner" />
           <PartnerPlanter scores={scores} />
         </div>
 
@@ -1253,13 +1264,13 @@ function ProfilePage() {
             <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
               Mental Muscle Radar
             </p>
-            <h2 className="mb-0.5 text-lg font-extrabold text-foreground">心理肌肉雷達圖</h2>
-            <p className="mb-1 text-sm text-muted-foreground">看看哪一塊還可以再練</p>
+            <h2 className="mb-0.5 text-lg font-extrabold text-foreground">{t('心理肌肉雷達圖')}</h2>
+            <p className="mb-1 text-sm text-muted-foreground">{t('看看哪一塊還可以再練')}</p>
             <PermaRadar scores={scores} />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-12 text-muted-foreground shadow-soft">
-            <p className="text-sm font-medium">尚未完成 PERMA 評估</p>
+            <p className="text-sm font-medium">{t('尚未完成 PERMA 評估')}</p>
           </div>
         )}
 
@@ -1271,7 +1282,7 @@ function ProfilePage() {
               search={{ showResult: true }}
               className="flex flex-1 items-center justify-center rounded-2xl bg-primary-soft px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-primary transition active:scale-[0.98]"
             >
-              觀看最近一次<br />測驗結果
+              {t('觀看最近一次')}<br />{t('測驗結果')}
             </Link>
           )}
           <Link
@@ -1279,7 +1290,7 @@ function ProfilePage() {
             search={{ reassess: true }}
             className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98]"
           >
-            重新評估
+            {t('重新評估')}
           </Link>
         </div>
 

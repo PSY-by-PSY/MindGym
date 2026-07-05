@@ -12,6 +12,10 @@ import { isoLocalDate } from '../lib/date'
 import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
 import { DEFAULT_PRIVACY } from '../lib/privacy'
+import { useLanguage } from '../lib/i18n/context'
+import type { Language } from '../lib/i18n/language'
+
+type TFn = (text: string, vars?: Record<string, string | number>) => string
 
 export const Route = createFileRoute('/app/workshop/last-day')({
   component: LastDayModule,
@@ -35,6 +39,7 @@ interface Farewell {
 }
 
 function LastDayFlow() {
+  const { t, language } = useLanguage()
   const navigate = useNavigate()
   const router = useRouter()
   const [step, setStep] = useState(1)
@@ -75,9 +80,9 @@ function LastDayFlow() {
   const setFarewellAt = (k: keyof Farewell, v: string) =>
     setFarewell((prev) => ({ ...prev, [k]: v }))
 
-  const today = formatDate(new Date())
-  const farewellText = assembleFarewell(farewell)
-  const downloadLabel = isMobileDevice() ? '分享圖片' : '儲存圖片'
+  const today = formatDate(new Date(), language)
+  const farewellText = assembleFarewell(t, farewell)
+  const downloadLabel = isMobileDevice() ? t('分享圖片') : t('儲存圖片')
 
   const handleDownload = async (
     ref: React.RefObject<HTMLDivElement>,
@@ -105,7 +110,7 @@ function LastDayFlow() {
         userId,
         'workshop_last_day',
         {
-          item_1: farewellText || '我希望被記得的樣子',
+          item_1: farewellText || t('我希望被記得的樣子'),
           item_2: act,
           item_3: '',
           ai_feedback: null,
@@ -134,42 +139,42 @@ function LastDayFlow() {
     } catch (e) {
       console.error('[last-day publish]', e)
       setPublishing(false)
-      alert('發佈失敗，請稍後再試一次。')
+      alert(t('發佈失敗，請稍後再試一次。'))
     }
   }
 
   // ── 步驟 1：活動說明（純文字，無書寫框架） ─────────────────────────
   if (step === 1) {
     return (
-      <WorkshopLayout step={1} total={TOTAL_STEPS} title="生命中的最後一天" onNext={next}>
+      <WorkshopLayout step={1} total={TOTAL_STEPS} title={t('生命中的最後一天')} onNext={next}>
         <div className="rounded-3xl bg-card p-5 shadow-soft text-sm leading-relaxed text-foreground/85">
           <p className="text-base font-bold text-foreground">
-            如果人生只剩下一天，你想要怎麼活、想做哪些事情、想見哪些人？
+            {t('如果人生只剩下一天，你想要怎麼活、想做哪些事情、想見哪些人？')}
           </p>
 
           <div className="mt-4">
-            <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">活動流程</p>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{t('活動流程')}</p>
             <ol className="mt-2 flex flex-col gap-1.5">
-              <li>1. 冥想引導：5 min</li>
-              <li>2. 自由書寫：5 min</li>
+              <li>{t('1. 冥想引導：5 min')}</li>
+              <li>{t('2. 自由書寫：5 min')}</li>
             </ol>
           </div>
         </div>
 
         <div className="mt-4 rounded-3xl bg-gradient-soft p-5 shadow-soft text-sm leading-relaxed text-foreground/85">
-          <p className="text-xs font-extrabold text-primary">我的意識流：自由書寫原則</p>
+          <p className="text-xs font-extrabold text-primary">{t('我的意識流：自由書寫原則')}</p>
           <ul className="mt-2 flex flex-col gap-2">
             <li>
-              <span className="font-bold text-foreground">不間斷書寫：</span>
-              不停筆，寫下腦中浮現的思緒、感受，即使沒有靈感，也持續書寫。
+              <span className="font-bold text-foreground">{t('不間斷書寫：')}</span>
+              {t('不停筆，寫下腦中浮現的思緒、感受，即使沒有靈感，也持續書寫。')}
             </li>
             <li>
-              <span className="font-bold text-foreground">不回頭修改：</span>
-              不檢查、不刪除、不修正，不管語法、標點、句子通順與否。
+              <span className="font-bold text-foreground">{t('不回頭修改：')}</span>
+              {t('不檢查、不刪除、不修正，不管語法、標點、句子通順與否。')}
             </li>
             <li>
-              <span className="font-bold text-foreground">不糾結詞語：</span>
-              若真的卡住，想不到詞語時，可以用符號代替，或重複寫「我不知道該寫什麼」。
+              <span className="font-bold text-foreground">{t('不糾結詞語：')}</span>
+              {t('若真的卡住，想不到詞語時，可以用符號代替，或重複寫「我不知道該寫什麼」。')}
             </li>
           </ul>
         </div>
@@ -180,16 +185,16 @@ function LastDayFlow() {
   // ── 步驟 2：冥想引導（純文字） ─────────────────────────────────────
   if (step === 2) {
     return (
-      <WorkshopLayout step={2} total={TOTAL_STEPS} title="冥想引導" minutes={5} onBack={back} onNext={next}>
+      <WorkshopLayout step={2} total={TOTAL_STEPS} title={t('冥想引導')} minutes={5} onBack={back} onNext={next}>
         <div className="mt-2 flex flex-col items-center rounded-3xl bg-gradient-soft p-8 text-center shadow-soft">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-card text-primary shadow-soft">
             <MeditationIcon />
           </div>
           <p className="mt-6 text-base font-bold leading-relaxed text-foreground">
-            冥想引導 5min
+            {t('冥想引導 5min')}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-foreground/80">
-            請你找到一個自在、舒適的坐姿，跟隨引導，慢慢把心穩定下來。
+            {t('請你找到一個自在、舒適的坐姿，跟隨引導，慢慢把心穩定下來。')}
           </p>
         </div>
       </WorkshopLayout>
@@ -199,17 +204,17 @@ function LastDayFlow() {
   // ── 步驟 3：問題整合 + 大型書寫框（意識流自由書寫） ─────────────────
   if (step === 3) {
     return (
-      <WorkshopLayout step={3} total={TOTAL_STEPS} title="自由書寫" minutes={5} onBack={back} onNext={next}>
+      <WorkshopLayout step={3} total={TOTAL_STEPS} title={t('自由書寫')} minutes={5} onBack={back} onNext={next}>
         <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/85">
-          <p>跟著心裡浮現的念頭，不間斷地寫下來。你可以用打字，也可以用語音輸入。</p>
+          <p>{t('跟著心裡浮現的念頭，不間斷地寫下來。你可以用打字，也可以用語音輸入。')}</p>
           <ul className="mt-3 flex flex-col gap-2 font-bold text-foreground">
             <li className="flex gap-2">
               <span className="text-primary">・</span>
-              哪些是我放在心上，對我而言很重要的事情，卻沒有機會、沒有勇氣去完成的？
+              {t('哪些是我放在心上，對我而言很重要的事情，卻沒有機會、沒有勇氣去完成的？')}
             </li>
             <li className="flex gap-2">
               <span className="text-primary">・</span>
-              哪些是我牽掛的人？我想把時間花在誰身上？我還想跟誰說什麼話？
+              {t('哪些是我牽掛的人？我想把時間花在誰身上？我還想跟誰說什麼話？')}
             </li>
           </ul>
         </div>
@@ -218,7 +223,7 @@ function LastDayFlow() {
           <WorkshopTextarea
             value={stream}
             onChange={setStream}
-            placeholder="不停筆，寫下腦中浮現的思緒、感受……"
+            placeholder={t('不停筆，寫下腦中浮現的思緒、感受……')}
             rows={12}
             voice
           />
@@ -235,24 +240,24 @@ function LastDayFlow() {
           <StreamShareCard stream={stream} date={today} />
         </div>
 
-        <WorkshopLayout step={4} total={TOTAL_STEPS} title="把今天的意識流留下來" onBack={back} onNext={next}>
+        <WorkshopLayout step={4} total={TOTAL_STEPS} title={t('把今天的意識流留下來')} onBack={back} onNext={next}>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            這是你剛剛不間斷寫下的內容，你可以把它儲存下來，留作紀念。
+            {t('這是你剛剛不間斷寫下的內容，你可以把它儲存下來，留作紀念。')}
           </p>
 
           <div className="mt-5 rounded-3xl bg-card p-5 shadow-soft">
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
-              {stream.trim() || '（沒有留下文字）'}
+              {stream.trim() || t('（沒有留下文字）')}
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => handleDownload(streamCardRef, `last-day-stream-${isoLocalDate(new Date())}.png`, '生命最後一天 · 自由書寫')}
+            onClick={() => handleDownload(streamCardRef, `last-day-stream-${isoLocalDate(new Date())}.png`, t('生命最後一天 · 自由書寫'))}
             disabled={sharing}
             className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {sharing ? '正在生成圖片…' : downloadLabel}
+            {sharing ? t('正在生成圖片…') : downloadLabel}
           </button>
         </WorkshopLayout>
       </>
@@ -262,16 +267,16 @@ function LastDayFlow() {
   // ── 步驟 5：概念引導（純文字說明，無書寫框架） ─────────────────────
   if (step === 5) {
     return (
-      <WorkshopLayout step={5} total={TOTAL_STEPS} title="當我離開以後" onBack={back} onNext={next}>
+      <WorkshopLayout step={5} total={TOTAL_STEPS} title={t('當我離開以後')} onBack={back} onNext={next}>
         <div className="mt-2 flex flex-col items-center rounded-3xl bg-gradient-soft p-8 text-center shadow-soft">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-card text-primary shadow-soft">
             <DoveIcon />
           </div>
           <p className="mt-6 text-base font-bold leading-relaxed text-foreground">
-            當我離開以後
+            {t('當我離開以後')}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-foreground/80">
-            我希望對世界產生什麼樣的影響力？我希望大家如何記得我？
+            {t('我希望對世界產生什麼樣的影響力？我希望大家如何記得我？')}
           </p>
         </div>
       </WorkshopLayout>
@@ -281,13 +286,13 @@ function LastDayFlow() {
   // ── 步驟 6：自我告別敘事（書寫框架，多行；移除「」引號） ────────────
   if (step === 6) {
     return (
-      <WorkshopLayout step={6} total={TOTAL_STEPS} title="當我離開以後" onBack={back} onNext={next}>
+      <WorkshopLayout step={6} total={TOTAL_STEPS} title={t('當我離開以後')} onBack={back} onNext={next}>
         <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/85">
           <p className="font-bold text-foreground">
-            我希望對世界產生什麼樣的影響力？我希望大家如何記得我？
+            {t('我希望對世界產生什麼樣的影響力？我希望大家如何記得我？')}
           </p>
           <p className="mt-2">
-            想像在你離開這個世界以後，身邊重要的人會怎麼描述你。
+            {t('想像在你離開這個世界以後，身邊重要的人會怎麼描述你。')}
           </p>
         </div>
 
@@ -295,30 +300,30 @@ function LastDayFlow() {
 
         <div className="mt-5 flex flex-col gap-4">
           <FarewellField
-            prefix="我是"
-            suffix="，在我離開這個世界以後…"
-            placeholder="名字"
+            prefix={t('我是')}
+            suffix={t('，在我離開這個世界以後…')}
+            placeholder={t('名字')}
             value={farewell.name}
             onChange={(v) => setFarewellAt('name', v)}
           />
           <FarewellField
-            prefix="我的朋友，會形容我是一個"
-            suffix="的人。"
-            placeholder="例如：溫暖、值得信賴"
+            prefix={t('我的朋友，會形容我是一個')}
+            suffix={t('的人。')}
+            placeholder={t('例如：溫暖、值得信賴')}
             value={farewell.friend}
             onChange={(v) => setFarewellAt('friend', v)}
           />
           <FarewellField
-            prefix="我的伴侶／家人／孩子，會形容我是一個"
-            suffix="的人。"
-            placeholder="例如：認真生活、願意陪伴"
+            prefix={t('我的伴侶／家人／孩子，會形容我是一個')}
+            suffix={t('的人。')}
+            placeholder={t('例如：認真生活、願意陪伴')}
             value={farewell.family}
             onChange={(v) => setFarewellAt('family', v)}
           />
           <FarewellField
-            prefix="最後，我希望這個社會／國家／世界／宇宙，記得我是一個"
-            suffix="的人。"
-            placeholder="例如：努力讓世界更溫柔"
+            prefix={t('最後，我希望這個社會／國家／世界／宇宙，記得我是一個')}
+            suffix={t('的人。')}
+            placeholder={t('例如：努力讓世界更溫柔')}
             value={farewell.world}
             onChange={(v) => setFarewellAt('world', v)}
           />
@@ -335,9 +340,9 @@ function LastDayFlow() {
           <FarewellShareCard farewell={farewellText} date={today} />
         </div>
 
-        <WorkshopLayout step={7} total={TOTAL_STEPS} title="我希望被記得的樣子" onBack={back} onNext={next}>
+        <WorkshopLayout step={7} total={TOTAL_STEPS} title={t('我希望被記得的樣子')} onBack={back} onNext={next}>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            這是你寫下、希望被記得的樣子，你可以把它儲存下來，留作紀念。
+            {t('這是你寫下、希望被記得的樣子，你可以把它儲存下來，留作紀念。')}
           </p>
 
           <div className="mt-5 rounded-3xl bg-gradient-soft p-6 shadow-soft">
@@ -349,11 +354,11 @@ function LastDayFlow() {
 
           <button
             type="button"
-            onClick={() => handleDownload(farewellCardRef, `last-day-farewell-${isoLocalDate(new Date())}.png`, '當我離開以後')}
+            onClick={() => handleDownload(farewellCardRef, `last-day-farewell-${isoLocalDate(new Date())}.png`, t('當我離開以後'))}
             disabled={sharing}
             className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {sharing ? '正在生成圖片…' : downloadLabel}
+            {sharing ? t('正在生成圖片…') : downloadLabel}
           </button>
         </WorkshopLayout>
       </>
@@ -366,21 +371,21 @@ function LastDayFlow() {
       <WorkshopLayout
         step={8}
         total={TOTAL_STEPS}
-        title="未來一個月，我想要…"
+        title={t('未來一個月，我想要…')}
         onBack={back}
         onNext={next}
-        nextLabel="完成"
+        nextLabel={t('完成')}
         nextVariant="done"
       >
         <div className="rounded-3xl bg-card p-4 shadow-soft text-sm leading-relaxed text-foreground/85">
-          回到現在這一刻。寫下接下來一個月，你想要做的事 —— 可以很小，例如一通電話、一次拜訪，或一句一直想說卻還沒說出口的話。
+          {t('回到現在這一刻。寫下接下來一個月，你想要做的事 —— 可以很小，例如一通電話、一次拜訪，或一句一直想說卻還沒說出口的話。')}
         </div>
 
         <div className="mt-4">
           <WorkshopTextarea
             value={action}
             onChange={setAction}
-            placeholder="接下來一個月，我想要……"
+            placeholder={t('接下來一個月，我想要……')}
             rows={8}
             voice
           />
@@ -397,35 +402,35 @@ function LastDayFlow() {
         <SummaryShareCard farewell={farewellText} action={action} date={today} />
       </div>
 
-      <WorkshopLayout step={9} total={TOTAL_STEPS} title="今天的整理">
+      <WorkshopLayout step={9} total={TOTAL_STEPS} title={t('今天的整理')}>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          把你希望被記得的樣子，與接下來一個月想踏出的一步放在一起：
+          {t('把你希望被記得的樣子，與接下來一個月想踏出的一步放在一起：')}
         </p>
 
         {/* 我是怎樣的人：四句自我告別敘事（規格 [5]，使用者填入以藍色標記） */}
         <div className="mt-4 rounded-3xl bg-card p-4 shadow-soft">
-          <p className="text-xs font-bold text-muted-foreground">我是怎樣的人</p>
+          <p className="text-xs font-bold text-muted-foreground">{t('我是怎樣的人')}</p>
           <FarewellNarrative
             farewell={farewell}
             className="mt-1.5 text-sm leading-relaxed text-foreground/85"
           />
         </div>
-        <SummaryCard label="接下來一個月，我想要" content={action} highlight />
+        <SummaryCard label={t('接下來一個月，我想要')} content={action} highlight />
 
         <button
           type="button"
-          onClick={() => handleDownload(summaryCardRef, `last-day-summary-${isoLocalDate(new Date())}.png`, '生命最後一天 · 今天的整理')}
+          onClick={() => handleDownload(summaryCardRef, `last-day-summary-${isoLocalDate(new Date())}.png`, t('生命最後一天 · 今天的整理'))}
           disabled={sharing}
           className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.15em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >
-          {sharing ? '正在生成圖片…' : downloadLabel}
+          {sharing ? t('正在生成圖片…') : downloadLabel}
         </button>
 
         {/* 發佈到工作坊貼文（規格 [1]：工作坊一定直接分享到工作坊貼文，不再選擇隱私） */}
         <div className="mt-6 rounded-3xl bg-card p-5 shadow-soft">
-          <p className="text-sm font-extrabold text-foreground">把你的整理分享到工作坊</p>
+          <p className="text-sm font-extrabold text-foreground">{t('把你的整理分享到工作坊')}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            分享你希望被記得的樣子，與接下來一個月想做的事，和工作坊夥伴彼此鼓勵。
+            {t('分享你希望被記得的樣子，與接下來一個月想做的事，和工作坊夥伴彼此鼓勵。')}
           </p>
           <button
             type="button"
@@ -433,10 +438,10 @@ function LastDayFlow() {
             disabled={publishing || published || !userId}
             className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {publishing ? '發佈中…' : published ? '已發佈' : '發佈到工作坊貼文'}
+            {publishing ? t('發佈中…') : published ? t('已發佈') : t('發佈到工作坊貼文')}
           </button>
           {!userId && (
-            <p className="mt-2 text-center text-xs text-muted-foreground">尚未登入，無法發佈到工作坊貼文。</p>
+            <p className="mt-2 text-center text-xs text-muted-foreground">{t('尚未登入，無法發佈到工作坊貼文。')}</p>
           )}
         </div>
 
@@ -473,19 +478,32 @@ function DoveIcon() {
 }
 
 // 四句自我告別敘事：固定句型 + 使用者填入（藍色）。空白以底線佔位。
+// 每句以 {v} 佔位字組成模板，t() 依語言回傳不同語序的句子，
+// 再用 split 把模板切成前後兩段，於佔位字位置插入 JSX（藍字或未填佔位符）。
 function FarewellNarrative({ farewell, className }: { farewell: Farewell; className?: string }) {
+  const { t } = useLanguage()
   const blank = (v: string) =>
     v.trim() ? (
       <FilledText>{v.trim()}</FilledText>
     ) : (
       <span className="text-muted-foreground/50">＿＿＿＿</span>
     )
+  const line = (template: string, v: string) => {
+    const [before, after] = t(template).split('{v}')
+    return (
+      <>
+        {before}
+        {blank(v)}
+        {after}
+      </>
+    )
+  }
   return (
     <p className={`whitespace-pre-wrap leading-relaxed ${className ?? ''}`}>
-      我是{blank(farewell.name)}，在我離開這個世界以後…{'\n'}
-      我的朋友，會形容我是一個{blank(farewell.friend)}的人。{'\n'}
-      我的伴侶／家人／孩子，會形容我是一個{blank(farewell.family)}的人。{'\n'}
-      最後，我希望在我離開之後，這個社會／國家／世界／宇宙，記得我是一個{blank(farewell.world)}的人。
+      {line('我是{v}，在我離開這個世界以後…', farewell.name)}{'\n'}
+      {line('我的朋友，會形容我是一個{v}的人。', farewell.friend)}{'\n'}
+      {line('我的伴侶／家人／孩子，會形容我是一個{v}的人。', farewell.family)}{'\n'}
+      {line('最後，我希望在我離開之後，這個社會／國家／世界／宇宙，記得我是一個{v}的人。', farewell.world)}
     </p>
   )
 }
@@ -522,9 +540,10 @@ function FarewellField({
 }
 
 function FarewellPreview({ farewell }: { farewell: Farewell }) {
+  const { t } = useLanguage()
   return (
     <div className="mt-4 rounded-3xl bg-gradient-soft p-5 shadow-soft">
-      <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wider text-primary">即時預覽</p>
+      <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wider text-primary">{t('即時預覽')}</p>
       <FarewellNarrative farewell={farewell} className="text-base font-bold text-foreground" />
     </div>
   )
@@ -539,36 +558,43 @@ function SummaryCard({
   content: string
   highlight?: boolean
 }) {
+  const { t } = useLanguage()
   return (
     <div className={`mt-4 rounded-3xl p-4 shadow-soft ${highlight ? 'bg-gradient-soft' : 'bg-card'}`}>
       <p className="text-xs font-bold text-muted-foreground">{label}</p>
       <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
-        {content.trim() || '（沒有留下文字）'}
+        {content.trim() || t('（沒有留下文字）')}
       </p>
     </div>
   )
 }
 
 // 組裝自我告別敘事文本（移除中文「」引號；空白以底線佔位）。
-function assembleFarewell(f: Farewell): string {
+function assembleFarewell(t: TFn, f: Farewell): string {
   const name = f.name.trim() || '＿＿＿＿'
   const friend = f.friend.trim() || '＿＿＿＿'
   const family = f.family.trim() || '＿＿＿＿'
   const world = f.world.trim() || '＿＿＿＿'
   return (
-    `我是${name}，在我離開這個世界以後…\n` +
-    `我的朋友，會形容我是一個${friend}的人。\n` +
-    `我的伴侶／家人／孩子，會形容我是一個${family}的人。\n` +
-    `最後，我希望在我離開之後，這個社會／國家／世界／宇宙，記得我是一個${world}的人。`
+    t('我是{v}，在我離開這個世界以後…', { v: name }) + '\n' +
+    t('我的朋友，會形容我是一個{v}的人。', { v: friend }) + '\n' +
+    t('我的伴侶／家人／孩子，會形容我是一個{v}的人。', { v: family }) + '\n' +
+    t('最後，我希望在我離開之後，這個社會／國家／世界／宇宙，記得我是一個{v}的人。', { v: world })
   )
 }
 
-function formatDate(date: Date): string {
-  const days = ['日', '一', '二', '三', '四', '五', '六']
+// 日期格式依語言呈現不同的星期寫法（純資料轉換，非畫面文字查表，故直接依語言分支）。
+function formatDate(date: Date, language: Language): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
-  return `${y} / ${m} / ${d}（星期${days[date.getDay()]}）`
+  const base = `${y} / ${m} / ${d}`
+  if (language === 'en') {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    return `${base} (${days[date.getDay()]})`
+  }
+  const days = ['日', '一', '二', '三', '四', '五', '六']
+  return `${base}（星期${days[date.getDay()]}）`
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -602,11 +628,12 @@ function CardLogo() {
 }
 
 function StreamShareCard({ stream, date }: { stream: string; date: string }) {
+  const { t } = useLanguage()
   return (
     <div style={CARD_BASE}>
       <div>
         <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.5 }}>PSY BY PSY · LAST DAY</div>
-        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>生命中的最後一天</div>
+        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>{t('生命中的最後一天')}</div>
         <div style={{ fontSize: 22, opacity: 0.6, marginTop: 10 }}>{date}</div>
       </div>
       <div
@@ -626,11 +653,12 @@ function StreamShareCard({ stream, date }: { stream: string; date: string }) {
 }
 
 function FarewellShareCard({ farewell, date }: { farewell: string; date: string }) {
+  const { t } = useLanguage()
   return (
     <div style={CARD_BASE}>
       <div>
         <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.5 }}>PSY BY PSY · LAST DAY</div>
-        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>當我離開以後</div>
+        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>{t('當我離開以後')}</div>
         <div style={{ fontSize: 22, opacity: 0.6, marginTop: 10 }}>{date}</div>
       </div>
       <div
@@ -652,11 +680,12 @@ function FarewellShareCard({ farewell, date }: { farewell: string; date: string 
 
 // 步驟 9「今天的整理」字卡：四句自我告別敘事 + 接下來一個月想要。
 function SummaryShareCard({ farewell, action, date }: { farewell: string; action: string; date: string }) {
+  const { t } = useLanguage()
   return (
     <div style={CARD_BASE}>
       <div>
         <div style={{ fontSize: 16, letterSpacing: 8, fontWeight: 800, opacity: 0.5 }}>PSY BY PSY · LAST DAY</div>
-        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>今天的整理</div>
+        <div style={{ fontSize: 50, fontWeight: 800, marginTop: 18, lineHeight: 1.2 }}>{t('今天的整理')}</div>
         <div style={{ fontSize: 22, opacity: 0.6, marginTop: 10 }}>{date}</div>
       </div>
       <div
@@ -671,11 +700,11 @@ function SummaryShareCard({ farewell, action, date }: { farewell: string; action
         }}
       >
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, opacity: 0.55, marginBottom: 14 }}>我是怎樣的人</div>
+          <div style={{ fontSize: 24, fontWeight: 800, opacity: 0.55, marginBottom: 14 }}>{t('我是怎樣的人')}</div>
           <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{farewell}</div>
         </div>
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, opacity: 0.55, marginBottom: 14 }}>接下來一個月，我想要</div>
+          <div style={{ fontSize: 24, fontWeight: 800, opacity: 0.55, marginBottom: 14 }}>{t('接下來一個月，我想要')}</div>
           <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{action.trim() || '—'}</div>
         </div>
       </div>

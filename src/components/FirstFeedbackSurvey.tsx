@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../lib/i18n/context'
 
 // ─────────────────────────────────────────────────────────────────────────
 // 首次完成練習後的三題回饋問卷
@@ -14,25 +15,29 @@ import { supabase } from '../lib/supabase'
 
 type FieldKey = 'impression' | 'moment' | 'friend'
 
-const QUESTIONS: { key: FieldKey; title: string; placeholder: string }[] = [
-  {
-    key: 'impression',
-    title: '哪個環節讓你印象最深？',
-    placeholder: '寫下最有感覺的那個部分…',
-  },
-  {
-    key: 'moment',
-    title: '如果這變成 App，你希望它出現在你生活的什麼時刻？',
-    placeholder: '例如：睡前、通勤、心情低落的時候…',
-  },
-  {
-    key: 'friend',
-    title: '你會想帶哪個朋友來？為什麼？',
-    placeholder: '想到的那個人，還有你想到的原因…',
-  },
-]
+function buildQuestions(t: (text: string, vars?: Record<string, string | number>) => string): { key: FieldKey; title: string; placeholder: string }[] {
+  return [
+    {
+      key: 'impression',
+      title: t('哪個環節讓你印象最深？'),
+      placeholder: t('寫下最有感覺的那個部分…'),
+    },
+    {
+      key: 'moment',
+      title: t('如果這變成 App，你希望它出現在你生活的什麼時刻？'),
+      placeholder: t('例如：睡前、通勤、心情低落的時候…'),
+    },
+    {
+      key: 'friend',
+      title: t('你會想帶哪個朋友來？為什麼？'),
+      placeholder: t('想到的那個人，還有你想到的原因…'),
+    },
+  ]
+}
 
 export function FirstFeedbackSurvey({ onDone }: { onDone: () => void }) {
+  const { t } = useLanguage()
+  const QUESTIONS = buildQuestions(t)
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<FieldKey, string>>({
     impression: '',
@@ -97,7 +102,7 @@ export function FirstFeedbackSurvey({ onDone }: { onDone: () => void }) {
         {/* 進度點 */}
         <div className="mb-5 flex items-center justify-between">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-            想聽聽你的想法 · {index + 1}/{QUESTIONS.length}
+            {t('想聽聽你的想法')} · {index + 1}/{QUESTIONS.length}
           </p>
           <div className="flex gap-1.5">
             {QUESTIONS.map((_, i) => (
@@ -130,7 +135,7 @@ export function FirstFeedbackSurvey({ onDone }: { onDone: () => void }) {
           disabled={saving}
           className="mt-4 h-12 w-full rounded-full bg-primary text-sm font-extrabold tracking-[0.15em] text-white transition active:scale-[0.98] disabled:opacity-50"
         >
-          {saving ? '儲存中…' : isLast ? '完成' : '下一步'}
+          {saving ? t('儲存中…') : isLast ? t('完成') : t('下一步')}
         </button>
       </div>
     </div>

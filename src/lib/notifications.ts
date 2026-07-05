@@ -18,7 +18,10 @@ function snippetOf(text: string | null | undefined, n = 18): string {
   return t.length > n ? `${t.slice(0, n)}…` : t
 }
 
-export async function fetchNotifications(userId: string): Promise<NotificationItem[]> {
+export async function fetchNotifications(
+  userId: string,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): Promise<NotificationItem[]> {
   const { data: myEntries } = await supabase
     .from('gratitude_entries')
     .select('id, item_1')
@@ -54,7 +57,7 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
       type: 'like',
       entryId: l.entry_id as string,
       createdAt: l.created_at as string,
-      title: '有人為你的感恩貼文按讚',
+      title: t('有人為你的感恩貼文按讚'),
       snippet: snippetById[l.entry_id as string] ?? '',
     })
   }
@@ -66,7 +69,7 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
       type: 'comment',
       entryId: c.entry_id as string,
       createdAt: c.created_at as string,
-      title: `${c.anon_name ?? '有人'} 留言：${snippetOf(c.content as string, 20)}`,
+      title: t('{name} 留言：{snippet}', { name: c.anon_name ?? t('有人'), snippet: snippetOf(c.content as string, 20) }),
       snippet: snippetById[c.entry_id as string] ?? '',
     })
   }

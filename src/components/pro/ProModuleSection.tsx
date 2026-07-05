@@ -13,9 +13,11 @@ import {
   type ProModulePreview,
 } from '../../lib/proModules'
 import { ConsentModal } from './ConsentModal'
+import { useLanguage } from '../../lib/i18n/context'
 
 export function ProModuleSection() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [modules, setModules] = useState<ProModuleInfo[] | null>(null)
   const [code, setCode] = useState('')
   const [checking, setChecking] = useState(false)
@@ -41,7 +43,7 @@ export function ProModuleSection() {
     const p = await previewInviteCode(trimmed)
     setChecking(false)
     if (!p) {
-      setCodeError('邀請碼無效，請確認後再試一次。')
+      setCodeError(t('邀請碼無效，請確認後再試一次。'))
       return
     }
     setPreview(p)
@@ -53,7 +55,7 @@ export function ProModuleSection() {
     const result = await redeemInviteCode(code, sharePerma)
     setRedeeming(false)
     if (!result) {
-      setCodeError('解鎖失敗，請稍後再試。')
+      setCodeError(t('解鎖失敗，請稍後再試。'))
       setPreview(null)
       return
     }
@@ -66,16 +68,16 @@ export function ProModuleSection() {
   return (
     <section>
       <div className="mb-3.5 mt-7">
-        <h2 className="text-[23px] font-black tracking-[0.03em] text-foreground">專業模組區</h2>
+        <h2 className="text-[23px] font-black tracking-[0.03em] text-foreground">{t('專業模組區')}</h2>
         <p className="font-en text-sm font-medium tracking-[0.02em] text-muted-foreground">Professional Modules</p>
       </div>
 
       <div className="rounded-[22px] bg-[#B9B078]/45 p-4">
         {modules === null ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">讀取中…</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t('讀取中…')}</p>
         ) : modules.length === 0 ? (
           <p className="px-1 py-1 text-[14px] leading-relaxed text-foreground-soft">
-            這裡是你與專業夥伴的專屬練習空間。輸入專業夥伴提供的邀請碼，即可解鎖為你設計的模組。
+            {t('這裡是你與專業夥伴的專屬練習空間。輸入專業夥伴提供的邀請碼，即可解鎖為你設計的模組。')}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -93,8 +95,8 @@ export function ProModuleSection() {
               setCode(e.target.value.toUpperCase())
               if (codeError) setCodeError(null)
             }}
-            placeholder="輸入邀請碼"
-            aria-label="邀請碼"
+            placeholder={t('輸入邀請碼')}
+            aria-label={t('邀請碼')}
             className="min-w-0 flex-1 rounded-2xl border border-border bg-cream px-4 py-3 text-[15px] font-bold tracking-[0.12em] text-foreground shadow-soft outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/40"
           />
           <button
@@ -102,7 +104,7 @@ export function ProModuleSection() {
             disabled={checking || !code.trim()}
             className="shrink-0 rounded-2xl bg-foreground px-5 py-3 text-[15px] font-extrabold text-cream shadow-soft transition active:scale-[0.98] disabled:opacity-50"
           >
-            {checking ? '…' : '解鎖'}
+            {checking ? '…' : t('解鎖')}
           </button>
         </div>
         {codeError && <p className="mt-2 px-1 text-sm font-bold text-rust">{codeError}</p>}
@@ -123,6 +125,7 @@ export function ProModuleSection() {
 }
 
 function ModuleCard({ m }: { m: ProModuleInfo }) {
+  const { t } = useLanguage()
   const updated = isModuleUpdated(m.module_id, m.published_at)
   return (
     <Link
@@ -139,13 +142,13 @@ function ModuleCard({ m }: { m: ProModuleInfo }) {
           <b className="truncate text-[17px] font-black tracking-[0.02em] text-foreground">{m.title}</b>
           {updated && (
             <span className="shrink-0 rounded-full bg-[#d7ebd9] px-2 py-0.5 text-[10px] font-extrabold text-[#3f6b46]">
-              已更新
+              {t('已更新')}
             </span>
           )}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-          {m.practitioner_name || '專業夥伴'}
-          {m.est_minutes != null ? ` · 約 ${m.est_minutes} 分鐘` : ''}
+          {m.practitioner_name || t('專業夥伴')}
+          {m.est_minutes != null ? ` · ${t('約 {n} 分鐘', { n: m.est_minutes })}` : ''}
         </span>
       </span>
       <ArrowCircle />
