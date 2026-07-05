@@ -9,6 +9,7 @@ import { getFontScale, applyFontScale } from './lib/fontScale'
 import { isNativeApp, setupNativeAuthListener } from './lib/nativeAuth'
 import { initLocalNotifications } from './lib/localNotifications'
 import { NotificationConsent } from './components/NotificationConsent'
+import { LanguageProvider } from './lib/i18n/context'
 import './index.css'
 
 // 原生 App（iOS）才加上 native-app class：讓「更像原生」的 CSS（去除點擊高亮、
@@ -109,6 +110,8 @@ function App() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
   </StrictMode>,
 )

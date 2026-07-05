@@ -16,6 +16,8 @@ import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/comm
 import { useGlobalKeyboard } from '../lib/keyboard'
 import { hardRefresh } from '../lib/refresh'
 import { useScrollDirection } from '../lib/useScrollDirection'
+import { useLanguage } from '../lib/i18n/context'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import logoWordmark from '../assets/ui/logo-wordmark.png'
 
 export const Route = createFileRoute('/app')({
@@ -60,6 +62,7 @@ function AppShell() {
 }
 
 function TopHeader() {
+  const { t } = useLanguage()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [fontScale, setFontScaleState] = useState<FontScale>(() => getFontScale())
@@ -92,7 +95,7 @@ function TopHeader() {
           <div className="flex w-24 items-center justify-end gap-0.5 text-foreground">
             <NotificationBell />
             <button
-              aria-label="重新整理"
+              aria-label={t('重新整理')}
               onClick={handleRefresh}
               disabled={refreshing}
               className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-[#542916]/5 active:scale-90 disabled:opacity-60"
@@ -100,7 +103,7 @@ function TopHeader() {
               <RefreshIcon spinning={refreshing} />
             </button>
             <button
-              aria-label="選單"
+              aria-label={t('選單')}
               onClick={() => setDrawerOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-[#542916]/5 active:scale-90"
             >
@@ -125,9 +128,9 @@ function TopHeader() {
         }`}
       >
         <div className="flex items-center justify-between px-7 pb-3 pt-[calc(env(safe-area-inset-top)+1.6rem)]">
-          <span className="text-2xl font-black tracking-[0.04em] text-foreground">選單</span>
+          <span className="text-2xl font-black tracking-[0.04em] text-foreground">{t('選單')}</span>
           <button
-            aria-label="關閉選單"
+            aria-label={t('關閉選單')}
             onClick={() => setDrawerOpen(false)}
             className="flex h-9 w-9 items-center justify-center rounded-full text-2xl leading-none text-foreground hover:bg-[#542916]/5"
           >
@@ -142,19 +145,24 @@ function TopHeader() {
             to="/onboarding"
             search={{ reassess: true }}
             icon={<ClipboardIcon />}
-            label="InMind 心理健康測驗"
+            label={t('InMind 心理健康測驗')}
             onClick={() => setDrawerOpen(false)}
           />
           <DrawerExternalLink
             href="https://line.me/ti/g2/s8BmdrBAelUmNj858hi5iHzhJ-vhTQVCqTSokQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
             icon={<UsersIcon />}
-            label="PSY by PSY 社群"
+            label={t('PSY by PSY 社群')}
           />
           <DrawerExternalLink
             href="https://www.instagram.com/psy_by_psy/"
             icon={<CameraIcon />}
-            label="IG 追蹤我們"
+            label={t('IG 追蹤我們')}
           />
+
+          <div className="my-3 h-px bg-[#e3dccd]" />
+
+          {/* 語言切換 */}
+          <LanguageSwitcher />
 
           <div className="my-3 h-px bg-[#e3dccd]" />
 
@@ -162,7 +170,7 @@ function TopHeader() {
           <div className="px-3 py-1">
             <div className="flex items-center gap-3">
               <FontSizeIcon />
-              <span className="text-lg font-black tracking-[0.03em] text-foreground">字體大小</span>
+              <span className="text-lg font-black tracking-[0.03em] text-foreground">{t('字體大小')}</span>
             </div>
             <div className="mt-4 flex items-center gap-3">
               {FONT_SCALE_OPTIONS.map((opt) => {
@@ -180,13 +188,13 @@ function TopHeader() {
                         : 'border border-[#d8cdbb] bg-[#e7e0d2] text-muted-foreground'
                     }`}
                   >
-                    {opt.label}
+                    {t(opt.label)}
                   </button>
                 )
               })}
             </div>
             <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-              放大全站文字，方便閱讀。
+              {t('放大全站文字，方便閱讀。')}
             </p>
           </div>
 
@@ -207,6 +215,7 @@ function TopHeader() {
 // 補足一次性詢問橫幅（按過稍後再說就消失）的缺口。
 // 原生 App 走 Local Notifications 權限；純網頁走瀏覽器 Notification。
 function NotificationSetting() {
+  const { t } = useLanguage()
   const [state, setState] = useState<NotifPermission | 'loading'>('loading')
   const [busy, setBusy] = useState(false)
 
@@ -240,23 +249,23 @@ function NotificationSetting() {
 
   let body: ReactNode
   if (state === 'loading') {
-    body = <p className="mt-2 text-[11px] text-muted-foreground">讀取中…</p>
+    body = <p className="mt-2 text-[11px] text-muted-foreground">{t('讀取中…')}</p>
   } else if (state === 'granted') {
     body = (
       <p className="mt-2 text-[11px] leading-relaxed text-emerald-600">
-        ✓ 已開啟。有人按讚、留言，以及每晚會提醒你打卡。
+        {t('✓ 已開啟。有人按讚、留言，以及每晚會提醒你打卡。')}
       </p>
     )
   } else if (state === 'denied') {
     body = (
       <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-        通知目前被系統關閉。請到「設定 → PSY by PSY → 通知」開啟。
+        {t('通知目前被系統關閉。請到「設定 → PSY by PSY → 通知」開啟。')}
       </p>
     )
   } else if (state === 'unsupported') {
     body = (
       <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-        此版本暫不支援通知，請更新 App 後再試。
+        {t('此版本暫不支援通知，請更新 App 後再試。')}
       </p>
     )
   } else {
@@ -266,7 +275,7 @@ function NotificationSetting() {
         disabled={busy}
         className="mt-2 w-full rounded-xl bg-gradient-primary py-2 text-xs font-bold text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
       >
-        {busy ? '處理中…' : '開啟通知'}
+        {busy ? t('處理中…') : t('開啟通知')}
       </button>
     )
   }
@@ -275,7 +284,7 @@ function NotificationSetting() {
     <div className="rounded-2xl px-4 py-3">
       <div className="flex items-center gap-3">
         <span className="flex h-6 w-6 items-center justify-center"><BellIcon /></span>
-        <span className="font-bold text-foreground">通知</span>
+        <span className="font-bold text-foreground">{t('通知')}</span>
       </div>
       {body}
     </div>
@@ -285,6 +294,7 @@ function NotificationSetting() {
 // 封鎖名單（社群安全管理）：App Store 1.2 要求 UGC App 提供封鎖機制。
 // 從個人檔案移到側邊欄，預設收合，開啟側邊欄時才載入清單。
 function BlockedListSection({ active }: { active: boolean }) {
+  const { t } = useLanguage()
   const [userId, setUserId] = useState<string | null>(null)
   const [list, setList] = useState<BlockedListItem[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -323,7 +333,7 @@ function BlockedListSection({ active }: { active: boolean }) {
         aria-expanded={open}
       >
         <BlockIcon />
-        <span className="font-bold text-foreground">封鎖名單</span>
+        <span className="font-bold text-foreground">{t('封鎖名單')}</span>
         {loaded && list.length > 0 && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
             {list.length}
@@ -335,9 +345,9 @@ function BlockedListSection({ active }: { active: boolean }) {
       {open && (
         <div className="mt-3">
           {!loaded ? (
-            <p className="text-[11px] text-muted-foreground">讀取中…</p>
+            <p className="text-[11px] text-muted-foreground">{t('讀取中…')}</p>
           ) : list.length === 0 ? (
-            <p className="text-[11px] leading-relaxed text-muted-foreground">你還沒有封鎖任何人。</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">{t('你還沒有封鎖任何人。')}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {list.map((b) => (
@@ -347,10 +357,10 @@ function BlockedListSection({ active }: { active: boolean }) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-bold text-foreground">
-                      {b.blocked_label || '已封鎖的使用者'}
+                      {b.blocked_label || t('已封鎖的使用者')}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      封鎖於 {String(b.created_at).slice(0, 10)}
+                      {t('封鎖於 {date}', { date: String(b.created_at).slice(0, 10) })}
                     </p>
                   </div>
                   <button
@@ -358,7 +368,7 @@ function BlockedListSection({ active }: { active: boolean }) {
                     disabled={busy === b.blocked_id}
                     className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-bold text-foreground transition hover:bg-background disabled:opacity-50"
                   >
-                    {busy === b.blocked_id ? '…' : '解除封鎖'}
+                    {busy === b.blocked_id ? '…' : t('解除封鎖')}
                   </button>
                 </li>
               ))}
@@ -370,21 +380,28 @@ function BlockedListSection({ active }: { active: boolean }) {
   )
 }
 
-function formatRelativeTime(iso: string): string {
+const RELATIVE_TIME_LOCALE: Record<string, string> = {
+  'zh-TW': 'zh-TW',
+  'zh-CN': 'zh-CN',
+  en: 'en-US',
+}
+
+function formatRelativeTime(iso: string, t: (text: string, vars?: Record<string, string | number>) => string, language: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const min = Math.floor(diff / 60000)
-  if (min < 1) return '剛剛'
-  if (min < 60) return `${min} 分鐘前`
+  if (min < 1) return t('剛剛')
+  if (min < 60) return t('{n} 分鐘前', { n: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} 小時前`
+  if (hr < 24) return t('{n} 小時前', { n: hr })
   const day = Math.floor(hr / 24)
-  if (day < 7) return `${day} 天前`
-  return new Date(iso).toLocaleDateString('zh-TW')
+  if (day < 7) return t('{n} 天前', { n: day })
+  return new Date(iso).toLocaleDateString(RELATIVE_TIME_LOCALE[language] ?? 'zh-TW')
 }
 
 // 通知鈴鐺：只在「有人按讚使用者的貼文」或「有人留言」時顯示未讀。
 // 點選後跳到社群「我的貼文」並聚焦該則貼文。
 function NotificationBell() {
+  const { t, language } = useLanguage()
   const navigate = useNavigate()
   const [userId, setUserId] = useState<string | null>(null)
   const [items, setItems] = useState<NotificationItem[]>([])
@@ -406,7 +423,7 @@ function NotificationBell() {
     let cancelled = false
     const load = async () => {
       try {
-        const list = await fetchNotifications(userId)
+        const list = await fetchNotifications(userId, t)
         if (cancelled) return
         setItems(list)
 
@@ -441,7 +458,7 @@ function NotificationBell() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [userId])
+  }, [userId, t])
 
   if (!userId) return null
 
@@ -462,7 +479,7 @@ function NotificationBell() {
   return (
     <>
       <button
-        aria-label="通知"
+        aria-label={t('通知')}
         onClick={() => (open ? setOpen(false) : openPanel())}
         className="relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted active:scale-90"
       >
@@ -479,17 +496,17 @@ function NotificationBell() {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-2 top-[calc(env(safe-area-inset-top)+3.75rem)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-soft">
             <div className="flex items-center justify-between px-2 py-2">
-              <p className="text-sm font-extrabold text-foreground">通知</p>
+              <p className="text-sm font-extrabold text-foreground">{t('通知')}</p>
               <button
                 onClick={() => setOpen(false)}
-                aria-label="關閉"
+                aria-label={t('關閉')}
                 className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
             </div>
             {items.length === 0 ? (
-              <p className="px-3 py-8 text-center text-sm text-muted-foreground">目前還沒有通知</p>
+              <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('目前還沒有通知')}</p>
             ) : (
               <ul className="flex flex-col">
                 {items.map((item) => {
@@ -509,11 +526,11 @@ function NotificationBell() {
                           <span className="block text-sm font-semibold text-foreground">{item.title}</span>
                           {item.snippet && (
                             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                              你的貼文：{item.snippet}
+                              {t('你的貼文：{snippet}', { snippet: item.snippet })}
                             </span>
                           )}
                           <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                            {formatRelativeTime(item.createdAt)}
+                            {formatRelativeTime(item.createdAt, t, language)}
                           </span>
                         </span>
                         {isUnread && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />}
@@ -591,12 +608,13 @@ function DrawerExternalLink({
 }
 
 function BottomNav({ hidden }: { hidden: boolean }) {
+  const { t } = useLanguage()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   const tabs = [
-    { to: '/app/home', label: '首頁', icon: <HomeIcon />, alwaysLabel: true },
-    { to: '/app/community', label: '社群', icon: <UsersIcon />, alwaysLabel: false },
-    { to: '/app/profile', label: '個人', icon: <UserIcon />, alwaysLabel: false },
+    { to: '/app/home', label: t('首頁'), icon: <HomeIcon />, alwaysLabel: true },
+    { to: '/app/community', label: t('社群'), icon: <UsersIcon />, alwaysLabel: false },
+    { to: '/app/profile', label: t('個人'), icon: <UserIcon />, alwaysLabel: false },
   ] as const
 
   return (

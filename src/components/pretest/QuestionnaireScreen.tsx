@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { DimensionKey, NarrativeAnswers } from './types'
 import { DIMENSION_CONFIGS, DIMENSION_ORDER } from './types'
 import VoiceInput from './VoiceInput'
+import { useLanguage } from '../../lib/i18n/context'
 
 interface Props {
   initialAnswers: NarrativeAnswers
@@ -33,6 +34,7 @@ const ORDINAL = ['一', '二', '三', '四', '五']
 
 // ── Top bar with progress dots ──────────────────────────────
 function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) {
+  const { t } = useLanguage()
   const total = DIMENSION_ORDER.length
   const cfg = DIMENSION_CONFIGS[DIMENSION_ORDER[step]]
   return (
@@ -48,7 +50,7 @@ function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) 
       >
         <button
           onClick={onExit}
-          aria-label="返回"
+          aria-label={t('返回')}
           style={{
             position: 'absolute',
             left: 0,
@@ -162,7 +164,7 @@ function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) 
           fontWeight: 500,
         }}
       >
-        第 {ORDINAL[step]} 題「{cfg.label}」 · 共五題
+        {t('第 {ordinal} 題「{label}」 · 共五題', { ordinal: ORDINAL[step], label: t(cfg.label) })}
       </div>
     </div>
   )
@@ -170,6 +172,7 @@ function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) 
 
 // ── Main quiz component ─────────────────────────────────────
 export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, onSubmit, onExit }: Props) {
+  const { t } = useLanguage()
   const [step, setStep] = useState(startAtLast ? DIMENSION_ORDER.length - 1 : 0)
   const [answers, setAnswers] = useState<NarrativeAnswers>(initialAnswers)
   const [showHint, setShowHint] = useState(false)
@@ -273,7 +276,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
               whiteSpace: 'nowrap',
             }}
           >
-            {key} · {cfg.label}
+            {key} · {t(cfg.label)}
           </div>
         </div>
 
@@ -287,7 +290,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
             color: '#151515',
           }}
         >
-          {cfg.question}
+          {t(cfg.question)}
         </h2>
       </div>
 
@@ -320,7 +323,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
               strokeLinecap="round"
             />
           </svg>
-          引導提示
+          {t('引導提示')}
         </button>
       </div>
       {showHint && (
@@ -340,7 +343,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
           {cfg.hints.map((hint, i) => (
             <div key={i} style={{ display: 'flex', gap: 6 }}>
               <span>
-                {i + 1}. {hint}
+                {i + 1}. {t(hint)}
               </span>
             </div>
           ))}
@@ -364,7 +367,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
             ref={textareaRef}
             value={currentText}
             onChange={(e) => setAnswers((prev) => ({ ...prev, [key]: e.target.value }))}
-            placeholder="在這裡輸入你的故事或感受，越具體越好～"
+            placeholder={t('在這裡輸入你的故事或感受，越具體越好～')}
             style={{
               width: '100%',
               minHeight: 110,
@@ -394,8 +397,8 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
           >
             <span style={{ fontSize: 10.5, color: textOk ? color : '#959595', fontWeight: 600 }}>
               {textOk
-                ? '✓ 字數已達標'
-                : `至少需要 ${MIN_CHARS} 個字（還差 ${remaining} 個字）`}
+                ? t('✓ 字數已達標')
+                : t('至少需要 {min} 個字（還差 {remaining} 個字）', { min: MIN_CHARS, remaining })}
             </span>
             <span
               className="num"
@@ -447,7 +450,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
             cursor: step === 0 ? 'default' : 'pointer',
           }}
         >
-          上一題
+          {t('上一題')}
         </button>
         <button
           onClick={goNext}
@@ -471,7 +474,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
             gap: 6,
           }}
         >
-          {isLast ? '看結果' : '下一題'}
+          {isLast ? t('看結果') : t('下一題')}
           <svg width="14" height="14" viewBox="0 0 14 14">
             <path
               d="M2 7 H12 M8 3 L12 7 L8 11"

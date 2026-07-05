@@ -4,6 +4,7 @@
 // 需登入由父路由 /app 的 beforeLoad 擋下（比照 app.gratitude.tsx）。
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { useLanguage } from '../lib/i18n/context'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { DEFAULT_PRIVACY } from '../lib/privacy'
@@ -50,6 +51,7 @@ function isAnswered(block: ProBlock, value: ProAnswerValue | undefined): boolean
 function ProModulePlayer() {
   const { moduleId } = Route.useParams()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const [userId, setUserId] = useState<string | null>(null)
   const [module, setModule] = useState<ProModuleInfo | null>(null)
@@ -128,7 +130,7 @@ function ProModulePlayer() {
   const complete = async () => {
     if (!userId || submitting) return
     if (requiredMissing) {
-      setFormError('請先完成所有必填題目。')
+      setFormError(t('請先完成所有必填題目。'))
       return
     }
     setSubmitting(true)
@@ -163,7 +165,7 @@ function ProModulePlayer() {
       setStage('done')
     } catch (e) {
       console.error('[pro complete]', e)
-      setFormError('儲存失敗，請稍後再試一次。')
+      setFormError(t('儲存失敗，請稍後再試一次。'))
     } finally {
       setSubmitting(false)
     }
@@ -209,14 +211,14 @@ function ProModulePlayer() {
     est_minutes: module.est_minutes,
     practitioner_name: module.practitioner_name,
   }
-  const name = module.practitioner_name || '你的專業夥伴'
+  const name = module.practitioner_name || t('你的專業夥伴')
 
   return (
     <div className="mx-auto max-w-md animate-fade-up px-5 pb-28 pt-3">
       {/* 頁首列：返回 + 標題 + ⋯選單 */}
       <div className="mb-4 flex items-center gap-2">
         <button
-          aria-label="返回"
+          aria-label={t('返回')}
           onClick={() => navigate({ to: '/app/home' })}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground transition hover:bg-muted active:scale-90"
         >
@@ -227,7 +229,7 @@ function ProModulePlayer() {
         <p className="min-w-0 flex-1 truncate text-lg font-black tracking-[0.02em] text-foreground">{module.title}</p>
         <div className="relative shrink-0">
           <button
-            aria-label="更多選項"
+            aria-label={t('更多選項')}
             onClick={() => setMenuOpen((o) => !o)}
             className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-muted active:scale-90"
           >
@@ -248,7 +250,7 @@ function ProModulePlayer() {
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-foreground transition hover:bg-muted"
                 >
-                  查看同意內容
+                  {t('查看同意內容')}
                 </button>
                 <button
                   onClick={() => {
@@ -257,7 +259,7 @@ function ProModulePlayer() {
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rust transition hover:bg-muted"
                 >
-                  停止追蹤關係
+                  {t('停止追蹤關係')}
                 </button>
               </div>
             </>
@@ -267,7 +269,7 @@ function ProModulePlayer() {
 
       {stage === 'writing' ? (
         <>
-          <p className="mb-4 text-sm text-muted-foreground">來自 {name}</p>
+          <p className="mb-4 text-sm text-muted-foreground">{t('來自 {name}', { name })}</p>
           <BlockRenderer content={content} answers={answers} onChange={setAnswer} />
 
           {formError && <p className="mt-4 text-sm font-bold text-rust">{formError}</p>}
@@ -277,7 +279,7 @@ function ProModulePlayer() {
             disabled={submitting}
             className="mt-6 w-full rounded-full bg-gradient-primary py-3.5 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
           >
-            {submitting ? '儲存中…' : '完成練習'}
+            {submitting ? t('儲存中…') : t('完成練習')}
           </button>
         </>
       ) : (
@@ -293,15 +295,15 @@ function ProModulePlayer() {
       {/* 模組已更新提示 */}
       {showUpdated && (
         <CenterDialog onClose={() => setShowUpdated(false)}>
-          <h2 className="text-lg font-black text-foreground">模組已更新</h2>
+          <h2 className="text-lg font-black text-foreground">{t('模組已更新')}</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground-soft">
-            {module.title} 的內容已由專業夥伴更新，以下是最新版本。
+            {t('{title} 的內容已由專業夥伴更新，以下是最新版本。', { title: module.title })}
           </p>
           <button
             onClick={() => setShowUpdated(false)}
             className="mt-5 w-full rounded-full bg-gradient-primary py-3 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
           >
-            知道了
+            {t('知道了')}
           </button>
         </CenterDialog>
       )}
@@ -319,22 +321,22 @@ function ProModulePlayer() {
       {/* 停止追蹤關係確認 */}
       {showStopConfirm && (
         <CenterDialog onClose={() => setShowStopConfirm(false)}>
-          <h2 className="text-lg font-black text-rust">停止追蹤關係？</h2>
+          <h2 className="text-lg font-black text-rust">{t('停止追蹤關係？')}</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground-soft">
-            停止後 {name} 將無法看到你的任何練習紀錄，模組也會從你的列表移除。若要恢復，需要重新輸入邀請碼。
+            {t('停止後 {name} 將無法看到你的任何練習紀錄，模組也會從你的列表移除。若要恢復，需要重新輸入邀請碼。', { name })}
           </p>
           <div className="mt-5 flex flex-col gap-2">
             <button
               onClick={doStop}
               className="w-full rounded-full bg-rust py-3 text-base font-extrabold text-white shadow-soft transition active:scale-[0.98]"
             >
-              確定停止
+              {t('確定停止')}
             </button>
             <button
               onClick={() => setShowStopConfirm(false)}
               className="w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground transition active:scale-[0.98]"
             >
-              取消
+              {t('取消')}
             </button>
           </div>
         </CenterDialog>
@@ -359,6 +361,7 @@ function DoneScreen({
   onShare: () => void
   onHome: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div className="animate-fade-up flex flex-col items-center pt-8 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tile-mint text-[#3f6b46]">
@@ -366,9 +369,9 @@ function DoneScreen({
           <path d="M5 12l5 5L20 6" />
         </svg>
       </span>
-      <h2 className="mt-5 text-2xl font-black tracking-[0.02em] text-foreground">完成了</h2>
+      <h2 className="mt-5 text-2xl font-black tracking-[0.02em] text-foreground">{t('完成了')}</h2>
       <p className="mt-2 text-[15px] leading-relaxed text-foreground-soft">
-        {outro?.trim() || '謝謝你今天陪伴了自己，這份紀錄已經保存下來了。'}
+        {outro?.trim() || t('謝謝你今天陪伴了自己，這份紀錄已經保存下來了。')}
       </p>
 
       <div className="mt-8 flex w-full flex-col gap-2.5">
@@ -377,13 +380,13 @@ function DoneScreen({
           disabled={sharing || shared}
           className="w-full rounded-full bg-gradient-primary py-3.5 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
         >
-          {shared ? '已分享到社群' : sharing ? '分享中…' : '分享到社群'}
+          {shared ? t('已分享到社群') : sharing ? t('分享中…') : t('分享到社群')}
         </button>
         <button
           onClick={onHome}
           className="w-full rounded-full border border-border bg-card py-3 text-base font-bold text-foreground transition active:scale-[0.98]"
         >
-          返回首頁
+          {t('返回首頁')}
         </button>
       </div>
     </div>

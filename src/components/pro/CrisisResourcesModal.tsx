@@ -1,6 +1,7 @@
 // 危機求助資源視窗：個案練習內容出現高風險訊息時，當下直接顯示（雙向警示的個案端）。
 // 語氣溫暖、不驚嚇；不阻擋後續流程（單一「我知道了」關閉）。
 // 資源與文案見 docs/plans/pro_modules_plan.md §8。
+import { useLanguage } from '../../lib/i18n/context'
 
 const RESOURCES = [
   { name: '安心專線', tel: '1925', note: '24 小時免付費' },
@@ -9,12 +10,13 @@ const RESOURCES = [
 ]
 
 export function CrisisResourcesModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#1c1714]/40 px-4 pb-6 pt-10 sm:items-center">
       <div className="w-full max-w-md animate-slide-up rounded-[26px] bg-background p-6 shadow-soft">
-        <h2 className="text-xl font-black tracking-[0.02em] text-foreground">你並不孤單</h2>
+        <h2 className="text-xl font-black tracking-[0.02em] text-foreground">{t('你並不孤單')}</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-foreground-soft">
-          謝謝你願意把這些寫下來。看起來你現在承受著不小的辛苦——你不需要一個人撐著。
+          {t('謝謝你願意把這些寫下來。看起來你現在承受著不小的辛苦——你不需要一個人撐著。')}
         </p>
 
         <div className="mt-5 flex flex-col gap-2.5">
@@ -30,8 +32,8 @@ export function CrisisResourcesModal({ onClose }: { onClose: () => void }) {
                 </svg>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-base font-black text-foreground">{r.name}</span>
-                {r.note && <span className="block text-xs text-muted-foreground">{r.note}</span>}
+                <span className="block text-base font-black text-foreground">{t(r.name)}</span>
+                {r.note && <span className="block text-xs text-muted-foreground">{t(r.note)}</span>}
               </span>
               <span className="shrink-0 text-lg font-black tracking-[0.1em] text-foreground">{r.tel}</span>
             </a>
@@ -39,18 +41,19 @@ export function CrisisResourcesModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">
-          若有立即危險，請撥打 <a href="tel:119" className="font-bold text-foreground underline">119</a> 或{' '}
-          <a href="tel:110" className="font-bold text-foreground underline">110</a>。
+          {t('若有立即危險，請撥打')} <a href="tel:119" className="font-bold text-foreground underline">119</a> {t('或')}{' '}
+          <a href="tel:110" className="font-bold text-foreground underline">110</a>
+          {t('。')}
         </p>
         <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-          你的專業夥伴也會收到提醒，可能會主動關心你。
+          {t('你的專業夥伴也會收到提醒，可能會主動關心你。')}
         </p>
 
         <button
           onClick={onClose}
           className="mt-5 w-full rounded-full bg-gradient-primary py-3.5 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
         >
-          我知道了
+          {t('我知道了')}
         </button>
       </div>
     </div>

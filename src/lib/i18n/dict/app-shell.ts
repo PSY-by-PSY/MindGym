@@ -1,0 +1,47 @@
+import type { Translation } from '../dictionary'
+
+// App 殼層：頂部列、側邊選單（含語言/字體大小）、通知、封鎖名單、底部導覽。
+export const appShell: Record<string, Translation> = {
+  '重新整理': { 'zh-CN': '刷新', en: 'Refresh' },
+  '選單': { 'zh-CN': '菜单', en: 'Menu' },
+  '關閉選單': { 'zh-CN': '关闭菜单', en: 'Close menu' },
+  'InMind 心理健康測驗': { 'zh-CN': 'InMind 心理健康测验', en: 'InMind Mental Health Assessment' },
+  'PSY by PSY 社群': { 'zh-CN': 'PSY by PSY 社区', en: 'PSY by PSY Community' },
+  'IG 追蹤我們': { 'zh-CN': '在 IG 追踪我们', en: 'Follow us on Instagram' },
+  '字體大小': { 'zh-CN': '字体大小', en: 'Text Size' },
+  '標準': { 'zh-CN': '标准', en: 'Standard' },
+  '大': { 'zh-CN': '大', en: 'Large' },
+  '特大': { 'zh-CN': '特大', en: 'Extra Large' },
+  '放大全站文字，方便閱讀。': { 'zh-CN': '放大全站文字，方便阅读。', en: 'Enlarge text across the app for easier reading.' },
+  '✓ 已開啟。有人按讚、留言，以及每晚會提醒你打卡。': {
+    'zh-CN': '✓ 已开启。有人点赞、留言，以及每晚都会提醒你打卡。',
+    en: '✓ Enabled. You’ll be notified on likes, comments, and a nightly check-in reminder.',
+  },
+  '通知目前被系統關閉。請到「設定 → PSY by PSY → 通知」開啟。': {
+    'zh-CN': '通知目前被系统关闭。请到「设置 → PSY by PSY → 通知」开启。',
+    en: 'Notifications are currently off in system settings. Go to Settings → PSY by PSY → Notifications to turn them on.',
+  },
+  '此版本暫不支援通知，請更新 App 後再試。': {
+    'zh-CN': '此版本暂不支持通知，请更新 App 后再试。',
+    en: 'This version doesn’t support notifications yet — please update the app and try again.',
+  },
+  '開啟通知': { 'zh-CN': '开启通知', en: 'Enable Notifications' },
+  '通知': { 'zh-CN': '通知', en: 'Notifications' },
+  '封鎖名單': { 'zh-CN': '封锁名单', en: 'Blocked Users' },
+  '你還沒有封鎖任何人。': { 'zh-CN': '你还没有封锁任何人。', en: 'You haven’t blocked anyone yet.' },
+  '已封鎖的使用者': { 'zh-CN': '已封锁的用户', en: 'Blocked user' },
+  '封鎖於 {date}': { 'zh-CN': '封锁于 {date}', en: 'Blocked on {date}' },
+  '解除封鎖': { 'zh-CN': '解除封锁', en: 'Unblock' },
+  '目前還沒有通知': { 'zh-CN': '目前还没有通知', en: 'No notifications yet' },
+  '有人為你的感恩貼文按讚': { 'zh-CN': '有人为你的感恩帖子点赞', en: 'Someone liked your gratitude post' },
+  '{name} 留言：{snippet}': { 'zh-CN': '{name} 留言：{snippet}', en: '{name} commented: {snippet}' },
+  '有人': { 'zh-CN': '有人', en: 'Someone' },
+  '你的貼文：{snippet}': { 'zh-CN': '你的帖子：{snippet}', en: 'Your post: {snippet}' },
+  '剛剛': { 'zh-CN': '刚刚', en: 'Just now' },
+  '{n} 分鐘前': { 'zh-CN': '{n} 分钟前', en: '{n}m ago' },
+  '{n} 小時前': { 'zh-CN': '{n} 小时前', en: '{n}h ago' },
+  '{n} 天前': { 'zh-CN': '{n} 天前', en: '{n}d ago' },
+  '首頁': { 'zh-CN': '首页', en: 'Home' },
+  '社群': { 'zh-CN': '社区', en: 'Community' },
+  '個人': { 'zh-CN': '个人', en: 'Profile' },
+}

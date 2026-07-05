@@ -108,9 +108,10 @@ export function workshopIdFromPayload(workshopId: unknown): string {
 }
 
 /** 工作坊 id → 顯示用標籤。8 位數日期顯示為「YYYY/MM/DD 工作坊」，其餘原樣顯示。 */
-export function formatWorkshopLabel(workshopId: string): string {
+export function formatWorkshopLabel(workshopId: string, t: (text: string, vars?: Record<string, string | number>) => string): string {
   if (/^\d{8}$/.test(workshopId)) {
-    return `${workshopId.slice(0, 4)}/${workshopId.slice(4, 6)}/${workshopId.slice(6, 8)} 工作坊`
+    const date = `${workshopId.slice(0, 4)}/${workshopId.slice(4, 6)}/${workshopId.slice(6, 8)}`
+    return t('{date} 工作坊', { date })
   }
   return workshopId
 }

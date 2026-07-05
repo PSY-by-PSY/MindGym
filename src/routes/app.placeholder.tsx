@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useLanguage } from '../lib/i18n/context'
 
 export const Route = createFileRoute('/app/placeholder')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -19,6 +20,7 @@ function ConstructionIcon() {
 
 function PlaceholderPage() {
   const { name } = Route.useSearch()
+  const { t } = useLanguage()
 
   return (
     <div className="animate-fade-up mx-auto flex min-h-[calc(100vh-9rem)] max-w-3xl flex-col items-center justify-center px-6 text-center md:px-10">
@@ -29,17 +31,17 @@ function PlaceholderPage() {
         </div>
       </div>
 
-      <p className="font-handwriting text-2xl text-muted-foreground">敬請期待</p>
-      <h1 className="mt-1 text-2xl font-extrabold text-foreground md:text-3xl">{name}</h1>
+      <p className="font-handwriting text-2xl text-muted-foreground">{t('敬請期待')}</p>
+      <h1 className="mt-1 text-2xl font-extrabold text-foreground md:text-3xl">{t(name)}</h1>
       <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-        這塊心理肌群的訓練菜單正在準備中，很快就能陪你一起練。
+        {t('這塊心理肌群的訓練菜單正在準備中，很快就能陪你一起練。')}
       </p>
 
       <Link
         to="/app/home"
         className="mt-9 flex h-16 w-full max-w-sm items-center justify-center gap-3 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.2em] text-primary-foreground shadow-soft transition active:scale-[0.98]"
       >
-        <span>返回訓練中心</span>
+        <span>{t('返回訓練中心')}</span>
         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 12h14M13 5l7 7-7 7" />
         </svg>

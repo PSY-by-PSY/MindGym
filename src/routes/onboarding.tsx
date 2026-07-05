@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import LandingPage from '../components/pretest/IntroScreen'
 import NarrativeQuiz from '../components/pretest/QuestionnaireScreen'
@@ -9,6 +9,8 @@ import { reconstructReportFromScores } from '../lib/reconstructReport'
 import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
 import { markOnboardingSkipped } from '../lib/onboardingSkip'
+import { useLanguage } from '../lib/i18n/context'
+import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 
 // ── Route ─────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,7 @@ const SCORING_PHASES = [
 ]
 
 function LoadingScreen() {
+  const { t } = useLanguage()
   const [phase, setPhase] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const frameRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -136,14 +139,14 @@ function LoadingScreen() {
           marginBottom: 6,
         }}
       >
-        {SCORING_PHASES[phase]}
+        {t(SCORING_PHASES[phase])}
       </div>
       <div style={{ fontSize: 12, color: '#959595' }}>
         {elapsed < 12
-          ? '大約再等 10 秒…'
+          ? t('大約再等 10 秒…')
           : elapsed < 35
-          ? 'AI 正在深度思考，快好了…'
-          : '伺服器剛喚醒中，再給一點時間'}
+          ? t('AI 正在深度思考，快好了…')
+          : t('伺服器剛喚醒中，再給一點時間')}
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 24 }}>
         {[0, 1, 2, 3].map((i) => (
@@ -182,6 +185,7 @@ function AlertIcon() {
 }
 
 function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () => void }) {
+  const { t } = useLanguage()
   return (
     <div
       style={{
@@ -207,12 +211,12 @@ function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () =
           letterSpacing: -0.2,
         }}
       >
-        {isTimeout ? '伺服器剛睡醒了' : '出了點小狀況'}
+        {isTimeout ? t('伺服器剛睡醒了') : t('出了點小狀況')}
       </div>
       <div style={{ fontSize: 14, color: '#666', lineHeight: 1.6, marginBottom: 32, maxWidth: 280 }}>
         {isTimeout
-          ? '已成功喚醒伺服器，再試一次通常就能順利完成。'
-          : '網路或 AI 服務暫時有問題，稍後再試試看。'}
+          ? t('已成功喚醒伺服器，再試一次通常就能順利完成。')
+          : t('網路或 AI 服務暫時有問題，稍後再試試看。')}
       </div>
       <button
         onClick={onRetry}
@@ -228,7 +232,7 @@ function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () =
           letterSpacing: 0.4,
         }}
       >
-        重新嘗試
+        {t('重新嘗試')}
       </button>
     </div>
   )
@@ -239,6 +243,7 @@ function ErrorScreen({ isTimeout, onRetry }: { isTimeout: boolean; onRetry: () =
 type InMindScreen = 'intro' | 'quiz' | 'loading' | 'report' | 'error'
 
 function OnboardingPage() {
+  const { t } = useLanguage()
   const { session } = Route.useRouteContext()
   const { reassess, showResult } = Route.useSearch()
   const { latestReport } = Route.useLoaderData()
@@ -289,7 +294,7 @@ function OnboardingPage() {
     } catch (err) {
       const timedOut = err instanceof DOMException && err.name === 'AbortError'
       setIsTimeoutError(timedOut)
-      setApiError(timedOut ? 'TIMEOUT' : (err instanceof Error ? err.message : '未知錯誤'))
+      setApiError(timedOut ? 'TIMEOUT' : (err instanceof Error ? err.message : t('未知錯誤')))
       setScreen('error')
     } finally {
       clearTimeout(timer)
@@ -300,62 +305,46 @@ function OnboardingPage() {
     navigate({ to: (reassess || showResult) ? '/app/home' : '/app/gratitude' })
   }
 
+  let content: ReactNode
+
   if (screen === 'intro') {
-    return (
-      <div className="mx-auto max-w-[430px]">
-        <LandingPage
-          onStart={() => {
-            track('quiz_started', { reassess: Boolean(reassess) })
-            setScreen('quiz')
-          }}
-          onSkip={() => {
-            track('quiz_skipped', { reassess: Boolean(reassess) })
-            handleSkip()
-          }}
-        />
-      </div>
+    content = (
+      <LandingPage
+        onStart={() => {
+          track('quiz_started', { reassess: Boolean(reassess) })
+          setScreen('quiz')
+        }}
+        onSkip={() => {
+          track('quiz_skipped', { reassess: Boolean(reassess) })
+          handleSkip()
+        }}
+      />
     )
-  }
-
-  if (screen === 'loading') {
-    return (
-      <div className="mx-auto max-w-[430px]">
-        <LoadingScreen />
-      </div>
+  } else if (screen === 'loading') {
+    content = <LoadingScreen />
+  } else if (screen === 'error') {
+    content = (
+      <ErrorScreen
+        isTimeout={isTimeoutError}
+        onRetry={() => handleSubmit(answers)}
+      />
     )
-  }
-
-  if (screen === 'error') {
-    return (
-      <div className="mx-auto max-w-[430px]">
-        <ErrorScreen
-          isTimeout={isTimeoutError}
-          onRetry={() => handleSubmit(answers)}
-        />
-      </div>
+  } else if (screen === 'report' && report) {
+    content = (
+      <InMindReportPage
+        report={report}
+        onRestart={() => {
+          setAnswers({ P: '', E: '', R: '', M: '', A: '' })
+          setReport(null)
+          setScreen('intro')
+        }}
+        onComplete={handleComplete}
+        onGoHome={() => navigate({ to: '/app/home' })}
+      />
     )
-  }
-
-  if (screen === 'report' && report) {
-    return (
-      <div className="mx-auto max-w-[430px]">
-        <InMindReportPage
-          report={report}
-          onRestart={() => {
-            setAnswers({ P: '', E: '', R: '', M: '', A: '' })
-            setReport(null)
-            setScreen('intro')
-          }}
-          onComplete={handleComplete}
-          onGoHome={() => navigate({ to: '/app/home' })}
-        />
-      </div>
-    )
-  }
-
-  // quiz（含 API 錯誤後返回）
-  return (
-    <div className="mx-auto max-w-[430px]">
+  } else {
+    // quiz（含 API 錯誤後返回）
+    content = (
       <NarrativeQuiz
         initialAnswers={answers}
         startAtLast={apiError !== ''}
@@ -363,6 +352,13 @@ function OnboardingPage() {
         onSubmit={handleSubmit}
         onExit={triggerBack}
       />
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-[430px]">
+      <LanguageSwitcherCompact className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] right-4 z-40" />
+      {content}
     </div>
   )
 }

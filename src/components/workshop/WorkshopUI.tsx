@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { PrimaryCta } from '../PrimaryCta'
 import VoiceInput from '../pretest/VoiceInput'
+import { useLanguage } from '../../lib/i18n/context'
 
 // 工作坊主題色（語音麥克風圖示用）；對應 index.css 的 --primary 藍。
 const WORKSHOP_ACCENT = '#5B8DEF'
@@ -11,6 +12,7 @@ const WORKSHOP_ACCENT = '#5B8DEF'
 // 不要提前翻閱」。可勾選「不再提示」，本次使用階段後續就不再跳出。
 // ─────────────────────────────────────────────────────────────────────────
 const SKIP_CONFIRM_KEY = 'workshop_skip_advance_confirm'
+// 固定提示文字的原文（繁中），供 t() 查表；顯示時一律透過 t(ADVANCE_HINT) 取得目前語言版本。
 const ADVANCE_HINT = '為了維持課程品質，請跟著講師的指示，不要提前翻閱。'
 
 function shouldSkipAdvanceConfirm(): boolean {
@@ -51,7 +53,7 @@ export function WorkshopLayout({
   minutes,
   onBack,
   onNext,
-  nextLabel = '下一步',
+  nextLabel,
   nextVariant = 'next',
   nextDisabled = false,
   children,
@@ -71,6 +73,7 @@ export function WorkshopLayout({
   nextDisabled?: boolean
   children: React.ReactNode
 }) {
+  const { t } = useLanguage()
   return (
     <div className="animate-fade-up mx-auto max-w-3xl px-6 pt-5 pb-8 md:px-10">
       {/* 頂部：返回首頁 + 步驟進度 */}
@@ -78,7 +81,7 @@ export function WorkshopLayout({
         <Link
           to="/app/home"
           className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
-          aria-label="返回訓練中心"
+          aria-label={t('返回訓練中心')}
         >
           <HomeIcon />
         </Link>
@@ -108,7 +111,7 @@ export function WorkshopLayout({
         <StepNav
           onBack={onBack}
           onNext={onNext}
-          nextLabel={nextLabel}
+          nextLabel={nextLabel ?? t('下一步')}
           nextVariant={nextVariant}
           nextDisabled={nextDisabled}
           confirmAdvance={nextVariant === 'next'}
@@ -120,10 +123,11 @@ export function WorkshopLayout({
 
 /** 步驟進度指示：「步驟 X / Y」＋進度條點。 */
 export function StepProgress({ current, total }: { current: number; total: number }) {
+  const { t } = useLanguage()
   return (
     <div className="flex items-center gap-2.5">
       <span className="text-xs font-bold text-muted-foreground">
-        步驟 {current}/{total}
+        {t('步驟 {current}/{total}', { current, total })}
       </span>
       <div className="flex gap-1">
         {Array.from({ length: total }, (_, i) => (
@@ -141,10 +145,11 @@ export function StepProgress({ current, total }: { current: number; total: numbe
 
 /** 「建議參考時間」徽章 —— 只是參考，不會倒數結束自動跳頁。 */
 export function TimeBadge({ minutes }: { minutes: number }) {
+  const { t } = useLanguage()
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-bold text-primary">
       <StopwatchIcon />
-      建議參考 {minutes} 分鐘
+      {t('建議參考 {minutes} 分鐘', { minutes })}
     </span>
   )
 }
@@ -175,7 +180,7 @@ function PauseHandIcon() {
 export function StepNav({
   onBack,
   onNext,
-  nextLabel = '下一步',
+  nextLabel,
   nextVariant = 'next',
   nextDisabled = false,
   confirmAdvance = false,
@@ -187,6 +192,7 @@ export function StepNav({
   nextDisabled?: boolean
   confirmAdvance?: boolean
 }) {
+  const { t } = useLanguage()
   const [confirming, setConfirming] = useState(false)
 
   const handleNext = () => {
@@ -207,12 +213,12 @@ export function StepNav({
             className="flex h-16 shrink-0 items-center justify-center gap-2 rounded-full bg-card px-6 text-sm font-extrabold text-foreground/70 shadow-soft transition active:scale-[0.97]"
           >
             <ArrowLeftIcon />
-            上一步
+            {t('上一步')}
           </button>
         )}
         <div className="min-w-0 flex-1">
           <PrimaryCta onClick={handleNext} disabled={nextDisabled} variant={nextVariant}>
-            {nextLabel}
+            {nextLabel ?? t('下一步')}
           </PrimaryCta>
         </div>
       </div>
@@ -220,7 +226,7 @@ export function StepNav({
       {/* 固定提示文字（規格 [5]） */}
       {confirmAdvance && (
         <p className="mt-3 text-center text-xs font-medium leading-relaxed text-muted-foreground">
-          {ADVANCE_HINT}
+          {t(ADVANCE_HINT)}
         </p>
       )}
 
@@ -245,6 +251,7 @@ function AdvanceConfirmDialog({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   const [dontAsk, setDontAsk] = useState(false)
 
   const confirm = () => {
@@ -259,10 +266,10 @@ function AdvanceConfirmDialog({
           <PauseHandIcon />
         </div>
         <p className="text-base font-extrabold leading-relaxed text-foreground">
-          {ADVANCE_HINT}
+          {t(ADVANCE_HINT)}
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          確認講師已經指示前往下一頁了嗎？
+          {t('確認講師已經指示前往下一頁了嗎？')}
         </p>
 
         <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-sm text-foreground/80">
@@ -272,7 +279,7 @@ function AdvanceConfirmDialog({
             onChange={(e) => setDontAsk(e.target.checked)}
             className="h-4 w-4 rounded border-border accent-primary"
           />
-          不再提示
+          {t('不再提示')}
         </label>
 
         <div className="mt-5 flex flex-col gap-2.5">
@@ -281,14 +288,14 @@ function AdvanceConfirmDialog({
             onClick={confirm}
             className="flex h-14 w-full items-center justify-center rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.15em] text-primary-foreground shadow-soft transition active:scale-[0.98]"
           >
-            是，前往下頁
+            {t('是，前往下頁')}
           </button>
           <button
             type="button"
             onClick={onCancel}
             className="flex h-12 w-full items-center justify-center rounded-full bg-card text-sm font-extrabold text-foreground/70 shadow-soft transition active:scale-[0.98]"
           >
-            否，留在本頁
+            {t('否，留在本頁')}
           </button>
         </div>
       </div>
@@ -338,13 +345,14 @@ export function WorkshopTextarea({
 
 /** 完成畫面的動作：重新開始（清空回第一步）＋返回首頁。 */
 export function CompletionActions({ onRestart }: { onRestart: () => void }) {
+  const { t } = useLanguage()
   return (
     <div className="mt-8 flex flex-col gap-3">
       <Link
         to="/app/home"
         className="flex h-16 w-full items-center justify-center gap-3 rounded-full bg-gradient-primary text-base font-extrabold tracking-[0.2em] text-primary-foreground shadow-soft transition active:scale-[0.98]"
       >
-        返回訓練中心
+        {t('返回訓練中心')}
         <ArrowRightIcon />
       </Link>
       <button
@@ -353,7 +361,7 @@ export function CompletionActions({ onRestart }: { onRestart: () => void }) {
         className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-card text-sm font-extrabold text-foreground/70 shadow-soft transition active:scale-[0.98]"
       >
         <RefreshIcon />
-        重新開始
+        {t('重新開始')}
       </button>
     </div>
   )
