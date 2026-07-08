@@ -22,10 +22,13 @@ import {
   type ProAnswers,
   type ProAnswerValue,
   type ProBlock,
+  type ProModuleContent,
+  type DiaryModuleContent,
 } from '../lib/proModules'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { ConsentModal } from '../components/pro/ConsentModal'
 import { CrisisResourcesModal } from '../components/pro/CrisisResourcesModal'
+import { DiaryPlayer } from '../components/pro/DiaryPlayer'
 
 export const Route = createFileRoute('/app/pro-module/$moduleId')({
   component: ProModulePlayer,
@@ -116,7 +119,9 @@ function ProModulePlayer() {
     )
   }
 
-  const content = module.published_content
+  // practice/diary 共用 BlockRenderer/pro_entries 流程（DiaryModuleContent 結構上相容 ProModuleContent，
+  // 含 blocks）；assessment 有自己的播放器與資料表，尚未走到這裡（Phase 4 會在此加上 kind 守衛）。
+  const content = module.published_content as ProModuleContent
   const setAnswer = (id: string, value: ProAnswerValue) =>
     setAnswers((prev) => ({ ...prev, [id]: value }))
 
@@ -209,6 +214,7 @@ function ProModulePlayer() {
     title: module.title,
     description: module.description,
     est_minutes: module.est_minutes,
+    kind: module.kind,
     practitioner_name: module.practitioner_name,
   }
   const name = module.practitioner_name || t('你的專業夥伴')
@@ -267,7 +273,14 @@ function ProModulePlayer() {
         </div>
       </div>
 
-      {stage === 'writing' ? (
+      {module.kind === 'diary' ? (
+        <DiaryPlayer
+          moduleId={module.module_id}
+          userId={userId as string}
+          content={content as DiaryModuleContent}
+          practitionerName={module.practitioner_name}
+        />
+      ) : stage === 'writing' ? (
         <>
           <p className="mb-4 text-sm text-muted-foreground">{t('來自 {name}', { name })}</p>
           <BlockRenderer content={content} answers={answers} onChange={setAnswer} />

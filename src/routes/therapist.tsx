@@ -5,8 +5,11 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
+import { streakFromDates } from '../lib/streak'
+import { isoLocalDate } from '../lib/date'
 import { BlockEditor } from '../components/pro/BlockEditor'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
+import { DiaryBuilder } from '../components/pro/DiaryBuilder'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import {
@@ -14,6 +17,7 @@ import {
   type ProModuleRow,
   type ProModuleContent,
   type ProModuleStatus,
+  type ProModuleKind,
   type ProAnswers,
   type ProAnswerValue,
 } from '../lib/proModules'
@@ -34,6 +38,12 @@ const STATUS_META: Record<ProModuleStatus, { label: string; cls: string }> = {
   approved: { label: '已上架', cls: 'bg-tile-mint text-[#3f6b46]' },
   rejected: { label: '已退件', cls: 'bg-tile-pink text-rust' },
   archived: { label: '已下架', cls: 'bg-muted text-muted-foreground' },
+}
+
+const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
+  practice: { label: '練習模組', cls: 'bg-muted text-muted-foreground' },
+  diary: { label: '日記模組', cls: 'bg-tile-mint text-[#3f6b46]' },
+  assessment: { label: '質性測驗', cls: 'bg-tile-peach text-[#8a6320]' },
 }
 
 const EMPTY_CONTENT: ProModuleContent = { v: 1, intro: '', blocks: [], outro: '' }
@@ -330,8 +340,24 @@ function MyModulesTab({
 }) {
   const { t } = useLanguage()
   const [editing, setEditing] = useState<ProModuleRow | null | 'new'>(null)
+  const [diaryEditing, setDiaryEditing] = useState<ProModuleRow | null | 'new'>(null)
   const [picking, setPicking] = useState(false)
+  const [pickingKind, setPickingKind] = useState(false)
   const [templateContent, setTemplateContent] = useState<ProModuleContent>(EMPTY_CONTENT)
+
+  if (diaryEditing === 'new' || diaryEditing) {
+    return (
+      <DiaryBuilder
+        ownerId={ownerId}
+        module={diaryEditing === 'new' ? null : diaryEditing}
+        onDone={async () => {
+          setDiaryEditing(null)
+          await reload()
+        }}
+        onCancel={() => setDiaryEditing(null)}
+      />
+    )
+  }
 
   if (editing === 'new' || editing) {
     const mod = editing === 'new' ? null : editing
@@ -349,12 +375,17 @@ function MyModulesTab({
     )
   }
 
+  const openEdit = (m: ProModuleRow) => {
+    if (m.kind === 'diary') setDiaryEditing(m)
+    else setEditing(m)
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-black text-foreground">{t('我的模組')}</h1>
         <button
-          onClick={() => setPicking(true)}
+          onClick={() => setPickingKind(true)}
           className="rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
         >
           {t('建立新模組')}
@@ -373,6 +404,9 @@ function MyModulesTab({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="truncate text-[17px] font-black text-foreground">{m.title}</h2>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${KIND_META[m.kind].cls}`}>
+                      {t(KIND_META[m.kind].label)}
+                    </span>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${STATUS_META[m.status].cls}`}>
                       {t(STATUS_META[m.status].label)}
                     </span>
@@ -383,7 +417,7 @@ function MyModulesTab({
                   )}
                 </div>
                 <button
-                  onClick={() => setEditing(m)}
+                  onClick={() => openEdit(m)}
                   className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
                 >
                   {t('編輯')}
@@ -392,6 +426,17 @@ function MyModulesTab({
             </div>
           ))}
         </div>
+      )}
+
+      {pickingKind && (
+        <KindPicker
+          onPick={(kind) => {
+            setPickingKind(false)
+            if (kind === 'diary') setDiaryEditing('new')
+            else setPicking(true)
+          }}
+          onClose={() => setPickingKind(false)}
+        />
       )}
 
       {picking && (
@@ -404,6 +449,36 @@ function MyModulesTab({
           onClose={() => setPicking(false)}
         />
       )}
+    </div>
+  )
+}
+
+function KindPicker({ onPick, onClose }: { onPick: (kind: 'practice' | 'diary') => void; onClose: () => void }) {
+  const { t } = useLanguage()
+  const options: { kind: 'practice' | 'diary'; label: string; hint: string }[] = [
+    { kind: 'practice', label: '練習模組', hint: '一次性引導練習，沿用積木題型' },
+    { kind: 'diary', label: '日記模組', hint: '個案每日重複填寫，附三層 AI 回饋' },
+  ]
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1714]/40 px-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-[24px] bg-background p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-black text-foreground">{t('選擇模組類型')}</h2>
+        <div className="mt-4 flex flex-col gap-2.5">
+          {options.map((opt) => (
+            <button
+              key={opt.kind}
+              onClick={() => onPick(opt.kind)}
+              className="rounded-2xl border border-border bg-card px-4 py-3 text-left transition hover:bg-muted hover:border-primary active:scale-[0.99]"
+            >
+              <p className="text-[15px] font-black text-foreground">{t(opt.label)}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t(opt.hint)}</p>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-4 w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
+          {t('取消')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -454,8 +529,13 @@ function ModuleEditor({
   const [title, setTitle] = useState(module?.title ?? '')
   const [description, setDescription] = useState(module?.description ?? '')
   const [estMinutes, setEstMinutes] = useState(module?.est_minutes != null ? String(module.est_minutes) : '')
+  // ModuleEditor 只用於 kind='practice'（diary/assessment 走各自的 Builder），
+  // draft_content/published_content 保證是 ProModuleContent 形狀。
   const [content, setContent] = useState<ProModuleContent>(
-    module?.draft_content ?? module?.published_content ?? initialContent ?? EMPTY_CONTENT,
+    (module?.draft_content as ProModuleContent | undefined) ??
+      (module?.published_content as ProModuleContent | undefined) ??
+      initialContent ??
+      EMPTY_CONTENT,
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -903,8 +983,9 @@ function ClientTrackingTab({ ownerId, modules }: { ownerId: string; modules: Pro
   )
 }
 
-type ProEntry = { id: string; answers: ProAnswers; created_at: string }
+type ProEntry = { id: string; answers: ProAnswers; created_at: string; entry_date: string }
 type PermaRow = { p_score: number; e_score: number; r_score: number; m_score: number; a_score: number; created_at: string }
+type WeeklyReviewRow = { id: string; period_start: string; period_end: string; content: { title?: string; summary?: string } }
 
 function ClientDetail({
   ownerId,
@@ -923,12 +1004,15 @@ function ClientDetail({
   const [entries, setEntries] = useState<ProEntry[] | null>(null)
   const [alerts, setAlerts] = useState<CrisisAlert[]>([])
   const [perma, setPerma] = useState<PermaRow | null>(null)
+  const [latestWeekly, setLatestWeekly] = useState<WeeklyReviewRow | null>(null)
+
+  const isDiary = module?.kind === 'diary'
 
   const load = useCallback(async () => {
     const [{ data: e }, { data: a }] = await Promise.all([
       supabase
         .from('pro_entries')
-        .select('id, answers, created_at')
+        .select('id, answers, created_at, entry_date')
         .eq('module_id', enrollment.module_id)
         .eq('user_id', enrollment.user_id)
         .order('created_at', { ascending: false }),
@@ -951,7 +1035,18 @@ function ClientDetail({
         .limit(1)
       setPerma(((p as PermaRow[]) ?? [])[0] ?? null)
     }
-  }, [ownerId, enrollment])
+    if (isDiary) {
+      const { data: rv } = await supabase
+        .from('pro_reviews')
+        .select('id, period_start, period_end, content')
+        .eq('module_id', enrollment.module_id)
+        .eq('user_id', enrollment.user_id)
+        .eq('review_type', 'weekly')
+        .order('period_start', { ascending: false })
+        .limit(1)
+      setLatestWeekly(((rv as WeeklyReviewRow[]) ?? [])[0] ?? null)
+    }
+  }, [ownerId, enrollment, isDiary])
 
   useEffect(() => {
     void load()
@@ -965,6 +1060,14 @@ function ClientDetail({
 
   const now = Date.now()
   const last7 = (entries ?? []).filter((e) => now - new Date(e.created_at).getTime() <= 7 * 86400000)
+
+  const entryDates = [...new Set((entries ?? []).map((e) => e.entry_date))]
+  const diaryStreak = isDiary ? streakFromDates(entryDates) : 0
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    return isoLocalDate(d)
+  })
 
   return (
     <div className="flex flex-col gap-4">
@@ -1002,7 +1105,35 @@ function ClientDetail({
       <div className="flex gap-3">
         <StatCard label={t('總打卡次數')} value={entries === null ? '…' : String(entries.length)} />
         <StatCard label={t('最近 7 天')} value={entries === null ? '…' : String(last7.length)} />
+        {isDiary && <StatCard label={t('連續天數')} value={entries === null ? '…' : String(diaryStreak)} />}
       </div>
+
+      {/* 日記模組：最近 7 天打卡點 + 最新週報摘要 */}
+      {isDiary && entries !== null && (
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+          <p className="mb-2 text-sm font-black text-foreground">{t('最近 7 天打卡')}</p>
+          <div className="flex gap-2">
+            {last7Days.map((d) => (
+              <span
+                key={d}
+                className={`h-3 w-3 flex-1 rounded-full ${entryDates.includes(d) ? 'bg-tile-mint' : 'bg-muted'}`}
+              />
+            ))}
+          </div>
+          {latestWeekly ? (
+            <div className="mt-3 rounded-xl bg-tile-peach px-3 py-2.5">
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#8a6320]">
+                {t('最新週報 · {start} ~ {end}', { start: latestWeekly.period_start, end: latestWeekly.period_end })}
+              </p>
+              {latestWeekly.content?.summary && (
+                <p className="mt-1 text-sm leading-relaxed text-foreground/85">{latestWeekly.content.summary}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">{t('尚未有週報，或個案未同步週報給你。')}</p>
+          )}
+        </div>
+      )}
 
       {/* (d) PERMA（若已同意分享） */}
       {enrollment.share_perma && perma && (
@@ -1035,7 +1166,10 @@ function ClientDetail({
             {entries.map((e) => (
               <div key={e.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
                 <p className="mb-2 text-xs font-bold text-muted-foreground">{formatDateTime(e.created_at)}</p>
-                <EntryAnswersView content={module?.published_content ?? module?.draft_content ?? null} answers={e.answers} />
+                <EntryAnswersView
+                  content={(module?.published_content ?? module?.draft_content ?? null) as ProModuleContent | null}
+                  answers={e.answers}
+                />
               </div>
             ))}
           </div>

@@ -8,7 +8,7 @@ import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
-import type { ProModuleRow, AiReview } from '../lib/proModules'
+import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent } from '../lib/proModules'
 import logoWordmark from '../assets/ui/logo-wordmark.png'
 
 export const Route = createFileRoute('/admin')({
@@ -315,6 +315,7 @@ function ModuleReviewTab() {
 
   if (selected) {
     const content = selected.draft_content
+    const hasBlocks = !!content && 'blocks' in content
     return (
       <div>
         <button
@@ -326,13 +327,19 @@ function ModuleReviewTab() {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* 左：模組完整內容（唯讀） */}
           <div>
-            <h2 className="text-xl font-black text-foreground">{selected.title}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-foreground">{selected.title}</h2>
+              <KindBadge kind={selected.kind} />
+            </div>
             {selected.description && <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>}
             {selected.est_minutes != null && (
               <p className="mt-1 text-sm text-muted-foreground">{t('預估 {n} 分鐘', { n: selected.est_minutes })}</p>
             )}
+            {selected.kind === 'diary' && content && 'feedback' in content && (
+              <DiaryFeedbackSummary content={content as DiaryModuleContent} />
+            )}
             <div className="mt-4 rounded-[22px] border border-border bg-background p-5 shadow-soft">
-              {content ? (
+              {hasBlocks ? (
                 <BlockRenderer content={content} answers={{}} disabled />
               ) : (
                 <p className="text-sm text-muted-foreground">{t('（沒有內容）')}</p>
@@ -390,6 +397,7 @@ function ModuleReviewTab() {
             >
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate text-[17px] font-black text-foreground">{m.title}</span>
+                <KindBadge kind={m.kind} />
                 <RiskBadge level={m.ai_review?.risk_level} error={!!m.ai_review?.error} />
               </div>
               {m.description && <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{m.description}</p>}
@@ -398,6 +406,21 @@ function ModuleReviewTab() {
         </div>
       )}
     </div>
+  )
+}
+
+const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
+  practice: { label: '練習', cls: 'bg-muted text-muted-foreground' },
+  diary: { label: '日記', cls: 'bg-tile-mint text-[#3f6b46]' },
+  assessment: { label: '測驗', cls: 'bg-tile-peach text-[#8a6320]' },
+}
+
+function KindBadge({ kind }: { kind: ProModuleKind }) {
+  const { t } = useLanguage()
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${KIND_META[kind].cls}`}>
+      {t(KIND_META[kind].label)}
+    </span>
   )
 }
 
@@ -444,8 +467,49 @@ function AiReviewPanel({ review }: { review: AiReview | null }) {
               <p className="mt-1 text-sm leading-relaxed text-foreground/85">{review.psychology_basis_note}</p>
             </div>
           )}
+          {review.copyright_note && (
+            <div className="rounded-xl bg-tile-pink px-3 py-2">
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-rust">{t('版權疑慮')}</p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground/85">{review.copyright_note}</p>
+            </div>
+          )}
+          {review.clinical_risk_note && (
+            <div className="rounded-xl bg-tile-pink px-3 py-2">
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-rust">{t('臨床風險備註')}</p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground/85">{review.clinical_risk_note}</p>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+// diary 審核：回饋設定摘要表（風格/門檻/週報 sections/同步開關）。
+function DiaryFeedbackSummary({ content }: { content: DiaryModuleContent }) {
+  const { t } = useLanguage()
+  const { daily, overall, weekly } = content.feedback
+  return (
+    <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-soft">
+      <p className="mb-2 text-sm font-black text-foreground">{t('回饋設定摘要')}</p>
+      <div className="flex flex-col gap-1.5 text-sm text-foreground/85">
+        <p>{t('每日回饋：{v}（風格：{style}）', { v: daily.enabled ? t('啟用') : t('停用'), style: daily.style })}</p>
+        <p>
+          {t('整體回饋：{v}（門檻 {n} 則，聚焦：{focus}）', {
+            v: overall.enabled ? t('啟用') : t('停用'),
+            n: overall.threshold,
+            focus: overall.focus.join('、') || '—',
+          })}
+        </p>
+        <p>
+          {t('週報：{v}（sections：{sections}；同步給專業夥伴：{sync}）', {
+            v: weekly.enabled ? t('啟用') : t('停用'),
+            sections: Object.entries(weekly.sections).filter(([, on]) => on).map(([k]) => k).join('、') || '—',
+            sync: weekly.sync_to_practitioner ? t('是') : t('否'),
+          })}
+        </p>
+        {content.reminder && <p>{t('提醒時間：{v}', { v: content.reminder.enabled ? content.reminder.time : t('不提醒') })}</p>}
+      </div>
     </div>
   )
 }
@@ -484,11 +548,14 @@ function FindingList({ title, findings }: { title: string; findings?: AiReview['
 
 // ── 已上架模組 ──────────────────────────────────────────────────────────────
 
+type KindFilter = 'all' | ProModuleKind
+
 function PublishedModulesTab() {
   const { t } = useLanguage()
   const [modules, setModules] = useState<ProModuleRow[] | null>(null)
   const [taking, setTaking] = useState<ProModuleRow | null>(null)
   const [busy, setBusy] = useState(false)
+  const [filter, setFilter] = useState<KindFilter>('all')
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -518,17 +585,41 @@ function PublishedModulesTab() {
 
   if (modules === null) return <Spinner />
 
+  const filtered = filter === 'all' ? modules : modules.filter((m) => m.kind === filter)
+  const FILTERS: { key: KindFilter; label: string }[] = [
+    { key: 'all', label: '全部' },
+    { key: 'practice', label: '練習' },
+    { key: 'diary', label: '日記' },
+    { key: 'assessment', label: '測驗' },
+  ]
+
   return (
     <div>
       <h1 className="mb-4 text-xl font-black text-foreground">{t('已上架模組')}</h1>
-      {modules.length === 0 ? (
+      <div className="mb-4 flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
+              filter === f.key ? 'bg-foreground text-cream' : 'bg-card text-foreground hover:bg-muted'
+            }`}
+          >
+            {t(f.label)}
+          </button>
+        ))}
+      </div>
+      {filtered.length === 0 ? (
         <EmptyHint>{t('目前沒有已上架的模組。')}</EmptyHint>
       ) : (
         <div className="flex flex-col gap-3">
-          {modules.map((m) => (
+          {filtered.map((m) => (
             <div key={m.id} className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft">
               <div className="min-w-0">
-                <h2 className="truncate text-[17px] font-black text-foreground">{m.title}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="truncate text-[17px] font-black text-foreground">{m.title}</h2>
+                  <KindBadge kind={m.kind} />
+                </div>
                 {m.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>}
               </div>
               <button
