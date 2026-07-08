@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
 import { hasSkippedOnboarding } from '../lib/onboardingSkip'
+import { checkAndGenerateReviews } from '../lib/reviews'
 import { ProModuleSection } from '../components/pro/ProModuleSection'
 import { useLanguage } from '../lib/i18n/context'
 import homeMascot from '../assets/ui/home-mascot.png'
@@ -125,6 +126,15 @@ const workshopModules = [
 function HomePage() {
   const { userName, recommendation } = Route.useRouteContext()
   const { t } = useLanguage()
+
+  // lazy 檢查是否有新的回顧報告可生成（每人每天最多一次，見 reviews.ts）。
+  // 不 await、不阻塞畫面：純背景檢查。
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const uid = session?.user.id
+      if (uid) void checkAndGenerateReviews(uid)
+    })
+  }, [])
 
   return (
     <div className="mx-auto max-w-md animate-fade-up px-5 pt-3 pb-28">

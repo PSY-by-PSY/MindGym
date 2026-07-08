@@ -473,6 +473,10 @@ function NotificationBell() {
 
   const handleClick = (item: NotificationItem) => {
     setOpen(false)
+    if (item.type === 'review') {
+      navigate({ to: '/app/profile' })
+      return
+    }
     navigate({ to: '/app/community', search: { focus: item.entryId } })
   }
 

@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 
 export type NotificationItem = {
   id: string
-  type: 'like' | 'comment'
+  type: 'like' | 'comment' | 'review'
   entryId: string
   createdAt: string
   title: string
@@ -71,6 +71,26 @@ export async function fetchNotifications(
       createdAt: c.created_at as string,
       title: t('{name} 留言：{snippet}', { name: c.anon_name ?? t('有人'), snippet: snippetOf(c.content as string, 20) }),
       snippet: snippetById[c.entry_id as string] ?? '',
+    })
+  }
+
+  // 第三來源：回顧報告出爐（整體回饋／週報／內建感恩日記週回顧）。
+  const { data: reviews } = await supabase
+    .from('pro_reviews')
+    .select('id, review_type, created_at, read_at, content')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  for (const r of reviews ?? []) {
+    if (r.read_at) continue // 已讀的回顧不再出現在通知列表
+    const reviewContent = r.content as { title?: string } | null
+    items.push({
+      id: `review_${r.id}`,
+      type: 'review',
+      entryId: r.id as string,
+      createdAt: r.created_at as string,
+      title: t('你的{name}出爐了', { name: reviewContent?.title || t('回顧報告') }),
+      snippet: '',
     })
   }
 
