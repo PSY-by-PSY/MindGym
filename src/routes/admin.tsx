@@ -8,7 +8,7 @@ import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
-import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent } from '../lib/proModules'
+import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent, AssessmentModuleContent } from '../lib/proModules'
 import logoWordmark from '../assets/ui/logo-wordmark.png'
 
 export const Route = createFileRoute('/admin')({
@@ -341,6 +341,8 @@ function ModuleReviewTab() {
             <div className="mt-4 rounded-[22px] border border-border bg-background p-5 shadow-soft">
               {hasBlocks ? (
                 <BlockRenderer content={content} answers={{}} disabled />
+              ) : selected.kind === 'assessment' && content && 'questions' in content ? (
+                <AssessmentContentSummary content={content as AssessmentModuleContent} />
               ) : (
                 <p className="text-sm text-muted-foreground">{t('（沒有內容）')}</p>
               )}
@@ -481,6 +483,45 @@ function AiReviewPanel({ review }: { review: AiReview | null }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// assessment 審核重點：維度列表＋原題/轉譯題對照全文。
+function AssessmentContentSummary({ content }: { content: AssessmentModuleContent }) {
+  const { t } = useLanguage()
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className="mb-2 text-sm font-black text-foreground">
+          {t('維度（來源量表：{name}）', { name: content.source_scale?.name || '—' })}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {content.dimensions.map((d) => (
+            <span key={d.key} className="rounded-full bg-muted px-3 py-1 text-xs font-bold text-foreground">
+              {d.key} · {d.name}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-3">
+        {content.questions.map((q, i) => (
+          <div key={q.id} className="rounded-2xl border border-border bg-background p-3">
+            <p className="mb-1.5 text-[11px] font-bold text-muted-foreground">
+              {i + 1}. {q.dimension}
+              {q.sensitive && <span className="ml-2 rounded-full bg-tile-pink px-2 py-0.5 text-[10px] font-extrabold text-rust">{t('敏感題')}</span>}
+            </p>
+            <div className="rounded-xl bg-muted px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('原題')}</p>
+              <p className="mt-0.5 text-sm text-foreground/70">{q.original || t('（無）')}</p>
+            </div>
+            <div className="mt-1.5 rounded-xl bg-card px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{t('轉譯題')}</p>
+              <p className="mt-0.5 text-sm text-foreground/85">{q.translated}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -653,6 +694,7 @@ type CrisisRow = {
   id: string
   severity: string
   source: string | null
+  entry_id: string | null
   matched_terms: string[] | null
   acknowledged_at: string | null
   created_at: string
@@ -666,7 +708,7 @@ function CrisisOverviewTab() {
     let cancelled = false
     supabase
       .from('crisis_alerts')
-      .select('id, severity, source, matched_terms, acknowledged_at, created_at')
+      .select('id, severity, source, entry_id, matched_terms, acknowledged_at, created_at')
       .order('created_at', { ascending: false })
       .limit(200)
       .then(({ data }) => {
@@ -691,6 +733,7 @@ function CrisisOverviewTab() {
               <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <th className="px-4 py-3 font-bold">{t('時間')}</th>
                 <th className="px-4 py-3 font-bold">{t('風險')}</th>
+                <th className="px-4 py-3 font-bold">{t('情境')}</th>
                 <th className="px-4 py-3 font-bold">{t('來源')}</th>
                 <th className="px-4 py-3 font-bold">{t('關鍵字')}</th>
                 <th className="px-4 py-3 font-bold">{t('狀態')}</th>
@@ -705,6 +748,7 @@ function CrisisOverviewTab() {
                       {RISK_META[r.severity] ? t(RISK_META[r.severity].label) : r.severity}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-muted-foreground">{r.entry_id ? t('一般練習') : t('測驗作答')}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.source === 'keyword' ? t('關鍵字') : r.source === 'ai' ? 'AI' : '—'}</td>
                   <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
                   <td className="px-4 py-3">

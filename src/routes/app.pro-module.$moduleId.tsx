@@ -24,11 +24,13 @@ import {
   type ProBlock,
   type ProModuleContent,
   type DiaryModuleContent,
+  type AssessmentModuleContent,
 } from '../lib/proModules'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { ConsentModal } from '../components/pro/ConsentModal'
 import { CrisisResourcesModal } from '../components/pro/CrisisResourcesModal'
 import { DiaryPlayer } from '../components/pro/DiaryPlayer'
+import { AssessmentPlayer } from '../components/pro/AssessmentPlayer'
 
 export const Route = createFileRoute('/app/pro-module/$moduleId')({
   component: ProModulePlayer,
@@ -120,15 +122,16 @@ function ProModulePlayer() {
   }
 
   // practice/diary 共用 BlockRenderer/pro_entries 流程（DiaryModuleContent 結構上相容 ProModuleContent，
-  // 含 blocks）；assessment 有自己的播放器與資料表，尚未走到這裡（Phase 4 會在此加上 kind 守衛）。
+  // 含 blocks）；assessment 沒有 blocks，自己的 AssessmentPlayer 走獨立資料表，這裡防禦性地當空陣列處理。
   const content = module.published_content as ProModuleContent
+  const blocks = Array.isArray(content.blocks) ? content.blocks : []
   const setAnswer = (id: string, value: ProAnswerValue) =>
     setAnswers((prev) => ({ ...prev, [id]: value }))
 
-  const requiredMissing = content.blocks.some((b) => b.required && !isAnswered(b, answers[b.id]))
+  const requiredMissing = blocks.some((b) => b.required && !isAnswered(b, answers[b.id]))
 
   const collectTexts = (): string[] =>
-    content.blocks
+    blocks
       .map((b) => answers[b.id])
       .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
 
@@ -273,7 +276,13 @@ function ProModulePlayer() {
         </div>
       </div>
 
-      {module.kind === 'diary' ? (
+      {module.kind === 'assessment' ? (
+        <AssessmentPlayer
+          moduleId={module.module_id}
+          estMinutes={module.est_minutes}
+          content={module.published_content as AssessmentModuleContent}
+        />
+      ) : module.kind === 'diary' ? (
         <DiaryPlayer
           moduleId={module.module_id}
           userId={userId as string}

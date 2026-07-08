@@ -91,6 +91,59 @@ export interface AssessmentModuleContent {
 
 export type AnyModuleContent = ProModuleContent | DiaryModuleContent | AssessmentModuleContent
 
+// 質性測驗雙報告 schema（後端 /api/pro/assessment-report 一次生成）。
+export interface PractitionerReportDimension {
+  key: string
+  name: string
+  estimated_score: number
+  max_score: number
+  confidence: 'high' | 'medium' | 'low'
+  evidence: string[]
+}
+
+export interface PractitionerReportContent {
+  v: number
+  dimensions: PractitionerReportDimension[]
+  needs_confirmation: string[]
+  reflection_prompts: string[]
+  disclaimer: string
+  error?: string
+}
+
+export interface ClientReportContent {
+  v: number
+  hero: { emoji: string; title: string; subtitle: string }
+  highlights: { emoji: string; title: string; text: string }[]
+  quote?: { text: string; source: string }
+  hope: string
+  mission: { title: string; text: string }
+  footer_note: string
+  error?: string
+}
+
+export type AssessmentResultStatus = 'pending_release' | 'released'
+
+// 個案端 get_my_assessment_results() 回傳的一筆（pending_release 時 client_report 為 null）。
+export interface AssessmentResultInfo {
+  id: string
+  created_at: string
+  status: AssessmentResultStatus
+  client_report: ClientReportContent | null
+}
+
+// 專業夥伴端讀到的完整結果列（含 practitioner_report，僅 owner enrollment 可見）。
+export interface AssessmentResultRow {
+  id: string
+  module_id: string
+  user_id: string
+  answers: Record<string, string>
+  practitioner_report: PractitionerReportContent | null
+  client_report: ClientReportContent | null
+  status: AssessmentResultStatus
+  created_at: string
+  released_at: string | null
+}
+
 // answers 以 block id 為 key：短/長文字→string、scale→number、choice/checklist→string[]。
 export type ProAnswerValue = string | number | string[]
 export type ProAnswers = Record<string, ProAnswerValue>
@@ -201,6 +254,26 @@ export async function getMyModules(): Promise<ProModuleInfo[]> {
     return []
   }
   return (data as ProModuleInfo[] | null) ?? []
+}
+
+/** 個案讀自己某個質性測驗模組的所有結果（pending_release 時 client_report 為 null）。 */
+export async function getMyAssessmentResults(moduleId: string): Promise<AssessmentResultInfo[]> {
+  const { data, error } = await supabase.rpc('get_my_assessment_results', { p_module_id: moduleId })
+  if (error) {
+    console.error('[pro getMyAssessmentResults]', error)
+    return []
+  }
+  return (data as AssessmentResultInfo[] | null) ?? []
+}
+
+/** 專業夥伴發布個案版報告（review_before_send=true 時的確認動作）。 */
+export async function releaseAssessmentResult(resultId: string): Promise<boolean> {
+  const { error } = await supabase.rpc('release_assessment_result', { p_result_id: resultId })
+  if (error) {
+    console.error('[pro releaseAssessmentResult]', error)
+    return false
+  }
+  return true
 }
 
 /** 停止追蹤關係（個案只能單向停止；停止後專業夥伴立即看不到任何資料）。 */

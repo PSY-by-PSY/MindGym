@@ -10,6 +10,8 @@ import { isoLocalDate } from '../lib/date'
 import { BlockEditor } from '../components/pro/BlockEditor'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { DiaryBuilder } from '../components/pro/DiaryBuilder'
+import { AssessmentBuilder } from '../components/pro/AssessmentBuilder'
+import { AssessmentReportView } from '../components/pro/AssessmentReportView'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import {
@@ -18,6 +20,7 @@ import {
   type ProModuleContent,
   type ProModuleStatus,
   type ProModuleKind,
+  type AssessmentResultRow,
   type ProAnswers,
   type ProAnswerValue,
 } from '../lib/proModules'
@@ -341,6 +344,7 @@ function MyModulesTab({
   const { t } = useLanguage()
   const [editing, setEditing] = useState<ProModuleRow | null | 'new'>(null)
   const [diaryEditing, setDiaryEditing] = useState<ProModuleRow | null | 'new'>(null)
+  const [assessmentEditing, setAssessmentEditing] = useState<ProModuleRow | null | 'new'>(null)
   const [picking, setPicking] = useState(false)
   const [pickingKind, setPickingKind] = useState(false)
   const [templateContent, setTemplateContent] = useState<ProModuleContent>(EMPTY_CONTENT)
@@ -355,6 +359,20 @@ function MyModulesTab({
           await reload()
         }}
         onCancel={() => setDiaryEditing(null)}
+      />
+    )
+  }
+
+  if (assessmentEditing === 'new' || assessmentEditing) {
+    return (
+      <AssessmentBuilder
+        ownerId={ownerId}
+        module={assessmentEditing === 'new' ? null : assessmentEditing}
+        onDone={async () => {
+          setAssessmentEditing(null)
+          await reload()
+        }}
+        onCancel={() => setAssessmentEditing(null)}
       />
     )
   }
@@ -377,6 +395,7 @@ function MyModulesTab({
 
   const openEdit = (m: ProModuleRow) => {
     if (m.kind === 'diary') setDiaryEditing(m)
+    else if (m.kind === 'assessment') setAssessmentEditing(m)
     else setEditing(m)
   }
 
@@ -433,6 +452,7 @@ function MyModulesTab({
           onPick={(kind) => {
             setPickingKind(false)
             if (kind === 'diary') setDiaryEditing('new')
+            else if (kind === 'assessment') setAssessmentEditing('new')
             else setPicking(true)
           }}
           onClose={() => setPickingKind(false)}
@@ -453,11 +473,12 @@ function MyModulesTab({
   )
 }
 
-function KindPicker({ onPick, onClose }: { onPick: (kind: 'practice' | 'diary') => void; onClose: () => void }) {
+function KindPicker({ onPick, onClose }: { onPick: (kind: ProModuleKind) => void; onClose: () => void }) {
   const { t } = useLanguage()
-  const options: { kind: 'practice' | 'diary'; label: string; hint: string }[] = [
+  const options: { kind: ProModuleKind; label: string; hint: string }[] = [
     { kind: 'practice', label: '練習模組', hint: '一次性引導練習，沿用積木題型' },
     { kind: 'diary', label: '日記模組', hint: '個案每日重複填寫，附三層 AI 回饋' },
+    { kind: 'assessment', label: '質性測驗', hint: '把量表轉譯成開放式問題，AI 生成雙版本報告' },
   ]
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1714]/40 px-4" onClick={onClose}>
@@ -1005,8 +1026,10 @@ function ClientDetail({
   const [alerts, setAlerts] = useState<CrisisAlert[]>([])
   const [perma, setPerma] = useState<PermaRow | null>(null)
   const [latestWeekly, setLatestWeekly] = useState<WeeklyReviewRow | null>(null)
+  const [assessmentResults, setAssessmentResults] = useState<AssessmentResultRow[] | null>(null)
 
   const isDiary = module?.kind === 'diary'
+  const isAssessment = module?.kind === 'assessment'
 
   const load = useCallback(async () => {
     const [{ data: e }, { data: a }] = await Promise.all([
@@ -1046,7 +1069,16 @@ function ClientDetail({
         .limit(1)
       setLatestWeekly(((rv as WeeklyReviewRow[]) ?? [])[0] ?? null)
     }
-  }, [ownerId, enrollment, isDiary])
+    if (isAssessment) {
+      const { data: ar } = await supabase
+        .from('pro_assessment_results')
+        .select('*')
+        .eq('module_id', enrollment.module_id)
+        .eq('user_id', enrollment.user_id)
+        .order('created_at', { ascending: false })
+      setAssessmentResults((ar as AssessmentResultRow[]) ?? [])
+    }
+  }, [ownerId, enrollment, isDiary, isAssessment])
 
   useEffect(() => {
     void load()
@@ -1102,11 +1134,17 @@ function ClientDetail({
       )}
 
       {/* (b) 統計 */}
-      <div className="flex gap-3">
-        <StatCard label={t('總打卡次數')} value={entries === null ? '…' : String(entries.length)} />
-        <StatCard label={t('最近 7 天')} value={entries === null ? '…' : String(last7.length)} />
-        {isDiary && <StatCard label={t('連續天數')} value={entries === null ? '…' : String(diaryStreak)} />}
-      </div>
+      {isAssessment ? (
+        <div className="flex gap-3">
+          <StatCard label={t('測驗次數')} value={assessmentResults === null ? '…' : String(assessmentResults.length)} />
+        </div>
+      ) : (
+        <div className="flex gap-3">
+          <StatCard label={t('總打卡次數')} value={entries === null ? '…' : String(entries.length)} />
+          <StatCard label={t('最近 7 天')} value={entries === null ? '…' : String(last7.length)} />
+          {isDiary && <StatCard label={t('連續天數')} value={entries === null ? '…' : String(diaryStreak)} />}
+        </div>
+      )}
 
       {/* 日記模組：最近 7 天打卡點 + 最新週報摘要 */}
       {isDiary && entries !== null && (
@@ -1152,29 +1190,54 @@ function ClientDetail({
         </div>
       )}
 
-      {/* (c) 紀錄時間軸 */}
-      <div>
-        <p className="mb-2 text-sm font-black text-foreground">{t('紀錄時間軸')}</p>
-        {entries === null ? (
-          <p className="text-sm text-muted-foreground">{t('讀取中…')}</p>
-        ) : entries.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            {t('這位個案還沒有任何打卡紀錄。')}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {entries.map((e) => (
-              <div key={e.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-                <p className="mb-2 text-xs font-bold text-muted-foreground">{formatDateTime(e.created_at)}</p>
-                <EntryAnswersView
-                  content={(module?.published_content ?? module?.draft_content ?? null) as ProModuleContent | null}
-                  answers={e.answers}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* (c) 紀錄時間軸（practice/diary） */}
+      {!isAssessment && (
+        <div>
+          <p className="mb-2 text-sm font-black text-foreground">{t('紀錄時間軸')}</p>
+          {entries === null ? (
+            <p className="text-sm text-muted-foreground">{t('讀取中…')}</p>
+          ) : entries.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              {t('這位個案還沒有任何打卡紀錄。')}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {entries.map((e) => (
+                <div key={e.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+                  <p className="mb-2 text-xs font-bold text-muted-foreground">{formatDateTime(e.created_at)}</p>
+                  <EntryAnswersView
+                    content={(module?.published_content ?? module?.draft_content ?? null) as ProModuleContent | null}
+                    answers={e.answers}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* (e) 測驗結果（assessment）：每筆一份完整報告視圖，含 review_before_send 的發布動作 */}
+      {isAssessment && (
+        <div>
+          <p className="mb-2 text-sm font-black text-foreground">{t('測驗結果')}</p>
+          {assessmentResults === null ? (
+            <p className="text-sm text-muted-foreground">{t('讀取中…')}</p>
+          ) : assessmentResults.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              {t('這位個案還沒有任何測驗結果。')}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {assessmentResults.map((r) => (
+                <div key={r.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+                  <p className="mb-2 text-xs font-bold text-muted-foreground">{formatDateTime(r.created_at)}</p>
+                  <AssessmentReportView result={r} onReleased={load} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

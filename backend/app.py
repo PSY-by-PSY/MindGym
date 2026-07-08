@@ -1528,6 +1528,228 @@ async def reviews_gratitude_weekly(req: GratitudeWeeklyRequest, authorization: s
     return await _insert_review(user_id, None, "gratitude_weekly", start.isoformat(), end.isoformat(), entry_count, content_json)
 
 
+# ── 量表轉譯質性評估（kind='assessment'）───────────────────────────────────
+# 兩個端點：量表 AI 轉譯（專業夥伴端）＋ 測驗雙報告生成（個案端，含危機判讀）。
+
+_SCALE_TRANSFORM_MODEL = "claude-sonnet-4-5"
+_ASSESSMENT_REPORT_MODEL = "claude-sonnet-4-5"
+
+_SCALE_TRANSFORM_SYSTEM = """你是心理量表轉譯助手，將標準化心理量表轉譯為開放式、生活化的質性問題。
+規則：
+- 從量表全文辨識維度結構與題項；每維度輸出 key（2-3 個大寫英文字母）/name/description。
+- 每題輸出 original（濃縮原題意，不要求逐字複製，避免大量逐字收錄受版權保護的完整題目）、
+  translated（開放式、生活化、無誘導、繁體中文的問題）、以及 2 條 hints（引導使用者展開回答的追問）。
+- 每維度取最具代表性的 2-3 題轉譯，總題數不超過 15 題。
+- 若量表含自傷/自殺意念相關題目（如 PHQ-9 第 9 題），translated 必須是溫和間接的問法，
+  並在該題標註 "sensitive": true（前端會在該題顯示求助資源列）；其餘題目不設定此欄位或設為 false。
+只回傳 JSON，不要任何前言或 markdown：
+{"dimensions":[{"key":"SK","name":"...","description":"..."}],
+ "questions":[{"dimension":"SK","original":"...","translated":"...","hints":["...","..."],"sensitive":false}]}"""
+
+_ASSESSMENT_REPORT_SYSTEM = """你是心理健康 App 的質性測驗雙報告生成助手。
+根據個案的開放式回答，同時產出兩份報告（同一次分析、兩個呈現角度）：
+
+practitioner_report（給專業夥伴看，可含分數與臨床觀察）：
+- dimensions：每個維度給 estimated_score（0-10，依語意映射推估）、max_score（固定 10）、
+  confidence（high/medium/low）、evidence（1-2 條引用個案原文佐證）。
+- needs_confirmation：需要會談中溫和確認的地方（陣列，可為空）。
+- reflection_prompts：給專業夥伴的反思/切入點建議（陣列）。
+- disclaimer：固定提醒此為語意推估、非標準化施測分數、不構成診斷。
+
+client_report（給個案看，優勢轉譯、溫暖、無分數、無風險語彙、無臨床診斷詞）：
+- hero：{emoji, title, subtitle} 一個溫暖的原型稱號（不影射真實人物）。
+- highlights：固定 3 則 {emoji, title, text}，必須引用個案原文佐證。
+- quote：{text, source} 從個案回答中挑一句金句，source 標明「出自你第 N 題的回答」。
+- hope：一段有研究支持的溫暖敘述。
+- mission：{title, text} 本週一個小而可行的任務。
+- footer_note：固定說明「這份報告由 AI 根據你的書寫生成，經你的專業夥伴確認後發送。它不是測驗結果，是一面溫柔的鏡子。」。
+
+規則：client_report 絕對不得出現分數、百分位、風險/診斷語彙；hope 與 highlights 需貼合個案實際回答，
+不可空泛套話。只回傳 JSON，不要任何前言或 markdown，頂層只有 practitioner_report 與 client_report 兩個 key。"""
+
+
+class ScaleTransformRequest(BaseModel):
+    scale_name: str = ""
+    scale_text: str
+
+
+@app.post("/api/pro/scale-transform")
+async def pro_scale_transform(req: ScaleTransformRequest, authorization: str = Header(...)):
+    """量表 AI 轉譯：專業夥伴貼上量表全文 → 回傳 dimensions + questions。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+    if not await _is_practitioner(user_id):
+        raise HTTPException(status_code=403, detail="僅限專業夥伴使用")
+    if not req.scale_text.strip():
+        raise HTTPException(status_code=400, detail="量表內容不可為空")
+
+    try:
+        data = await _pg_claude_json(
+            "pro-scale-transform", user_id, _SCALE_TRANSFORM_SYSTEM,
+            f"量表名稱：{req.scale_name or '（未命名）'}\n\n量表全文：\n{req.scale_text}",
+            max_tokens=3000, model=_SCALE_TRANSFORM_MODEL,
+        )
+        dimensions = []
+        for i, d in enumerate(data.get("dimensions") or []):
+            dimensions.append({
+                "key": str(d.get("key") or f"D{i + 1}").upper()[:3],
+                "name": d.get("name") or f"維度 {i + 1}",
+                "description": d.get("description") or "",
+                "color_index": i % 5,
+            })
+        dim_keys = {d["key"] for d in dimensions}
+        questions = []
+        for i, q in enumerate(data.get("questions") or []):
+            dim = str(q.get("dimension") or "").upper()[:3]
+            if dim not in dim_keys and dimensions:
+                dim = dimensions[0]["key"]
+            questions.append({
+                "id": f"q{i + 1}",
+                "dimension": dim,
+                "original": q.get("original") or "",
+                "translated": q.get("translated") or "",
+                "hints": q.get("hints") or [],
+                "required": True,
+                "sensitive": bool(q.get("sensitive", False)),
+            })
+        return {"dimensions": dimensions, "questions": questions}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pro_scale_transform failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail="量表轉譯失敗，請稍後再試")
+
+
+def _fallback_assessment_reports() -> tuple[dict, dict]:
+    practitioner_report = {
+        "v": 1, "dimensions": [], "needs_confirmation": [],
+        "reflection_prompts": ["AI 報告生成失敗，建議直接參考個案原始回答。"],
+        "disclaimer": "推估分數來自質性回答的語意映射，不可等同標準化施測分數；本報告不構成診斷。",
+        "error": "AI 報告生成失敗",
+    }
+    client_report = {
+        "v": 1,
+        "hero": {"emoji": "🌱", "title": "持續書寫的你", "subtitle": "報告生成中遇到一點小狀況"},
+        "highlights": [],
+        "hope": "你願意誠實面對這些問題，本身就是一件很有力量的事。",
+        "mission": {"title": "深呼吸", "text": "先休息一下，稍後可以再回來看看完整的報告。"},
+        "footer_note": "這份報告由 AI 根據你的書寫生成，經你的專業夥伴確認後發送。它不是測驗結果，是一面溫柔的鏡子。",
+        "error": "生成失敗，請聯繫平台",
+    }
+    return practitioner_report, client_report
+
+
+class AssessmentReportRequest(BaseModel):
+    module_id: str
+    answers: dict[str, str] = Field(default_factory=dict)
+
+
+@app.post("/api/pro/assessment-report")
+async def pro_assessment_report(req: AssessmentReportRequest, authorization: str = Header(...)):
+    """個案送出質性測驗：危機兩層判讀 + 單次 AI 呼叫同時產出雙報告 + 依 review_before_send 決定發布狀態。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+
+    enr = await _get_active_enrollment(req.module_id, user_id)
+    if not enr:
+        raise HTTPException(status_code=403, detail="尚未追蹤此模組")
+    practitioner_id = enr["practitioner_id"]
+
+    mod_resp = await db().get(
+        f"{SUPABASE_REST}/pro_modules",
+        headers=SUPABASE_HEADERS,
+        params={"id": f"eq.{req.module_id}", "select": "id,kind,published_content"},
+    )
+    mod_rows = mod_resp.json() if mod_resp.status_code == 200 else []
+    if not mod_rows or mod_rows[0].get("kind") != "assessment":
+        raise HTTPException(status_code=400, detail="非質性測驗模組")
+    content = mod_rows[0].get("published_content") or {}
+    review_before_send = bool(content.get("review_before_send", False))
+    questions = content.get("questions") or []
+    q_by_id = {q["id"]: q for q in questions}
+
+    joined_answers = "\n".join(
+        f"[{i + 1}] {q_by_id.get(qid, {}).get('translated', qid)}\n答：{text}"
+        for i, (qid, text) in enumerate(req.answers.items()) if text and text.strip()
+    )
+    joined_texts = "\n".join(t for t in req.answers.values() if t and t.strip())
+
+    # 危機兩層判讀：關鍵字優先（零成本、命中即 high），未命中才 AI 語意；複用既有共用函式。
+    crisis = {"risk": "none", "matched_terms": []}
+    matched = [kw for kw in CRISIS_KEYWORDS if kw in joined_texts]
+    if matched:
+        crisis = {"risk": "high", "matched_terms": matched}
+    elif joined_texts.strip():
+        try:
+            msg = await claude().messages.create(
+                model=_CRISIS_MODEL,
+                max_tokens=256,
+                system="你是心理危機辨識助手，只回傳 JSON，不要任何前言或 markdown。",
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "判斷以下文字是否流露自我傷害、自殺意念或嚴重心理危機（含隱晦表達）。"
+                        "寧可誤報、不可漏報。\n\n" + joined_texts +
+                        '\n\n只回傳 JSON：{"risk":"none|medium|high"}'
+                    ),
+                }],
+            )
+            meter_claude("pro-assessment-safety", _CRISIS_MODEL, msg.usage, user_id)
+            raw = msg.content[0].text if msg.content else ""
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
+            if m:
+                r = str(json.loads(m.group()).get("risk", "none")).lower()
+                if r in ("medium", "high"):
+                    crisis = {"risk": r, "matched_terms": []}
+        except Exception as exc:
+            logger.warning("pro_assessment_report safety AI failed [%s]: %s", type(exc).__name__, exc)
+
+    try:
+        data = await _pg_claude_json(
+            "pro-assessment-report", user_id, _ASSESSMENT_REPORT_SYSTEM,
+            f"量表維度：{json.dumps(content.get('dimensions') or [], ensure_ascii=False)}\n\n"
+            f"個案的回答：\n{joined_answers or '（沒有作答內容）'}\n\n"
+            '只回傳 JSON：{"practitioner_report": {...}, "client_report": {...}}',
+            max_tokens=3000, model=_ASSESSMENT_REPORT_MODEL,
+        )
+        practitioner_report = data.get("practitioner_report") or {}
+        client_report = data.get("client_report") or {}
+        if not practitioner_report or not client_report:
+            raise ValueError("empty report")
+    except Exception as exc:
+        logger.warning("pro_assessment_report AI failed [%s]: %s", type(exc).__name__, exc)
+        practitioner_report, client_report = _fallback_assessment_reports()
+
+    status = "pending_release" if (review_before_send or practitioner_report.get("error")) else "released"
+    insert_resp = await db().post(
+        f"{SUPABASE_REST}/pro_assessment_results",
+        headers={**SUPABASE_HEADERS, "Prefer": "return=representation"},
+        json={
+            "module_id": req.module_id, "user_id": user_id, "answers": req.answers,
+            "practitioner_report": practitioner_report, "client_report": client_report,
+            "status": status, "released_at": _now_iso() if status == "released" else None,
+        },
+    )
+    if insert_resp.status_code not in (200, 201):
+        logger.error("pro_assessment_results insert failed: %s", insert_resp.text)
+        raise HTTPException(status_code=500, detail="儲存測驗結果失敗")
+    rows = insert_resp.json()
+    result_id = rows[0]["id"] if rows else None
+
+    if crisis["risk"] != "none":
+        await _insert_crisis_alert(
+            user_id, practitioner_id, req.module_id, None,
+            "keyword" if matched else "ai", crisis["risk"], crisis["matched_terms"],
+        )
+
+    return {
+        "result_id": result_id,
+        "status": status,
+        "client_report": client_report if status == "released" else None,
+        "crisis": crisis,
+    }
+
+
 # ── Speech-to-text ─────────────────────────────────────────────────────────
 
 _MAX_AUDIO_BYTES = 10 * 1024 * 1024
