@@ -6,7 +6,7 @@ import math
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import anthropic
 import httpx
@@ -772,14 +772,16 @@ async def generate_report(
 _PG_MODEL = "claude-haiku-4-5-20251001"
 
 
-async def _pg_claude_json(source: str, user_id: str, system: str, user_content: str, max_tokens: int = 512) -> dict:
+async def _pg_claude_json(
+    source: str, user_id: str, system: str, user_content: str, max_tokens: int = 512, model: str = _PG_MODEL
+) -> dict:
     msg = await claude().messages.create(
-        model=_PG_MODEL,
+        model=model,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user_content}],
     )
-    meter_claude(source, _PG_MODEL, msg.usage, user_id)
+    meter_claude(source, model, msg.usage, user_id)
     raw = msg.content[0].text if msg.content else ""
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
@@ -948,6 +950,23 @@ _PRO_REVIEW_SYSTEM = """你是心理健康 App 的安全審核助手，審核標
  "summary":"一句話總結整體風險"}
 沒有疑慮時對應陣列回空陣列 []。"""
 
+# kind 感知附加指示：diary 檢查回饋設定是否誘發依賴/過度承諾；
+# assessment 額外要求輸出 copyright_note / clinical_risk_note 兩個頂層欄位。
+_PRO_REVIEW_KIND_APPENDIX = {
+    "diary": (
+        "\n\n這是一個「日記模組」（個案每日重複填寫，附 AI 回饋設定）。"
+        "額外檢查 feedback 設定：回饋風格或訊息是否可能誘發對 App/AI 的心理依賴、"
+        "是否對療效或情緒改善做出過度承諾。若有疑慮請計入 psych_safety。"
+    ),
+    "assessment": (
+        "\n\n這是一個「量表轉譯質性測驗模組」（將心理量表轉譯為開放式問題）。"
+        "額外輸出兩個頂層欄位："
+        '"copyright_note"：檢查 questions 的 original 欄位是否疑似逐字或近乎逐字收錄受版權保護的'
+        "標準化量表題目（而非合理濃縮改寫），有疑慮則說明，沒有則回空字串；"
+        '"clinical_risk_note"：檢查是否含有臨床診斷性宣稱（例如「你有憂鬱症」），有疑慮則說明，沒有則回空字串。'
+    ),
+}
+
 
 class SubmitModuleRequest(BaseModel):
     module_id: str
@@ -972,7 +991,7 @@ async def _is_practitioner(user_id: str) -> bool:
     return resp.status_code == 200 and len(resp.json()) > 0
 
 
-async def _pro_ai_review(user_id: str, title: str, description: str, draft_content) -> dict:
+async def _pro_ai_review(user_id: str, title: str, description: str, draft_content, kind: str = "practice") -> dict:
     """對模組跑 AI 安全標籤。任何失敗都回 {"error": ...}，交由人工審核兜底（不阻擋送審）。"""
     try:
         content = (
@@ -981,11 +1000,12 @@ async def _pro_ai_review(user_id: str, title: str, description: str, draft_conte
             f"【說明】{description}\n"
             f"【內容 JSON】\n{json.dumps(draft_content, ensure_ascii=False)}\n"
         )
+        system = _PRO_REVIEW_SYSTEM + _PRO_REVIEW_KIND_APPENDIX.get(kind, "")
         msg = await claude().messages.create(
             model=_PRO_REVIEW_MODEL,
             max_tokens=1500,
             temperature=0.2,
-            system=_PRO_REVIEW_SYSTEM,
+            system=system,
             messages=[{"role": "user", "content": content}],
         )
         meter_claude("pro-submit-module", _PRO_REVIEW_MODEL, msg.usage, user_id)
@@ -1012,7 +1032,7 @@ async def pro_submit_module(req: SubmitModuleRequest, authorization: str = Heade
             headers=SUPABASE_HEADERS,
             params={
                 "id": f"eq.{req.module_id}",
-                "select": "id,owner_id,title,description,draft_content,status",
+                "select": "id,owner_id,title,description,draft_content,status,kind",
             },
         )
         rows = resp.json() if resp.status_code == 200 else []
@@ -1031,7 +1051,8 @@ async def pro_submit_module(req: SubmitModuleRequest, authorization: str = Heade
 
         # 2~3. AI 安全標籤（失敗回 {"error": ...}，不阻擋）
         ai_review = await _pro_ai_review(
-            user_id, module.get("title") or "", module.get("description") or "", draft
+            user_id, module.get("title") or "", module.get("description") or "", draft,
+            kind=module.get("kind") or "practice",
         )
 
         # 4. service key 更新狀態 + 寫審核軌跡
@@ -1170,6 +1191,563 @@ async def pro_entry_safety_check(req: EntrySafetyCheckRequest, authorization: st
     except Exception as exc:
         logger.error("pro_entry_safety_check failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+# ── 日記模組：每日即時回饋 + 定期回顧（整體／週報／內建感恩日記週回顧）─────────
+# 沿用既有慣例：service key 讀寫追蹤資料、meter_claude 記帳、AI 失敗回 fallback 不阻擋。
+
+_REVIEW_MODEL = "claude-sonnet-4-5"
+
+_DIARY_STYLE_PROMPTS = {
+    "warm": "語氣溫暖肯定，像朋友一樣給予溫暖的肯定與陪伴感。",
+    "reflective": "在肯定之餘，多問使用者一個開放式問題，帶著他想深一點。",
+    "brief": "極簡短的一句話鼓勵，不多加解釋。",
+    "zen": "留白、簡短、有呼吸感的句子，不說教。",
+    "celebrate": "用熱情、慶祝的語氣，為使用者今天的紀錄喝采。",
+}
+
+_DIARY_FEEDBACK_FALLBACK = {"style": "warm", "text": "謝謝你今天願意好好陪自己看看這些感受。"}
+
+
+class DiaryFeedbackRequest(BaseModel):
+    entry_id: str
+
+
+class DiaryReviewRequest(BaseModel):
+    module_id: str
+    review_type: str  # 'overall' | 'weekly'
+
+
+class GratitudeWeeklyRequest(BaseModel):
+    period_start: str  # YYYY-MM-DD，週一
+
+
+async def _get_active_enrollment(module_id: str, user_id: str) -> dict | None:
+    resp = await db().get(
+        f"{SUPABASE_REST}/pro_enrollments",
+        headers=SUPABASE_HEADERS,
+        params={
+            "module_id": f"eq.{module_id}", "user_id": f"eq.{user_id}", "status": "eq.active",
+            "select": "id,practitioner_id", "limit": "1",
+        },
+    )
+    rows = resp.json() if resp.status_code == 200 else []
+    return rows[0] if rows else None
+
+
+def _entry_texts(answers: dict) -> list[str]:
+    return [v for v in (answers or {}).values() if isinstance(v, str) and v.strip()]
+
+
+@app.post("/api/pro/diary-feedback")
+async def pro_diary_feedback(req: DiaryFeedbackRequest, authorization: str = Header(...)):
+    """日記模組每日即時 AI 回饋。任何失敗都回固定 fallback 文案（仍寫回 pro_entries）。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+
+    try:
+        resp = await db().get(
+            f"{SUPABASE_REST}/pro_entries",
+            headers=SUPABASE_HEADERS,
+            params={"id": f"eq.{req.entry_id}", "select": "id,user_id,module_id,answers"},
+        )
+        rows = resp.json() if resp.status_code == 200 else []
+        if not rows or rows[0].get("user_id") != user_id:
+            raise HTTPException(status_code=404, detail="紀錄不存在")
+        entry = rows[0]
+        module_id = entry["module_id"]
+
+        if not await _get_active_enrollment(module_id, user_id):
+            raise HTTPException(status_code=403, detail="尚未追蹤此模組")
+
+        mod_resp = await db().get(
+            f"{SUPABASE_REST}/pro_modules",
+            headers=SUPABASE_HEADERS,
+            params={"id": f"eq.{module_id}", "select": "id,kind,published_content"},
+        )
+        mod_rows = mod_resp.json() if mod_resp.status_code == 200 else []
+        if not mod_rows or mod_rows[0].get("kind") != "diary":
+            raise HTTPException(status_code=400, detail="非日記模組")
+        content = mod_rows[0].get("published_content") or {}
+        daily_cfg = (content.get("feedback") or {}).get("daily") or {}
+        if not daily_cfg.get("enabled", True):
+            return {"style": None, "text": None}
+        style = daily_cfg.get("style") or "warm"
+        style_prompt = _DIARY_STYLE_PROMPTS.get(style, _DIARY_STYLE_PROMPTS["warm"])
+
+        joined = "\n".join(_entry_texts(entry.get("answers"))) or "（沒有文字作答）"
+        system = (
+            "你是心理健康 App 的日記陪伴回饋助手。" + style_prompt +
+            "回應限 80 字以內，繁體中文，不做診斷、不建議用藥；若內容顯得情緒沉重，"
+            "只給予穩定、陪伴的語氣，不追問細節、不說教。只回傳 JSON，不要任何前言或 markdown。"
+        )
+        try:
+            data = await _pg_claude_json(
+                "pro-diary-feedback", user_id, system,
+                f"使用者今天的日記內容：\n{joined}\n\n只回傳 JSON：{{\"text\":\"...\"}}",
+                max_tokens=200,
+            )
+            text = (data.get("text") or "").strip() or _DIARY_FEEDBACK_FALLBACK["text"]
+        except Exception as exc:
+            logger.warning("pro_diary_feedback AI failed [%s]: %s", type(exc).__name__, exc)
+            text = _DIARY_FEEDBACK_FALLBACK["text"]
+
+        result = {"style": style, "text": text}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pro_diary_feedback failed [%s]: %s", type(exc).__name__, exc)
+        result = _DIARY_FEEDBACK_FALLBACK
+
+    await db().patch(
+        f"{SUPABASE_REST}/pro_entries",
+        headers=SUPABASE_HEADERS,
+        params={"id": f"eq.{req.entry_id}"},
+        json={"ai_feedback": result},
+    )
+    return result
+
+
+def _fallback_review_content(title: str, entry_count: int) -> dict:
+    return {
+        "v": 1,
+        "title": title,
+        "summary": f"這段期間你留下了 {entry_count} 則紀錄，每一次書寫都是一次好好陪自己的練習。",
+        "trend": [],
+        "themes": [],
+    }
+
+
+async def _find_existing_review(user_id: str, module_id: str | None, review_type: str, period_start: str) -> dict | None:
+    params: list[tuple[str, str]] = [
+        ("user_id", f"eq.{user_id}"),
+        ("module_id", f"eq.{module_id}" if module_id else "is.null"),
+        ("review_type", f"eq.{review_type}"),
+        ("period_start", f"eq.{period_start}"),
+        ("select", "*"),
+        ("limit", "1"),
+    ]
+    resp = await db().get(f"{SUPABASE_REST}/pro_reviews", headers=SUPABASE_HEADERS, params=params)
+    rows = resp.json() if resp.status_code == 200 else []
+    return rows[0] if rows else None
+
+
+async def _insert_review(
+    user_id: str, module_id: str | None, review_type: str,
+    period_start: str, period_end: str, entry_count: int, content: dict,
+) -> dict:
+    """INSERT pro_reviews；撞到 UNIQUE（並發生成）就回既有那筆，不 500。"""
+    resp = await db().post(
+        f"{SUPABASE_REST}/pro_reviews",
+        headers={**SUPABASE_HEADERS, "Prefer": "return=representation"},
+        json={
+            "user_id": user_id, "module_id": module_id, "review_type": review_type,
+            "period_start": period_start, "period_end": period_end,
+            "entry_count": entry_count, "content": content,
+        },
+    )
+    if resp.status_code in (200, 201):
+        rows = resp.json()
+        if rows:
+            return rows[0]
+    existing = await _find_existing_review(user_id, module_id, review_type, period_start)
+    if existing:
+        return existing
+    logger.error("pro_reviews insert failed: %s", resp.text)
+    raise HTTPException(status_code=500, detail="儲存回顧報告失敗")
+
+
+@app.post("/api/pro/diary-review")
+async def pro_diary_review(req: DiaryReviewRequest, authorization: str = Header(...)):
+    """整體回饋／週報：後端自行重算門檻與期間（不信前端）。未達門檻回 409。"""
+    if req.review_type not in ("overall", "weekly"):
+        raise HTTPException(status_code=400, detail="review_type 錯誤")
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+
+    if not await _get_active_enrollment(req.module_id, user_id):
+        raise HTTPException(status_code=403, detail="尚未追蹤此模組")
+
+    mod_resp = await db().get(
+        f"{SUPABASE_REST}/pro_modules",
+        headers=SUPABASE_HEADERS,
+        params={"id": f"eq.{req.module_id}", "select": "id,title,kind,published_content"},
+    )
+    mod_rows = mod_resp.json() if mod_resp.status_code == 200 else []
+    if not mod_rows or mod_rows[0].get("kind") != "diary":
+        raise HTTPException(status_code=400, detail="非日記模組")
+    module = mod_rows[0]
+    feedback_cfg = (module.get("published_content") or {}).get("feedback") or {}
+
+    entries_resp = await db().get(
+        f"{SUPABASE_REST}/pro_entries",
+        headers=SUPABASE_HEADERS,
+        params={
+            "module_id": f"eq.{req.module_id}", "user_id": f"eq.{user_id}",
+            "select": "id,answers,entry_date,created_at", "order": "entry_date.asc",
+        },
+    )
+    entries = entries_resp.json() if entries_resp.status_code == 200 else []
+
+    focus_line = ""
+    if req.review_type == "overall":
+        cfg = feedback_cfg.get("overall") or {}
+        threshold = int(cfg.get("threshold") or 3)
+        if not cfg.get("enabled", True) or len(entries) < threshold or threshold <= 0:
+            raise HTTPException(status_code=409, detail="尚未達門檻")
+        k = len(entries) // threshold
+        batch = entries[: k * threshold]
+        period_start, period_end = batch[0]["entry_date"], batch[-1]["entry_date"]
+        focus = cfg.get("focus") or ["themes", "emotion_arc"]
+        focus_line = f"請聚焦在：{'、'.join(focus)}。"
+        title = f"整體回饋 · {module['title']}"
+        sections_line = "請包含 themes（重複主題 2-4 個關鍵詞）。"
+    else:
+        cfg = feedback_cfg.get("weekly") or {}
+        distinct_dates = sorted({e["entry_date"] for e in entries})
+        if not cfg.get("enabled", True) or len(distinct_dates) < 7:
+            raise HTTPException(status_code=409, detail="尚未達門檻")
+        k = len(distinct_dates) // 7
+        window = set(distinct_dates[: k * 7][-7:])
+        batch = [e for e in entries if e["entry_date"] in window]
+        period_start, period_end = min(window), max(window)
+        title = f"第 {k} 週成長報告"
+        sections = cfg.get("sections") or {}
+        parts = ["themes（重複主題 2-4 個關鍵詞）"]
+        if sections.get("quotes"):
+            parts.append("quote（挑一句最打動人的原句金句，含 text 與 source_date）")
+        if sections.get("challenge"):
+            parts.append("challenge（給下週一個小小可行的挑戰）")
+        sections_line = f"請包含 {'、'.join(parts)}。"
+
+    existing = await _find_existing_review(user_id, req.module_id, req.review_type, period_start)
+    if existing:
+        return existing
+
+    lines = [f"[{e['entry_date']}] " + " / ".join(_entry_texts(e.get("answers"))) for e in batch if _entry_texts(e.get("answers"))]
+    joined = "\n".join(lines) or "（沒有文字內容）"
+    entry_count = len(batch)
+
+    try:
+        system = (
+            "你是心理健康 App 的日記回顧報告助手，語氣溫暖、不批判、不做診斷。" + focus_line + sections_line +
+            "summary 為 150-250 字的主體觀察。只回傳 JSON，不要任何前言或 markdown。"
+        )
+        data = await _pg_claude_json(
+            "pro-diary-review", user_id, system,
+            f"以下是使用者這段期間（{period_start} ~ {period_end}）的日記紀錄：\n{joined}\n\n"
+            '只回傳 JSON：{"summary":"...","themes":["..."],"trend":[],'
+            '"quote":{"text":"...","source_date":"YYYY-MM-DD"},"challenge":"..."}',
+            max_tokens=900, model=_REVIEW_MODEL,
+        )
+        content_json = {
+            "v": 1, "title": title,
+            "summary": (data.get("summary") or "").strip() or _fallback_review_content(title, entry_count)["summary"],
+            "trend": data.get("trend") or [],
+            "themes": data.get("themes") or [],
+        }
+        if data.get("quote"):
+            content_json["quote"] = data["quote"]
+        if data.get("challenge"):
+            content_json["challenge"] = data["challenge"]
+    except Exception as exc:
+        logger.warning("pro_diary_review AI failed [%s]: %s", type(exc).__name__, exc)
+        content_json = _fallback_review_content(title, entry_count)
+
+    return await _insert_review(user_id, req.module_id, req.review_type, period_start, period_end, entry_count, content_json)
+
+
+@app.post("/api/reviews/gratitude-weekly")
+async def reviews_gratitude_weekly(req: GratitudeWeeklyRequest, authorization: str = Header(...)):
+    """內建感恩日記週回顧：該週 gratitude_entries ≥ 3 筆才生成。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+
+    try:
+        start = datetime.strptime(req.period_start, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="period_start 格式錯誤")
+    end = start + timedelta(days=6)
+
+    existing = await _find_existing_review(user_id, None, "gratitude_weekly", start.isoformat())
+    if existing:
+        return existing
+
+    entries_resp = await db().get(
+        f"{SUPABASE_REST}/gratitude_entries",
+        headers=SUPABASE_HEADERS,
+        params=[
+            ("user_id", f"eq.{user_id}"),
+            ("practice_type", "eq.gratitude"),
+            ("entry_date", f"gte.{start.isoformat()}"),
+            ("entry_date", f"lte.{end.isoformat()}"),
+            ("select", "id,entry_date,item_1,item_2,item_3"),
+            ("order", "entry_date.asc"),
+        ],
+    )
+    entries = entries_resp.json() if entries_resp.status_code == 200 else []
+    if len(entries) < 3:
+        raise HTTPException(status_code=409, detail="這週紀錄不足 3 筆")
+
+    lines = []
+    for e in entries:
+        items = [e.get("item_1"), e.get("item_2"), e.get("item_3")]
+        texts = [i for i in items if i and i.strip()]
+        if texts:
+            lines.append(f"[{e['entry_date']}] " + " / ".join(texts))
+    joined = "\n".join(lines) or "（沒有文字內容）"
+    title = f"{start.isoformat()} ~ {end.isoformat()} 週回顧"
+    entry_count = len(entries)
+
+    try:
+        system = (
+            "你是心理健康 App 的感恩日記週回顧助手，語氣溫暖、不批判、不做診斷。"
+            "請包含 themes（重複主題 2-4 個關鍵詞）與 quote（挑一句最打動人的原句金句，含 text 與 source_date）。"
+            "summary 為 150-250 字的主體觀察，可提及本週感恩篇數的趨勢。只回傳 JSON，不要任何前言或 markdown。"
+        )
+        data = await _pg_claude_json(
+            "gratitude-weekly-review", user_id, system,
+            f"以下是使用者本週（{start.isoformat()} ~ {end.isoformat()}）的感恩日記：\n{joined}\n\n"
+            '只回傳 JSON：{"summary":"...","themes":["..."],'
+            '"quote":{"text":"...","source_date":"YYYY-MM-DD"}}',
+            max_tokens=900, model=_REVIEW_MODEL,
+        )
+        content_json = {
+            "v": 1, "title": title,
+            "summary": (data.get("summary") or "").strip() or _fallback_review_content(title, entry_count)["summary"],
+            "trend": [{"date": e["entry_date"], "score": 1} for e in entries],
+            "themes": data.get("themes") or [],
+        }
+        if data.get("quote"):
+            content_json["quote"] = data["quote"]
+    except Exception as exc:
+        logger.warning("gratitude_weekly AI failed [%s]: %s", type(exc).__name__, exc)
+        content_json = _fallback_review_content(title, entry_count)
+        content_json["trend"] = [{"date": e["entry_date"], "score": 1} for e in entries]
+
+    return await _insert_review(user_id, None, "gratitude_weekly", start.isoformat(), end.isoformat(), entry_count, content_json)
+
+
+# ── 量表轉譯質性評估（kind='assessment'）───────────────────────────────────
+# 兩個端點：量表 AI 轉譯（專業夥伴端）＋ 測驗雙報告生成（個案端，含危機判讀）。
+
+_SCALE_TRANSFORM_MODEL = "claude-sonnet-4-5"
+_ASSESSMENT_REPORT_MODEL = "claude-sonnet-4-5"
+
+_SCALE_TRANSFORM_SYSTEM = """你是心理量表轉譯助手，將標準化心理量表轉譯為開放式、生活化的質性問題。
+規則：
+- 從量表全文辨識維度結構與題項；每維度輸出 key（2-3 個大寫英文字母）/name/description。
+- 每題輸出 original（濃縮原題意，不要求逐字複製，避免大量逐字收錄受版權保護的完整題目）、
+  translated（開放式、生活化、無誘導、繁體中文的問題）、以及 2 條 hints（引導使用者展開回答的追問）。
+- 每維度取最具代表性的 2-3 題轉譯，總題數不超過 15 題。
+- 若量表含自傷/自殺意念相關題目（如 PHQ-9 第 9 題），translated 必須是溫和間接的問法，
+  並在該題標註 "sensitive": true（前端會在該題顯示求助資源列）；其餘題目不設定此欄位或設為 false。
+只回傳 JSON，不要任何前言或 markdown：
+{"dimensions":[{"key":"SK","name":"...","description":"..."}],
+ "questions":[{"dimension":"SK","original":"...","translated":"...","hints":["...","..."],"sensitive":false}]}"""
+
+_ASSESSMENT_REPORT_SYSTEM = """你是心理健康 App 的質性測驗雙報告生成助手。
+根據個案的開放式回答，同時產出兩份報告（同一次分析、兩個呈現角度）：
+
+practitioner_report（給專業夥伴看，可含分數與臨床觀察）：
+- dimensions：每個維度給 estimated_score（0-10，依語意映射推估）、max_score（固定 10）、
+  confidence（high/medium/low）、evidence（1-2 條引用個案原文佐證）。
+- needs_confirmation：需要會談中溫和確認的地方（陣列，可為空）。
+- reflection_prompts：給專業夥伴的反思/切入點建議（陣列）。
+- disclaimer：固定提醒此為語意推估、非標準化施測分數、不構成診斷。
+
+client_report（給個案看，優勢轉譯、溫暖、無分數、無風險語彙、無臨床診斷詞）：
+- hero：{emoji, title, subtitle} 一個溫暖的原型稱號（不影射真實人物）。
+- highlights：固定 3 則 {emoji, title, text}，必須引用個案原文佐證。
+- quote：{text, source} 從個案回答中挑一句金句，source 標明「出自你第 N 題的回答」。
+- hope：一段有研究支持的溫暖敘述。
+- mission：{title, text} 本週一個小而可行的任務。
+- footer_note：固定說明「這份報告由 AI 根據你的書寫生成，經你的專業夥伴確認後發送。它不是測驗結果，是一面溫柔的鏡子。」。
+
+規則：client_report 絕對不得出現分數、百分位、風險/診斷語彙；hope 與 highlights 需貼合個案實際回答，
+不可空泛套話。只回傳 JSON，不要任何前言或 markdown，頂層只有 practitioner_report 與 client_report 兩個 key。"""
+
+
+class ScaleTransformRequest(BaseModel):
+    scale_name: str = ""
+    scale_text: str
+
+
+@app.post("/api/pro/scale-transform")
+async def pro_scale_transform(req: ScaleTransformRequest, authorization: str = Header(...)):
+    """量表 AI 轉譯：專業夥伴貼上量表全文 → 回傳 dimensions + questions。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+    if not await _is_practitioner(user_id):
+        raise HTTPException(status_code=403, detail="僅限專業夥伴使用")
+    if not req.scale_text.strip():
+        raise HTTPException(status_code=400, detail="量表內容不可為空")
+
+    try:
+        data = await _pg_claude_json(
+            "pro-scale-transform", user_id, _SCALE_TRANSFORM_SYSTEM,
+            f"量表名稱：{req.scale_name or '（未命名）'}\n\n量表全文：\n{req.scale_text}",
+            max_tokens=3000, model=_SCALE_TRANSFORM_MODEL,
+        )
+        dimensions = []
+        for i, d in enumerate(data.get("dimensions") or []):
+            dimensions.append({
+                "key": str(d.get("key") or f"D{i + 1}").upper()[:3],
+                "name": d.get("name") or f"維度 {i + 1}",
+                "description": d.get("description") or "",
+                "color_index": i % 5,
+            })
+        dim_keys = {d["key"] for d in dimensions}
+        questions = []
+        for i, q in enumerate(data.get("questions") or []):
+            dim = str(q.get("dimension") or "").upper()[:3]
+            if dim not in dim_keys and dimensions:
+                dim = dimensions[0]["key"]
+            questions.append({
+                "id": f"q{i + 1}",
+                "dimension": dim,
+                "original": q.get("original") or "",
+                "translated": q.get("translated") or "",
+                "hints": q.get("hints") or [],
+                "required": True,
+                "sensitive": bool(q.get("sensitive", False)),
+            })
+        return {"dimensions": dimensions, "questions": questions}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("pro_scale_transform failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail="量表轉譯失敗，請稍後再試")
+
+
+def _fallback_assessment_reports() -> tuple[dict, dict]:
+    practitioner_report = {
+        "v": 1, "dimensions": [], "needs_confirmation": [],
+        "reflection_prompts": ["AI 報告生成失敗，建議直接參考個案原始回答。"],
+        "disclaimer": "推估分數來自質性回答的語意映射，不可等同標準化施測分數；本報告不構成診斷。",
+        "error": "AI 報告生成失敗",
+    }
+    client_report = {
+        "v": 1,
+        "hero": {"emoji": "🌱", "title": "持續書寫的你", "subtitle": "報告生成中遇到一點小狀況"},
+        "highlights": [],
+        "hope": "你願意誠實面對這些問題，本身就是一件很有力量的事。",
+        "mission": {"title": "深呼吸", "text": "先休息一下，稍後可以再回來看看完整的報告。"},
+        "footer_note": "這份報告由 AI 根據你的書寫生成，經你的專業夥伴確認後發送。它不是測驗結果，是一面溫柔的鏡子。",
+        "error": "生成失敗，請聯繫平台",
+    }
+    return practitioner_report, client_report
+
+
+class AssessmentReportRequest(BaseModel):
+    module_id: str
+    answers: dict[str, str] = Field(default_factory=dict)
+
+
+@app.post("/api/pro/assessment-report")
+async def pro_assessment_report(req: AssessmentReportRequest, authorization: str = Header(...)):
+    """個案送出質性測驗：危機兩層判讀 + 單次 AI 呼叫同時產出雙報告 + 依 review_before_send 決定發布狀態。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+
+    enr = await _get_active_enrollment(req.module_id, user_id)
+    if not enr:
+        raise HTTPException(status_code=403, detail="尚未追蹤此模組")
+    practitioner_id = enr["practitioner_id"]
+
+    mod_resp = await db().get(
+        f"{SUPABASE_REST}/pro_modules",
+        headers=SUPABASE_HEADERS,
+        params={"id": f"eq.{req.module_id}", "select": "id,kind,published_content"},
+    )
+    mod_rows = mod_resp.json() if mod_resp.status_code == 200 else []
+    if not mod_rows or mod_rows[0].get("kind") != "assessment":
+        raise HTTPException(status_code=400, detail="非質性測驗模組")
+    content = mod_rows[0].get("published_content") or {}
+    review_before_send = bool(content.get("review_before_send", False))
+    questions = content.get("questions") or []
+    q_by_id = {q["id"]: q for q in questions}
+
+    joined_answers = "\n".join(
+        f"[{i + 1}] {q_by_id.get(qid, {}).get('translated', qid)}\n答：{text}"
+        for i, (qid, text) in enumerate(req.answers.items()) if text and text.strip()
+    )
+    joined_texts = "\n".join(t for t in req.answers.values() if t and t.strip())
+
+    # 危機兩層判讀：關鍵字優先（零成本、命中即 high），未命中才 AI 語意；複用既有共用函式。
+    crisis = {"risk": "none", "matched_terms": []}
+    matched = [kw for kw in CRISIS_KEYWORDS if kw in joined_texts]
+    if matched:
+        crisis = {"risk": "high", "matched_terms": matched}
+    elif joined_texts.strip():
+        try:
+            msg = await claude().messages.create(
+                model=_CRISIS_MODEL,
+                max_tokens=256,
+                system="你是心理危機辨識助手，只回傳 JSON，不要任何前言或 markdown。",
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "判斷以下文字是否流露自我傷害、自殺意念或嚴重心理危機（含隱晦表達）。"
+                        "寧可誤報、不可漏報。\n\n" + joined_texts +
+                        '\n\n只回傳 JSON：{"risk":"none|medium|high"}'
+                    ),
+                }],
+            )
+            meter_claude("pro-assessment-safety", _CRISIS_MODEL, msg.usage, user_id)
+            raw = msg.content[0].text if msg.content else ""
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
+            if m:
+                r = str(json.loads(m.group()).get("risk", "none")).lower()
+                if r in ("medium", "high"):
+                    crisis = {"risk": r, "matched_terms": []}
+        except Exception as exc:
+            logger.warning("pro_assessment_report safety AI failed [%s]: %s", type(exc).__name__, exc)
+
+    try:
+        data = await _pg_claude_json(
+            "pro-assessment-report", user_id, _ASSESSMENT_REPORT_SYSTEM,
+            f"量表維度：{json.dumps(content.get('dimensions') or [], ensure_ascii=False)}\n\n"
+            f"個案的回答：\n{joined_answers or '（沒有作答內容）'}\n\n"
+            '只回傳 JSON：{"practitioner_report": {...}, "client_report": {...}}',
+            max_tokens=3000, model=_ASSESSMENT_REPORT_MODEL,
+        )
+        practitioner_report = data.get("practitioner_report") or {}
+        client_report = data.get("client_report") or {}
+        if not practitioner_report or not client_report:
+            raise ValueError("empty report")
+    except Exception as exc:
+        logger.warning("pro_assessment_report AI failed [%s]: %s", type(exc).__name__, exc)
+        practitioner_report, client_report = _fallback_assessment_reports()
+
+    status = "pending_release" if (review_before_send or practitioner_report.get("error")) else "released"
+    insert_resp = await db().post(
+        f"{SUPABASE_REST}/pro_assessment_results",
+        headers={**SUPABASE_HEADERS, "Prefer": "return=representation"},
+        json={
+            "module_id": req.module_id, "user_id": user_id, "answers": req.answers,
+            "practitioner_report": practitioner_report, "client_report": client_report,
+            "status": status, "released_at": _now_iso() if status == "released" else None,
+        },
+    )
+    if insert_resp.status_code not in (200, 201):
+        logger.error("pro_assessment_results insert failed: %s", insert_resp.text)
+        raise HTTPException(status_code=500, detail="儲存測驗結果失敗")
+    rows = insert_resp.json()
+    result_id = rows[0]["id"] if rows else None
+
+    if crisis["risk"] != "none":
+        await _insert_crisis_alert(
+            user_id, practitioner_id, req.module_id, None,
+            "keyword" if matched else "ai", crisis["risk"], crisis["matched_terms"],
+        )
+
+    return {
+        "result_id": result_id,
+        "status": status,
+        "client_report": client_report if status == "released" else None,
+        "crisis": crisis,
+    }
 
 
 # ── Speech-to-text ─────────────────────────────────────────────────────────

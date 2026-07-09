@@ -2,6 +2,8 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
+import { checkAndGenerateReviews } from '../lib/reviews'
+import { ReviewsSection } from '../components/ReviewsSection'
 import playingMascot from '../assets/ui/playing-mascot.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
@@ -1123,6 +1125,11 @@ function ProfilePage() {
   const totalMinutes = totalCount * 5
   const practiceTime = formatPracticeTime(totalMinutes, t)
 
+  // lazy 檢查是否有新的回顧報告可生成（每人每天最多一次，見 reviews.ts）。
+  useEffect(() => {
+    if (userId) void checkAndGenerateReviews(userId)
+  }, [userId])
+
   const handleSaveName = async () => {
     const trimmed = nameValue.trim()
     if (!trimmed || !userId) { setEditingName(false); return }
@@ -1293,6 +1300,9 @@ function ProfilePage() {
             {t('重新評估')}
           </Link>
         </div>
+
+        {/* 回顧集：≥2 筆回顧報告才顯現 */}
+        {userId && <ReviewsSection userId={userId} />}
 
         {/* 感恩對象地圖 */}
         <GratitudeTargetMap userId={userId} />

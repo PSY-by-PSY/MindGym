@@ -568,6 +568,9 @@ function IntroStage({
       <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記練習')}</h1>
       <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Gratitude Journal</p>
 
+      {/* 本週打卡條 */}
+      <WeeklyCheckinStrip />
+
       {/* 3-C 常駐描述（黃色卡） */}
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('感恩日記（Gratitude Journal）是正向心理學中最具代表性的練習之一，透過每天有意識地回顧值得感謝的事件，幫助大腦重新聚焦於生活中的支持、善意與美好經驗。')}
@@ -1031,6 +1034,124 @@ function BackIcon() {
   )
 }
 
+function SparklesIcon() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+      <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" opacity="0.7" />
+    </svg>
+  )
+}
+
+/** 本週打卡條（週一–週日），資料來源：本人 gratitude_entries 近 7 日。用於 INTRO 階段。 */
+function WeeklyCheckinStrip() {
+  const [dates, setDates] = useState<Set<string> | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user.id
+      if (!uid) return
+      const now = new Date()
+      const day = now.getDay()
+      const diff = day === 0 ? -6 : 1 - day
+      const monday = new Date(now)
+      monday.setDate(monday.getDate() + diff)
+      monday.setHours(0, 0, 0, 0)
+      const sunday = new Date(monday)
+      sunday.setDate(sunday.getDate() + 6)
+      const { data } = await supabase
+        .from('gratitude_entries')
+        .select('entry_date')
+        .eq('user_id', uid)
+        .eq('practice_type', 'gratitude')
+        .gte('entry_date', isoLocalDate(monday))
+        .lte('entry_date', isoLocalDate(sunday))
+      if (!cancelled) setDates(new Set((data ?? []).map((r) => String(r.entry_date))))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (!dates) return null
+
+  const now = new Date()
+  const day = now.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const monday = new Date(now)
+  monday.setDate(monday.getDate() + diff)
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(d.getDate() + i)
+    return isoLocalDate(d)
+  })
+
+  return (
+    <div className="mt-4 flex justify-between rounded-2xl bg-card px-3 py-2.5 shadow-soft">
+      {weekDates.map((d) => (
+        <span
+          key={d}
+          className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+            dates.has(d) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          {new Date(d + 'T00:00:00').getDate()}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/** SUMMARY 底部的「回顧預告」鎖定卡：本週已記錄 N 天／滿 3 天將於週日晚間生成週回顧。 */
+function ReviewPreviewCard({ mode }: { mode: 'edit' | 'view' }) {
+  const { t } = useLanguage()
+  const [count, setCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user.id
+      if (!uid) return
+      const now = new Date()
+      const day = now.getDay()
+      const diff = day === 0 ? -6 : 1 - day
+      const monday = new Date(now)
+      monday.setDate(monday.getDate() + diff)
+      monday.setHours(0, 0, 0, 0)
+      const sunday = new Date(monday)
+      sunday.setDate(sunday.getDate() + 6)
+      const { data } = await supabase
+        .from('gratitude_entries')
+        .select('entry_date')
+        .eq('user_id', uid)
+        .eq('practice_type', 'gratitude')
+        .gte('entry_date', isoLocalDate(monday))
+        .lte('entry_date', isoLocalDate(sunday))
+      if (cancelled) return
+      const distinct = new Set((data ?? []).map((r) => String(r.entry_date)))
+      // edit 模式：今天這篇尚未寫入 DB，今天寫完後即納入本週紀錄，故 +1 貼近使用者預期。
+      const today = isoLocalDate(now)
+      setCount(mode === 'edit' && !distinct.has(today) ? distinct.size + 1 : distinct.size)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [mode])
+
+  if (count === null) return null
+
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-card/60 px-4 py-3">
+      <p className="text-xs font-bold text-muted-foreground">
+        {count >= 3 ? t('週日晚間為你生成本週回顧') : t('本週已記錄 {n} 天，滿 3 天解鎖週回顧', { n: count })}
+      </p>
+    </div>
+  )
+}
+
 function CelebrateCheckIcon() {
   return (
     <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="#FEFAF0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -1157,31 +1278,33 @@ function SummaryStage({
         })}
       </div>
 
-      {/* BOUBA 回饋：情緒反映 + 一段貼合使用者內容的敘事，不含任何行動建議 */}
-      <div className="mb-6 rounded-3xl bg-gradient-soft p-5 shadow-soft">
-        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
-          {t('BOUBA 回饋')}
-        </p>
-        {isLoading ? (
+      {/* BOUBA 回饋：分層卡片視覺——AI 即時回饋（mint）＋ 共鳴故事（peach） */}
+      {isLoading ? (
+        <div className="mb-6 rounded-3xl bg-gradient-soft p-5 shadow-soft">
+          <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">{t('BOUBA 回饋')}</p>
           <FeedbackLoading />
-        ) : displayResult ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm leading-relaxed text-foreground">
-              {displayResult.emotional_summary}
+        </div>
+      ) : displayResult ? (
+        <div className="mb-6 flex flex-col gap-3">
+          <div className="rounded-3xl bg-tile-mint p-5 shadow-soft">
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#3f6b46]">
+              <SparklesIcon />
+              {t('AI 即時回饋')}
             </p>
-            {displayResult.resonance_story && (
-              <div className="rounded-2xl bg-white/40 px-3.5 py-2.5">
-                <p className="text-sm leading-relaxed text-foreground/80">
-                  {displayResult.resonance_story}
-                </p>
-              </div>
-            )}
-            {isFallback && (
-              <p className="text-[10px] text-muted-foreground/50">{t('※ BOUBA 今天稍忙，以通用回饋陪伴你')}</p>
-            )}
+            <p className="text-sm leading-relaxed text-foreground">{displayResult.emotional_summary}</p>
           </div>
-        ) : null}
-      </div>
+          {displayResult.resonance_story && (
+            <div className="rounded-3xl bg-tile-peach p-5 shadow-soft">
+              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#8a6320]">{t('共鳴故事')}</p>
+              <p className="text-sm leading-relaxed text-foreground/80">{displayResult.resonance_story}</p>
+            </div>
+          )}
+          {isFallback && (
+            <p className="text-[10px] text-muted-foreground/50">{t('※ BOUBA 今天稍忙，以通用回饋陪伴你')}</p>
+          )}
+          <ReviewPreviewCard mode={mode} />
+        </div>
+      ) : null}
 
       <div
         ref={shareCardRef}

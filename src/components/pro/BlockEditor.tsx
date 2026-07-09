@@ -167,6 +167,10 @@ function BlockFields({ block, onPatch }: { block: ProBlock; onPatch: (patch: Par
             <input type="checkbox" checked={!!block.required} onChange={(e) => onPatch({ required: e.target.checked })} />
             {t('必填')}
           </label>
+          <label className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <input type="checkbox" checked={block.voice !== false} onChange={(e) => onPatch({ voice: e.target.checked })} />
+            {t('允許語音輸入')}
+          </label>
         </div>
       )
   }

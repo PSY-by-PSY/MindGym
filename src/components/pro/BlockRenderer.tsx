@@ -2,6 +2,7 @@
 //
 // 前向相容鐵則：遇到未知 type → 當 instruction 顯示（若有 text/label），絕不 crash。
 // 未來加新題型只需在 BlockField 新增一個 case。
+import VoiceInput from '../pretest/VoiceInput'
 import type { ProBlock, ProAnswers, ProAnswerValue, ProModuleContent } from '../../lib/proModules'
 
 function Label({ block }: { block: ProBlock }) {
@@ -39,7 +40,13 @@ function BlockField({
         <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground-soft">{block.text}</p>
       ) : null
 
-    case 'short_text':
+    case 'short_text': {
+      const showVoice = !disabled && !!onChange && block.voice !== false
+      const appendVoice = (text: string) => {
+        const cur = asString(value)
+        const sep = cur && !/\s$/.test(cur) ? ' ' : ''
+        onChange?.(cur + sep + text)
+      }
       return (
         <div>
           <Label block={block} />
@@ -51,10 +58,22 @@ function BlockField({
             onChange={(e) => onChange?.(e.target.value)}
             className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-[15px] text-foreground shadow-soft outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/40 disabled:opacity-70"
           />
+          {showVoice && (
+            <div className="mt-2">
+              <VoiceInput accent="var(--primary)" onTranscript={appendVoice} />
+            </div>
+          )}
         </div>
       )
+    }
 
-    case 'long_text':
+    case 'long_text': {
+      const showVoice = !disabled && !!onChange && block.voice !== false
+      const appendVoice = (text: string) => {
+        const cur = asString(value)
+        const sep = cur && !/\s$/.test(cur) ? ' ' : ''
+        onChange?.(cur + sep + text)
+      }
       return (
         <div>
           <Label block={block} />
@@ -66,8 +85,14 @@ function BlockField({
             onChange={(e) => onChange?.(e.target.value)}
             className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[15px] leading-relaxed text-foreground shadow-soft outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/40 disabled:opacity-70"
           />
+          {showVoice && (
+            <div className="mt-2">
+              <VoiceInput accent="var(--primary)" onTranscript={appendVoice} />
+            </div>
+          )}
         </div>
       )
+    }
 
     case 'choice': {
       const selected = asArray(value)

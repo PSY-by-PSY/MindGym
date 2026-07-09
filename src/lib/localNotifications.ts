@@ -104,6 +104,7 @@ export async function enableNotifications(): Promise<boolean> {
   if (granted) {
     // 不 await：排程／註冊推播在部分裝置可能卡住，不該讓「開啟通知」按鈕卡在「處理中」。
     void scheduleDailyCheckin()
+    void scheduleWeeklyReviewReminder()
     void registerForPush()
   }
   return granted
@@ -118,11 +119,77 @@ export async function initLocalNotifications(): Promise<void> {
     if (cur.display === 'granted') {
       permissionGranted = true
       await scheduleDailyCheckin()
+      await scheduleWeeklyReviewReminder()
       // 已授權 → 順便（重新）註冊遠端推播，刷新 device token。
       await registerForPush()
     }
   } catch (e) {
     console.error('[localNotif] init', errDetail(e))
+  }
+}
+
+// 日記模組的每日提醒：固定 id 區段 2000+hash(moduleId)%1000，每日重複；個案在播放器開關。
+function hashModuleId(moduleId: string): number {
+  let h = 0
+  for (let i = 0; i < moduleId.length; i++) h = (h * 31 + moduleId.charCodeAt(i)) | 0
+  return Math.abs(h) % 1000
+}
+
+function diaryReminderId(moduleId: string): number {
+  return 2000 + hashModuleId(moduleId)
+}
+
+export async function scheduleDiaryReminder(moduleId: string, time: string): Promise<void> {
+  if (!(await ensureLocalNotifPermission())) return
+  const [hourStr, minuteStr] = time.split(':')
+  const hour = parseInt(hourStr, 10)
+  const minute = parseInt(minuteStr, 10)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return
+  const id = diaryReminderId(moduleId)
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id }] })
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id,
+          title: 'PSY by PSY',
+          body: '該寫今天的日記了，花一分鐘記錄下來吧',
+          schedule: { on: { hour, minute }, allowWhileIdle: true },
+        },
+      ],
+    })
+  } catch (e) {
+    console.error('[localNotif] scheduleDiaryReminder', errDetail(e))
+  }
+}
+
+export async function cancelDiaryReminder(moduleId: string): Promise<void> {
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id: diaryReminderId(moduleId) }] })
+  } catch (e) {
+    console.error('[localNotif] cancelDiaryReminder', errDetail(e))
+  }
+}
+
+// 每週日 21:00：本週回顧即將生成的排程提醒（與打卡提醒 1001 相同的重排/取消模式）。
+const WEEKLY_REVIEW_REMINDER_ID = 1002
+
+export async function scheduleWeeklyReviewReminder(): Promise<void> {
+  if (!(await ensureLocalNotifPermission())) return
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id: WEEKLY_REVIEW_REMINDER_ID }] })
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: WEEKLY_REVIEW_REMINDER_ID,
+          title: 'PSY by PSY',
+          body: '本週回顧即將生成，回來看看你這週寫下了什麼',
+          schedule: { on: { weekday: 1, hour: 21, minute: 0 }, allowWhileIdle: true },
+        },
+      ],
+    })
+  } catch (e) {
+    console.error('[localNotif] scheduleWeeklyReviewReminder', errDetail(e))
   }
 }
 

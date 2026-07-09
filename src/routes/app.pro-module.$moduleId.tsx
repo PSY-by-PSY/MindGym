@@ -22,10 +22,15 @@ import {
   type ProAnswers,
   type ProAnswerValue,
   type ProBlock,
+  type ProModuleContent,
+  type DiaryModuleContent,
+  type AssessmentModuleContent,
 } from '../lib/proModules'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { ConsentModal } from '../components/pro/ConsentModal'
 import { CrisisResourcesModal } from '../components/pro/CrisisResourcesModal'
+import { DiaryPlayer } from '../components/pro/DiaryPlayer'
+import { AssessmentPlayer } from '../components/pro/AssessmentPlayer'
 
 export const Route = createFileRoute('/app/pro-module/$moduleId')({
   component: ProModulePlayer,
@@ -116,14 +121,17 @@ function ProModulePlayer() {
     )
   }
 
-  const content = module.published_content
+  // practice/diary 共用 BlockRenderer/pro_entries 流程（DiaryModuleContent 結構上相容 ProModuleContent，
+  // 含 blocks）；assessment 沒有 blocks，自己的 AssessmentPlayer 走獨立資料表，這裡防禦性地當空陣列處理。
+  const content = module.published_content as ProModuleContent
+  const blocks = Array.isArray(content.blocks) ? content.blocks : []
   const setAnswer = (id: string, value: ProAnswerValue) =>
     setAnswers((prev) => ({ ...prev, [id]: value }))
 
-  const requiredMissing = content.blocks.some((b) => b.required && !isAnswered(b, answers[b.id]))
+  const requiredMissing = blocks.some((b) => b.required && !isAnswered(b, answers[b.id]))
 
   const collectTexts = (): string[] =>
-    content.blocks
+    blocks
       .map((b) => answers[b.id])
       .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
 
@@ -209,6 +217,7 @@ function ProModulePlayer() {
     title: module.title,
     description: module.description,
     est_minutes: module.est_minutes,
+    kind: module.kind,
     practitioner_name: module.practitioner_name,
   }
   const name = module.practitioner_name || t('你的專業夥伴')
@@ -267,7 +276,20 @@ function ProModulePlayer() {
         </div>
       </div>
 
-      {stage === 'writing' ? (
+      {module.kind === 'assessment' ? (
+        <AssessmentPlayer
+          moduleId={module.module_id}
+          estMinutes={module.est_minutes}
+          content={module.published_content as AssessmentModuleContent}
+        />
+      ) : module.kind === 'diary' ? (
+        <DiaryPlayer
+          moduleId={module.module_id}
+          userId={userId as string}
+          content={content as DiaryModuleContent}
+          practitionerName={module.practitioner_name}
+        />
+      ) : stage === 'writing' ? (
         <>
           <p className="mb-4 text-sm text-muted-foreground">{t('來自 {name}', { name })}</p>
           <BlockRenderer content={content} answers={answers} onChange={setAnswer} />

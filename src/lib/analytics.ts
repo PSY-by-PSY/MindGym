@@ -54,6 +54,16 @@ export type AnalyticsEvent =
   | 'invite_code_regenerated'    // 專業夥伴重新產生邀請碼
   | 'admin_module_approved'      // 管理員核准模組上架
   | 'admin_module_rejected'      // 管理員退回模組
+  | 'pro_diary_created'          // 專業夥伴建立日記模組草稿
+  | 'pro_diary_entry_submitted'  // 個案完成一次日記模組打卡
+  | 'pro_diary_feedback_shown'   // 個案看到日記每日即時 AI 回饋
+  | 'review_generated'           // 生成一份回顧報告（overall/weekly/gratitude_weekly）
+  | 'review_opened'              // 個案打開一份回顧報告
+  | 'profile_reviews_section_shown'  // 個人頁面「回顧集」小模組顯現
+  | 'pro_scale_transform_run'    // 專業夥伴執行量表 AI 轉譯
+  | 'pro_assessment_started'     // 個案開始作答質性測驗
+  | 'pro_assessment_submitted'   // 個案送出質性測驗
+  | 'pro_assessment_report_released' // 專業夥伴發布個案版測驗報告
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null
