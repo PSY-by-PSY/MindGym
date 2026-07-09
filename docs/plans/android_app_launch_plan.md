@@ -18,7 +18,7 @@
 - **部署**：前端在 **Vercel**；後端 FastAPI 在 **Render**；DB/Auth 用 **Supabase**。
 - **AI 計量計費**：`backend/usage_metering.py`（與上架抽成議題有關，見 §7）。
 - **已有 PWA 基礎**：`vite-plugin-pwa` 已設定，manifest、icon、`display: standalone` 皆就緒。
-- **Node**：v20 / npm 10。Git `origin` = github.com/DennisJHou/MindGym.git，主分支 `main`。
+- **Node**：v20 / npm 10。Git `origin` = github.com/PSY-by-PSY/MindGym.git，主分支 `main`。
 
 **核心架構決策**：同 iOS，採 **Capacitor + `server.url` 指向 Vercel 線上網址**。
 → 內容、UI、文案、練習模組改 web 即時生效，**免重新送審**。
