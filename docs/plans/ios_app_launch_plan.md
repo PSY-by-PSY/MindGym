@@ -21,7 +21,7 @@
   注意 `vite.config.ts` 中 PWA 為 `selfDestroying: true`（刻意自毀 SW），
   Capacitor 殼方案下這反而符合「永遠載入最新線上版」的精神，**先不要動**。
 - **Node**：v20 / npm 10。
-- **Git**：`origin` = https://github.com/DennisJHou/MindGym.git，主分支 `main`，前端直推 main 由 Vercel 自動部署。
+- **Git**：`origin` = https://github.com/PSY-by-PSY/MindGym.git，主分支 `main`，前端直推 main 由 Vercel 自動部署。
 
 **核心架構決策**：採 **Capacitor + `server.url` 指向 Vercel 線上網址** 的混合方案。
 → 99% 的更新（內容、練習模組、UI、文案）改 web 即時生效，**不需重新送審**。

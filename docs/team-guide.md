@@ -23,7 +23,7 @@ claude
 
 **c.** 跟 Claude Code 說：
 
-> 請幫我把 https://github.com/DennisJHou/MindGym.git clone 到目前的資料夾
+> 請幫我把 https://github.com/PSY-by-PSY/MindGym.git clone 到目前的資料夾
 
 它會問要不要執行這個指令，按**允許 / Yes**。第一次可能還會請你登入 GitHub 帳號（會跳出一個網頁連結，點進去登入即可）。
 
