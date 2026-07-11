@@ -32,6 +32,16 @@ export const proModule: Record<string, Translation> = {
   '分享到社群': { 'zh-CN': '分享到社区', en: 'Share to community' },
   '返回首頁': { 'zh-CN': '返回首页', en: 'Back to home' },
 
+  // ProModuleSection（未解鎖任何模組時的預告文案）
+  '職人模組・敬請期待': { 'zh-CN': '职人模块・敬请期待', en: 'Curated Modules · Coming Soon' },
+  'PSY by PSY 正在與專業助人工作者合作，打造由他們親自設計、為你量身安排的練習模組。未來會陸續邀請不同領域的夥伴加入，帶來更多元的陪伴內容，敬請期待。': {
+    'zh-CN': 'PSY by PSY 正在与专业助人工作者合作，打造由他们亲自设计、为你量身安排的练习模块。未来会陆续邀请不同领域的伙伴加入，带来更多元的陪伴内容，敬请期待。',
+    en: 'PSY by PSY is partnering with professional practitioners to design practice modules crafted just for you. More practitioners across different specialties will join over time, bringing richer support ahead — stay tuned.',
+  },
+  '你對於此功能的期待程度': { 'zh-CN': '你对于此功能的期待程度', en: 'How excited are you for this feature?' },
+  '{n} 顆星': { 'zh-CN': '{n} 颗星', en: '{n} stars' },
+  '謝謝你的回饋！': { 'zh-CN': '谢谢你的回馈！', en: 'Thanks for your feedback!' },
+
   // ConsentModal
   '專業模組': { 'zh-CN': '专业模块', en: 'Practitioner Module' },
   '專業夥伴：{name}': { 'zh-CN': '专业伙伴：{name}', en: 'Practitioner: {name}' },
