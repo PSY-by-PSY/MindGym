@@ -33,7 +33,7 @@ const DARK_GLYPH: Record<DimensionKey, boolean> = {
 const ORDINAL = ['一', '二', '三', '四', '五']
 
 // ── Top bar with progress dots ──────────────────────────────
-function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) {
+function ProgressHeader({ step, onExit, compact }: { step: number; onExit: () => void; compact?: boolean }) {
   const { t } = useLanguage()
   const total = DIMENSION_ORDER.length
   const cfg = DIMENSION_CONFIGS[DIMENSION_ORDER[step]]
@@ -74,7 +74,14 @@ function ProgressHeader({ step, onExit }: { step: number; onExit: () => void }) 
         <img
           src="/assets/psy-by-psy-logo.png"
           alt="PSY by PSY"
-          style={{ height: 84, width: 'auto', objectFit: 'contain' }}
+          style={{
+            // 鍵盤彈出（compact）時縮起 logo，把下方的輸入框往上讓，避免被鍵盤遮住。
+            height: compact ? 0 : 84,
+            width: 'auto',
+            objectFit: 'contain',
+            opacity: compact ? 0 : 1,
+            transition: 'height .2s ease, opacity .2s ease',
+          }}
         />
         <div
           style={{
@@ -176,6 +183,8 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
   const [step, setStep] = useState(startAtLast ? DIMENSION_ORDER.length - 1 : 0)
   const [answers, setAnswers] = useState<NarrativeAnswers>(initialAnswers)
   const [showHint, setShowHint] = useState(false)
+  // 輸入框聚焦（＝鍵盤彈出）時收起頂部大圖與 logo，把輸入框往上頂到鍵盤上方。
+  const [focused, setFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const key = DIMENSION_ORDER[step]
@@ -191,6 +200,7 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
 
   useEffect(() => {
     setShowHint(false)
+    setFocused(false)
   }, [step])
 
   // Auto-grow textarea
@@ -233,17 +243,21 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
         transition: 'padding-bottom .2s ease',
       }}
     >
-      <ProgressHeader step={step} onExit={onExit} />
+      <ProgressHeader step={step} onExit={onExit} compact={focused} />
 
       {/* Prompt block */}
       <div style={{ padding: '8px 24px 14px', textAlign: 'center' }}>
         <div
           style={{
             position: 'relative',
-            height: 200,
+            // 鍵盤彈出時把頂部大圖整塊收起（高度→0），輸入框自然上移到可視區。
+            height: focused ? 0 : 200,
+            opacity: focused ? 0 : 1,
+            overflow: 'hidden',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
+            transition: 'height .22s ease, opacity .18s ease',
           }}
         >
           <div
@@ -376,6 +390,8 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
             ref={textareaRef}
             value={currentText}
             onChange={(e) => setAnswers((prev) => ({ ...prev, [key]: e.target.value }))}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             placeholder={t('在這裡輸入你的故事或感受，越具體越好～')}
             style={{
               width: '100%',
