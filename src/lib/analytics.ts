@@ -64,6 +64,7 @@ export type AnalyticsEvent =
   | 'pro_assessment_started'     // 個案開始作答質性測驗
   | 'pro_assessment_submitted'   // 個案送出質性測驗
   | 'pro_assessment_report_released' // 專業夥伴發布個案版測驗報告
+  | 'pro_module_teaser_rated'     // 個案在專業模組區預告文案為期待程度評分
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null
