@@ -11,6 +11,7 @@ import { useStageBack } from '../lib/useStageBack'
 import { markOnboardingSkipped } from '../lib/onboardingSkip'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
+import { useGlobalKeyboard } from '../lib/keyboard'
 
 // ── Route ─────────────────────────────────────────────────────────────────
 
@@ -244,6 +245,9 @@ type InMindScreen = 'intro' | 'quiz' | 'loading' | 'report' | 'error'
 
 function OnboardingPage() {
   const { t } = useLanguage()
+  // 全站鍵盤行為（規格 [2][5]）：點空白處收鍵盤、鍵盤彈出時管理 --keyboard-height 並捲動輸入框。
+  // onboarding 是獨立於 /app 的路由，過去沒掛這個 hook，導致 InMind 測驗輸入框被鍵盤蓋住。
+  useGlobalKeyboard()
   const { session } = Route.useRouteContext()
   const { reassess, showResult } = Route.useSearch()
   const { latestReport } = Route.useLoaderData()

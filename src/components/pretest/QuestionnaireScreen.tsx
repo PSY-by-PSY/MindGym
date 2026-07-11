@@ -222,7 +222,16 @@ export default function NarrativeQuiz({ initialAnswers, startAtLast, apiError, o
     <div
       key={step}
       className="screen-enter"
-      style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: '#fff' }}
+      style={{
+        minHeight: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#fff',
+        // 鍵盤彈出時底部補上鍵盤高度（--keyboard-height），讓整頁長出可捲動空間，
+        // 使聚焦的輸入框能被 useGlobalKeyboard 捲到鍵盤上方，不被鍵盤遮住。
+        paddingBottom: 'var(--keyboard-height, 0px)',
+        transition: 'padding-bottom .2s ease',
+      }}
     >
       <ProgressHeader step={step} onExit={onExit} />
 
