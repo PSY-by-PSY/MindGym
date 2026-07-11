@@ -6,6 +6,7 @@ import { computeStreak, computeUnifiedStreak, streakFromDates } from '../lib/str
 import { isoLocalDate } from '../lib/date'
 import { saveOrShareImage } from '../lib/shareImage'
 import { PrimaryCta } from '../components/PrimaryCta'
+import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
 import { track } from '../lib/analytics'
@@ -1394,6 +1395,7 @@ function FeedbackLoading() {
           {messages[msgIndex]}
         </p>
       </div>
+      <AiProgressBar durationMs={3500} />
       <p className="text-xs leading-relaxed text-muted-foreground">
         {t('等回饋生成完之後，才能進行下一步喔！')}
       </p>

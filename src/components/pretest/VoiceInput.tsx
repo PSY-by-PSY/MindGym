@@ -37,7 +37,15 @@ function pickMimeType(): string {
   return ''
 }
 
-export default function VoiceInput({ onTranscript, accent }: Props) {
+// 語音輸入功能已停用。
+const VOICE_INPUT_ENABLED = false
+
+export default function VoiceInput(props: Props) {
+  if (!VOICE_INPUT_ENABLED) return null
+  return <VoiceInputImpl {...props} />
+}
+
+function VoiceInputImpl({ onTranscript, accent }: Props) {
   const { t } = useLanguage()
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState('')
