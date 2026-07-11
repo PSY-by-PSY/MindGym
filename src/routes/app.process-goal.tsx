@@ -7,6 +7,7 @@ import { isoLocalDate } from '../lib/date'
 import { saveOrShareImage } from '../lib/shareImage'
 import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
+import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import heartsBanner from '../assets/ui/hearts-banner.png'
@@ -336,15 +337,26 @@ function Field({
   )
 }
 
-function AiBlock({ text, loading }: { text: string; loading?: boolean }) {
+function AiBlock({
+  text,
+  loading,
+  loadingDurationMs = 3000,
+}: {
+  text: string
+  loading?: boolean
+  loadingDurationMs?: number
+}) {
   const { t } = useLanguage()
   return (
     <div className="overflow-hidden rounded-2xl" style={PURPLE_BG}>
-      <div className="flex gap-3 p-4">
-        <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
-        <p className="text-[15px] font-medium leading-relaxed">
-          {loading ? t('正在為你整理…') : text}
-        </p>
+      <div className="flex flex-col gap-2 p-4">
+        <div className="flex gap-3">
+          <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
+          <p className="text-[15px] font-medium leading-relaxed">
+            {loading ? t('正在為你整理…') : text}
+          </p>
+        </div>
+        {loading && <AiProgressBar durationMs={loadingDurationMs} className="pl-4" />}
       </div>
     </div>
   )
@@ -808,7 +820,7 @@ function RecordModule({
           <p className="mt-2 text-sm text-muted-foreground">{t('這是你這個專注時刻背後，可能真正需要的條件。你可以把這張圖儲存下來。')}</p>
 
           <div className="mt-6">
-            {loadingAi ? <AiBlock text="" loading /> : (
+            {loadingAi ? <AiBlock text="" loading loadingDurationMs={2800} /> : (
               <div className="rounded-2xl p-5" style={PURPLE_BG}>
                 <div className="flex gap-3">
                   <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />
@@ -1052,7 +1064,7 @@ function BoostModule({
           )}
 
           <div className="mt-5">
-            {loadingAi ? <AiBlock text="" loading /> : (
+            {loadingAi ? <AiBlock text="" loading loadingDurationMs={3400} /> : (
               <div className="rounded-2xl p-5" style={PURPLE_BG}>
                 <div className="flex gap-3">
                   <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: PURPLE }} />

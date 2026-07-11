@@ -221,6 +221,22 @@ function ModuleIcon() {
   )
 }
 
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      className={filled ? 'h-7 w-7 text-[#B9862E]' : 'h-7 w-7 text-foreground/25'}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2.8l2.85 5.78 6.37.93-4.61 4.5 1.09 6.35L12 17.3l-5.7 3.06 1.09-6.35-4.61-4.5 6.37-.93z" />
+    </svg>
+  )
+}
+
 function ArrowCircle() {
   return (
     <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-foreground">

@@ -437,6 +437,13 @@ function relevanceScore(
   return score
 }
 
+function nameSizeClass(name: string | null | undefined, thresholds: [number, number] = [4, 7]): string {
+  const len = (name ?? '').length
+  if (len >= thresholds[1]) return 'text-[10px]'
+  if (len >= thresholds[0]) return 'text-xs'
+  return ''
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
   const [y, m, d] = dateStr.split('-')
@@ -709,7 +716,7 @@ function DailyModal({
             className="h-11 w-11 rounded-full object-cover"
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-extrabold text-foreground">
+            <p className={`truncate font-extrabold text-foreground ${nameSizeClass(entry.anon_name, [8, 12])}`}>
               {entry.anon_name ?? t('匿名使用者')}
             </p>
             <p className="text-xs text-muted-foreground">{formatDate(entry.entry_date)}</p>
@@ -2278,7 +2285,7 @@ function EntryCard({
                         {(c.anon_name ?? t('匿'))[0]}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold text-muted-foreground">
+                        <p className={`truncate font-semibold text-muted-foreground ${nameSizeClass(c.anon_name) || 'text-[11px]'}`}>
                           {c.anon_name ?? t('匿名使用者')}
                         </p>
                         <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{c.content}</p>
@@ -2352,7 +2359,7 @@ function EntryCard({
                                 {(r.anon_name ?? t('匿'))[0]}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-semibold text-muted-foreground">
+                                <p className={`truncate font-semibold text-muted-foreground ${nameSizeClass(r.anon_name) || 'text-[11px]'}`}>
                                   {r.anon_name ?? t('匿名使用者')}
                                 </p>
                                 <p className="mt-0.5 text-xs leading-relaxed text-foreground/80">{r.content}</p>
