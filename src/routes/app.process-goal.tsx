@@ -10,7 +10,7 @@ import { useStageBack } from '../lib/useStageBack'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
-import heartsBanner from '../assets/ui/hearts-banner.png'
+import processGoalBanner from '../assets/ui/process-goal-intro-banner.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -509,7 +509,7 @@ function Intro({
       {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
       <div className="relative -mx-5 h-[170px] overflow-hidden">
         <img
-          src={heartsBanner}
+          src={processGoalBanner}
           alt=""
           className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
         />

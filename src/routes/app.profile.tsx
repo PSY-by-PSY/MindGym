@@ -339,7 +339,7 @@ function Header() {
     <div className="px-5 pt-4 text-center">
       <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">{t('我的健心檔案')}</h1>
       <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">My PSY by PSY Profile</p>
-      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-foreground">{t('本週進度，小改變促進大改變')}</p>
+      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-muted-foreground">{t('本週進度，小改變促進大改變')}</p>
     </div>
   )
 }
@@ -1227,7 +1227,7 @@ function ProfilePage() {
                 <p className="text-lg font-extrabold text-foreground">{nameValue || t('未設定名稱')}</p>
                 <button
                   onClick={() => setEditingName(true)}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
                   aria-label={t('編輯名稱')}
                 >
                   <EditPencilIcon className="h-3 w-3" />
@@ -1240,17 +1240,17 @@ function ProfilePage() {
         {/* 三個統計數字框 */}
         <div className="grid grid-cols-3 gap-3">
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><FlameIcon /></span>
+            <span className="mb-1 text-foreground"><FlameIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">{t('天')}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('連續打卡')}</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><CalendarIcon /></span>
+            <span className="mb-1 text-foreground"><CalendarIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">{t('次')}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('本月完成')}</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><StopwatchIcon /></span>
+            <span className="mb-1 text-foreground"><StopwatchIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{practiceTime.value}<span className="text-base font-bold">{practiceTime.unit}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('總練習時間')}</span>
           </div>
@@ -1287,7 +1287,7 @@ function ProfilePage() {
             <Link
               to="/onboarding"
               search={{ showResult: true }}
-              className="flex flex-1 items-center justify-center rounded-2xl bg-primary-soft px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-primary transition active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center rounded-2xl border-2 border-primary bg-transparent px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
             >
               {t('觀看最近一次')}<br />{t('測驗結果')}
             </Link>
@@ -1295,7 +1295,7 @@ function ProfilePage() {
           <Link
             to="/onboarding"
             search={{ reassess: true }}
-            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
           >
             {t('重新評估')}
           </Link>

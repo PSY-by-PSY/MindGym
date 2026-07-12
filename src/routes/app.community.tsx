@@ -545,7 +545,7 @@ function CelebrateCheckIconSmall() {
 function Header() {
   const { t } = useLanguage()
   return (
-    <header className="mb-1">
+    <header className="mb-1 text-center">
       <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">{t('健身房動態')}</h1>
       <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">PSY by PSY Feed</p>
       <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">{t('大家今天感謝了什麼？')}</p>
@@ -1508,8 +1508,7 @@ function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   return (
     <ul className="mt-4 flex flex-col gap-3">
       {items.map((item, i) => (
-        <li key={i} className="relative ml-1.5 flex gap-2 rounded-xl bg-cream py-3.5 pl-[18px] pr-4">
-          <span className="absolute -left-3 top-1/2 h-[15px] w-[26px] -translate-y-1/2 -rotate-[8deg] rounded-[50%] border-4 border-[#6b4a36] border-t-[#46291c] bg-transparent" />
+        <li key={i} className="flex gap-2 rounded-xl bg-cream py-3.5 pl-[18px] pr-4">
           <span className="shrink-0 text-[15px] font-extrabold text-foreground">{i + 1}.</span>
           <span className="text-[15px] leading-[1.55] text-foreground-soft">{item}</span>
         </li>
