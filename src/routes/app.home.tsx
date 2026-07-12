@@ -12,6 +12,7 @@ import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
 import sleepingMascot from '../assets/ui/sleeping-mascot.png'
 import featuredGratitude from '../assets/ui/featured-gratitude.png'
 import exerciseGratitude from '../assets/ui/exercise-gratitude-tight.png'
+import processGoalExercise from '../assets/ui/process-goal-exercise.png'
 import permaP from '../assets/ui/perma-p-tight.png'
 import permaE from '../assets/ui/perma-e-tight.png'
 import permaR from '../assets/ui/perma-r-tight.png'
@@ -87,6 +88,8 @@ const modules = [
     searchName: null,
     locked: false,
     featured: false,
+    img: processGoalExercise,
+    imgRotated: true,
   },
   {
     name: '三件好事',
@@ -221,12 +224,12 @@ function FeaturedModuleCard({ name, meta }: ModuleProps) {
       to="/app/gratitude"
       onClick={() => track('module_opened', { module: name })}
       className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
-      style={{ background: 'linear-gradient(#9fc6dc 0%,#cfe0e6 38%,#FEFAF0 78%)' }}
+      style={{ background: '#FEFAF0' }}
     >
       <img
         src={featuredGratitude}
         alt=""
-        className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
+        className="pointer-events-none absolute -left-40 -top-[143px] h-[560px] w-[560px] max-w-none object-cover"
       />
       <div className="relative z-10 p-5 pb-6">
         <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{t(name)}</div>
@@ -236,20 +239,32 @@ function FeaturedModuleCard({ name, meta }: ModuleProps) {
   )
 }
 
-function ActiveModuleCard({ name, meta, to }: ModuleProps) {
+function ActiveModuleCard(props: ModuleProps) {
+  const { name, meta, to } = props
+  const img = 'img' in props && props.img ? props.img : featuredGratitude
+  const imgRotated = 'imgRotated' in props && props.imgRotated
   const { t } = useLanguage()
   return (
     <Link
       to={to}
       onClick={() => track('module_opened', { module: name })}
       className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
-      style={{ background: 'linear-gradient(#9fc6dc 0%,#cfe0e6 38%,#FEFAF0 78%)' }}
+      style={{ background: '#FEFAF0' }}
     >
-      <img
-        src={featuredGratitude}
-        alt=""
-        className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
-      />
+      {imgRotated ? (
+        <img
+          src={img}
+          alt=""
+          className="pointer-events-none absolute left-1/2 h-[300px] w-[230px] max-w-none object-cover"
+          style={{ top: '110px', transform: 'translate(-50%, -50%) rotate(-90deg)', objectPosition: '50% 8%' }}
+        />
+      ) : (
+        <img
+          src={img}
+          alt=""
+          className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
+        />
+      )}
       <div className="relative z-10 p-5 pb-6">
         <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{t(name)}</div>
         <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
@@ -441,9 +456,10 @@ type ExerciseCardProps = {
   meta: string
   badge?: string
   tone?: 'cream' | 'gold'
+  rotateImage?: boolean
 }
 
-function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream' }: ExerciseCardProps) {
+function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', rotateImage }: ExerciseCardProps) {
   const { t } = useLanguage()
   const linkProps = search ? { to, search } : { to }
   const isGold = tone === 'gold'
@@ -459,6 +475,7 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream' }: Ex
         src={img}
         alt=""
         className={`shrink-0 object-contain ${isGold ? 'h-[88px] w-[88px]' : 'h-[72px] w-[72px]'}`}
+        style={rotateImage ? { transform: 'rotate(-90deg)' } : undefined}
       />
       <span className="min-w-0 flex-1">
         <b className={`text-[25px] font-black tracking-[0.03em] ${isGold ? 'text-[#5b3a12]' : 'text-foreground'}`}>{t(name)}</b>
@@ -524,10 +541,11 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
             />
             <ExerciseCard
               to="/app/process-goal"
-              img={exerciseGratitude}
+              img={processGoalExercise}
               name="過程目標覺察"
               meta="初階·三分鐘"
               badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
+              rotateImage={true}
             />
           </div>
         </div>
