@@ -6,7 +6,7 @@ import { useLanguage } from '../../lib/i18n/context'
 import { releaseAssessmentResult, type AssessmentResultRow } from '../../lib/proModules'
 
 const CONFIDENCE_META: Record<string, { label: string; cls: string }> = {
-  high: { label: '高信心', cls: 'bg-tile-mint text-[#3f6b46]' },
+  high: { label: '高信心', cls: 'bg-tile-mint text-[#71744F]' },
   medium: { label: '中信心', cls: 'bg-tile-peach text-[#8a6320]' },
   low: { label: '低信心', cls: 'bg-muted text-muted-foreground' },
 }
@@ -39,7 +39,7 @@ export function AssessmentReportView({ result, onReleased }: { result: Assessmen
   return (
     <div className="flex flex-col gap-4">
       {/* 量化側寫區 */}
-      <div className="rounded-2xl border-2 border-[#3f6b46]/30 bg-card p-4 shadow-soft">
+      <div className="rounded-2xl border-2 border-[#71744F]/30 bg-card p-4 shadow-soft">
         <p className="mb-3 text-sm font-black text-foreground">{t('量化側寫')}</p>
         <div className="flex flex-col gap-3">
           {report.dimensions.map((d) => {
@@ -121,7 +121,7 @@ export function AssessmentReportView({ result, onReleased }: { result: Assessmen
         </div>
       )}
       {result.status === 'released' && (
-        <p className="text-center text-xs font-bold text-[#3f6b46]">{t('個案版已發送')}</p>
+        <p className="text-center text-xs font-bold text-[#71744F]">{t('個案版已發送')}</p>
       )}
     </div>
   )

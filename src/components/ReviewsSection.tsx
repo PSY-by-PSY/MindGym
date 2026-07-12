@@ -107,7 +107,7 @@ function ReviewSheet({ row, onClose }: { row: ReviewRow; onClose: () => void }) 
           {content.themes && content.themes.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {content.themes.map((theme) => (
-                <span key={theme} className="rounded-full bg-tile-mint px-3 py-1.5 text-sm font-bold text-[#3f6b46]">
+                <span key={theme} className="rounded-full bg-tile-mint px-3 py-1.5 text-sm font-bold text-[#71744F]">
                   {theme}
                 </span>
               ))}

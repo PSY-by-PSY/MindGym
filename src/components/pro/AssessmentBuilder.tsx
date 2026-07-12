@@ -192,7 +192,7 @@ export function AssessmentBuilder({
           {t('← 返回列表')}
         </button>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm font-bold text-[#3f6b46]">{t('已儲存')}</span>}
+          {saved && <span className="text-sm font-bold text-[#71744F]">{t('已儲存')}</span>}
           <button
             onClick={handleSave}
             disabled={busy}
