@@ -311,7 +311,7 @@ function TodayPracticeBanner({ recommendation }: { recommendation: Recommendatio
         alt=""
         className="pointer-events-none absolute -top-2 right-2 w-[148px]"
       />
-      <span className="absolute bottom-9 right-[65px] z-20 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-foreground bg-cream shadow-[0_5px_9px_rgba(40,24,12,0.4)]">
+      <span className="absolute bottom-9 right-[62px] z-20 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-foreground bg-cream shadow-[0_5px_9px_rgba(40,24,12,0.4)]">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#542916" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 12h14M12 5l7 7-7 7" />
         </svg>

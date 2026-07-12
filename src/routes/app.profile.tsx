@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
 import { checkAndGenerateReviews } from '../lib/reviews'
 import { ReviewsSection } from '../components/ReviewsSection'
-import playingMascot from '../assets/ui/playing-mascot.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 import { useLanguage } from '../lib/i18n/context'
@@ -268,7 +267,7 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
   const dataPoly = dataPts.map((p) => p.join(',')).join(' ')
 
   return (
-    <svg viewBox="0 0 320 300" className="w-full">
+    <svg viewBox="0 -12 320 312" className="w-full">
       {/* 藍色同心五邊形格線 */}
       {[1, 2, 3, 4, 5].map((level) => (
         <polygon
@@ -297,10 +296,11 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
           strokeLinejoin="round"
         />
       ))}
-      {/* 各維度標籤 + 分數框 */}
+      {/* 各維度標籤 + 分數框。頂點 P 在正上方，方框要往外（上）推才不會擠回雷達圖；
+          其餘 4 個維度方框往下沿screen-space偏移即已是遠離圖表方向，故沿用原本做法。 */}
       {PERMA_DIMENSIONS.map((d, i) => {
         const [lx, ly] = point(i, maxR + 30)
-        const by = ly + 13
+        const by = i === 0 ? ly - 26 : ly + 22
         return (
           <g key={d.key}>
             <text
@@ -1074,7 +1074,9 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
   const { t } = useLanguage()
   const hasScore = !!scores
-  const xs = [36, 74, 112, 150, 188]
+  // 盆器是梯形（往下內縮），字母圓與中文字都落在偏下方的窄處，
+  // 所以间距要比盆口本身窄一些，才不會超出盆器兩側斜邊。
+  const xs = [55, 117, 178, 239, 301]
   return (
     <div className="relative mt-2.5 overflow-hidden rounded-[22px] bg-cream">
       <svg viewBox="0 0 360 258" className="relative z-[1] w-full">
@@ -1097,18 +1099,12 @@ function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
             <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
               {d.letter}
             </text>
-            <text x={xs[i]} y={253} textAnchor="middle" fontSize="12" fontWeight="800" fill="#542916">
+            <text x={xs[i]} y={228} textAnchor="middle" fontSize="12" fontWeight="800" fill="#FEFAF0">
               {t(d.label)}
             </text>
           </g>
         ))}
       </svg>
-      {/* 玩耍吉祥物 — 大尺寸，坐在盆器右側抱膝 */}
-      <img
-        src={playingMascot}
-        alt=""
-        className="pointer-events-none absolute bottom-[14px] right-0 z-[2] w-[152px] select-none"
-      />
     </div>
   )
 }
