@@ -155,7 +155,7 @@ function HomePage() {
       </div>
 
       {/* 健心訓練模組—大卡、左右滑動 */}
-      <SectionTitle zh={t('健心訓練模組')} en="PSY by PSY Training Modules" />
+      <SectionTitle zh={t('PSY by PSY 健心訓練模組')} en="PSY by PSY Training Modules" />
       <div className="scroll -mx-5 flex gap-3.5 overflow-x-auto px-5 pb-1.5 no-scrollbar">
         {modules.map((mod) =>
           mod.featured ? (
