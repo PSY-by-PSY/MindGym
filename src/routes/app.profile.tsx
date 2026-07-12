@@ -23,7 +23,7 @@ const TARGET_META: Record<TargetCode, { label: string }> = {
 const TARGET_COLORS: Record<TargetCode, string> = {
   self:        '#F1C166',
   others:      '#88B8CE',
-  environment: '#7BA86E',
+  environment: '#B9B078',
   experience:  '#C99A6A',
   custom:      '#D18197',
 }
@@ -751,7 +751,7 @@ function GratitudeCalendar({
                     className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#71744F]" />
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">{t('感恩日記')}</span>
                     <span className="text-xs font-extrabold text-primary">✓ {t('已完成')}</span>
@@ -988,7 +988,7 @@ const PLANTER_DIMS = [
   { key: 'a_score' as const, letter: 'A', label: '成就', color: '#c98a52' },
 ]
 
-function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#7BA86E') {
+function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#B9B078') {
   return <ellipse cx={x} cy={y} rx={6 * s} ry={11 * s} fill={fill} transform={`rotate(${rot} ${x} ${y})`} />
 }
 
@@ -1015,8 +1015,8 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
           stroke="#d8ac4a"
           strokeWidth="1"
         />
-        {planterLeaf(x - 3, topY + 2, -28, 0.5, '#6f9a5c')}
-        {planterLeaf(x + 3, topY + 2, 28, 0.5, '#6f9a5c')}
+        {planterLeaf(x - 3, topY + 2, -28, 0.5)}
+        {planterLeaf(x + 3, topY + 2, 28, 0.5)}
       </g>
     )
     labelOffset = 22
@@ -1054,7 +1054,7 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 
   return (
     <g>
-      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#7BA86E" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#71744F" strokeWidth="4" fill="none" strokeLinecap="round" />
       {score >= 2.4 && (
         <g>
           {planterLeaf(x - 9, midY, -55, 0.8)}
@@ -1079,7 +1079,7 @@ function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
     <div className="relative mt-2.5 overflow-hidden rounded-[22px] bg-cream">
       <svg viewBox="0 0 360 258" className="relative z-[1] w-full">
         {/* 草叢 */}
-        <g fill="#9aa86a" opacity="0.9">
+        <g fill="#B9B078" opacity="0.9">
           <path d="M6 250 q3 -22 6 0 z M14 250 q3 -28 7 0 z M24 250 q3 -18 6 0 z" />
           <path d="M330 250 q3 -24 6 0 z M340 250 q3 -30 7 0 z M351 250 q2 -16 5 0 z" />
         </g>

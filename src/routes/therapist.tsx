@@ -38,14 +38,14 @@ export const Route = createFileRoute('/therapist')({
 const STATUS_META: Record<ProModuleStatus, { label: string; cls: string }> = {
   draft: { label: '草稿', cls: 'bg-muted text-muted-foreground' },
   pending_review: { label: '審核中', cls: 'bg-tile-peach text-[#8a6320]' },
-  approved: { label: '已上架', cls: 'bg-tile-mint text-[#3f6b46]' },
+  approved: { label: '已上架', cls: 'bg-tile-mint text-[#71744F]' },
   rejected: { label: '已退件', cls: 'bg-tile-pink text-rust' },
   archived: { label: '已下架', cls: 'bg-muted text-muted-foreground' },
 }
 
 const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
   practice: { label: '練習模組', cls: 'bg-muted text-muted-foreground' },
-  diary: { label: '日記模組', cls: 'bg-tile-mint text-[#3f6b46]' },
+  diary: { label: '日記模組', cls: 'bg-tile-mint text-[#71744F]' },
   assessment: { label: '質性測驗', cls: 'bg-tile-peach text-[#8a6320]' },
 }
 
@@ -655,7 +655,7 @@ function ModuleEditor({
           {t('← 返回列表')}
         </button>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm font-bold text-[#3f6b46]">{t('已儲存')}</span>}
+          {saved && <span className="text-sm font-bold text-[#71744F]">{t('已儲存')}</span>}
           <button
             onClick={handleSave}
             disabled={busy}

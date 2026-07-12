@@ -1288,7 +1288,7 @@ function SummaryStage({
       ) : displayResult ? (
         <div className="mb-6 flex flex-col gap-3">
           <div className="rounded-3xl bg-tile-mint p-5 shadow-soft">
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#3f6b46]">
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#71744F]">
               <SparklesIcon />
               {t('AI 即時回饋')}
             </p>
@@ -1550,7 +1550,7 @@ function ShareCard({
 const TARGET_COLORS: Record<TargetCode, string> = {
   others:      '#6BAED6',
   self:        '#FD8D3C',
-  environment: '#74C476',
+  environment: '#B9B078',
   experience:  '#9E9AC8',
   custom:      '#BDBDBD',
 }

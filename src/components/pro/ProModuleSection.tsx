@@ -181,7 +181,7 @@ function ModuleCard({ m }: { m: ProModuleInfo }) {
         <span className="flex items-center gap-2">
           <b className="truncate text-[17px] font-black tracking-[0.02em] text-foreground">{m.title}</b>
           {updated && (
-            <span className="shrink-0 rounded-full bg-[#d7ebd9] px-2 py-0.5 text-[10px] font-extrabold text-[#3f6b46]">
+            <span className="shrink-0 rounded-full bg-tile-mint px-2 py-0.5 text-[10px] font-extrabold text-[#71744F]">
               {t('已更新')}
             </span>
           )}

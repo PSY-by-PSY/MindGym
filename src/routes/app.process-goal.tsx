@@ -15,7 +15,7 @@ import processGoalBanner from '../assets/ui/process-goal-intro-banner.png'
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
 // 模組專用配色（對齊新版暖色設計）
-const TEAL = { backgroundColor: '#d7ebd9', color: '#3f6b46' }
+const TEAL = { backgroundColor: '#E8E7D3', color: '#71744F' }
 const PURPLE_BG = { backgroundColor: '#f3ead9', color: '#542916' }
 const PURPLE = '#542916'
 
@@ -511,7 +511,7 @@ function Intro({
         <img
           src={processGoalBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute bottom-[-40px] left-1/2 w-[520px] max-w-none -translate-x-1/2"
         />
         <button
           onClick={onGoBack}
