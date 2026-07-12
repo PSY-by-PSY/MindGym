@@ -385,7 +385,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
     <button
       type="button"
       onClick={onBack}
-      className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+      className="mb-4 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
       aria-label={t('返回')}
     >
       <PgBackIcon />
@@ -511,11 +511,11 @@ function Intro({
         <img
           src={processGoalBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-40px] left-1/2 w-[520px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
         />
         <button
           onClick={onGoBack}
-          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          className="absolute left-1 top-1 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
           aria-label={t('返回')}
         >
           <PgBackIcon />
