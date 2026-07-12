@@ -3,7 +3,7 @@ import type { Translation } from '../dictionary'
 export const home: Record<string, Translation> = {
   '嗨，歡迎回來': { 'zh-CN': '嗨，欢迎回来', en: 'Hi, welcome back' },
   '{name}，今天想練哪塊心理肌肉？': { 'zh-CN': '{name}，今天想练哪块心理肌肉？', en: '{name}, which mental muscle do you want to train today?' },
-  '健心訓練模組': { 'zh-CN': '健心训练模组', en: 'Training Modules' },
+  'PSY by PSY 健心訓練模組': { 'zh-CN': 'PSY by PSY 健心训练模组', en: 'Training Modules' },
   '← 左右滑動瀏覽更多模組 →': { 'zh-CN': '← 左右滑动浏览更多模组 →', en: '← Swipe to browse more modules →' },
   '點擊直接開始': { 'zh-CN': '点击直接开始', en: 'Tap to start' },
   '今天的{name}！': { 'zh-CN': '今天的{name}！', en: "today's {name}!" },
