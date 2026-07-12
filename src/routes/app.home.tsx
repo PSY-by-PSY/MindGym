@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
@@ -13,6 +13,7 @@ import sleepingMascot from '../assets/ui/sleeping-mascot.png'
 import featuredGratitude from '../assets/ui/featured-gratitude.png'
 import exerciseGratitude from '../assets/ui/exercise-gratitude-tight.png'
 import processGoalExercise from '../assets/ui/process-goal-exercise.png'
+import processGoalIcon from '../assets/ui/過程目標覺察icon.png'
 import permaP from '../assets/ui/perma-p-tight.png'
 import permaE from '../assets/ui/perma-e-tight.png'
 import permaR from '../assets/ui/perma-r-tight.png'
@@ -310,7 +311,7 @@ function TodayPracticeBanner({ recommendation }: { recommendation: Recommendatio
         alt=""
         className="pointer-events-none absolute -top-2 right-2 w-[148px]"
       />
-      <span className="absolute bottom-3 right-[78px] z-20 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-foreground bg-cream">
+      <span className="absolute bottom-9 right-[50px] z-20 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-foreground bg-cream shadow-[0_5px_9px_rgba(40,24,12,0.4)]">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#542916" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 12h14M12 5l7 7-7 7" />
         </svg>
@@ -367,7 +368,7 @@ function PermaCards() {
           <img
             src={c.img}
             alt=""
-            className="pointer-events-none absolute -left-3 bottom-[-6px] h-[176px] w-auto max-w-none object-contain opacity-95"
+            className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
           />
           <div className="absolute left-3.5 right-3.5 top-4 text-center">
             <div className="text-[23px] font-black leading-[1.1] text-foreground">{c.en}</div>
@@ -449,34 +450,43 @@ function WeekCalendar({
 }
 
 type ExerciseCardProps = {
-  to: string
+  to?: string
   search?: Record<string, string>
-  img: string
+  img?: string
   name: string
   meta: string
   badge?: string
   tone?: 'cream' | 'gold'
-  rotateImage?: boolean
+  locked?: boolean
 }
 
-function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', rotateImage }: ExerciseCardProps) {
-  const { t } = useLanguage()
-  const linkProps = search ? { to, search } : { to }
-  const isGold = tone === 'gold'
+function LockIcon() {
   return (
-    <Link
-      {...(linkProps as Parameters<typeof Link>[0])}
-      onClick={() => track('module_opened', { module: name })}
-      className="relative flex items-center gap-4 overflow-hidden rounded-[22px] px-5 py-4 shadow-[0_4px_10px_rgba(40,24,12,0.14)] transition active:scale-[0.98]"
-      style={isGold ? { background: 'linear-gradient(135deg,#f6e4ad 0%,#eccd7e 100%)' } : undefined}
-    >
+    <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
+function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', locked }: ExerciseCardProps) {
+  const { t } = useLanguage()
+  const isGold = tone === 'gold'
+  const style = isGold ? { background: 'linear-gradient(135deg,#f6e4ad 0%,#eccd7e 100%)' } : undefined
+  const inner = (
+    <>
       {!isGold && <span className="absolute inset-0 -z-10 bg-cream" />}
-      <img
-        src={img}
-        alt=""
-        className={`shrink-0 object-contain ${isGold ? 'h-[88px] w-[88px]' : 'h-[72px] w-[72px]'}`}
-        style={rotateImage ? { transform: 'rotate(-90deg)' } : undefined}
-      />
+      {locked ? (
+        <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+          <LockIcon />
+        </span>
+      ) : (
+        <img
+          src={img}
+          alt=""
+          className={`shrink-0 object-contain ${isGold ? 'h-[88px] w-[88px]' : 'h-[72px] w-[72px]'}`}
+        />
+      )}
       <span className="min-w-0 flex-1">
         <b className={`text-[25px] font-black tracking-[0.03em] ${isGold ? 'text-[#5b3a12]' : 'text-foreground'}`}>{t(name)}</b>
         <span className={`mt-1 block text-[15px] font-light tracking-[0.03em] ${isGold ? 'text-[#8a6320]' : 'text-foreground'}`}>{t(meta)}</span>
@@ -486,6 +496,29 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', rota
           {t(badge)}
         </span>
       )}
+    </>
+  )
+
+  if (locked || !to) {
+    return (
+      <div
+        className="relative flex items-center gap-4 overflow-hidden rounded-[22px] px-5 py-4 opacity-60"
+        style={style}
+      >
+        {inner}
+      </div>
+    )
+  }
+
+  const linkProps = search ? { to, search } : { to }
+  return (
+    <Link
+      {...(linkProps as Parameters<typeof Link>[0])}
+      onClick={() => track('module_opened', { module: name })}
+      className="relative flex items-center gap-4 overflow-hidden rounded-[22px] px-5 py-4 shadow-[0_4px_10px_rgba(40,24,12,0.14)] transition active:scale-[0.98]"
+      style={style}
+    >
+      {inner}
     </Link>
   )
 }
@@ -541,11 +574,10 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
             />
             <ExerciseCard
               to="/app/process-goal"
-              img={processGoalExercise}
+              img={processGoalIcon}
               name="過程目標覺察"
               meta="初階·三分鐘"
               badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
-              rotateImage={true}
             />
           </div>
         </div>
@@ -554,110 +586,34 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
       {activeTab === 'perma' && <PermaCards />}
 
       {activeTab === 'new' && (
-        <div className="flex flex-col gap-2.5">
-          <NewRow icon={<SearchIcon />} iconBg="#cfe2ee" name="過程目標覺察" meta="新上架 · 找回你的專注狀態" tag="NEW" to="/app/process-goal" />
-          <NewRow icon={<CheckSquareIcon />} iconBg="#f3e3c4" name="三件好事" meta="即將上架 · 情緒力 · 成就力" dimmed />
+        <div className="flex flex-col gap-3">
+          <ExerciseCard
+            to="/app/process-goal"
+            img={processGoalIcon}
+            name="過程目標覺察"
+            meta="新上架 · 找回你的專注狀態"
+            badge="NEW"
+          />
+          <ExerciseCard
+            name="三件好事"
+            meta="即將上架 · 情緒力 · 成就力"
+            locked
+          />
         </div>
       )}
 
       {activeTab === 'hot' && (
-        <Link
-          to="/app/gratitude"
-          className="flex items-center gap-3.5 rounded-[22px] bg-[#d7ebd9] px-[18px] py-4 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition active:scale-[0.98]"
-        >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-[#5b6b4a]">
-            <StarIcon />
-          </span>
-          <span className="min-w-0 flex-1">
-            <b className="text-[15px] font-black text-foreground">{t('感恩日記')}</b>
-            <span className="mt-1.5 flex flex-wrap gap-1.5">
-              {['P 情緒力', 'R 連結力', 'M 意義力'].map((tag) => (
-                <i key={tag} className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-extrabold not-italic text-[#5b6b4a]">
-                  {t(tag)}
-                </i>
-              ))}
-            </span>
-          </span>
-        </Link>
+        <div className="flex flex-col gap-3">
+          <ExerciseCard
+            to="/app/gratitude"
+            img={exerciseGratitude}
+            name="感恩日記"
+            meta="P 情緒力 · R 連結力 · M 意義力"
+            tone="gold"
+            badge="熱門"
+          />
+        </div>
       )}
     </section>
-  )
-}
-
-function NewRow({
-  icon,
-  iconBg,
-  name,
-  meta,
-  tag,
-  to,
-  dimmed,
-}: {
-  icon: ReactNode
-  iconBg: string
-  name: string
-  meta: string
-  tag?: string
-  to?: '/app/process-goal'
-  dimmed?: boolean
-}) {
-  const { t } = useLanguage()
-  const body: ReactNode = (
-    <>
-      <span
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px]"
-        style={{ background: iconBg }}
-      >
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <b className="text-base font-extrabold text-foreground">{t(name)}</b>
-          {tag && (
-            <i className="rounded-full bg-[#cfe2ee] px-2 py-0.5 text-[10px] font-extrabold not-italic text-[#2f5b78]">{tag}</i>
-          )}
-        </span>
-        <span className="mt-0.5 block text-xs text-[#a99a86]">{t(meta)}</span>
-      </span>
-    </>
-  )
-
-  const cls = `flex items-center gap-3.5 rounded-[18px] border border-[#efe7d6] bg-white px-4 py-3.5 shadow-[0_2px_6px_rgba(0,0,0,0.05)] ${
-    dimmed ? 'opacity-60' : 'transition active:scale-[0.98]'
-  }`
-
-  if (to && !dimmed) {
-    return (
-      <Link to={to} search={{ mod: undefined }} className={cls}>
-        {body}
-      </Link>
-    )
-  }
-  return <div className={cls}>{body}</div>
-}
-
-function SearchIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.3-4.3" />
-    </svg>
-  )
-}
-
-function CheckSquareIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="16" height="16" rx="3" />
-      <path d="M8.5 12.5l2.2 2.2L16 9.5" />
-    </svg>
-  )
-}
-
-function StarIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2.5l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.7 5.9 21.1l1.4-6.8-5.1-4.7 6.9-.8z" />
-    </svg>
   )
 }
