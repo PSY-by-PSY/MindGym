@@ -357,38 +357,66 @@ const PERMA_CARDS = [
   { en: 'ACCOMPLISHMENT', zh: '成就力', bg: '#88B8CE', img: permaA, tags: [{ t: '三件好事', c: '#a13a1e' }, { t: '過程目標覺察', c: '#88B8CE' }] },
 ]
 
+const PERMA_CARD_H = 166
+const PERMA_GAP = 16
+const PERMA_STACK_OFFSET = 14
+
 function PermaCards() {
   const { t } = useLanguage()
+  const [expanded, setExpanded] = useState(false)
+  const count = PERMA_CARDS.length
+  const containerHeight = expanded
+    ? count * PERMA_CARD_H + (count - 1) * PERMA_GAP
+    : PERMA_CARD_H + (count - 1) * PERMA_STACK_OFFSET
+
   return (
-    <div className="flex flex-col gap-4">
-      {PERMA_CARDS.map((c) => (
-        <div
-          key={c.en}
-          className="relative h-[166px] overflow-hidden rounded-[20px] shadow-[0_4px_8px_rgba(0,0,0,0.2)]"
-          style={{ background: c.bg }}
-        >
-          <img
-            src={c.img}
-            alt=""
-            className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
-          />
-          <div className="absolute left-3.5 right-3.5 top-4 text-center">
-            <div className="text-[23px] font-black leading-[1.1] text-foreground">{c.en}</div>
-            <div className="mt-1.5 text-[15px] font-bold text-[#6f5547]">·{t(c.zh)}·</div>
-          </div>
-          <div className="absolute bottom-4 right-3.5 flex flex-col items-end gap-2">
-            {c.tags.map((tag) => (
+    <div
+      className="relative transition-[height] duration-500 ease-in-out"
+      style={{ height: containerHeight }}
+    >
+      {PERMA_CARDS.map((c, i) => {
+        const y = expanded ? i * (PERMA_CARD_H + PERMA_GAP) : i * PERMA_STACK_OFFSET
+        return (
+          <button
+            key={c.en}
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            aria-expanded={expanded}
+            className="absolute left-0 right-0 h-[166px] overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ease-in-out"
+            style={{ background: c.bg, transform: `translateY(${y}px)`, zIndex: count - i }}
+          >
+            <img
+              src={c.img}
+              alt=""
+              className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
+            />
+            <div className="absolute left-3.5 right-3.5 top-4 text-center">
+              <div className="text-[23px] font-black leading-[1.1] text-foreground">{c.en}</div>
+              <div className="mt-1.5 text-[15px] font-bold text-[#6f5547]">·{t(c.zh)}·</div>
+            </div>
+            <div className="absolute bottom-4 right-3.5 flex flex-col items-end gap-2">
+              {c.tags.map((tag) => (
+                <span
+                  key={tag.t}
+                  className="flex items-center gap-1.5 rounded-full border-[1.5px] border-[#6f5547] bg-cream px-3 py-1 text-sm font-bold text-foreground"
+                >
+                  <i className="h-2 w-2 rounded-full" style={{ background: tag.c }} />
+                  {t(tag.t)}
+                </span>
+              ))}
+            </div>
+            {i === 0 && (
               <span
-                key={tag.t}
-                className="flex items-center gap-1.5 rounded-full border-[1.5px] border-[#6f5547] bg-cream px-3 py-1 text-sm font-bold text-foreground"
+                className={`absolute right-3.5 top-4 flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#6f5547] bg-cream transition-transform duration-500 ease-in-out ${expanded ? 'rotate-180' : ''}`}
               >
-                <i className="h-2 w-2 rounded-full" style={{ background: tag.c }} />
-                {t(tag.t)}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f5547" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
               </span>
-            ))}
-          </div>
-        </div>
-      ))}
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
