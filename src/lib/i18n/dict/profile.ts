@@ -129,6 +129,13 @@ export const profile: Record<string, Translation> = {
   '重新評估': { 'zh-CN': '重新评估', en: 'Retake Assessment' },
   // 一週回顧
   '本週回顧': { 'zh-CN': '本周回顾', en: 'Weekly Review' },
+  '本週 AI 分析將在本周日更新': { 'zh-CN': '本周 AI 分析将在本周日更新', en: 'AI analysis updates on Sunday' },
+  '請在': { 'zh-CN': '请在', en: 'Come back on' },
+  '回來查看': { 'zh-CN': '回来查看', en: 'to see it' },
+  '目前顯示上週的分析。本週的感恩日記數據正在累積中。': {
+    'zh-CN': '目前显示上周的分析。本周的感恩日记数据正在累积中。',
+    en: 'Showing last week\'s analysis. This week\'s data is being collected.',
+  },
   '感恩 {n1} 次 · 過程 {n2} 次': { 'zh-CN': '感恩 {n1} 次 · 过程 {n2} 次', en: '{n1}x gratitude · {n2}x process' },
   '看看這週的健心狀況': { 'zh-CN': '看看这周的健心状况', en: "See how your week's been going" },
   '返回': { 'zh-CN': '返回', en: 'Back' },

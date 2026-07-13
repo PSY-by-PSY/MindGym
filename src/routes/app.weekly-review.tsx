@@ -5,8 +5,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { supabase } from '../lib/supabase'
-import { mondayOf, requestWeeklyDigest, type GratitudeDepthLevel, type WeeklyDigestContent } from '../lib/reviews'
+import { mondayOf, requestWeeklyDigest, isSunday, hasWeeklyDigest, type GratitudeDepthLevel, type WeeklyDigestContent } from '../lib/reviews'
 import { fetchWeeklyReviewData, type WeeklyReviewData } from '../lib/weeklyReview'
+import { isoLocalDate } from '../lib/date'
 import { TARGET_COLORS, TARGET_META } from '../lib/gratitudeTargets'
 import { downloadNodeAsPng } from '../lib/shareImage'
 import { useLanguage } from '../lib/i18n/context'
@@ -57,6 +58,8 @@ function WeeklyReviewPage() {
   const [digest, setDigest] = useState<WeeklyDigestContent | null>(null)
   const [digestState, setDigestState] = useState<DigestState>('loading')
   const [sharing, setSharing] = useState(false)
+  const [isCurrentWeekSunday, setIsCurrentWeekSunday] = useState(false)
+  const [nextSundayDate, setNextSundayDate] = useState<string>('')
   const shareRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -74,8 +77,22 @@ function WeeklyReviewPage() {
     setDigest(null)
     setDigestState('loading')
 
-    const monday = mondayOf(new Date())
+    const now = new Date()
+    const monday = mondayOf(now)
     monday.setDate(monday.getDate() + weekOffset * 7)
+
+    // 檢查本週是否為周日，以及下個周日的日期（用於提示文字）
+    const isThisWeekSunday = weekOffset === 0 && isSunday(now)
+    setIsCurrentWeekSunday(isThisWeekSunday)
+
+    if (weekOffset === 0) {
+      const nextSunday = new Date(now)
+      const daysUntilSunday = (7 - now.getDay()) % 7 || 7
+      nextSunday.setDate(nextSunday.getDate() + daysUntilSunday)
+      const month = nextSunday.getMonth() + 1
+      const date = nextSunday.getDate()
+      setNextSundayDate(`${month}/${date}`)
+    }
 
     fetchWeeklyReviewData(userId, monday).then((d) => {
       if (cancelled) return
@@ -157,6 +174,19 @@ function WeeklyReviewPage() {
         </Link>
         <h1 className="text-lg font-extrabold text-foreground">{t('本週回顧')}</h1>
       </div>
+
+      {/* 本週但還沒到周日時的提示 */}
+      {weekOffset === 0 && !isCurrentWeekSunday && (
+        <div className="mt-6 rounded-3xl bg-gradient-to-br from-primary/10 to-primary-soft p-6 text-center shadow-soft">
+          <p className="text-lg font-bold text-foreground">{t('本週 AI 分析將在本周日更新')}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t('請在')} <span className="font-bold text-primary">{nextSundayDate}</span> {t('回來查看')}
+          </p>
+          <p className="mt-4 text-sm leading-relaxed text-foreground">
+            {t('目前顯示上週的分析。本週的感恩日記數據正在累積中。')}
+          </p>
+        </div>
+      )}
 
       {/* 週切換 */}
       <div className="mt-3 flex items-center justify-center gap-4">
