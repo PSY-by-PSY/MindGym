@@ -296,16 +296,18 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
           strokeLinejoin="round"
         />
       ))}
-      {/* 各維度標籤 + 分數框。頂點 P 在正上方，方框要往外（上）推才不會擠回雷達圖；
-          其餘 4 個維度方框往下沿screen-space偏移即已是遠離圖表方向，故沿用原本做法。 */}
+      {/* 各維度標籤 + 分數框，標籤一律在上、分數框在下。頂點 P 在正上方，
+          兩者都要往外（上）推才不會擠回雷達圖；其餘 4 個維度往下沿screen-space偏移
+          即已是遠離圖表方向，故沿用原本做法。 */}
       {PERMA_DIMENSIONS.map((d, i) => {
         const [lx, ly] = point(i, maxR + 30)
-        const by = i === 0 ? ly - 26 : ly + 22
+        const labelY = i === 0 ? ly - 26 : ly - 3
+        const by = i === 0 ? ly - 3 : ly + 22
         return (
           <g key={d.key}>
             <text
               x={lx}
-              y={ly - 3}
+              y={labelY}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize="12.5"
@@ -1254,7 +1256,7 @@ function ProfilePage() {
 
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
-          <SectionLabel zh={t('我的健心夥伴')} en="Mental Training Partner" />
+          <SectionLabel zh={t('幸福經驗值')} en="Wellbeing Points" />
           <PartnerPlanter scores={scores} />
         </div>
 

@@ -24,7 +24,7 @@ export const Route = createFileRoute('/app/home')({
   beforeLoad: async ({ context }) => {
     const user = context.session!.user
     const userId = user.id
-    const userName =
+    const fallbackName =
       user.user_metadata?.full_name ??
       user.user_metadata?.name ??
       user.email?.split('@')[0] ??
@@ -37,10 +37,12 @@ export const Route = createFileRoute('/app/home')({
       .maybeSingle()
 
     if (!profile) {
-      await supabase.from('profiles').insert({ id: userId, name: userName })
-    } else if (!profile.name && userName) {
-      await supabase.from('profiles').update({ name: userName }).eq('id', userId)
+      await supabase.from('profiles').insert({ id: userId, name: fallbackName })
+    } else if (!profile.name && fallbackName) {
+      await supabase.from('profiles').update({ name: fallbackName }).eq('id', userId)
     }
+
+    const userName = profile?.name || fallbackName
 
     const { data: scores } = await supabase
       .from('perma_scores')
@@ -336,7 +338,7 @@ function WorkshopSection() {
             className="flex items-center gap-3.5 rounded-2xl bg-cream px-4 py-3.5 shadow-[0_2px_5px_rgba(0,0,0,0.08)] transition active:scale-[0.98]"
           >
             <CloudIcon />
-            <span className="flex-1 text-[20px] font-bold tracking-[0.03em] text-foreground">{t(mod.name)}</span>
+            <span className="flex-1 text-[17px] font-black tracking-[0.02em] text-foreground">{t(mod.name)}</span>
             <ArrowCircle />
           </Link>
         ))}
@@ -472,7 +474,7 @@ function LockIcon() {
 function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', locked }: ExerciseCardProps) {
   const { t } = useLanguage()
   const isGold = tone === 'gold'
-  const style = isGold ? { background: 'linear-gradient(135deg,#f6e4ad 0%,#eccd7e 100%)' } : undefined
+  const style = isGold ? { backgroundColor: '#FEFAF0' } : undefined
   const inner = (
     <>
       {!isGold && <span className="absolute inset-0 -z-10 bg-cream" />}
@@ -484,12 +486,12 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
         <img
           src={img}
           alt=""
-          className={`shrink-0 object-contain ${isGold ? 'h-[88px] w-[88px]' : 'h-[72px] w-[72px]'}`}
+          className="h-[72px] w-[72px] shrink-0 object-contain"
         />
       )}
       <span className="min-w-0 flex-1">
-        <b className={`text-[25px] font-black tracking-[0.03em] ${isGold ? 'text-[#5b3a12]' : 'text-foreground'}`}>{t(name)}</b>
-        <span className={`mt-1 block text-[15px] font-light tracking-[0.03em] ${isGold ? 'text-[#8a6320]' : 'text-foreground'}`}>{t(meta)}</span>
+        <b className={`text-[17px] font-black tracking-[0.02em] ${isGold ? 'text-foreground' : 'text-foreground'}`}>{t(name)}</b>
+        <span className={`mt-0.5 block text-xs font-light tracking-[0.02em] ${isGold ? 'text-foreground' : 'text-foreground'}`}>{t(meta)}</span>
       </span>
       {badge && (
         <span className="absolute right-3.5 top-3 rounded-full bg-tile-mint px-2.5 py-1 text-[11px] font-extrabold text-[#71744F]">
@@ -502,7 +504,7 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
   if (locked || !to) {
     return (
       <div
-        className="relative flex items-center gap-4 overflow-hidden rounded-[22px] px-5 py-4 opacity-60"
+        className="relative flex items-center gap-3.5 overflow-hidden rounded-2xl px-4 py-3.5 opacity-60"
         style={style}
       >
         {inner}
@@ -515,7 +517,7 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
     <Link
       {...(linkProps as Parameters<typeof Link>[0])}
       onClick={() => track('module_opened', { module: name })}
-      className="relative flex items-center gap-4 overflow-hidden rounded-[22px] px-5 py-4 shadow-[0_4px_10px_rgba(40,24,12,0.14)] transition active:scale-[0.98]"
+      className={`relative flex items-center gap-3.5 overflow-hidden rounded-2xl px-4 py-3.5 transition active:scale-[0.98] ${isGold ? 'shadow-[0_2px_5px_rgba(0,0,0,0.08)]' : 'shadow-[0_2px_5px_rgba(0,0,0,0.08)]'}`}
       style={style}
     >
       {inner}

@@ -120,7 +120,7 @@ export const profile: Record<string, Translation> = {
   '次': { 'zh-CN': '次', en: 'x' },
   '本月完成': { 'zh-CN': '本月完成', en: 'This Month' },
   '總練習時間': { 'zh-CN': '总练习时间', en: 'Total Practice Time' },
-  '我的健心夥伴': { 'zh-CN': '我的健心伙伴', en: 'My Training Partner' },
+  '幸福經驗值': { 'zh-CN': '幸福经验值', en: 'Wellbeing Points' },
   '心理肌肉雷達圖': { 'zh-CN': '心理肌肉雷达图', en: 'Mental Muscle Radar' },
   '看看哪一塊還可以再練': { 'zh-CN': '看看哪一块还可以再练', en: 'See which area you can train next' },
   '尚未完成 PERMA 評估': { 'zh-CN': '尚未完成 PERMA 评估', en: 'PERMA assessment not yet completed' },
