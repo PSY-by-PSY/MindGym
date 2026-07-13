@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$PWD\" && git rev-parse --git-dir > /dev/null 2>&1 && { BRANCH_NAME=\"feat/session-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$BRANCH_NAME\" 2>/dev/null && echo \"Created branch: $BRANCH_NAME\" || echo \"Branch already exists or git error\"; } || echo \"Not a git repository\"",
+            "timeout": 10,
+            "statusMessage": "Creating new session branch..."
+          }
+        ]
+      }
+    ]
+  }
+}
