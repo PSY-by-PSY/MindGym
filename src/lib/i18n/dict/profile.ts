@@ -132,9 +132,9 @@ export const profile: Record<string, Translation> = {
   '本週 AI 分析將在本周日更新': { 'zh-CN': '本周 AI 分析将在本周日更新', en: 'AI analysis updates on Sunday' },
   '請在': { 'zh-CN': '请在', en: 'Come back on' },
   '回來查看': { 'zh-CN': '回来查看', en: 'to see it' },
-  '目前顯示上週的分析。本週的感恩日記數據正在累積中。': {
-    'zh-CN': '目前显示上周的分析。本周的感恩日记数据正在累积中。',
-    en: 'Showing last week\'s analysis. This week\'s data is being collected.',
+  '本週的紀錄會照常累積，AI 統整分析會在週日整理完整一週後才顯示。': {
+    'zh-CN': '本周的记录会照常累积，AI 统整分析会在周日整理完整一周后才显示。',
+    en: 'Your entries this week are saved as usual — AI analysis appears once the full week is in on Sunday.',
   },
   '感恩 {n1} 次 · 過程 {n2} 次': { 'zh-CN': '感恩 {n1} 次 · 过程 {n2} 次', en: '{n1}x gratitude · {n2}x process' },
   '看看這週的健心狀況': { 'zh-CN': '看看这周的健心状况', en: "See how your week's been going" },
@@ -154,6 +154,10 @@ export const profile: Record<string, Translation> = {
   '再多寫幾篇，AI 情緒分析就會出現': {
     'zh-CN': '再多写几篇，AI 情绪分析就会出现',
     en: 'Write a few more entries and AI emotion analysis will appear',
+  },
+  'AI 情緒分析會在本週日整理後顯示': {
+    'zh-CN': 'AI 情绪分析会在本周日整理后显示',
+    en: 'AI emotion analysis appears once Sunday\'s summary is ready',
   },
   // 感恩深度（Lin, 2015 四層次）
   '感恩深度': { 'zh-CN': '感恩深度', en: 'Gratitude depth' },

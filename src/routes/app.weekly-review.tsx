@@ -5,9 +5,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { supabase } from '../lib/supabase'
-import { mondayOf, requestWeeklyDigest, isSunday, hasWeeklyDigest, type GratitudeDepthLevel, type WeeklyDigestContent } from '../lib/reviews'
+import { mondayOf, requestWeeklyDigest, isSunday, type GratitudeDepthLevel, type WeeklyDigestContent } from '../lib/reviews'
 import { fetchWeeklyReviewData, type WeeklyReviewData } from '../lib/weeklyReview'
-import { isoLocalDate } from '../lib/date'
 import { TARGET_COLORS, TARGET_META } from '../lib/gratitudeTargets'
 import { downloadNodeAsPng } from '../lib/shareImage'
 import { useLanguage } from '../lib/i18n/context'
@@ -183,7 +182,7 @@ function WeeklyReviewPage() {
             {t('請在')} <span className="font-bold text-primary">{nextSundayDate}</span> {t('回來查看')}
           </p>
           <p className="mt-4 text-sm leading-relaxed text-foreground">
-            {t('目前顯示上週的分析。本週的感恩日記數據正在累積中。')}
+            {t('本週的紀錄會照常累積，AI 統整分析會在週日整理完整一週後才顯示。')}
           </p>
         </div>
       )}
@@ -402,6 +401,8 @@ function WeeklyReviewPage() {
                     </span>
                   ))}
                 </div>
+              ) : weekOffset === 0 && !isCurrentWeekSunday ? (
+                <p className="text-sm text-muted-foreground">{t('AI 情緒分析會在本週日整理後顯示')}</p>
               ) : (
                 <p className="text-sm text-muted-foreground">{t('再多寫幾篇，AI 情緒分析就會出現')}</p>
               )}

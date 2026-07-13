@@ -769,9 +769,9 @@ async def generate_report(
 TW_TZ = timezone(timedelta(hours=8))
 
 def is_sunday_tw() -> bool:
-  """檢查台灣時區的當前時間是否為周日（0=周日）。"""
-  now_tw = datetime.now(TW_TZ)
-  return now_tw.weekday() == 6  # Python: 0=Mon, 6=Sun
+    """檢查台灣時區的當前時間是否為周日（0=周日）。"""
+    now_tw = datetime.now(TW_TZ)
+    return now_tw.weekday() == 6  # Python: 0=Mon, 6=Sun
 
 
 # ── Process Goal Awareness endpoints（過程目標覺察）─────────────────────────
