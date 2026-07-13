@@ -18,6 +18,7 @@ import { Route as LoginImport } from './routes/login'
 import { Route as AppImport } from './routes/app'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
+import { Route as AppWeeklyReviewImport } from './routes/app.weekly-review'
 import { Route as AppProfileImport } from './routes/app.profile'
 import { Route as AppProcessGoalImport } from './routes/app.process-goal'
 import { Route as AppPlaceholderImport } from './routes/app.placeholder'
@@ -72,6 +73,12 @@ const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRoute,
+} as any)
+
+const AppWeeklyReviewRoute = AppWeeklyReviewImport.update({
+  id: '/weekly-review',
+  path: '/weekly-review',
+  getParentRoute: () => AppRoute,
 } as any)
 
 const AppProfileRoute = AppProfileImport.update({
@@ -235,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileImport
       parentRoute: typeof AppImport
     }
+    '/app/weekly-review': {
+      id: '/app/weekly-review'
+      path: '/weekly-review'
+      fullPath: '/app/weekly-review'
+      preLoaderRoute: typeof AppWeeklyReviewImport
+      parentRoute: typeof AppImport
+    }
     '/app/pro-module/$moduleId': {
       id: '/app/pro-module/$moduleId'
       path: '/pro-module/$moduleId'
@@ -282,6 +296,7 @@ interface AppRouteChildren {
   AppPlaceholderRoute: typeof AppPlaceholderRoute
   AppProcessGoalRoute: typeof AppProcessGoalRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppWeeklyReviewRoute: typeof AppWeeklyReviewRoute
   AppProModuleModuleIdRoute: typeof AppProModuleModuleIdRoute
   AppWorkshopAuthenticSelfRoute: typeof AppWorkshopAuthenticSelfRoute
   AppWorkshopLastDayRoute: typeof AppWorkshopLastDayRoute
@@ -296,6 +311,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPlaceholderRoute: AppPlaceholderRoute,
   AppProcessGoalRoute: AppProcessGoalRoute,
   AppProfileRoute: AppProfileRoute,
+  AppWeeklyReviewRoute: AppWeeklyReviewRoute,
   AppProModuleModuleIdRoute: AppProModuleModuleIdRoute,
   AppWorkshopAuthenticSelfRoute: AppWorkshopAuthenticSelfRoute,
   AppWorkshopLastDayRoute: AppWorkshopLastDayRoute,
@@ -319,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -340,6 +357,7 @@ export interface FileRoutesByTo {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -362,6 +380,7 @@ export interface FileRoutesById {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -385,6 +404,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -405,6 +425,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -425,6 +446,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -487,6 +509,7 @@ export const routeTree = rootRoute
         "/app/placeholder",
         "/app/process-goal",
         "/app/profile",
+        "/app/weekly-review",
         "/app/pro-module/$moduleId",
         "/app/workshop/authentic-self",
         "/app/workshop/last-day",
@@ -528,6 +551,10 @@ export const routeTree = rootRoute
     },
     "/app/profile": {
       "filePath": "app.profile.tsx",
+      "parent": "/app"
+    },
+    "/app/weekly-review": {
+      "filePath": "app.weekly-review.tsx",
       "parent": "/app"
     },
     "/app/pro-module/$moduleId": {
