@@ -2,47 +2,13 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { streakFromDates } from '../lib/streak'
-import { checkAndGenerateReviews } from '../lib/reviews'
-import { ReviewsSection } from '../components/ReviewsSection'
+import { checkAndGenerateReviews, mondayOf } from '../lib/reviews'
+import { fetchWeeklyCounts, type WeeklyCounts } from '../lib/weeklyReview'
+import { type TargetCode, TARGET_META, TARGET_COLORS, TARGET_INSIGHT, TARGET_INFO } from '../lib/gratitudeTargets'
 import playingMascot from '../assets/ui/playing-mascot.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 import { useLanguage } from '../lib/i18n/context'
-
-type TargetCode = 'others' | 'self' | 'environment' | 'experience' | 'custom'
-
-const TARGET_META: Record<TargetCode, { label: string }> = {
-  others:      { label: '身邊他人' },
-  self:        { label: '自己' },
-  environment: { label: '環境' },
-  experience:  { label: '體驗' },
-  custom:      { label: '自訂' },
-}
-
-// 暖色重設計：對齊附圖五（自己=金、身邊他人=藍、自訂=粉），其餘沿用全站語意色
-const TARGET_COLORS: Record<TargetCode, string> = {
-  self:        '#F1C166',
-  others:      '#88B8CE',
-  environment: '#7BA86E',
-  experience:  '#C99A6A',
-  custom:      '#D18197',
-}
-
-const TARGET_INSIGHT: Record<TargetCode, string> = {
-  others:      '你的幸福感有很大一部分來自身邊的人，珍惜這些連結吧。',
-  self:        '你非常懂得欣賞自己的努力與成長，這是很珍貴的自我覺察。',
-  environment: '你對生活中的細微美好特別敏感，這份覺察讓你隨時都能找到禮物。',
-  experience:  '你善於從日常的小體驗中找到喜悅，生活對你來說充滿驚喜。',
-  custom:      '你的感恩來自各種面向，這份多元的覺察豐富了你的內在世界。',
-}
-
-const TARGET_INFO: Record<TargetCode, { title: string; desc: string }> = {
-  others:      { title: '身邊他人', desc: '感謝身邊的人能強化社會連結感（Relatedness），是 PERMA 中「R」的核心。研究顯示，表達感謝能同時提升給予者與接受者的幸福感。' },
-  self:        { title: '自己', desc: '對自己的努力心存感謝，能培養自我同情（Self-Compassion）與成長型思維（Growth Mindset），減少自我批評，增加心理韌性。' },
-  environment: { title: '環境', desc: '對自然與空間的感謝能喚起「敬畏感」（Awe），研究發現敬畏感能降低壓力荷爾蒙，並擴展我們對世界的視野。' },
-  experience:  { title: '體驗', desc: '感謝日常體驗能強化「正向情緒記憶」，讓大腦更容易在未來注意到美好的事物，形成正向情緒的上升螺旋。' },
-  custom:      { title: '自訂', desc: '多元的感恩來源代表你的覺察力不受限制，能從生活的各個角落汲取力量。' },
-}
 
 type AvatarCode = 'avatar-1' | 'avatar-2'
 
@@ -780,6 +746,9 @@ function GratitudeCalendar({
             )}
           </div>
         )}
+
+        {/* 一週回顧入口 */}
+        {userId && <WeeklyReviewEntry userId={userId} />}
       </div>
 
       {/* 感恩日記 Modal */}
@@ -910,6 +879,45 @@ function GratitudeCalendar({
         </div>
       )}
     </>
+  )
+}
+
+// ── 一週回顧入口（健心日記卡片底部小框）─────────────────────────────────────
+
+function WeeklyReviewEntry({ userId }: { userId: string }) {
+  const { t } = useLanguage()
+  const [counts, setCounts] = useState<WeeklyCounts | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchWeeklyCounts(userId, mondayOf(new Date())).then((c) => {
+      if (!cancelled) setCounts(c)
+    })
+    return () => { cancelled = true }
+  }, [userId])
+
+  const total = (counts?.gratitudeCount ?? 0) + (counts?.processCount ?? 0)
+
+  return (
+    <Link
+      to="/app/weekly-review"
+      className="mt-4 flex w-full items-center gap-3 rounded-2xl border-2 border-primary/60 bg-primary-soft/50 p-3.5 text-left transition active:scale-[0.98]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-soft">
+        <CalendarIcon />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-extrabold text-foreground">{t('本週回顧')}</span>
+        {counts && total > 0 ? (
+          <span className="block text-xs font-bold text-muted-foreground">
+            {t('感恩 {n1} 次 · 過程 {n2} 次', { n1: counts.gratitudeCount, n2: counts.processCount })}
+          </span>
+        ) : (
+          <span className="block text-xs font-bold text-muted-foreground">{t('看看這週的健心狀況')}</span>
+        )}
+      </span>
+      <span className="text-lg font-black text-primary">›</span>
+    </Link>
   )
 }
 
@@ -1300,9 +1308,6 @@ function ProfilePage() {
             {t('重新評估')}
           </Link>
         </div>
-
-        {/* 回顧集：≥2 筆回顧報告才顯現 */}
-        {userId && <ReviewsSection userId={userId} />}
 
         {/* 感恩對象地圖 */}
         <GratitudeTargetMap userId={userId} />

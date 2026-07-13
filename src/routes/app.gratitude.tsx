@@ -374,6 +374,10 @@ function GratitudePage() {
     if (t1) payload.target_1 = t1.target
     if (t2) payload.target_2 = t2.target
     if (t3) payload.target_3 = t3.target
+    // 詞彙標籤（2–4 字，如「同事」）一併存入 tag_1..3，供「一週回顧」的常提到詞彙統計使用
+    if (t1?.label) payload.tag_1 = t1.label
+    if (t2?.label) payload.tag_2 = t2.label
+    if (t3?.label) payload.tag_3 = t3.label
     if (profileAvatar) payload.avatar = profileAvatar
 
     const { data: inserted, error } = await supabase
