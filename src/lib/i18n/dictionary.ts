@@ -16,6 +16,7 @@ import { pretest } from './dict/pretest'
 import { misc } from './dict/misc'
 import { diaryAssessment } from './dict/diary-assessment'
 import { marketplace } from './dict/marketplace'
+import { appUpdate } from './dict/app-update'
 
 export type Translation = { 'zh-CN': string; en: string }
 export type Dictionary = Record<string, Translation>
@@ -37,4 +38,5 @@ export const DICTIONARY: Dictionary = {
   ...misc,
   ...diaryAssessment,
   ...marketplace,
+  ...appUpdate,
 }
