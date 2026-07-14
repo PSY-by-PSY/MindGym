@@ -306,18 +306,15 @@ function Header() {
   return (
     <div className="px-5 pt-4 text-center">
       <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">{t('我的健心檔案')}</h1>
-      <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">My PSY by PSY Profile</p>
       <p className="mt-4 text-xl font-bold tracking-[0.02em] text-muted-foreground">{t('本週進度，小改變促進大改變')}</p>
     </div>
   )
 }
 
-// 區段標題（中文 900 + 英文副標），對齊新版設計
-function SectionLabel({ zh, en }: { zh: string; en: string }) {
+function SectionLabel({ zh }: { zh: string }) {
   return (
     <div className="mt-3">
       <h2 className="text-[21px] font-black tracking-[0.03em] text-foreground">{zh}</h2>
-      <p className="font-en text-[13px] font-medium text-muted-foreground">{en}</p>
     </div>
   )
 }
@@ -420,9 +417,6 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
       <div className="rounded-3xl bg-card p-5 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Gratitude Map
-            </p>
             <h2 className="text-lg font-extrabold text-foreground">{t('感恩對象地圖')}</h2>
           </div>
           <button
@@ -639,9 +633,6 @@ function GratitudeCalendar({
   return (
     <>
       <div className="rounded-3xl bg-card p-5 shadow-soft">
-        <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-          Mental Training Log
-        </p>
         <h2 className="mb-4 text-lg font-extrabold text-foreground">{t('我的健心日記')}</h2>
 
         {/* 月份導覽 */}
@@ -1264,7 +1255,7 @@ function ProfilePage() {
 
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
-          <SectionLabel zh={t('幸福經驗值')} en="Wellbeing Points" />
+          <SectionLabel zh={t('幸福經驗值')} />
           <PartnerPlanter scores={scores} />
         </div>
 
@@ -1274,9 +1265,6 @@ function ProfilePage() {
         {/* PERMA 雷達圖 + 分數 */}
         {scores ? (
           <div className="rounded-3xl bg-card p-5 shadow-soft">
-            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Mental Muscle Radar
-            </p>
             <h2 className="mb-0.5 text-lg font-extrabold text-foreground">{t('心理肌肉雷達圖')}</h2>
             <p className="mb-1 text-sm text-muted-foreground">{t('看看哪一塊還可以再練')}</p>
             <PermaRadar scores={scores} />
