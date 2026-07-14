@@ -229,7 +229,7 @@ function ProModulePlayer() {
         <button
           aria-label={t('返回')}
           onClick={() => navigate({ to: '/app/home' })}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground transition hover:bg-muted active:scale-90"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition hover:bg-muted active:scale-90"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 5l-7 7 7 7" />

@@ -181,4 +181,28 @@ export const profile: Record<string, Translation> = {
   '圖片生成中…': { 'zh-CN': '图片生成中…', en: 'Generating image…' },
   '收到留言': { 'zh-CN': '收到留言', en: 'Comments' },
   '則': { 'zh-CN': '则', en: '' },
+  // Boaba 吉祥物卡片
+  '你': { 'zh-CN': '你', en: 'you' },
+  '今天還沒跟你說早安…早安！': { 'zh-CN': '今天还没跟你说早安…早安！', en: "Haven't said good morning yet today… Good morning!" },
+  '早安{name}～我做了一個好夢哦！': { 'zh-CN': '早安{name}～我做了一个好梦哦！', en: 'Good morning {name}~ I had a nice dream!' },
+  '晚安，Boaba 先睡了！{name}也要記得好好休息唷～': {
+    'zh-CN': '晚安，Boaba 先睡了！{name}也要记得好好休息唷～',
+    en: "Good night, Boaba's going to sleep first! {name}, remember to rest well too~",
+  },
+  '{name}是晚上閃閃發亮的小星星嗎？': { 'zh-CN': '{name}是晚上闪闪发亮的小星星吗？', en: 'Are you a twinkling little star tonight, {name}?' },
+  '對了，謝謝你的肥料，讓花花們吃飽睡好，越來越香了！送你一朵我種的花花～': {
+    'zh-CN': '对了，谢谢你的肥料，让花花们吃饱睡好，越来越香了！送你一朵我种的花花～',
+    en: 'By the way, thanks for the fertilizer — the flowers are well-fed and smelling sweeter! Here, have one I grew~',
+  },
+  '啊，忘記幫我的花施肥了，你要一起來嗎？': { 'zh-CN': '啊，忘记帮我的花施肥了，你要一起来吗？', en: 'Oops, forgot to fertilize my flowers — want to come do it together?' },
+  '嗨，我是 Boaba!': { 'zh-CN': '嗨，我是 Boaba!', en: "Hi, I'm Boaba!" },
+  '我喜歡發呆、種花、曬太陽，也喜歡你來陪我玩 :D': {
+    'zh-CN': '我喜欢发呆、种花、晒太阳，也喜欢你来陪我玩 :D',
+    en: 'I like daydreaming, growing flowers, and basking in the sun — and I love it when you come play with me :D',
+  },
+  '你看我的腦袋已經開好門了～': { 'zh-CN': '你看我的脑袋已经开好门了～', en: 'Look, my mind has already opened its door~' },
+  '裡面有漂亮的山、星星和森林，每一天都是一閃一閃亮晶晶的好日子。': {
+    'zh-CN': '里面有漂亮的山、星星和森林，每一天都是一闪一闪亮晶晶的好日子。',
+    en: 'Inside there are beautiful mountains, stars, and forests — every day sparkles and shines.',
+  },
 }

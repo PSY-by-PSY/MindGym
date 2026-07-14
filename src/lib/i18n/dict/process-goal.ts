@@ -26,7 +26,6 @@ export const processGoal: Record<string, Translation> = {
   '載入中…': { 'zh-CN': '加载中…', en: 'Loading…' },
 
   // ── 介紹頁（Intro） ──
-  '過程目標覺察練習': { 'zh-CN': '过程目标觉察练习', en: 'Process Goal Awareness Exercise' },
   '過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。': {
     'zh-CN': '过程目标觉察（Process Goal Awareness）帮助你看见自己「最容易专注」的条件。先把专注时刻一笔笔记下来，AI 会帮你看穿背后真正的需求；之后遇到难以投入的事，就能用你过去的成功经验，为你量身打造一个能立刻试的方法。',
     en: 'Process Goal Awareness helps you discover the conditions under which you focus most easily. First, log your focused moments one by one — AI will help uncover the real needs behind them. Later, when you struggle to engage with something, it can use your past successes to craft a method you can try right away.',
