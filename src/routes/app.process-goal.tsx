@@ -10,12 +10,12 @@ import { useStageBack } from '../lib/useStageBack'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
-import heartsBanner from '../assets/ui/hearts-banner.png'
+import processGoalBanner from '../assets/ui/process-goal-intro-banner.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
 // 模組專用配色（對齊新版暖色設計）
-const TEAL = { backgroundColor: '#d7ebd9', color: '#3f6b46' }
+const TEAL = { backgroundColor: '#E8E7D3', color: '#71744F' }
 const PURPLE_BG = { backgroundColor: '#f3ead9', color: '#542916' }
 const PURPLE = '#542916'
 
@@ -385,7 +385,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
     <button
       type="button"
       onClick={onBack}
-      className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+      className="mb-4 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
       aria-label={t('返回')}
     >
       <PgBackIcon />
@@ -509,13 +509,13 @@ function Intro({
       {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
       <div className="relative -mx-5 h-[170px] overflow-hidden">
         <img
-          src={heartsBanner}
+          src={processGoalBanner}
           alt=""
           className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
         />
         <button
           onClick={onGoBack}
-          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          className="absolute left-1 top-1 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
           aria-label={t('返回')}
         >
           <PgBackIcon />

@@ -616,7 +616,7 @@ function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   const tabs = [
-    { to: '/app/home', label: t('首頁'), icon: <HomeIcon />, alwaysLabel: true },
+    { to: '/app/home', label: t('首頁'), icon: <HomeIcon />, alwaysLabel: false },
     { to: '/app/community', label: t('社群'), icon: <UsersIcon />, alwaysLabel: false },
     { to: '/app/profile', label: t('個人'), icon: <UserIcon />, alwaysLabel: false },
   ] as const

@@ -420,7 +420,7 @@ function ModuleReviewTab() {
 
 const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
   practice: { label: '練習', cls: 'bg-muted text-muted-foreground' },
-  diary: { label: '日記', cls: 'bg-tile-mint text-[#3f6b46]' },
+  diary: { label: '日記', cls: 'bg-tile-mint text-[#71744F]' },
   assessment: { label: '測驗', cls: 'bg-tile-peach text-[#8a6320]' },
 }
 
@@ -434,7 +434,7 @@ function KindBadge({ kind }: { kind: ProModuleKind }) {
 }
 
 const RISK_META: Record<string, { label: string; cls: string }> = {
-  low: { label: '低風險', cls: 'bg-tile-mint text-[#3f6b46]' },
+  low: { label: '低風險', cls: 'bg-tile-mint text-[#71744F]' },
   medium: { label: '中風險', cls: 'bg-gold text-[#5b3a12]' },
   high: { label: '高風險', cls: 'bg-rust text-white' },
 }
@@ -568,7 +568,7 @@ function FindingList({ title, findings }: { title: string; findings?: AiReview['
     return (
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
-        <p className="mt-1 text-sm text-[#3f6b46]">{t('未發現疑慮。')}</p>
+        <p className="mt-1 text-sm text-[#71744F]">{t('未發現疑慮。')}</p>
       </div>
     )
   }
@@ -760,7 +760,7 @@ function CrisisOverviewTab() {
                   <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
                   <td className="px-4 py-3">
                     {r.acknowledged_at ? (
-                      <span className="text-[#3f6b46]">{t('已知悉')}</span>
+                      <span className="text-[#71744F]">{t('已知悉')}</span>
                     ) : (
                       <span className="font-bold text-rust">{t('未處理')}</span>
                     )}

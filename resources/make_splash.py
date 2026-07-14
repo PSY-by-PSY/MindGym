@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Generate a brand-coloured splash from the mascot icon.
+"""Generate a brand-coloured splash from the gratitude mascot.
 
-The icon (resources/icon.png) is the mascot on a subtle vertical light-blue
-gradient. We recreate that gradient across a full 2732x2732 canvas, key the
-mascot out of the icon's background, and paste it centred with breathing room.
-Keying (rather than pasting the whole icon) avoids a visible rectangle where
-the icon's own gradient would otherwise not line up with the canvas gradient.
+The mascot (src/assets/ui/gratitude-mascot.png) already has its own alpha
+channel, so it's pasted straight onto a full 2732x2732 canvas filled with the
+same vertical light-blue gradient used by the app icon's background.
 """
-import numpy as np
 from PIL import Image
+import numpy as np
 
 SIZE = 2732
 TOP = (233, 242, 254)      # icon top bg
@@ -22,18 +20,14 @@ for c in range(3):
     grad[:, :, c] = np.round(TOP[c] + (BOTTOM[c] - TOP[c]) * ramp).astype(np.uint8)
 canvas = Image.fromarray(grad, 'RGB')
 
-# Key the mascot out of the icon: a pixel is background if it is light AND
-# bluish (B-R >= 8). White mascot highlights have B-R ~ 0 so they survive.
-icon = np.asarray(Image.open('resources/icon.png').convert('RGB')).astype(np.int16)
-R, G, B = icon[:, :, 0], icon[:, :, 1], icon[:, :, 2]
-is_bg = (np.minimum(np.minimum(R, G), B) > 214) & ((B - R) >= 8)
-alpha = np.where(is_bg, 0, 255).astype(np.uint8)
-mascot = np.dstack([icon.astype(np.uint8), alpha])
-mascot_img = Image.fromarray(mascot, 'RGBA').resize(
-    (MASCOT_SCALE, MASCOT_SCALE), Image.LANCZOS)
+mascot = Image.open('src/assets/ui/gratitude-mascot.png').convert('RGBA')
+mascot_w = MASCOT_SCALE
+mascot_h = round(MASCOT_SCALE * mascot.height / mascot.width)
+mascot_img = mascot.resize((mascot_w, mascot_h), Image.LANCZOS)
 
-off = (SIZE - MASCOT_SCALE) // 2
-canvas.paste(mascot_img, (off, off), mascot_img)
+off_x = (SIZE - mascot_w) // 2
+off_y = (SIZE - mascot_h) // 2
+canvas.paste(mascot_img, (off_x, off_y), mascot_img)
 
 canvas.save('resources/splash.png')
 

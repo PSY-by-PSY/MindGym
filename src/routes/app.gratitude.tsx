@@ -558,7 +558,7 @@ function IntroStage({
         />
         <button
           onClick={onGoBack}
-          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          className="absolute left-1 top-1 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
           aria-label={t('返回')}
         >
           <BackIcon />
@@ -801,7 +801,7 @@ function WritingStage({
       {/* Back button */}
       <button
         onClick={onBack}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
         aria-label={t('返回')}
       >
         <BackIcon />
@@ -1255,7 +1255,7 @@ function SummaryStage({
         <button
           onClick={onBack}
           disabled={submitting}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#efe7d6] bg-white text-foreground shadow-[0_2px_5px_rgba(0,0,0,0.06)] transition active:scale-90 disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90 disabled:opacity-50"
           aria-label={mode === 'edit' ? t('返回編輯日記') : t('返回')}
         >
           <BackIcon />
@@ -1292,7 +1292,7 @@ function SummaryStage({
       ) : displayResult ? (
         <div className="mb-6 flex flex-col gap-3">
           <div className="rounded-3xl bg-tile-mint p-5 shadow-soft">
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#3f6b46]">
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#71744F]">
               <SparklesIcon />
               {t('AI 即時回饋')}
             </p>
@@ -1554,7 +1554,7 @@ function ShareCard({
 const TARGET_COLORS: Record<TargetCode, string> = {
   others:      '#6BAED6',
   self:        '#FD8D3C',
-  environment: '#74C476',
+  environment: '#B9B078',
   experience:  '#9E9AC8',
   custom:      '#BDBDBD',
 }
@@ -1735,7 +1735,7 @@ function CelebrateStage({
       {/* 返回鍵：回到 AI 日記頁面查看（唯讀，不重新生成） */}
       <button
         onClick={onBack}
-        className="mb-3 flex h-9 w-9 items-center justify-center self-start rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        className="mb-3 flex h-8 w-8 items-center justify-center self-start rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
         aria-label={t('返回查看 AI 日記')}
       >
         <BackIcon />

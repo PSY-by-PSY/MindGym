@@ -5,7 +5,6 @@ import { streakFromDates } from '../lib/streak'
 import { checkAndGenerateReviews, mondayOf } from '../lib/reviews'
 import { fetchWeeklyCounts, type WeeklyCounts } from '../lib/weeklyReview'
 import { type TargetCode, TARGET_META, TARGET_COLORS, TARGET_INSIGHT, TARGET_INFO } from '../lib/gratitudeTargets'
-import playingMascot from '../assets/ui/playing-mascot.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 import { useLanguage } from '../lib/i18n/context'
@@ -234,7 +233,7 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
   const dataPoly = dataPts.map((p) => p.join(',')).join(' ')
 
   return (
-    <svg viewBox="0 0 320 300" className="w-full">
+    <svg viewBox="0 -12 320 312" className="w-full">
       {/* 藍色同心五邊形格線 */}
       {[1, 2, 3, 4, 5].map((level) => (
         <polygon
@@ -263,15 +262,18 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
           strokeLinejoin="round"
         />
       ))}
-      {/* 各維度標籤 + 分數框 */}
+      {/* 各維度標籤 + 分數框，標籤一律在上、分數框在下。頂點 P 在正上方，
+          兩者都要往外（上）推才不會擠回雷達圖；其餘 4 個維度往下沿screen-space偏移
+          即已是遠離圖表方向，故沿用原本做法。 */}
       {PERMA_DIMENSIONS.map((d, i) => {
         const [lx, ly] = point(i, maxR + 30)
-        const by = ly + 13
+        const labelY = i === 0 ? ly - 26 : ly - 3
+        const by = i === 0 ? ly - 3 : ly + 22
         return (
           <g key={d.key}>
             <text
               x={lx}
-              y={ly - 3}
+              y={labelY}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize="12.5"
@@ -305,7 +307,7 @@ function Header() {
     <div className="px-5 pt-4 text-center">
       <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">{t('我的健心檔案')}</h1>
       <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">My PSY by PSY Profile</p>
-      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-foreground">{t('本週進度，小改變促進大改變')}</p>
+      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-muted-foreground">{t('本週進度，小改變促進大改變')}</p>
     </div>
   )
 }
@@ -717,7 +719,7 @@ function GratitudeCalendar({
                     className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#71744F]" />
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">{t('感恩日記')}</span>
                     <span className="text-xs font-extrabold text-primary">✓ {t('已完成')}</span>
@@ -996,7 +998,7 @@ const PLANTER_DIMS = [
   { key: 'a_score' as const, letter: 'A', label: '成就', color: '#c98a52' },
 ]
 
-function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#7BA86E') {
+function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#B9B078') {
   return <ellipse cx={x} cy={y} rx={6 * s} ry={11 * s} fill={fill} transform={`rotate(${rot} ${x} ${y})`} />
 }
 
@@ -1023,8 +1025,8 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
           stroke="#d8ac4a"
           strokeWidth="1"
         />
-        {planterLeaf(x - 3, topY + 2, -28, 0.5, '#6f9a5c')}
-        {planterLeaf(x + 3, topY + 2, 28, 0.5, '#6f9a5c')}
+        {planterLeaf(x - 3, topY + 2, -28, 0.5)}
+        {planterLeaf(x + 3, topY + 2, 28, 0.5)}
       </g>
     )
     labelOffset = 22
@@ -1062,7 +1064,7 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 
   return (
     <g>
-      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#7BA86E" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#71744F" strokeWidth="4" fill="none" strokeLinecap="round" />
       {score >= 2.4 && (
         <g>
           {planterLeaf(x - 9, midY, -55, 0.8)}
@@ -1082,12 +1084,14 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
   const { t } = useLanguage()
   const hasScore = !!scores
-  const xs = [36, 74, 112, 150, 188]
+  // 盆器是梯形（往下內縮），字母圓與中文字都落在偏下方的窄處，
+  // 所以间距要比盆口本身窄一些，才不會超出盆器兩側斜邊。
+  const xs = [55, 117, 178, 239, 301]
   return (
     <div className="relative mt-2.5 overflow-hidden rounded-[22px] bg-cream">
       <svg viewBox="0 0 360 258" className="relative z-[1] w-full">
         {/* 草叢 */}
-        <g fill="#9aa86a" opacity="0.9">
+        <g fill="#B9B078" opacity="0.9">
           <path d="M6 250 q3 -22 6 0 z M14 250 q3 -28 7 0 z M24 250 q3 -18 6 0 z" />
           <path d="M330 250 q3 -24 6 0 z M340 250 q3 -30 7 0 z M351 250 q2 -16 5 0 z" />
         </g>
@@ -1105,18 +1109,12 @@ function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
             <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
               {d.letter}
             </text>
-            <text x={xs[i]} y={253} textAnchor="middle" fontSize="12" fontWeight="800" fill="#542916">
+            <text x={xs[i]} y={228} textAnchor="middle" fontSize="12" fontWeight="800" fill="#FEFAF0">
               {t(d.label)}
             </text>
           </g>
         ))}
       </svg>
-      {/* 玩耍吉祥物 — 大尺寸，坐在盆器右側抱膝 */}
-      <img
-        src={playingMascot}
-        alt=""
-        className="pointer-events-none absolute bottom-[14px] right-0 z-[2] w-[152px] select-none"
-      />
     </div>
   )
 }
@@ -1235,7 +1233,7 @@ function ProfilePage() {
                 <p className="text-lg font-extrabold text-foreground">{nameValue || t('未設定名稱')}</p>
                 <button
                   onClick={() => setEditingName(true)}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
                   aria-label={t('編輯名稱')}
                 >
                   <EditPencilIcon className="h-3 w-3" />
@@ -1248,17 +1246,17 @@ function ProfilePage() {
         {/* 三個統計數字框 */}
         <div className="grid grid-cols-3 gap-3">
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><FlameIcon /></span>
+            <span className="mb-1 text-foreground"><FlameIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">{t('天')}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('連續打卡')}</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><CalendarIcon /></span>
+            <span className="mb-1 text-foreground"><CalendarIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">{t('次')}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('本月完成')}</span>
           </div>
           <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><StopwatchIcon /></span>
+            <span className="mb-1 text-foreground"><StopwatchIcon /></span>
             <span className="text-2xl font-extrabold text-foreground">{practiceTime.value}<span className="text-base font-bold">{practiceTime.unit}</span></span>
             <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('總練習時間')}</span>
           </div>
@@ -1266,7 +1264,7 @@ function ProfilePage() {
 
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
-          <SectionLabel zh={t('我的健心夥伴')} en="Mental Training Partner" />
+          <SectionLabel zh={t('幸福經驗值')} en="Wellbeing Points" />
           <PartnerPlanter scores={scores} />
         </div>
 
@@ -1295,7 +1293,7 @@ function ProfilePage() {
             <Link
               to="/onboarding"
               search={{ showResult: true }}
-              className="flex flex-1 items-center justify-center rounded-2xl bg-primary-soft px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-primary transition active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center rounded-2xl border-2 border-primary bg-transparent px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
             >
               {t('觀看最近一次')}<br />{t('測驗結果')}
             </Link>
@@ -1303,7 +1301,7 @@ function ProfilePage() {
           <Link
             to="/onboarding"
             search={{ reassess: true }}
-            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
           >
             {t('重新評估')}
           </Link>
