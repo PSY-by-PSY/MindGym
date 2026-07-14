@@ -547,7 +547,6 @@ function Header() {
   return (
     <header className="mb-1 text-center">
       <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">{t('健身房動態')}</h1>
-      <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">PSY by PSY Feed</p>
       <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">{t('大家今天感謝了什麼？')}</p>
     </header>
   )

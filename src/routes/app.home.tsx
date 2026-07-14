@@ -158,7 +158,7 @@ function HomePage() {
       </div>
 
       {/* 健心訓練模組—大卡、左右滑動 */}
-      <SectionTitle zh={t('PSY by PSY 健心訓練模組')} en="PSY by PSY Training Modules" />
+      <SectionTitle zh={t('PSY by PSY 健心訓練模組')} />
       <div className="scroll -mx-5 flex gap-3.5 overflow-x-auto px-5 pb-1.5 no-scrollbar">
         {modules.map((mod) =>
           mod.featured ? (
@@ -172,9 +172,6 @@ function HomePage() {
       </div>
       <p className="mt-2.5 text-center text-xs text-[#a99a86]">{t('← 左右滑動瀏覽更多模組 →')}</p>
 
-      {/* 今日練習快速啟動橫幅—依雷達圖推薦 */}
-      <TodayPracticeBanner recommendation={recommendation} />
-
       {/* 工作坊專屬練習 */}
       <WorkshopSection />
 
@@ -183,17 +180,19 @@ function HomePage() {
 
       {/* 健心訓練中心 */}
       <TrainingCenter recommendation={recommendation} />
+
+      {/* 今日練習廣告浮標—依雷達圖推薦，固定在畫面角落，關閉後本次瀏覽不再顯示 */}
+      <TodayPracticeBadge recommendation={recommendation} />
     </div>
   )
 }
 
 // ─── shared bits ──────────────────────────────────────────────────────────────
 
-function SectionTitle({ zh, en }: { zh: string; en: string }) {
+function SectionTitle({ zh }: { zh: string }) {
   return (
     <div className="mb-3.5 mt-7">
       <h2 className="text-[23px] font-black tracking-[0.03em] text-foreground">{zh}</h2>
-      <p className="font-en text-sm font-medium tracking-[0.02em] text-muted-foreground">{en}</p>
     </div>
   )
 }
@@ -289,36 +288,60 @@ function LockedModuleCard({ name }: ModuleProps) {
   )
 }
 
-// ─── today practice banner ──────────────────────────────────────────────────────
+// ─── today practice floating badge（廣告浮標） ──────────────────────────────────
 
-function TodayPracticeBanner({ recommendation }: { recommendation: Recommendation }) {
+// 關閉只作用於這次瀏覽（單純 component state，不存 storage）：重新整理或下次再進首頁就會再出現。
+function TodayPracticeBadge({ recommendation }: { recommendation: Recommendation }) {
   const { t } = useLanguage()
+  const [dismissed, setDismissed] = useState(false)
   const linkProps = recommendation.search
     ? { to: recommendation.to, search: recommendation.search }
     : { to: recommendation.to }
 
+  if (dismissed) return null
+
   return (
-    <Link
-      {...(linkProps as Parameters<typeof Link>[0])}
-      onClick={() => track('today_practice_opened', { module: recommendation.name })}
-      className="relative mt-6 block h-[150px]"
-    >
-      <div className="absolute left-2 top-1.5 z-10 max-w-[200px] rounded-[22px] border-2 border-foreground bg-cream px-4 py-3.5">
-        <p className="text-base font-bold leading-[1.5] tracking-[0.02em] text-foreground">
-          {t('點擊直接開始')}<br />{t('今天的{name}！', { name: t(recommendation.name) })}
-        </p>
+    // 外層貼齊視窗兩側、內層 mx-auto max-w-md 與其餘頁面內容同一欄位對齊（比照 BottomNav 的做法），
+    // 避免畫面比手機版面寬時，浮標貼著瀏覽器邊緣、跟置中的內容欄位對不齊。
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-40">
+      <div className="pointer-events-none relative mx-auto max-w-md">
+        <div className="pointer-events-auto absolute right-4 bottom-0">
+          <Link
+            {...(linkProps as Parameters<typeof Link>[0])}
+            onClick={() => track('today_practice_opened', { module: recommendation.name })}
+            aria-label={t('今天的{name}！', { name: t(recommendation.name) })}
+            className="relative flex h-44 w-44 items-center justify-center rounded-full bg-[#88B8CE] shadow-[0_10px_24px_rgba(40,24,12,0.35)] transition active:scale-95"
+          >
+            {/* 文字獨立一層並裁切，避免超出藍色圓圈；吉祥物圖片留在外層才能露出圓圈之外 */}
+            <div className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-full pt-9 text-center">
+              <span className="-rotate-3 text-xs font-bold leading-tight tracking-[0.02em] text-cream">
+                {t('點擊直接開始今天的')}
+              </span>
+              <span className="mt-1.5 max-w-[136px] px-2 text-2xl font-black leading-[1.15] tracking-[0.02em] text-cream">
+                {t(recommendation.name)}
+              </span>
+            </div>
+            {/* 露出圓圈外的量只取決於 -bottom 位移，跟圖片高度無關：位移縮小到只露出腳尖，
+                同時把高度跟著縮小，才能維持跟上方文字的淨空間距 */}
+            <img
+              src={gratitudeMascot}
+              alt=""
+              className="pointer-events-none absolute -bottom-3 left-1/2 h-24 w-auto -translate-x-1/2 object-contain"
+            />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setDismissed(true)}
+            aria-label={t('關閉')}
+            className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-foreground bg-cream shadow-[0_2px_5px_rgba(40,24,12,0.3)] transition active:scale-90"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#542916" strokeWidth="3" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <img
-        src={gratitudeMascot}
-        alt=""
-        className="pointer-events-none absolute -top-2 right-2 w-[148px]"
-      />
-      <span className="absolute bottom-9 right-[62px] z-20 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-foreground bg-cream shadow-[0_5px_9px_rgba(40,24,12,0.4)]">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#542916" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14M12 5l7 7-7 7" />
-        </svg>
-      </span>
-    </Link>
+    </div>
   )
 }
 
@@ -328,7 +351,7 @@ function WorkshopSection() {
   const { t } = useLanguage()
   return (
     <section>
-      <SectionTitle zh={t('工作坊專屬練習')} en="Workshop Exclusive Practice" />
+      <SectionTitle zh={t('工作坊專屬練習')} />
       <div className="flex flex-col gap-3 rounded-[22px] bg-[#88B8CE]/55 p-4">
         {workshopModules.map((mod) => (
           <Link
@@ -575,7 +598,7 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
 
   return (
     <section className="pb-4">
-      <SectionTitle zh={t('健心訓練中心')} en="PSY by PSY Training Center" />
+      <SectionTitle zh={t('健心訓練中心')} />
 
       <div className="scroll -mx-5 mb-3.5 flex gap-3.5 overflow-x-auto px-5 pb-1 no-scrollbar">
         {TABS.map((tab) => (
