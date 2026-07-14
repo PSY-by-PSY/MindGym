@@ -676,14 +676,14 @@ async def generate_report(
 
     try:
         response = await claude().messages.parse(
-            model="claude-sonnet-4-5",
+            model="claude-haiku-4-5-20251001",
             max_tokens=2500,
             temperature=0.2,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
             output_format=InMindLLMResponse,
         )
-        meter_claude("report", "claude-sonnet-4-5", response.usage, user_id)
+        meter_claude("report", "claude-haiku-4-5-20251001", response.usage, user_id)
 
         result = response.parsed_output
         if result is None:
@@ -910,7 +910,7 @@ async def pg_focus_boost(req: FocusBoostRequest, authorization: str = Header(...
 # logger.error + 500。與前端純用 anon key + RLS 不同，這兩個端點需要用 service key
 # 讀寫追蹤資料（繞過 RLS），因此寫表放在後端。
 
-_PRO_REVIEW_MODEL = "claude-sonnet-4-5"
+_PRO_REVIEW_MODEL = "claude-haiku-4-5-20251001"
 _CRISIS_MODEL = "claude-haiku-4-5-20251001"
 
 
@@ -1186,7 +1186,7 @@ async def pro_entry_safety_check(req: EntrySafetyCheckRequest, authorization: st
 # ── 日記模組：每日即時回饋 + 定期回顧（整體／週報／內建感恩日記週回顧）─────────
 # 沿用既有慣例：service key 讀寫追蹤資料、meter_claude 記帳、AI 失敗回 fallback 不阻擋。
 
-_REVIEW_MODEL = "claude-sonnet-4-5"
+_REVIEW_MODEL = "claude-haiku-4-5-20251001"
 
 _DIARY_STYLE_PROMPTS = {
     "warm": "語氣溫暖肯定，像朋友一樣給予溫暖的肯定與陪伴感。",
@@ -1657,8 +1657,8 @@ async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = H
 # ── 量表轉譯質性評估（kind='assessment'）───────────────────────────────────
 # 兩個端點：量表 AI 轉譯（專業夥伴端）＋ 測驗雙報告生成（個案端，含危機判讀）。
 
-_SCALE_TRANSFORM_MODEL = "claude-sonnet-4-5"
-_ASSESSMENT_REPORT_MODEL = "claude-sonnet-4-5"
+_SCALE_TRANSFORM_MODEL = "claude-haiku-4-5-20251001"
+_ASSESSMENT_REPORT_MODEL = "claude-haiku-4-5-20251001"
 
 _SCALE_TRANSFORM_SYSTEM = """你是心理量表轉譯助手，將標準化心理量表轉譯為開放式、生活化的質性問題。
 規則：
