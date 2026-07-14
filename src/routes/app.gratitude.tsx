@@ -570,7 +570,7 @@ function IntroStage({
       </div>
 
       {/* 3-A 大標題 */}
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記練習')}</h1>
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記')}</h1>
 
       {/* 本週打卡條 */}
       <WeeklyCheckinStrip />

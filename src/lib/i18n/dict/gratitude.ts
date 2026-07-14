@@ -99,7 +99,6 @@ export const gratitude: Record<string, Translation> = {
   '初階': { 'zh-CN': '初阶', en: 'Basic' },
   '進階': { 'zh-CN': '进阶', en: 'Advanced' },
   '分鐘': { 'zh-CN': '分钟', en: 'min' },
-  '感恩日記練習': { 'zh-CN': '感恩日记练习', en: 'Gratitude Journal Exercise' },
   '感恩日記（Gratitude Journal）是正向心理學中最具代表性的練習之一，透過每天有意識地回顧值得感謝的事件，幫助大腦重新聚焦於生活中的支持、善意與美好經驗。': {
     'zh-CN': '感恩日记（Gratitude Journal）是正向心理学中最具代表性的练习之一，透过每天有意识地回顾值得感谢的事件，帮助大脑重新聚焦于生活中的支持、善意与美好经验。',
     en: 'Gratitude journaling is one of the signature practices in positive psychology. By consciously reviewing what you’re grateful for each day, it helps your brain refocus on the support, kindness, and good experiences in your life.',

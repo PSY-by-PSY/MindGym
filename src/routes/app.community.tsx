@@ -13,7 +13,6 @@ import {
 import { usePullToRefresh, PULL_THRESHOLD } from '../lib/pullToRefresh'
 import { hardRefresh } from '../lib/refresh'
 import { useLanguage } from '../lib/i18n/context'
-import wordCloudImg from '../assets/ui/wordcloud.png'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 
@@ -545,7 +544,7 @@ function CelebrateCheckIconSmall() {
 function Header() {
   const { t } = useLanguage()
   return (
-    <header className="mb-1 text-center">
+    <header className="mb-5 text-center">
       <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">{t('健身房動態')}</h1>
       <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">{t('大家今天感謝了什麼？')}</p>
     </header>
@@ -1181,17 +1180,6 @@ function CommunityPage() {
 
       <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
         <Header />
-
-        <div
-          className="relative mb-5 mt-3.5 flex h-[200px] items-center justify-center overflow-hidden rounded-[22px]"
-          style={{ background: 'radial-gradient(circle at 50% 45%, #f3e7cf 0%, #ece0c8 55%, #FEFAF0 100%)' }}
-        >
-          <img
-            src={wordCloudImg}
-            alt={t('感恩文字雲')}
-            className="h-[184px] w-auto object-contain"
-          />
-        </div>
 
         <FeedModeToggle mode={mode} onChange={setMode} userId={userId} />
 
