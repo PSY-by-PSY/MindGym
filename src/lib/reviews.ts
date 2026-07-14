@@ -182,6 +182,11 @@ export function mondayOf(date: Date): Date {
   return d
 }
 
+/** 檢查指定日期是否為周日（台灣時區，0 = 周日）。 */
+export function isSunday(date: Date): boolean {
+  return date.getDay() === 0
+}
+
 /**
  * lazy 檢查：上一個完整週的內建感恩日記週回顧 ＋ 每個 active 日記模組 enrollment 的整體/週報。
  * 每個使用者每天最多跑一次（localStorage 節流）；後端會再驗證一次，不信任這裡的判斷。
