@@ -527,7 +527,6 @@ function Intro({
       </div>
 
       <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('過程目標覺察練習')}</h1>
-      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Process Goal Awareness</p>
 
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。')}
@@ -580,8 +579,7 @@ function Intro({
         ))}
       </div>
 
-      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('今天想做哪一個？')}</h3>
-      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose a Module</p>
+      <h3 className="mb-3 mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('今天想做哪一個？')}</h3>
       <p className="mb-3 text-sm text-muted-foreground">
         {getPgBoosts(t).map(({ label, delta }) => (
           <span key={label} className="mr-3">
