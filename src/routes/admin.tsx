@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
+import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent, AssessmentModuleContent } from '../lib/proModules'
@@ -115,31 +116,33 @@ function Spinner() {
 
 // ── 主控台（四分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'applications' | 'reviews' | 'published' | 'crises'
+type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'preview'
 
 function AdminConsole() {
   const { t } = useLanguage()
   const [tab, setTab] = useState<Tab>('applications')
 
-  const TABS: { key: Tab; label: string }[] = [
+  const TABS: { key: Tab; label: string; icon?: React.ReactNode }[] = [
     { key: 'applications', label: t('夥伴申請') },
     { key: 'reviews', label: t('模組審核') },
     { key: 'published', label: t('已上架模組') },
     { key: 'crises', label: t('危機警示總覽') },
+    { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
       <aside className="flex flex-wrap gap-2 lg:flex-col">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-2xl px-4 py-2.5 text-left text-[15px] font-bold transition ${
-              tab === t.key ? 'bg-foreground text-cream shadow-soft' : 'bg-card text-foreground hover:bg-muted'
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
+            className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-left text-[15px] font-bold transition ${
+              tab === tb.key ? 'bg-foreground text-cream shadow-soft' : 'bg-card text-foreground hover:bg-muted'
             }`}
           >
-            {t.label}
+            {tb.icon}
+            {tb.label}
           </button>
         ))}
       </aside>
@@ -148,6 +151,7 @@ function AdminConsole() {
         {tab === 'reviews' && <ModuleReviewTab />}
         {tab === 'published' && <PublishedModulesTab />}
         {tab === 'crises' && <CrisisOverviewTab />}
+        {tab === 'preview' && <MarketplacePreview />}
       </section>
     </div>
   )
