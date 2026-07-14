@@ -1190,9 +1190,6 @@ function ProfilePage() {
             </span>
           </button>
           <div className="flex-1">
-            <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Name
-            </p>
             {editingName ? (
               <div className="flex items-center gap-2">
                 <input

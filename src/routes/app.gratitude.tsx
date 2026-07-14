@@ -571,7 +571,6 @@ function IntroStage({
 
       {/* 3-A 大標題 */}
       <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記練習')}</h1>
-      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Gratitude Journal</p>
 
       {/* 本週打卡條 */}
       <WeeklyCheckinStrip />
@@ -682,8 +681,7 @@ function IntroStage({
       </div>
 
       {/* 3-E 難度選擇 */}
-      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('依據你今天的能量挑一個強度')}</h3>
-      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose Intensity</p>
+      <h3 className="mb-3 mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('依據你今天的能量挑一個強度')}</h3>
       <div className="flex gap-3">
         <button
           onClick={() => onChangeDifficulty('basic')}
