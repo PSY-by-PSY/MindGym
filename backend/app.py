@@ -676,14 +676,14 @@ async def generate_report(
 
     try:
         response = await claude().messages.parse(
-            model="claude-sonnet-4-5",
+            model="claude-haiku-4-5-20251001",
             max_tokens=2500,
             temperature=0.2,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
             output_format=InMindLLMResponse,
         )
-        meter_claude("report", "claude-sonnet-4-5", response.usage, user_id)
+        meter_claude("report", "claude-haiku-4-5-20251001", response.usage, user_id)
 
         result = response.parsed_output
         if result is None:
@@ -910,7 +910,7 @@ async def pg_focus_boost(req: FocusBoostRequest, authorization: str = Header(...
 # logger.error + 500。與前端純用 anon key + RLS 不同，這兩個端點需要用 service key
 # 讀寫追蹤資料（繞過 RLS），因此寫表放在後端。
 
-_PRO_REVIEW_MODEL = "claude-sonnet-4-5"
+_PRO_REVIEW_MODEL = "claude-haiku-4-5-20251001"
 _CRISIS_MODEL = "claude-haiku-4-5-20251001"
 
 
@@ -1186,7 +1186,7 @@ async def pro_entry_safety_check(req: EntrySafetyCheckRequest, authorization: st
 # ── 日記模組：每日即時回饋 + 定期回顧（整體／週報／內建感恩日記週回顧）─────────
 # 沿用既有慣例：service key 讀寫追蹤資料、meter_claude 記帳、AI 失敗回 fallback 不阻擋。
 
-_REVIEW_MODEL = "claude-sonnet-4-5"
+_REVIEW_MODEL = "claude-haiku-4-5-20251001"
 
 _DIARY_STYLE_PROMPTS = {
     "warm": "語氣溫暖肯定，像朋友一樣給予溫暖的肯定與陪伴感。",
@@ -1209,6 +1209,10 @@ class DiaryReviewRequest(BaseModel):
 
 
 class GratitudeWeeklyRequest(BaseModel):
+    period_start: str  # YYYY-MM-DD，週一
+
+
+class WeeklyDigestRequest(BaseModel):
     period_start: str  # YYYY-MM-DD，週一
 
 
@@ -1518,11 +1522,143 @@ async def reviews_gratitude_weekly(req: GratitudeWeeklyRequest, authorization: s
     return await _insert_review(user_id, None, "gratitude_weekly", start.isoformat(), end.isoformat(), entry_count, content_json)
 
 
+# 一週回顧的 AI 週統整分析 prompt。架構依 Zeng, Chang, Lin, & Yeh (2026)
+# 〈How generative AI reshapes gratitude interventions〉：
+#   量化編碼的感恩深度採 Lin (2015) 感恩四層次模型
+#   （recognizing kindness → feeling grateful → expressing appreciation → returning favor）；
+#   敘事回饋依該研究質性分析歸納的四大主題遞進
+#   （準確性 78.4% → 驚喜感 40.1% → 自我覺察 47.0% → 洞察 37.2%）鋪陳。
+_WEEKLY_DIGEST_SYSTEM = (
+    "你是心理健康 App 的感恩日記週統整分析師，語氣溫暖、具體、不批判、不做診斷，"
+    "用繁體中文、以「你」稱呼使用者，不使用 emoji 與 markdown 符號。\n"
+    "請閱讀使用者一週的感恩日記（逐件列出，每篇最多三件），產出兩部分：\n\n"
+    "A. 量化編碼（以「件」為單位逐件分類）：\n"
+    "1. emotions：最常出現的情緒（2-4 種，例如：平靜、感動、有成就感），與大約出現件數。\n"
+    "2. keywords：最常提到的具體詞彙（2-6 個，2-4 字名詞，例如：夥伴、晚餐），與出現次數。\n"
+    "3. depth：感恩深度四層次的件數分布（四層 count 加總＝總件數）：\n"
+    "   - recognize（認知到善意）：單純記錄一件好事，沒有情緒展開\n"
+    "   - feel（感受到感激）：內化出情緒反應，有情緒詞（溫馨、感動、成就感等）\n"
+    "   - express（表達感謝與反思）：有明確道謝的對象，或延伸出反思\n"
+    "   - reciprocate（回報善意）：描述了主動回饋對方的行動\n\n"
+    "B. narrative：四個向度的統整回饋。每個向度回傳 2-3 條「條列短句」（每條 15-35 字，"
+    "整個向度加總不超過 100 字）。精確、直指重點、不堆冗詞，不要大量引用原文，"
+    "只在必要時點出關鍵字。依序遞進：\n"
+    "1. accuracy（準確性）：講中使用者真實的生活樣貌、自我概念與習慣——"
+    "不是重述事件，而是精準描繪「你是一個怎樣過這週的人」。\n"
+    "2. surprise（驚喜感）：指出使用者自己都沒注意到的模式或轉變。\n"
+    "3. awareness（自我覺察）：點出內在還沒被自己意識到的需求"
+    "（例如對關係的渴望、對秩序感的需求、身體承載量）。\n"
+    "4. insight（洞察與行動）：把觀察轉化成正向意義，並給出接下來可以怎麼做"
+    "（具體、溫和、可行）。\n\n"
+    "只回傳 JSON，不要任何前言或 markdown。"
+)
+
+
+@app.post("/api/reviews/weekly-digest")
+async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = Header(...)):
+    """一週回顧頁的 AI 週統整分析（v2）：量化編碼（情緒／詞彙／感恩深度）＋ 四段敘事回饋。
+    感恩對象前端已能直接統計（target_1..3 是既有結構化欄位），不在此重複。
+    該週 gratitude_entries ≥ 2 筆才生成；以 entry_count 判斷快取——週中新增紀錄會重新生成並更新同一列。"""
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = await get_user_id(token)
+
+    try:
+        start = datetime.strptime(req.period_start, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="period_start 格式錯誤")
+    end = start + timedelta(days=6)
+
+    entries_resp = await db().get(
+        f"{SUPABASE_REST}/gratitude_entries",
+        headers=SUPABASE_HEADERS,
+        params=[
+            ("user_id", f"eq.{user_id}"),
+            ("practice_type", "eq.gratitude"),
+            ("entry_date", f"gte.{start.isoformat()}"),
+            ("entry_date", f"lte.{end.isoformat()}"),
+            ("select", "id,entry_date,item_1,item_2,item_3"),
+            ("order", "entry_date.asc"),
+        ],
+    )
+    entries = entries_resp.json() if entries_resp.status_code == 200 else []
+    if len(entries) < 2:
+        raise HTTPException(status_code=409, detail="這週紀錄不足 2 筆")
+    entry_count = len(entries)
+
+    existing = await _find_existing_review(user_id, None, "weekly_digest", start.isoformat())
+    if existing:
+        content = existing.get("content") or {}
+        if existing.get("entry_count") == entry_count and content.get("v", 1) >= 3:
+            return existing
+
+    # 逐件列出（而非整篇合併），AI 才能以「件」為單位做深度編碼
+    lines = []
+    for e in entries:
+        for i, item in enumerate([e.get("item_1"), e.get("item_2"), e.get("item_3")], start=1):
+            if item and item.strip():
+                lines.append(f"[{e['entry_date']}] {i}. {item.strip()}")
+    joined = "\n".join(lines) or "（沒有文字內容）"
+
+    ai_ok = False
+    emotions, keywords, depth, narrative = [], [], [], {}
+    try:
+        data = await _pg_claude_json(
+            "weekly-digest", user_id, _WEEKLY_DIGEST_SYSTEM,
+            f"以下是使用者本週（{start.isoformat()} ~ {end.isoformat()}）的感恩日記，共 {len(lines)} 件：\n{joined}\n\n"
+            "只回傳 JSON："
+            '{"emotions":[{"label":"平靜","count":3}],'
+            '"keywords":[{"label":"夥伴","count":5}],'
+            '"depth":[{"level":"recognize","count":5},{"level":"feel","count":6},'
+            '{"level":"express","count":10},{"level":"reciprocate","count":0}],'
+            '"narrative":{"accuracy":["...","..."],"surprise":["...","..."],'
+            '"awareness":["...","..."],"insight":["...","..."]}}',
+            max_tokens=1600, model=_REVIEW_MODEL,
+        )
+        emotions = data.get("emotions") or []
+        keywords = data.get("keywords") or []
+        depth = data.get("depth") or []
+        narrative = data.get("narrative") or {}
+        ai_ok = bool(emotions or (narrative or {}).get("accuracy"))
+    except Exception as exc:
+        logger.warning("weekly_digest AI failed [%s]: %s", type(exc).__name__, exc)
+
+    content_json = {"v": 3, "emotions": emotions, "keywords": keywords, "depth": depth, "narrative": narrative}
+
+    # AI 失敗時不落庫（避免快取住空結果），直接回傳讓前端顯示既有的前端統計
+    if ai_ok:
+        if existing:
+            # 週中新增紀錄或舊版內容：更新同一列（UNIQUE 已保證一週一列）
+            resp = await db().patch(
+                f"{SUPABASE_REST}/pro_reviews",
+                headers={**SUPABASE_HEADERS, "Prefer": "return=representation"},
+                params={"id": f"eq.{existing['id']}"},
+                json={"entry_count": entry_count, "content": content_json, "period_end": end.isoformat()},
+            )
+            rows = resp.json() if resp.status_code == 200 else []
+            if rows:
+                return rows[0]
+            logger.warning("weekly_digest update failed: %s", resp.text)
+        else:
+            try:
+                return await _insert_review(user_id, None, "weekly_digest", start.isoformat(), end.isoformat(), entry_count, content_json)
+            except HTTPException:
+                # 儲存失敗（最常見：weekly_digest.sql 的 CHECK 約束遷移還沒跑）：
+                # 分析結果照樣回傳，只是這次不快取；遷移執行後自動恢復快取行為。
+                logger.warning("weekly_digest insert failed; returning uncached result")
+
+    return {
+        "id": existing["id"] if existing else None,
+        "user_id": user_id, "module_id": None, "review_type": "weekly_digest",
+        "period_start": start.isoformat(), "period_end": end.isoformat(),
+        "entry_count": entry_count, "content": content_json, "created_at": None, "read_at": None,
+    }
+
+
 # ── 量表轉譯質性評估（kind='assessment'）───────────────────────────────────
 # 兩個端點：量表 AI 轉譯（專業夥伴端）＋ 測驗雙報告生成（個案端，含危機判讀）。
 
-_SCALE_TRANSFORM_MODEL = "claude-sonnet-4-5"
-_ASSESSMENT_REPORT_MODEL = "claude-sonnet-4-5"
+_SCALE_TRANSFORM_MODEL = "claude-haiku-4-5-20251001"
+_ASSESSMENT_REPORT_MODEL = "claude-haiku-4-5-20251001"
 
 _SCALE_TRANSFORM_SYSTEM = """你是心理量表轉譯助手，將標準化心理量表轉譯為開放式、生活化的質性問題。
 規則：

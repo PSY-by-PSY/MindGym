@@ -9,6 +9,7 @@ import { getFontScale, applyFontScale } from './lib/fontScale'
 import { isNativeApp, setupNativeAuthListener } from './lib/nativeAuth'
 import { initLocalNotifications } from './lib/localNotifications'
 import { NotificationConsent } from './components/NotificationConsent'
+import { ForceUpdateGate } from './components/ForceUpdateGate'
 import { LanguageProvider } from './lib/i18n/context'
 import './index.css'
 
@@ -111,7 +112,9 @@ function App() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <LanguageProvider>
-      <App />
+      <ForceUpdateGate>
+        <App />
+      </ForceUpdateGate>
     </LanguageProvider>
   </StrictMode>,
 )

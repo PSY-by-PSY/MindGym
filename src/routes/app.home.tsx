@@ -488,6 +488,7 @@ type ExerciseCardProps = {
   badge?: string
   tone?: 'cream' | 'gold'
   locked?: boolean
+  rotateImage?: boolean
 }
 
 function LockIcon() {
@@ -499,7 +500,7 @@ function LockIcon() {
   )
 }
 
-function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', locked }: ExerciseCardProps) {
+function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', locked, rotateImage }: ExerciseCardProps) {
   const { t } = useLanguage()
   const isGold = tone === 'gold'
   const style = isGold ? { backgroundColor: '#FEFAF0' } : undefined
@@ -515,6 +516,7 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
           src={img}
           alt=""
           className="h-[72px] w-[72px] shrink-0 object-contain"
+          style={rotateImage ? { transform: 'rotate(-90deg)' } : undefined}
         />
       )}
       <span className="min-w-0 flex-1">

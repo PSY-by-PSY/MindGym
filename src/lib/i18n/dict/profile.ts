@@ -127,4 +127,58 @@ export const profile: Record<string, Translation> = {
   '觀看最近一次': { 'zh-CN': '查看最近一次', en: 'View Your Latest' },
   '測驗結果': { 'zh-CN': '测验结果', en: 'Assessment Results' },
   '重新評估': { 'zh-CN': '重新评估', en: 'Retake Assessment' },
+  // 一週回顧
+  '本週回顧': { 'zh-CN': '本周回顾', en: 'Weekly Review' },
+  '感恩 {n1} 次 · 過程 {n2} 次': { 'zh-CN': '感恩 {n1} 次 · 过程 {n2} 次', en: '{n1}x gratitude · {n2}x process' },
+  '看看這週的健心狀況': { 'zh-CN': '看看这周的健心状况', en: "See how your week's been going" },
+  '返回': { 'zh-CN': '返回', en: 'Back' },
+  '這週還沒有紀錄': { 'zh-CN': '这周还没有纪录', en: 'No entries yet this week' },
+  '寫下第一篇 →': { 'zh-CN': '写下第一篇 →', en: 'Write your first entry →' },
+  '這週收到的留言': { 'zh-CN': '这周收到的留言', en: 'Comments this week' },
+  '展開全部回饋 ▾': { 'zh-CN': '展开全部反馈 ▾', en: 'Show all feedback ▾' },
+  '展開全部日記 ▾': { 'zh-CN': '展开全部日记 ▾', en: 'Show all entries ▾' },
+  '收合 ▴': { 'zh-CN': '收起 ▴', en: 'Collapse ▴' },
+  'AI 週分析': { 'zh-CN': 'AI 周分析', en: 'AI Weekly Analysis' },
+  '這週寫下的感恩日記': { 'zh-CN': '这周写下的感恩日记', en: 'Gratitude entries this week' },
+  '最常感恩的對象': { 'zh-CN': '最常感恩的对象', en: 'Most common gratitude target' },
+  '常提到的詞彙': { 'zh-CN': '常提到的词汇', en: 'Common words' },
+  '常見情緒': { 'zh-CN': '常见情绪', en: 'Common emotions' },
+  'AI 正在分析中…': { 'zh-CN': 'AI 正在分析中…', en: 'AI is analyzing…' },
+  '再多寫幾篇，AI 情緒分析就會出現': {
+    'zh-CN': '再多写几篇，AI 情绪分析就会出现',
+    en: 'Write a few more entries and AI emotion analysis will appear',
+  },
+  // 感恩深度（Lin, 2015 四層次）
+  '感恩深度': { 'zh-CN': '感恩深度', en: 'Gratitude depth' },
+  '認知到善意': { 'zh-CN': '认知到善意', en: 'Noticing kindness' },
+  '感受到感激': { 'zh-CN': '感受到感激', en: 'Feeling grateful' },
+  '表達感謝與反思': { 'zh-CN': '表达感谢与反思', en: 'Expressing & reflecting' },
+  '回報善意': { 'zh-CN': '回报善意', en: 'Returning favor' },
+  // AI 週統整回饋（四段敘事）
+  'AI 週統整回饋': { 'zh-CN': 'AI 周统整反馈', en: 'AI Weekly Integrative Feedback' },
+  'AI 正在整理你這一週的日記…': {
+    'zh-CN': 'AI 正在整理你这一周的日记…',
+    en: 'AI is synthesizing your week…',
+  },
+  '準確性——你這週真實的樣子': {
+    'zh-CN': '准确性——你这周真实的样子',
+    en: 'Accuracy — how your week really looked',
+  },
+  '驚喜感——你沒注意到的模式': {
+    'zh-CN': '惊喜感——你没注意到的模式',
+    en: 'Surprise — patterns you missed',
+  },
+  '自我覺察——還沒被意識到的需求': {
+    'zh-CN': '自我觉察——还没被意识到的需求',
+    en: 'Awareness — needs not yet noticed',
+  },
+  '洞察與行動——接下來可以怎麼做': {
+    'zh-CN': '洞察与行动——接下来可以怎么做',
+    en: 'Insight & action — what to do next',
+  },
+  // 分享成果圖
+  '分享本週成果': { 'zh-CN': '分享本周成果', en: 'Share This Week' },
+  '圖片生成中…': { 'zh-CN': '图片生成中…', en: 'Generating image…' },
+  '收到留言': { 'zh-CN': '收到留言', en: 'Comments' },
+  '則': { 'zh-CN': '则', en: '' },
 }

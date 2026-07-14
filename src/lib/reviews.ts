@@ -17,7 +17,7 @@ export interface ReviewContent {
   challenge?: string
 }
 
-export type ReviewType = 'overall' | 'weekly' | 'gratitude_weekly'
+export type ReviewType = 'overall' | 'weekly' | 'gratitude_weekly' | 'weekly_digest'
 
 export interface ReviewRow {
   id: string
@@ -28,6 +28,41 @@ export interface ReviewRow {
   period_end: string
   entry_count: number
   content: ReviewContent
+  created_at: string
+  read_at: string | null
+}
+
+/** 感恩深度四層次（Lin, 2015 階層模型），與後端 weekly-digest 的 depth.level 對應。 */
+export type GratitudeDepthLevel = 'recognize' | 'feel' | 'express' | 'reciprocate'
+
+/**
+ * 一週回顧頁的 AI 週統整分析內容（review_type='weekly_digest'，v2）。
+ * 量化編碼（情緒／詞彙／感恩深度）＋ 四段敘事回饋（準確性→驚喜感→自我覺察→洞察與行動），
+ * 架構依 Zeng, Chang, Lin, & Yeh (2026) 的 GenAI 整合式回饋研究。
+ */
+export interface WeeklyDigestContent {
+  v: number
+  emotions: { label: string; count: number }[]
+  keywords?: { label: string; count: number }[]
+  depth?: { level: GratitudeDepthLevel; count: number }[]
+  /** v3 起每個向度是 2-3 條條列短句（string[]）；容忍 v2 舊資料的單一字串。 */
+  narrative?: {
+    accuracy?: string[] | string
+    surprise?: string[] | string
+    awareness?: string[] | string
+    insight?: string[] | string
+  }
+}
+
+export interface WeeklyDigestRow {
+  id: string
+  user_id: string
+  module_id: null
+  review_type: 'weekly_digest'
+  period_start: string
+  period_end: string
+  entry_count: number
+  content: WeeklyDigestContent
   created_at: string
   read_at: string | null
 }
@@ -70,6 +105,24 @@ export async function requestGratitudeWeekly(periodStart: string): Promise<Revie
     return (await resp.json()) as ReviewRow
   } catch (e) {
     console.error('[reviews] requestGratitudeWeekly', e)
+    return null
+  }
+}
+
+/** 一週回顧頁的 AI 情緒分析；periodStart：該週週一（YYYY-MM-DD）。該週紀錄 <2 筆時回 null（後端回 409，非錯誤）。 */
+export async function requestWeeklyDigest(periodStart: string): Promise<WeeklyDigestRow | null> {
+  try {
+    const headers = await authHeaders()
+    if (!headers) return null
+    const resp = await fetch(`${API_URL}/api/reviews/weekly-digest`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ period_start: periodStart }),
+    })
+    if (!resp.ok) return null
+    return (await resp.json()) as WeeklyDigestRow
+  } catch (e) {
+    console.error('[reviews] requestWeeklyDigest', e)
     return null
   }
 }
@@ -120,7 +173,7 @@ function markCheckedToday(userId: string): void {
 }
 
 /** 該日期所在週的週一（本地時區）。 */
-function mondayOf(date: Date): Date {
+export function mondayOf(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay() // 0=週日..6=週六
   const diff = day === 0 ? -6 : 1 - day

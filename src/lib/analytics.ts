@@ -65,6 +65,11 @@ export type AnalyticsEvent =
   | 'pro_assessment_submitted'   // 個案送出質性測驗
   | 'pro_assessment_report_released' // 專業夥伴發布個案版測驗報告
   | 'pro_module_teaser_rated'     // 個案在專業模組區預告文案為期待程度評分
+  | 'weekly_review_opened'           // 打開一週回顧頁
+  | 'weekly_review_feedback_expanded' // 展開一週回顧的全部回饋
+  | 'weekly_review_entries_expanded'  // 展開一週回顧的全部日記
+  | 'weekly_review_shared'            // 生成一週回顧分享圖（Line／IG 等系統分享面板）
+  | 'weekly_review_week_switched'    // 一週回顧頁切換週次
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null

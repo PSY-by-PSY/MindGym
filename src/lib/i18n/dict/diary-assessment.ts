@@ -1,7 +1,7 @@
 import type { Translation } from '../dictionary'
 
 // 日記模組建構器 × 量表轉譯質性評估：建構器（DiaryBuilder/AssessmentBuilder）、
-// 播放器（DiaryPlayer/AssessmentPlayer）、專業夥伴報告視圖、回顧集（ReviewsSection）共用字串。
+// 播放器（DiaryPlayer/AssessmentPlayer）、專業夥伴報告視圖共用字串。
 export const diaryAssessment: Record<string, Translation> = {
   // ── 模組類型選擇（KindPicker / KIND_META）───────────────────────────────
   '選擇模組類型': { 'zh-CN': '选择模块类型', en: 'Choose module type' },
@@ -119,8 +119,7 @@ export const diaryAssessment: Record<string, Translation> = {
   '提醒我': { 'zh-CN': '提醒我', en: 'Remind me' },
   '再寫一則': { 'zh-CN': '再写一则', en: 'Write another entry' },
 
-  // ── 個人頁面「回顧集」（ReviewsSection）──────────────────────────────────
-  '我的回顧集': { 'zh-CN': '我的回顾集', en: 'My Reviews' },
+  // ── 通知鈴鐺：回顧報告出爐 ──────────────────────────────────────────────
   '你的{name}出爐了': { 'zh-CN': '你的{name}出炉了', en: 'Your {name} is ready' },
   '回顧報告': { 'zh-CN': '回顾报告', en: 'Review report' },
 
