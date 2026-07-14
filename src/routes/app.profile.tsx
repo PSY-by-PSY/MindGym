@@ -362,7 +362,6 @@ function pickBoabaMessage(t: TFn, name: string | null, hasPracticedToday: boolea
 // 換算尺寸（挖洞用）。三顆星星在原圖上的完整範圍（含星星自帶的白色描邊光暈），用來：
 //   1. 從角色圖上挖空這塊區域（evenodd 洞），避免和下面獨立雜耍的星星重複。
 //   2. 從原圖裁出這塊區域，再用像素篩選拿掉白色描邊光暈，做成乾淨的雜耍星星（見下方 useBoabaStarSprites）。
-const BOABA_IMG_ORIG_W = 1640
 const BOABA_IMG_ORIG_H = 2360
 const BOABA_IMG_W = 183.5
 const BOABA_IMG_H = 264
