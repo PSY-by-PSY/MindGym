@@ -763,6 +763,17 @@ async def generate_report(
         )
 
 
+# ── AI 週分析時區與周日檢查──────────────────────────────────────────────────
+# 台灣時區（UTC+8），每週日 00:00 生成一次 AI 分析，之後不重複生成。
+
+TW_TZ = timezone(timedelta(hours=8))
+
+def is_sunday_tw() -> bool:
+    """檢查台灣時區的當前時間是否為周日（0=周日）。"""
+    now_tw = datetime.now(TW_TZ)
+    return now_tw.weekday() == 6  # Python: 0=Mon, 6=Sun
+
+
 # ── Process Goal Awareness endpoints（過程目標覺察）─────────────────────────
 # 沿用既有慣例：輕量端點用 Haiku、只回傳 JSON、背景記帳、解析失敗丟 502 讓
 # 前端走 fallback。資料寫入一律由前端直接打 Supabase（RLS），這裡只做 AI。
@@ -1556,9 +1567,10 @@ _WEEKLY_DIGEST_SYSTEM = (
 
 @app.post("/api/reviews/weekly-digest")
 async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = Header(...)):
-    """一週回顧頁的 AI 週統整分析（v2）：量化編碼（情緒／詞彙／感恩深度）＋ 四段敘事回饋。
-    感恩對象前端已能直接統計（target_1..3 是既有結構化欄位），不在此重複。
-    該週 gratitude_entries ≥ 2 筆才生成；以 entry_count 判斷快取——週中新增紀錄會重新生成並更新同一列。"""
+    """一週回顧頁的 AI 週統整分析：每週日生成一次，之後不重複生成。
+    如果該週已有分析，直接返回快取。
+    如果該週沒有分析且不是周日，返回 409（等待周日生成）。
+    該週 gratitude_entries ≥ 2 筆才生成。"""
     token = authorization.removeprefix("Bearer ").strip()
     user_id = await get_user_id(token)
 
@@ -1587,9 +1599,12 @@ async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = H
 
     existing = await _find_existing_review(user_id, None, "weekly_digest", start.isoformat())
     if existing:
-        content = existing.get("content") or {}
-        if existing.get("entry_count") == entry_count and content.get("v", 1) >= 3:
-            return existing
+        # 該週已有分析，直接返回（無論什麼時間）
+        return existing
+
+    # 該週沒有分析，只有在台灣時區的周日才生成新的
+    if not is_sunday_tw():
+        raise HTTPException(status_code=409, detail="AI 分析將在本周日生成")
 
     # 逐件列出（而非整篇合併），AI 才能以「件」為單位做深度編碼
     lines = []
