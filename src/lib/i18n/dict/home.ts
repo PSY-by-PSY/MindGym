@@ -61,4 +61,14 @@ export const home: Record<string, Translation> = {
   '已更新': { 'zh-CN': '已更新', en: 'Updated' },
   '專業夥伴': { 'zh-CN': '专业伙伴', en: 'Practitioner' },
   '約 {n} 分鐘': { 'zh-CN': '约 {n} 分钟', en: '~{n} min' },
+  '上一週': { 'zh-CN': '上一周', en: 'Previous week' },
+  '下一週': { 'zh-CN': '下一周', en: 'Next week' },
+  '今天要做哪些練習？': { 'zh-CN': '今天要做哪些练习？', en: 'What will you practice today?' },
+  '安排練習': { 'zh-CN': '安排练习', en: 'Add practice' },
+  '這天還沒安排練習，點右上角的 + 開始吧': {
+    'zh-CN': '这天还没安排练习，点右上角的 + 开始吧',
+    en: 'No practice scheduled yet — tap + above to get started',
+  },
+  '安排今天的練習': { 'zh-CN': '安排今天的练习', en: 'Plan Your Practice' },
+  '勾選你今天想做的練習': { 'zh-CN': '勾选你今天想做的练习', en: 'Pick the practices you want to do' },
 }

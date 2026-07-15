@@ -5,6 +5,7 @@ import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
 import { hasSkippedOnboarding } from '../lib/onboardingSkip'
 import { checkAndGenerateReviews } from '../lib/reviews'
+import { isoLocalDate } from '../lib/date'
 import { ProModuleSection } from '../components/pro/ProModuleSection'
 import { useLanguage } from '../lib/i18n/context'
 import homeMascot from '../assets/ui/home-mascot.png'
@@ -69,7 +70,7 @@ export const Route = createFileRoute('/app/home')({
     // 由雷達圖（最新 PERMA 分數）決定今天推薦的練習
     const recommendation = recommendPractice(scores?.[0] ?? null)
 
-    return { userName, hasGratitudeToday: (todayGratitude?.length ?? 0) > 0, recommendation }
+    return { userId, userName, hasGratitudeToday: (todayGratitude?.length ?? 0) > 0, recommendation }
   },
   component: HomePage,
 })
@@ -130,7 +131,7 @@ const workshopModules = [
 ]
 
 function HomePage() {
-  const { userName, recommendation } = Route.useRouteContext()
+  const { userId, userName, recommendation } = Route.useRouteContext()
   const { t } = useLanguage()
 
   // lazy 檢查是否有新的回顧報告可生成（每人每天最多一次，見 reviews.ts）。
@@ -179,7 +180,7 @@ function HomePage() {
       <ProModuleSection />
 
       {/* 健心訓練中心 */}
-      <TrainingCenter recommendation={recommendation} />
+      <TrainingCenter recommendation={recommendation} userId={userId} />
 
       {/* 今日練習廣告浮標—依雷達圖推薦，固定在畫面角落，關閉後本次瀏覽不再顯示 */}
       <TodayPracticeBadge recommendation={recommendation} />
@@ -394,10 +395,29 @@ const PERMA_STACK_OFFSET = 14
 function PermaCards() {
   const { t, language } = useLanguage()
   const [expanded, setExpanded] = useState(false)
+  const [flipped, setFlipped] = useState<Set<number>>(new Set())
   const count = PERMA_CARDS.length
   const containerHeight = expanded
     ? count * PERMA_CARD_H + (count - 1) * PERMA_GAP
     : PERMA_CARD_H + (count - 1) * PERMA_STACK_OFFSET
+
+  const collapse = () => {
+    setExpanded(false)
+    setFlipped(new Set())
+  }
+
+  const handleCardClick = (i: number) => {
+    if (!expanded) {
+      setExpanded(true)
+      return
+    }
+    setFlipped((prev) => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
 
   return (
     <div
@@ -406,47 +426,72 @@ function PermaCards() {
     >
       {PERMA_CARDS.map((c, i) => {
         const y = expanded ? i * (PERMA_CARD_H + PERMA_GAP) : i * PERMA_STACK_OFFSET
+        const isFlipped = flipped.has(i)
         return (
-          <button
+          <div
             key={c.en}
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-            aria-expanded={expanded}
-            className="absolute left-0 right-0 flex h-[166px] flex-col overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ease-in-out"
-            style={{ background: c.bg, transform: `translateY(${y}px)`, zIndex: count - i }}
+            className="absolute left-0 right-0 h-[166px] transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateY(${y}px)`, zIndex: count - i, perspective: 1000 }}
           >
-            <img
-              src={c.img}
-              alt=""
-              className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
-            />
-            <div className="relative z-[1] px-3.5 pt-4 text-center">
-              <div className="text-[20px] font-black leading-[1.1] text-foreground">{c.en}</div>
-              {language !== 'en' && (
-                <div className="mt-1 text-[13px] font-bold leading-tight text-[#6f5547]">·{t(c.zh)}·</div>
-              )}
-            </div>
-            <div className="relative z-[1] mt-auto flex flex-col items-end gap-1 px-3.5 pb-3.5">
-              {c.tags.map((tag) => (
-                <span
-                  key={tag.t}
-                  className="flex items-center gap-1 whitespace-nowrap rounded-full border-[1.5px] border-[#6f5547] bg-cream px-2.5 py-0.5 text-xs font-bold text-foreground"
-                >
-                  <i className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tag.c }} />
-                  {t(tag.t)}
-                </span>
-              ))}
-            </div>
-            {i === 0 && (
-              <span
-                className={`absolute right-3.5 top-4 z-[1] flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#6f5547] bg-cream transition-transform duration-500 ease-in-out ${expanded ? 'rotate-180' : ''}`}
+            <div
+              className="relative h-full w-full transition-transform duration-500 ease-in-out [transform-style:preserve-3d]"
+              style={{ transform: isFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)' }}
+            >
+              {/* front */}
+              <button
+                type="button"
+                onClick={() => handleCardClick(i)}
+                aria-expanded={expanded}
+                className="absolute inset-0 flex flex-col overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] [backface-visibility:hidden]"
+                style={{ background: c.bg }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f5547" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </span>
-            )}
-          </button>
+                <img
+                  src={c.img}
+                  alt=""
+                  className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
+                />
+                <div className="relative z-[1] px-3.5 pt-4 text-center">
+                  <div className="text-[20px] font-black leading-[1.1] text-foreground">{c.en}</div>
+                  {language !== 'en' && (
+                    <div className="mt-1 text-[13px] font-bold leading-tight text-[#6f5547]">·{t(c.zh)}·</div>
+                  )}
+                </div>
+                <div className="relative z-[1] mt-auto flex flex-col items-end gap-1 px-3.5 pb-3.5">
+                  {c.tags.map((tag) => (
+                    <span
+                      key={tag.t}
+                      className="flex items-center gap-1 whitespace-nowrap rounded-full border-[1.5px] border-[#6f5547] bg-cream px-2.5 py-0.5 text-xs font-bold text-foreground"
+                    >
+                      <i className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tag.c }} />
+                      {t(tag.t)}
+                    </span>
+                  ))}
+                </div>
+                {i === 0 && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      collapse()
+                    }}
+                    className={`absolute right-3.5 top-4 z-[1] flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#6f5547] bg-cream transition-transform duration-500 ease-in-out ${expanded ? 'rotate-180' : ''}`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f5547" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              {/* back */}
+              <button
+                type="button"
+                onClick={() => handleCardClick(i)}
+                className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] [backface-visibility:hidden] [transform:rotateY(-180deg)]"
+                style={{ background: c.bg }}
+              >
+                <span className="text-sm font-bold text-[#6f5547]">{t('敬請期待')}</span>
+              </button>
+            </div>
+          </div>
         )
       })}
     </div>
@@ -457,12 +502,12 @@ function PermaCards() {
 
 const DAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
 
-function getWeekDays(): Date[] {
+function getWeekDays(weekOffset: number): Date[] {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const dow = today.getDay() // 0=Sun
   const monday = new Date(today)
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1))
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + weekOffset * 7)
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
@@ -470,43 +515,74 @@ function getWeekDays(): Date[] {
   })
 }
 
+function WeekArrowIcon({ direction }: { direction: 'prev' | 'next' }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d={direction === 'prev' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
+    </svg>
+  )
+}
+
 function WeekCalendar({
+  weekDays,
   selectedDay,
   onSelectDay,
+  onPrevWeek,
+  onNextWeek,
 }: {
+  weekDays: Date[]
   selectedDay: Date
   onSelectDay: (d: Date) => void
+  onPrevWeek: () => void
+  onNextWeek: () => void
 }) {
   const { t } = useLanguage()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const days = getWeekDays()
 
   return (
-    <div className="mb-3.5 flex gap-1.5">
-      {days.map((day, i) => {
-        const isToday = day.getTime() === today.getTime()
-        const isSelected = day.getTime() === selectedDay.getTime()
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onSelectDay(day)}
-            className="flex flex-1 flex-col items-center gap-1.5"
-          >
-            <div
-              className={`flex h-[38px] w-[38px] items-center justify-center rounded-full text-sm font-bold transition ${
-                isSelected
-                  ? 'bg-foreground text-cream'
-                  : 'border border-[#e3dccd] bg-cream text-muted-foreground'
-              }`}
+    <div className="mb-3.5 flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onPrevWeek}
+        aria-label={t('上一週')}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#a99a86] transition active:scale-90"
+      >
+        <WeekArrowIcon direction="prev" />
+      </button>
+      <div className="flex flex-1 gap-1.5">
+        {weekDays.map((day, i) => {
+          const isToday = day.getTime() === today.getTime()
+          const isSelected = day.getTime() === selectedDay.getTime()
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onSelectDay(day)}
+              className="flex flex-1 flex-col items-center gap-1.5"
             >
-              {isToday ? t('今') : t(DAY_NAMES[i])}
-            </div>
-            <span className="text-[11px] text-[#a99a86]">{day.getDate()}</span>
-          </button>
-        )
-      })}
+              <div
+                className={`flex h-[38px] w-[38px] items-center justify-center rounded-full text-sm font-bold transition ${
+                  isSelected
+                    ? 'bg-foreground text-cream'
+                    : 'border border-[#e3dccd] bg-cream text-muted-foreground'
+                }`}
+              >
+                {isToday ? t('今') : t(DAY_NAMES[i])}
+              </div>
+              <span className="text-[11px] text-[#a99a86]">{day.getDate()}</span>
+            </button>
+          )
+        })}
+      </div>
+      <button
+        type="button"
+        onClick={onNextWeek}
+        aria-label={t('下一週')}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#a99a86] transition active:scale-90"
+      >
+        <WeekArrowIcon direction="next" />
+      </button>
     </div>
   )
 }
@@ -521,36 +597,52 @@ type ExerciseCardProps = {
   tone?: 'cream' | 'gold'
   locked?: boolean
   rotateImage?: boolean
+  completed?: boolean
 }
 
-function LockIcon() {
+function LockIcon({ className = 'h-7 w-7' }: { className?: string }) {
   return (
-    <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="9" rx="2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </svg>
   )
 }
 
-function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', locked, rotateImage }: ExerciseCardProps) {
+function CheckIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', locked, rotateImage, completed }: ExerciseCardProps) {
   const { t } = useLanguage()
   const isGold = tone === 'gold'
   const style = isGold ? { backgroundColor: '#FEFAF0' } : undefined
   const inner = (
     <>
       {!isGold && <span className="absolute inset-0 -z-10 bg-cream" />}
-      {locked ? (
-        <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-          <LockIcon />
-        </span>
-      ) : (
-        <img
-          src={img}
-          alt=""
-          className="h-[72px] w-[72px] shrink-0 object-contain"
-          style={rotateImage ? { transform: 'rotate(-90deg)' } : undefined}
-        />
-      )}
+      <span className="relative shrink-0">
+        {locked ? (
+          <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+            <LockIcon />
+          </span>
+        ) : (
+          <img
+            src={img}
+            alt=""
+            className="h-[72px] w-[72px] object-contain"
+            style={rotateImage ? { transform: 'rotate(-90deg)' } : undefined}
+          />
+        )}
+        {completed && !locked && (
+          <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-cream bg-[#71744F] text-cream">
+            <CheckIcon className="h-3.5 w-3.5" />
+          </span>
+        )}
+      </span>
       <span className="min-w-0 flex-1">
         <b className={`text-[17px] font-black tracking-[0.02em] ${isGold ? 'text-foreground' : 'text-foreground'}`}>{t(name)}</b>
         <span className={`mt-0.5 block text-xs font-light tracking-[0.02em] ${isGold ? 'text-foreground' : 'text-foreground'}`}>{t(meta)}</span>
@@ -587,6 +679,274 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
   )
 }
 
+// ─── 我的日程：每天可勾選要做的練習 ───────────────────────────────────────
+
+type SchedulePracticeKey = 'gratitude' | 'process-goal' | 'three-good-things' | 'self-compassion' | 'mindfulness'
+
+type PracticeDef = {
+  key: SchedulePracticeKey
+  name: string
+  meta: string
+  to?: '/app/gratitude' | '/app/process-goal'
+  img?: string
+  locked: boolean
+}
+
+const PRACTICE_CATALOG: PracticeDef[] = [
+  { key: 'gratitude', name: '感恩日記', meta: '初階 · 五分鐘', to: '/app/gratitude', img: exerciseGratitude, locked: false },
+  { key: 'process-goal', name: '過程目標覺察', meta: '初階 · 三分鐘', to: '/app/process-goal', img: processGoalIcon, locked: false },
+  { key: 'three-good-things', name: '三件好事', meta: '情緒力 · 成就力', locked: true },
+  { key: 'self-compassion', name: '自我慈悲', meta: '連結力 · 意義力', locked: true },
+  { key: 'mindfulness', name: '正念冥想', meta: '情緒力 · 投入力', locked: true },
+]
+
+const PRACTICE_MAP = new Map(PRACTICE_CATALOG.map((p) => [p.key, p]))
+
+async function fetchSchedule(userId: string, dateStr: string): Promise<SchedulePracticeKey[]> {
+  const { data, error } = await supabase
+    .from('daily_schedule')
+    .select('practice_key')
+    .eq('user_id', userId)
+    .eq('schedule_date', dateStr)
+  if (error) {
+    console.error('[daily_schedule fetch]', error)
+    return []
+  }
+  return (data ?? []).map((r) => r.practice_key as SchedulePracticeKey)
+}
+
+async function saveSchedule(userId: string, dateStr: string, keys: SchedulePracticeKey[]) {
+  await supabase.from('daily_schedule').delete().eq('user_id', userId).eq('schedule_date', dateStr)
+  if (keys.length === 0) return
+  const rows = keys.map((practice_key) => ({ user_id: userId, schedule_date: dateStr, practice_key }))
+  const { error } = await supabase.from('daily_schedule').insert(rows)
+  if (error) console.error('[daily_schedule save]', error)
+}
+
+async function fetchCompletedKeys(
+  userId: string,
+  dateStr: string,
+  keys: SchedulePracticeKey[],
+): Promise<Set<SchedulePracticeKey>> {
+  const completed = new Set<SchedulePracticeKey>()
+  if (keys.includes('gratitude')) {
+    const { data } = await supabase
+      .from('gratitude_entries')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('practice_type', 'gratitude')
+      .eq('entry_date', dateStr)
+      .limit(1)
+    if (data && data.length > 0) completed.add('gratitude')
+  }
+  if (keys.includes('process-goal')) {
+    const { data } = await supabase
+      .from('focus_logs')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('log_date', dateStr)
+      .limit(1)
+    if (data && data.length > 0) completed.add('process-goal')
+  }
+  return completed
+}
+
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function AddPracticeModal({
+  initialSelected,
+  onClose,
+  onConfirm,
+}: {
+  initialSelected: SchedulePracticeKey[]
+  onClose: () => void
+  onConfirm: (keys: SchedulePracticeKey[]) => void
+}) {
+  const { t } = useLanguage()
+  const [selected, setSelected] = useState<Set<SchedulePracticeKey>>(new Set(initialSelected))
+
+  const toggle = (p: PracticeDef) => {
+    if (p.locked) return
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(p.key)) next.delete(p.key)
+      else next.add(p.key)
+      return next
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#1c1714]/40 px-4 pb-6 pt-10 sm:items-center">
+      <div className="flex max-h-[88vh] w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-[26px] bg-background shadow-soft">
+        <div className="overflow-y-auto px-6 pt-6">
+          <h2 className="text-xl font-black leading-snug tracking-[0.02em] text-foreground">{t('安排今天的練習')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('勾選你今天想做的練習')}</p>
+          <div className="mt-4 flex flex-col gap-2.5 pb-2">
+            {PRACTICE_CATALOG.map((p) => {
+              const isChecked = selected.has(p.key)
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  disabled={p.locked}
+                  onClick={() => toggle(p)}
+                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                    p.locked
+                      ? 'cursor-not-allowed border-[#e3dccd] bg-cream/60 opacity-50'
+                      : 'border-[#e3dccd] bg-cream active:scale-[0.98]'
+                  }`}
+                >
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                      isChecked && !p.locked ? 'border-foreground bg-foreground text-cream' : 'border-[#6f5547] text-transparent'
+                    }`}
+                  >
+                    {p.locked ? <LockIcon className="h-3.5 w-3.5 text-muted-foreground" /> : <CheckIcon className="h-3.5 w-3.5" />}
+                  </span>
+                  <span className="flex-1">
+                    <b className="block text-[15px] font-black text-foreground">{t(p.name)}</b>
+                    <span className="block text-xs text-muted-foreground">{p.locked ? t('敬請期待') : t(p.meta)}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="flex gap-3 border-t border-[#e3dccd] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-full border border-foreground py-3 text-sm font-bold text-foreground"
+          >
+            {t('取消')}
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(Array.from(selected))}
+            className="flex-1 rounded-full bg-foreground py-3 text-sm font-bold text-cream"
+          >
+            {t('確定')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DailySchedule({
+  userId,
+  recommendation,
+  weekDays,
+  selectedDay,
+  onSelectDay,
+  onPrevWeek,
+  onNextWeek,
+}: {
+  userId: string
+  recommendation: Recommendation
+  weekDays: Date[]
+  selectedDay: Date
+  onSelectDay: (d: Date) => void
+  onPrevWeek: () => void
+  onNextWeek: () => void
+}) {
+  const { t } = useLanguage()
+  const dateStr = isoLocalDate(selectedDay)
+  const [scheduled, setScheduled] = useState<SchedulePracticeKey[]>([])
+  const [completed, setCompleted] = useState<Set<SchedulePracticeKey>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      const keys = await fetchSchedule(userId, dateStr)
+      const done = await fetchCompletedKeys(userId, dateStr, keys)
+      if (!cancelled) {
+        setScheduled(keys)
+        setCompleted(done)
+        setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId, dateStr])
+
+  const handleConfirm = async (keys: SchedulePracticeKey[]) => {
+    setModalOpen(false)
+    setScheduled(keys)
+    await saveSchedule(userId, dateStr, keys)
+    const done = await fetchCompletedKeys(userId, dateStr, keys)
+    setCompleted(done)
+  }
+
+  return (
+    <div>
+      <WeekCalendar
+        weekDays={weekDays}
+        selectedDay={selectedDay}
+        onSelectDay={onSelectDay}
+        onPrevWeek={onPrevWeek}
+        onNextWeek={onNextWeek}
+      />
+
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-bold text-muted-foreground">{t('今天要做哪些練習？')}</p>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          aria-label={t('安排練習')}
+          className="flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] border-foreground text-foreground transition active:scale-90"
+        >
+          <PlusIcon />
+        </button>
+      </div>
+
+      {!loading && scheduled.length === 0 && (
+        <p className="rounded-2xl bg-cream px-4 py-6 text-center text-sm text-muted-foreground">
+          {t('這天還沒安排練習，點右上角的 + 開始吧')}
+        </p>
+      )}
+
+      <div className="flex flex-col gap-3">
+        {scheduled.map((key) => {
+          const def = PRACTICE_MAP.get(key)
+          if (!def) return null
+          return (
+            <ExerciseCard
+              key={key}
+              to={def.to}
+              img={def.img}
+              name={def.name}
+              meta={def.meta}
+              tone={def.key === 'gratitude' ? 'gold' : 'cream'}
+              badge={recommendation.key === def.key ? '今日推薦' : undefined}
+              completed={completed.has(key)}
+              locked={def.locked}
+            />
+          )
+        })}
+      </div>
+
+      {modalOpen && (
+        <AddPracticeModal
+          initialSelected={scheduled}
+          onClose={() => setModalOpen(false)}
+          onConfirm={handleConfirm}
+        />
+      )}
+    </div>
+  )
+}
+
 type TrainingTab = 'schedule' | 'perma' | 'new' | 'hot'
 
 const TABS: { key: TrainingTab; label: string }[] = [
@@ -596,14 +956,24 @@ const TABS: { key: TrainingTab; label: string }[] = [
   { key: 'hot', label: '最熱門' },
 ]
 
-function TrainingCenter({ recommendation }: { recommendation: Recommendation }) {
+function TrainingCenter({ recommendation, userId }: { recommendation: Recommendation; userId: string }) {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState<TrainingTab>('schedule')
+  const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDay, setSelectedDay] = useState<Date>(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     return d
   })
+  const weekDays = getWeekDays(weekOffset)
+
+  const changeWeek = (delta: number) => {
+    const dow = selectedDay.getDay()
+    const idx = dow === 0 ? 6 : dow - 1
+    const nextOffset = weekOffset + delta
+    setWeekOffset(nextOffset)
+    setSelectedDay(getWeekDays(nextOffset)[idx])
+  }
 
   return (
     <section className="pb-4">
@@ -625,26 +995,15 @@ function TrainingCenter({ recommendation }: { recommendation: Recommendation }) 
       </div>
 
       {activeTab === 'schedule' && (
-        <div>
-          <WeekCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
-          <div className="flex flex-col gap-3">
-            <ExerciseCard
-              to="/app/gratitude"
-              img={exerciseGratitude}
-              name="感恩日記"
-              meta="初階·五分鐘"
-              tone="gold"
-              badge={recommendation.key === 'gratitude' ? '今日推薦' : undefined}
-            />
-            <ExerciseCard
-              to="/app/process-goal"
-              img={processGoalIcon}
-              name="過程目標覺察"
-              meta="初階·三分鐘"
-              badge={recommendation.key === 'process-goal' ? '今日推薦' : undefined}
-            />
-          </div>
-        </div>
+        <DailySchedule
+          userId={userId}
+          recommendation={recommendation}
+          weekDays={weekDays}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDay}
+          onPrevWeek={() => changeWeek(-1)}
+          onNextWeek={() => changeWeek(1)}
+        />
       )}
 
       {activeTab === 'perma' && <PermaCards />}
