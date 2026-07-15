@@ -233,9 +233,11 @@ function FeaturedModuleCard({ name, meta }: ModuleProps) {
         alt=""
         className="pointer-events-none absolute -left-40 -top-[143px] h-[560px] w-[560px] max-w-none object-cover"
       />
+      {/* 米白色底板：確保標題無論長短都落在卡片下半部，不會蓋到上方插畫 */}
+      <div className="absolute inset-x-0 bottom-0 z-[5] h-[104px]" style={{ background: '#FEFAF0' }} />
       <div className="relative z-10 p-5 pb-6">
-        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{t(name)}</div>
-        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
+        <div className="text-[22px] font-black leading-[1.15] tracking-[0.04em] text-foreground">{t(name)}</div>
+        <div className="mt-1.5 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
       </div>
     </Link>
   )
@@ -267,9 +269,11 @@ function ActiveModuleCard(props: ModuleProps) {
           className="pointer-events-none absolute -left-40 -top-32 h-[560px] w-[560px] max-w-none object-cover"
         />
       )}
+      {/* 米白色底板：確保標題無論長短都落在卡片下半部，不會蓋到上方插畫 */}
+      <div className="absolute inset-x-0 bottom-0 z-[5] h-[104px]" style={{ background: '#FEFAF0' }} />
       <div className="relative z-10 p-5 pb-6">
-        <div className="text-[34px] font-black tracking-[0.04em] text-foreground">{t(name)}</div>
-        <div className="mt-2 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
+        <div className="text-[22px] font-black leading-[1.15] tracking-[0.04em] text-foreground">{t(name)}</div>
+        <div className="mt-1.5 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
       </div>
     </Link>
   )
@@ -300,6 +304,9 @@ function TodayPracticeBadge({ recommendation }: { recommendation: Recommendation
 
   if (dismissed) return null
 
+  const label = t(recommendation.name)
+  const labelSizeCls = label.length > 10 ? 'text-base leading-[1.15]' : 'text-2xl leading-[1.15]'
+
   return (
     // 外層貼齊視窗兩側、內層 mx-auto max-w-md 與其餘頁面內容同一欄位對齊（比照 BottomNav 的做法），
     // 避免畫面比手機版面寬時，浮標貼著瀏覽器邊緣、跟置中的內容欄位對不齊。
@@ -313,12 +320,12 @@ function TodayPracticeBadge({ recommendation }: { recommendation: Recommendation
             className="relative flex h-44 w-44 items-center justify-center rounded-full bg-[#88B8CE] shadow-[0_10px_24px_rgba(40,24,12,0.35)] transition active:scale-95"
           >
             {/* 文字獨立一層並裁切，避免超出藍色圓圈；吉祥物圖片留在外層才能露出圓圈之外 */}
-            <div className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-full pt-9 text-center">
+            <div className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-full pt-8 text-center">
               <span className="-rotate-3 text-xs font-bold leading-tight tracking-[0.02em] text-cream">
                 {t('點擊直接開始今天的')}
               </span>
-              <span className="mt-1.5 max-w-[136px] px-2 text-2xl font-black leading-[1.15] tracking-[0.02em] text-cream">
-                {t(recommendation.name)}
+              <span className={`mt-1.5 max-w-[140px] px-2 font-black tracking-[0.02em] text-cream ${labelSizeCls}`}>
+                {label}
               </span>
             </div>
             {/* 露出圓圈外的量只取決於 -bottom 位移，跟圖片高度無關：位移縮小到只露出腳尖，
@@ -326,7 +333,7 @@ function TodayPracticeBadge({ recommendation }: { recommendation: Recommendation
             <img
               src={gratitudeMascot}
               alt=""
-              className="pointer-events-none absolute -bottom-3 left-1/2 h-24 w-auto -translate-x-1/2 object-contain"
+              className="pointer-events-none absolute -bottom-3 left-1/2 h-20 w-auto -translate-x-1/2 object-contain"
             />
           </Link>
           <button
@@ -385,7 +392,7 @@ const PERMA_GAP = 16
 const PERMA_STACK_OFFSET = 14
 
 function PermaCards() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [expanded, setExpanded] = useState(false)
   const count = PERMA_CARDS.length
   const containerHeight = expanded
@@ -405,7 +412,7 @@ function PermaCards() {
             type="button"
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
-            className="absolute left-0 right-0 h-[166px] overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ease-in-out"
+            className="absolute left-0 right-0 flex h-[166px] flex-col overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ease-in-out"
             style={{ background: c.bg, transform: `translateY(${y}px)`, zIndex: count - i }}
           >
             <img
@@ -413,24 +420,26 @@ function PermaCards() {
               alt=""
               className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
             />
-            <div className="absolute left-3.5 right-3.5 top-4 text-center">
-              <div className="text-[23px] font-black leading-[1.1] text-foreground">{c.en}</div>
-              <div className="mt-1.5 text-[15px] font-bold text-[#6f5547]">·{t(c.zh)}·</div>
+            <div className="relative z-[1] px-3.5 pt-4 text-center">
+              <div className="text-[20px] font-black leading-[1.1] text-foreground">{c.en}</div>
+              {language !== 'en' && (
+                <div className="mt-1 text-[13px] font-bold leading-tight text-[#6f5547]">·{t(c.zh)}·</div>
+              )}
             </div>
-            <div className="absolute bottom-4 right-3.5 flex flex-col items-end gap-2">
+            <div className="relative z-[1] mt-auto flex flex-col items-end gap-1 px-3.5 pb-3.5">
               {c.tags.map((tag) => (
                 <span
                   key={tag.t}
-                  className="flex items-center gap-1.5 rounded-full border-[1.5px] border-[#6f5547] bg-cream px-3 py-1 text-sm font-bold text-foreground"
+                  className="flex items-center gap-1 whitespace-nowrap rounded-full border-[1.5px] border-[#6f5547] bg-cream px-2.5 py-0.5 text-xs font-bold text-foreground"
                 >
-                  <i className="h-2 w-2 rounded-full" style={{ background: tag.c }} />
+                  <i className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tag.c }} />
                   {t(tag.t)}
                 </span>
               ))}
             </div>
             {i === 0 && (
               <span
-                className={`absolute right-3.5 top-4 flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#6f5547] bg-cream transition-transform duration-500 ease-in-out ${expanded ? 'rotate-180' : ''}`}
+                className={`absolute right-3.5 top-4 z-[1] flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#6f5547] bg-cream transition-transform duration-500 ease-in-out ${expanded ? 'rotate-180' : ''}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f5547" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 9l6 6 6-6" />

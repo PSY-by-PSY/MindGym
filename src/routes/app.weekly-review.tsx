@@ -416,7 +416,7 @@ function WeeklyReviewPage() {
               <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
                 Weekly Integrative Feedback
               </p>
-              <h2 className="mb-3 text-lg font-extrabold text-foreground">{t('AI 週統整回饋')}</h2>
+              <h2 className="mb-3 text-lg font-extrabold text-foreground">{t('Bouba 週統整回饋')}</h2>
               {digestState === 'loading' ? (
                 <p className="text-sm text-muted-foreground">{t('AI 正在整理你這一週的日記…')}</p>
               ) : (

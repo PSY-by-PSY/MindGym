@@ -572,9 +572,6 @@ function IntroStage({
       {/* 3-A 大標題 */}
       <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記')}</h1>
 
-      {/* 本週打卡條 */}
-      <WeeklyCheckinStrip />
-
       {/* 3-C 常駐描述（黃色卡） */}
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('感恩日記（Gratitude Journal）是正向心理學中最具代表性的練習之一，透過每天有意識地回顧值得感謝的事件，幫助大腦重新聚焦於生活中的支持、善意與美好經驗。')}
@@ -1046,67 +1043,6 @@ function SparklesIcon() {
   )
 }
 
-/** 本週打卡條（週一–週日），資料來源：本人 gratitude_entries 近 7 日。用於 INTRO 階段。 */
-function WeeklyCheckinStrip() {
-  const [dates, setDates] = useState<Set<string> | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user.id
-      if (!uid) return
-      const now = new Date()
-      const day = now.getDay()
-      const diff = day === 0 ? -6 : 1 - day
-      const monday = new Date(now)
-      monday.setDate(monday.getDate() + diff)
-      monday.setHours(0, 0, 0, 0)
-      const sunday = new Date(monday)
-      sunday.setDate(sunday.getDate() + 6)
-      const { data } = await supabase
-        .from('gratitude_entries')
-        .select('entry_date')
-        .eq('user_id', uid)
-        .eq('practice_type', 'gratitude')
-        .gte('entry_date', isoLocalDate(monday))
-        .lte('entry_date', isoLocalDate(sunday))
-      if (!cancelled) setDates(new Set((data ?? []).map((r) => String(r.entry_date))))
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  if (!dates) return null
-
-  const now = new Date()
-  const day = now.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(now)
-  monday.setDate(monday.getDate() + diff)
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(d.getDate() + i)
-    return isoLocalDate(d)
-  })
-
-  return (
-    <div className="mt-4 flex justify-between rounded-2xl bg-card px-3 py-2.5 shadow-soft">
-      {weekDates.map((d) => (
-        <span
-          key={d}
-          className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-            dates.has(d) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          {new Date(d + 'T00:00:00').getDate()}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 /** SUMMARY 底部的「回顧預告」鎖定卡：本週已記錄 N 天／滿 3 天將於週日晚間生成週回顧。 */
 function ReviewPreviewCard({ mode }: { mode: 'edit' | 'view' }) {
   const { t } = useLanguage()
@@ -1292,7 +1228,7 @@ function SummaryStage({
           <div className="rounded-3xl bg-tile-mint p-5 shadow-soft">
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#71744F]">
               <SparklesIcon />
-              {t('AI 即時回饋')}
+              {t('Bouba 即時回饋')}
             </p>
             <p className="text-sm leading-relaxed text-foreground">{displayResult.emotional_summary}</p>
           </div>

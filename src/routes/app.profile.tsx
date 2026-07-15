@@ -236,7 +236,7 @@ function starPolygon(cx: number, cy: number, outer: number, inner: number): stri
 }
 
 function PermaRadar({ scores }: { scores: PermaScores }) {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const cx = 160
   const cy = 150
   const maxR = 80
@@ -289,18 +289,24 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
         const [lx, ly] = point(i, maxR + 30)
         const labelY = i === 0 ? ly - 26 : ly - 3
         const by = i === 0 ? ly - 3 : ly + 22
+        const label = language === 'en' ? t(d.label) : `${d.letter} ${t(d.label)}`
+        // 標籤靠近雷達圖左右兩側時可用寬度較窄；翻譯過長（如英文）會超出畫布，
+        // 用 textLength 壓縮成剛好塞得下的寬度，避免被裁切或跟旁邊元素重疊。
+        const safeHalfWidth = Math.max(20, Math.min(lx, 320 - lx) - 4)
+        const needsCompress = label.length * 7.2 > safeHalfWidth * 2
         return (
           <g key={d.key}>
             <text
-              x={lx}
+              x={needsCompress ? lx - safeHalfWidth : lx}
               y={labelY}
-              textAnchor="middle"
+              textAnchor={needsCompress ? 'start' : 'middle'}
               dominantBaseline="middle"
               fontSize="12.5"
               fontWeight="800"
               fill="#542916"
+              {...(needsCompress ? { textLength: safeHalfWidth * 2, lengthAdjust: 'spacingAndGlyphs' as const } : {})}
             >
-              {d.letter} {t(d.label)}
+              {label}
             </text>
             <rect x={lx - 16} y={by - 11} width="32" height="22" rx="7" fill="#FEFAF0" stroke="#542916" strokeWidth="1.5" />
             <text
@@ -331,7 +337,7 @@ function Header() {
   )
 }
 
-// ── Boaba 吉祥物卡片 ────────────────────────────────────────────────────────
+// ── Bouba 吉祥物卡片 ────────────────────────────────────────────────────────
 // 早/晚時段優先於練習狀態；白天則依「今天有沒做練習」決定話術。
 // 每個時段各有兩句話術，每次打開頁面隨機二選一（呼應幸福經驗值花開表情的做法）。
 function pickBoabaMessage(t: TFn, name: string | null, hasPracticedToday: boolean): string {
@@ -349,7 +355,7 @@ function pickBoabaMessage(t: TFn, name: string | null, hasPracticedToday: boolea
   }
   if (isNight) {
     return pick(
-      t('晚安，Boaba 先睡了！{name}也要記得好好休息唷～', { name: displayName }),
+      t('晚安，Bouba 先睡了！{name}也要記得好好休息唷～', { name: displayName }),
       t('{name}是晚上閃閃發亮的小星星嗎？', { name: displayName }),
     )
   }
@@ -436,7 +442,7 @@ function BoabaCard({ name, hasPracticedToday }: { name: string | null; hasPracti
       >
         <img
           src={boabaWave}
-          alt="Boaba"
+          alt="Bouba"
           className="pointer-events-none absolute inset-0 h-full w-full"
           style={{ clipPath: BOABA_BODY_CLIP }}
         />
@@ -457,7 +463,7 @@ function BoabaCard({ name, hasPracticedToday }: { name: string | null; hasPracti
         <span className="absolute -bottom-1 left-8 h-3 w-3 rotate-45 bg-cream" />
       </div>
       <div className="relative z-[1] mx-3 mb-3 rounded-[20px] bg-cream p-4 text-sm leading-relaxed text-[#542916] shadow-soft">
-        <p className="text-lg font-extrabold">{t('嗨，我是 Boaba!')}</p>
+        <p className="text-lg font-extrabold">{t('嗨，我是 Bouba!')}</p>
         <p className="mt-2.5">
           {t('我喜歡發呆、種花、曬太陽，也喜歡你來陪我玩 :D')}
           <br />
@@ -1284,18 +1290,34 @@ function PartnerPlanter({ experience }: { experience: PermaScores | null }) {
         {/* 盆器 */}
         <path d="M20 178 L340 178 L322 236 Q322 242 316 242 L44 242 Q38 242 38 236 Z" fill="#7a5640" />
         <rect x="14" y="170" width="332" height="16" rx="8" fill="#8a6a4a" />
-        {/* P/E/R/M/A 五色圓 + 中文 */}
-        {PLANTER_DIMS.map((d, i) => (
-          <g key={d.key}>
-            <circle cx={xs[i]} cy={203} r={14} fill={d.color} />
-            <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
-              {d.letter}
-            </text>
-            <text x={xs[i]} y={228} textAnchor="middle" fontSize="12" fontWeight="800" fill="#FEFAF0">
-              {t(d.label)}
-            </text>
-          </g>
-        ))}
+        {/* P/E/R/M/A 五色圓 + 標籤：標籤欄位只有約 56 個單位寬，翻譯過長時（如英文）用
+            textLength 強制壓縮寬度，避免跟左右鄰欄的文字重疊。盆器兩側是斜邊，最外側兩欄
+            壓縮後的文字可能落在盆器輪廓之外（米色底上看不見米色字），所以額外墊一塊深色
+            底板確保任何情況下都跟文字有足夠對比。 */}
+        {PLANTER_DIMS.map((d, i) => {
+          const label = t(d.label)
+          const isLong = label.length > 4
+          return (
+            <g key={d.key}>
+              <circle cx={xs[i]} cy={203} r={14} fill={d.color} />
+              <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
+                {d.letter}
+              </text>
+              {isLong && <rect x={xs[i] - 30} y={219} width={60} height={17} rx={8} fill="#6b4a34" />}
+              <text
+                x={isLong ? xs[i] - 28 : xs[i]}
+                y={228}
+                textAnchor={isLong ? 'start' : 'middle'}
+                fontSize={isLong ? 9 : 12}
+                fontWeight="800"
+                fill="#FEFAF0"
+                {...(isLong ? { textLength: 56, lengthAdjust: 'spacingAndGlyphs' as const } : {})}
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })}
       </svg>
     </div>
   )
@@ -1445,7 +1467,7 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* Boaba 吉祥物卡片 */}
+        {/* Bouba 吉祥物卡片 */}
         <BoabaCard name={name} hasPracticedToday={hasPracticedToday} />
 
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
