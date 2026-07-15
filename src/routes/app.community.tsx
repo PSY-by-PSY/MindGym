@@ -1664,7 +1664,7 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
     return (
       <div className="mt-4 flex flex-col gap-2">
         {payload.situation && <PgFieldBlock label={t('我遇到的困境')} value={payload.situation} />}
-        {payload.suggestion && <PgAiBlock label={t('AI 專注錦囊')} value={payload.suggestion} />}
+        {payload.suggestion && <PgAiBlock label={t('Bouba 專注錦囊')} value={payload.suggestion} />}
       </div>
     )
   }

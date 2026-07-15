@@ -114,7 +114,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, avatar: null, scores: null, experience: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0, hasPracticedToday: false }
+    if (!userId) return { name: null, avatar: null, scores: null, experience: null, harvestedFlowers: 0, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0, hasPracticedToday: false }
 
     const fallbackName =
       (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -182,16 +182,37 @@ export const Route = createFileRoute('/app/profile')({
 
     const permaRows = (permaRes.data ?? []) as (PermaScores & { created_at: string })[]
 
-    // 幸福經驗值：每完成一次練習就依該練習的 PERMA 加分累加（回溯所有歷史紀錄）。
-    // 加分數值對齊練習完成頁顯示的「能力提升」（見 app.gratitude.tsx / app.process-goal.tsx）。
-    const gratitudeCount = allDatesRes.data?.length ?? 0
-    const focusCount = focusAllRes.data?.length ?? 0
+    // 幸福經驗值：每月一號歸零重新累積，只計算「當月」完成的練習（對齊練習完成頁顯示
+    // 的「能力提升」，見 app.gratitude.tsx / app.process-goal.tsx）。
+    const gratitudeMonthCount = entriesRes.data?.length ?? 0
+    const focusMonthCount = focusMonthRes.data?.length ?? 0
     const experience: PermaScores = {
-      p_score: gratitudeCount * 3,
-      e_score: focusCount * 2,
-      r_score: gratitudeCount * 3,
-      m_score: gratitudeCount * 1 + focusCount * 2,
-      a_score: focusCount * 3,
+      p_score: gratitudeMonthCount * 3,
+      e_score: focusMonthCount * 2,
+      r_score: gratitudeMonthCount * 3,
+      m_score: gratitudeMonthCount * 1 + focusMonthCount * 2,
+      a_score: focusMonthCount * 3,
+    }
+
+    // 花花收割數：某個 PERMA 維度單月累積到 50 分以上即代表當月已收割一朵花，
+    // 回溯所有歷史月份加總算出「一共種了幾朵花」（不需額外資料表，用既有的歷史紀錄推算）。
+    const countByMonth = (dates: string[]) => {
+      const counts = new Map<string, number>()
+      for (const d of dates) {
+        const key = d.slice(0, 7)
+        counts.set(key, (counts.get(key) ?? 0) + 1)
+      }
+      return counts
+    }
+    const gratitudeByMonth = countByMonth((allDatesRes.data ?? []).map((r) => String(r.entry_date)))
+    const focusByMonth = countByMonth((focusAllRes.data ?? []).map((r) => String(r.log_date)))
+    const allMonths = new Set([...gratitudeByMonth.keys(), ...focusByMonth.keys()])
+    let harvestedFlowers = 0
+    for (const key of allMonths) {
+      const g = gratitudeByMonth.get(key) ?? 0
+      const f = focusByMonth.get(key) ?? 0
+      const monthScores = [g * 3, f * 2, g * 3, g * 1 + f * 2, f * 3]
+      for (const s of monthScores) harvestedFlowers += Math.floor(s / EXP_MAX)
     }
 
     return {
@@ -199,6 +220,7 @@ export const Route = createFileRoute('/app/profile')({
       avatar: (profileRes.data?.avatar ?? null) as string | null,
       scores: (permaRows[0] ?? null) as (PermaScores & { created_at?: string }) | null,
       experience,
+      harvestedFlowers,
       userId,
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
       streak,
@@ -1324,7 +1346,7 @@ function PartnerPlanter({ experience }: { experience: PermaScores | null }) {
 }
 
 function ProfilePage() {
-  const { name, avatar: initialAvatar, scores, experience, userId, initialEntries, streak, monthlyCount, totalCount, hasPracticedToday } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, experience, harvestedFlowers, userId, initialEntries, streak, monthlyCount, totalCount, hasPracticedToday } = Route.useLoaderData()
   const router = useRouter()
   const { t } = useLanguage()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
@@ -1473,6 +1495,9 @@ function ProfilePage() {
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
           <SectionLabel zh={t('幸福經驗值')} />
+          <p className="mt-3 whitespace-pre-line text-center text-sm font-bold" style={{ color: '#876B5F' }}>
+            {t('你和Bouba一起種了{n}朵花～\nBouba覺得跟你一起種花非常幸福ㄛ！', { n: String(harvestedFlowers) })}
+          </p>
           <PartnerPlanter experience={experience} />
         </div>
 
