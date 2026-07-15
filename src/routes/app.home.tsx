@@ -486,13 +486,13 @@ function PermaCards() {
                   alt=""
                   className="pointer-events-none absolute -left-3 bottom-[-16px] h-[138px] w-auto max-w-none object-contain opacity-95"
                 />
-                <div className="relative z-[1] px-3.5 pt-4 text-center">
+                <div className="relative z-[1] w-full px-3.5 pt-4 text-center">
                   <div className="text-[20px] font-black leading-[1.1] text-foreground">{c.en}</div>
                   {language !== 'en' && (
                     <div className="mt-1 text-[13px] font-bold leading-tight text-[#6f5547]">·{t(c.zh)}·</div>
                   )}
                 </div>
-                <div className="relative z-[1] mt-auto flex flex-col items-end gap-1 px-3.5 pb-3.5">
+                <div className="relative z-[1] mt-auto flex w-full flex-col items-end gap-1 px-3.5 pb-3.5">
                   {c.tags.map((tag) => (
                     <span
                       key={tag.t}
