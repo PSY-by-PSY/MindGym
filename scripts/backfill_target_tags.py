@@ -63,7 +63,7 @@ def map_legacy(tag: str | None) -> str | None:
 def classify_with_claude(item_1: str, item_2: str, item_3: str) -> dict[int, str]:
     """與後端 /api/tag-gratitude-targets 相同的模型與提示詞。回傳 {item: target}。"""
     msg = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5",
         max_tokens=256,
         system="你是心理學分析助手，只回傳 JSON，不要加任何前言或 markdown。",
         messages=[{

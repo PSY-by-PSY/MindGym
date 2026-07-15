@@ -5,8 +5,8 @@ export const home: Record<string, Translation> = {
   '{name}，今天想練哪塊心理肌肉？': { 'zh-CN': '{name}，今天想练哪块心理肌肉？', en: '{name}, which mental muscle do you want to train today?' },
   'PSY by PSY 健心訓練模組': { 'zh-CN': 'PSY by PSY 健心训练模组', en: 'Training Modules' },
   '← 左右滑動瀏覽更多模組 →': { 'zh-CN': '← 左右滑动浏览更多模组 →', en: '← Swipe to browse more modules →' },
-  '點擊直接開始': { 'zh-CN': '点击直接开始', en: 'Tap to start' },
   '今天的{name}！': { 'zh-CN': '今天的{name}！', en: "today's {name}!" },
+  '點擊直接開始今天的': { 'zh-CN': '点击直接开始今天的', en: "Start today's" },
   '工作坊專屬練習': { 'zh-CN': '工作坊专属练习', en: 'Workshop Exclusive Practice' },
   '施工中…': { 'zh-CN': '建置中…', en: 'Coming soon…' },
   '健心訓練中心': { 'zh-CN': '健心训练中心', en: 'Training Center' },
@@ -61,4 +61,22 @@ export const home: Record<string, Translation> = {
   '已更新': { 'zh-CN': '已更新', en: 'Updated' },
   '專業夥伴': { 'zh-CN': '专业伙伴', en: 'Practitioner' },
   '約 {n} 分鐘': { 'zh-CN': '约 {n} 分钟', en: '~{n} min' },
+  '上一週': { 'zh-CN': '上一周', en: 'Previous week' },
+  '下一週': { 'zh-CN': '下一周', en: 'Next week' },
+  '你想為自己安排哪些練習？': { 'zh-CN': '你想为自己安排哪些练习？', en: 'What would you like to practice today?' },
+  '哇！你都做完了~~Bouba覺得你好強！！！': {
+    'zh-CN': '哇！你都做完了~~Bouba觉得你好强！！！',
+    en: "Wow! You've finished them all~~ Bouba thinks you're amazing!!!",
+  },
+  '想知道 PERMA是什麼嗎？點點看這些卡片吧~': {
+    'zh-CN': '想知道 PERMA是什么吗？点点看这些卡片吧~',
+    en: 'Want to know what PERMA is? Tap these cards to find out~',
+  },
+  '安排練習': { 'zh-CN': '安排练习', en: 'Add practice' },
+  '這天還沒安排練習，點右上角的 + 開始吧': {
+    'zh-CN': '这天还没安排练习，点右上角的 + 开始吧',
+    en: 'No practice scheduled yet — tap + above to get started',
+  },
+  '安排今天的練習': { 'zh-CN': '安排今天的练习', en: 'Plan Your Practice' },
+  '勾選你今天想做的練習': { 'zh-CN': '勾选你今天想做的练习', en: 'Pick the practices you want to do' },
 }

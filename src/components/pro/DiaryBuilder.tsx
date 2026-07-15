@@ -173,7 +173,7 @@ export function DiaryBuilder({
   const steps: { key: Step; label: string }[] = [
     ...(isNew ? [{ key: 1 as Step, label: t('選日記類型') }] : []),
     { key: 2, label: t('記錄格式') },
-    { key: 3, label: t('AI 回饋') },
+    { key: 3, label: t('Bouba 回饋') },
     { key: 4, label: t('預覽') },
   ]
 
@@ -184,7 +184,7 @@ export function DiaryBuilder({
           {t('← 返回列表')}
         </button>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm font-bold text-[#3f6b46]">{t('已儲存')}</span>}
+          {saved && <span className="text-sm font-bold text-[#71744F]">{t('已儲存')}</span>}
           <button
             onClick={handleSave}
             disabled={busy}
@@ -619,7 +619,7 @@ function StepFeedback({
 
 function ShieldIcon() {
   return (
-    <svg className="h-5 w-5 shrink-0 text-[#3f6b46]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className="h-5 w-5 shrink-0 text-[#71744F]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z" />
       <path d="M9 12l2 2 4-4" />
     </svg>
@@ -655,7 +655,7 @@ function StepPreview({ title, content }: { title: string; content: DiaryModuleCo
 
       {content.feedback.daily.enabled && (
         <div className="mt-4 rounded-2xl bg-tile-mint p-4">
-          <p className="text-xs font-black uppercase tracking-[0.1em] text-[#3f6b46]">{t('AI 即時回饋')}</p>
+          <p className="text-xs font-black uppercase tracking-[0.1em] text-[#71744F]">{t('Bouba 即時回饋')}</p>
           <p className="mt-1 text-sm leading-relaxed text-foreground/85">{t('（範例）謝謝你今天願意好好陪自己看看這些感受。')}</p>
         </div>
       )}

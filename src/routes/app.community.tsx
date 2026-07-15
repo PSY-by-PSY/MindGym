@@ -13,7 +13,7 @@ import {
 import { usePullToRefresh, PULL_THRESHOLD } from '../lib/pullToRefresh'
 import { hardRefresh } from '../lib/refresh'
 import { useLanguage } from '../lib/i18n/context'
-import wordCloudImg from '../assets/ui/wordcloud.png'
+import { translateTexts, type TranslateTargetLang } from '../lib/translate'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
 
@@ -545,9 +545,8 @@ function CelebrateCheckIconSmall() {
 function Header() {
   const { t } = useLanguage()
   return (
-    <header className="mb-1">
+    <header className="mb-5 text-center">
       <h1 className="text-[25px] font-black tracking-[0.03em] text-foreground">{t('健身房動態')}</h1>
-      <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">PSY by PSY Feed</p>
       <p className="mt-3.5 text-xl font-bold tracking-[0.03em] text-muted-foreground">{t('大家今天感謝了什麼？')}</p>
     </header>
   )
@@ -1183,17 +1182,6 @@ function CommunityPage() {
       <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
         <Header />
 
-        <div
-          className="relative mb-5 mt-3.5 flex h-[200px] items-center justify-center overflow-hidden rounded-[22px]"
-          style={{ background: 'radial-gradient(circle at 50% 45%, #f3e7cf 0%, #ece0c8 55%, #FEFAF0 100%)' }}
-        >
-          <img
-            src={wordCloudImg}
-            alt={t('感恩文字雲')}
-            className="h-[184px] w-auto object-contain"
-          />
-        </div>
-
         <FeedModeToggle mode={mode} onChange={setMode} userId={userId} />
 
         {mode === 'my' ? (
@@ -1483,12 +1471,146 @@ function practiceTag(practiceType: string | null): { label: string; tile: string
   }
 }
 
+// ── 翻譯粉粿：貼文按需翻譯 ──────────────────────────────────────────────
+// 依練習類型取出這篇貼文所有「自由文字」欄位（item_1/2/3 或 payload 裡對應欄位），
+// 送去翻譯後複製一份 entry 把值換掉，其餘顯示邏輯（PracticeBodyContent）完全不用改。
+type TranslatableFieldRef = {
+  get: (e: GratitudeEntry) => string | null | undefined
+  set: (e: GratitudeEntry, v: string) => void
+}
+
+function translatableFieldRefs(entry: GratitudeEntry): TranslatableFieldRef[] {
+  const p = entry.practice_type
+  if (p === 'process_goal' && entry.payload) {
+    if (entry.payload.v === 'boost') {
+      return [
+        { get: (e) => e.payload?.situation, set: (e, v) => { if (e.payload) e.payload.situation = v } },
+        { get: (e) => e.payload?.suggestion, set: (e, v) => { if (e.payload) e.payload.suggestion = v } },
+      ]
+    }
+    return [
+      { get: (e) => e.payload?.event, set: (e, v) => { if (e.payload) e.payload.event = v } },
+      { get: (e) => e.payload?.who, set: (e, v) => { if (e.payload) e.payload.who = v } },
+      { get: (e) => e.payload?.when, set: (e, v) => { if (e.payload) e.payload.when = v } },
+      { get: (e) => e.payload?.where, set: (e, v) => { if (e.payload) e.payload.where = v } },
+      { get: (e) => e.payload?.insight, set: (e, v) => { if (e.payload) e.payload.insight = v } },
+    ]
+  }
+  if (p === 'workshop_authentic_self' && entry.payload) {
+    return [
+      { get: (e) => e.payload?.top_work, set: (e, v) => { if (e.payload) e.payload.top_work = v } },
+      { get: (e) => e.payload?.top_life, set: (e, v) => { if (e.payload) e.payload.top_life = v } },
+      { get: (e) => e.payload?.work_reason, set: (e, v) => { if (e.payload) e.payload.work_reason = v } },
+      { get: (e) => e.payload?.life_reason, set: (e, v) => { if (e.payload) e.payload.life_reason = v } },
+      { get: (e) => e.payload?.narrative, set: (e, v) => { if (e.payload) e.payload.narrative = v } },
+    ]
+  }
+  if (p === 'workshop_last_day' && entry.payload) {
+    return [
+      { get: (e) => e.payload?.farewell, set: (e, v) => { if (e.payload) e.payload.farewell = v } },
+      { get: (e) => e.payload?.description, set: (e, v) => { if (e.payload) e.payload.description = v } },
+      { get: (e) => e.payload?.action, set: (e, v) => { if (e.payload) e.payload.action = v } },
+    ]
+  }
+  if (p === 'workshop_woop' && entry.payload) {
+    return [
+      { get: (e) => e.payload?.wish, set: (e, v) => { if (e.payload) e.payload.wish = v } },
+      { get: (e) => e.payload?.outcome, set: (e, v) => { if (e.payload) e.payload.outcome = v } },
+      { get: (e) => e.payload?.obstacle, set: (e, v) => { if (e.payload) e.payload.obstacle = v } },
+      { get: (e) => e.payload?.plan, set: (e, v) => { if (e.payload) e.payload.plan = v } },
+    ]
+  }
+  if (p === 'pro_module' && entry.payload) {
+    return [
+      { get: (e) => e.payload?.module_title, set: (e, v) => { if (e.payload) e.payload.module_title = v } },
+      { get: (e) => e.payload?.excerpt, set: (e, v) => { if (e.payload) e.payload.excerpt = v } },
+    ]
+  }
+  return [
+    { get: (e) => e.item_1, set: (e, v) => { e.item_1 = v } },
+    { get: (e) => e.item_2, set: (e, v) => { e.item_2 = v } },
+    { get: (e) => e.item_3, set: (e, v) => { e.item_3 = v } },
+  ]
+}
+
+function cloneEntryWithTranslations(
+  entry: GratitudeEntry,
+  refs: TranslatableFieldRef[],
+  translations: string[],
+): GratitudeEntry {
+  const clone: GratitudeEntry = { ...entry, payload: entry.payload ? { ...entry.payload } : entry.payload }
+  refs.forEach((ref, i) => ref.set(clone, translations[i]))
+  return clone
+}
+
 // ── 貼文主體（依練習類型客製版型） ──────────────────────────────────────
 // 感恩日記＝三項條列（編號泡泡）；過程目標覺察＝事件／人時地／AI 回饋；
 // 找尋真實自我＝工作/生活最重要事件＋自我敘事；生命最後一天＝希望被記得的樣子＋行動；
 // WOOP＝願望／結果／阻礙＋If-Then 執行計畫。
-// 未來新練習：在 PracticeBody 增加一個分支 + 對應的 Body 元件即可。
+// 未來新練習：在 PracticeBodyContent 增加一個分支 + 對應的 Body 元件即可。
+//
+// 翻譯粉粿：狀態放在這一層，切換顯示時把（可能已翻譯的）entry 往下傳給
+// PracticeBodyContent，該元件與底下各 XxxBody 完全不用知道有翻譯這回事。
 function PracticeBody({ entry }: { entry: GratitudeEntry }) {
+  const { t, language } = useLanguage()
+  const [translatedEntry, setTranslatedEntry] = useState<GratitudeEntry | null>(null)
+  const [showTranslated, setShowTranslated] = useState(false)
+  const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState(false)
+
+  // 原文一律是繁體中文；只有切到簡中/英文時才有翻譯的意義。
+  const canTranslate = language === 'en' || language === 'zh-CN'
+
+  const handleClick = async () => {
+    if (showTranslated) {
+      setShowTranslated(false)
+      return
+    }
+    if (translatedEntry) {
+      setShowTranslated(true)
+      return
+    }
+    const refs = translatableFieldRefs(entry).filter((ref) => {
+      const v = ref.get(entry)
+      return v != null && String(v).trim() !== ''
+    })
+    if (refs.length === 0) return
+    setTranslating(true)
+    setTranslateError(false)
+    const values = refs.map((ref) => String(ref.get(entry)))
+    const result = await translateTexts(values, language as TranslateTargetLang)
+    setTranslating(false)
+    if (!result) {
+      setTranslateError(true)
+      return
+    }
+    setTranslatedEntry(cloneEntryWithTranslations(entry, refs, result))
+    setShowTranslated(true)
+  }
+
+  const displayEntry = showTranslated && translatedEntry ? translatedEntry : entry
+
+  return (
+    <>
+      <PracticeBodyContent entry={displayEntry} />
+      {canTranslate && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleClick()}
+            disabled={translating}
+            className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:opacity-60"
+          >
+            {translating ? t('翻譯中…') : showTranslated ? t('顯示原文') : t('翻譯粉粿')}
+          </button>
+          {translateError && <span className="text-xs font-semibold text-red-500">{t('翻譯失敗，請稍後再試')}</span>}
+        </div>
+      )}
+    </>
+  )
+}
+
+function PracticeBodyContent({ entry }: { entry: GratitudeEntry }) {
   if (entry.practice_type === 'process_goal' && entry.payload) {
     return <ProcessGoalBody payload={entry.payload} />
   }
@@ -1508,8 +1630,7 @@ function PracticeBody({ entry }: { entry: GratitudeEntry }) {
   return (
     <ul className="mt-4 flex flex-col gap-3">
       {items.map((item, i) => (
-        <li key={i} className="relative ml-1.5 flex gap-2 rounded-xl bg-cream py-3.5 pl-[18px] pr-4">
-          <span className="absolute -left-3 top-1/2 h-[15px] w-[26px] -translate-y-1/2 -rotate-[8deg] rounded-[50%] border-4 border-[#6b4a36] border-t-[#46291c] bg-transparent" />
+        <li key={i} className="flex gap-2 rounded-xl bg-cream py-3.5 pl-[18px] pr-4">
           <span className="shrink-0 text-[15px] font-extrabold text-foreground">{i + 1}.</span>
           <span className="text-[15px] leading-[1.55] text-foreground-soft">{item}</span>
         </li>
@@ -1543,7 +1664,7 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
     return (
       <div className="mt-4 flex flex-col gap-2">
         {payload.situation && <PgFieldBlock label={t('我遇到的困境')} value={payload.situation} />}
-        {payload.suggestion && <PgAiBlock label={t('AI 專注錦囊')} value={payload.suggestion} />}
+        {payload.suggestion && <PgAiBlock label={t('Bouba 專注錦囊')} value={payload.suggestion} />}
       </div>
     )
   }
@@ -1571,7 +1692,7 @@ function ProcessGoalBody({ payload }: { payload: PracticePayload }) {
           </div>
         </div>
       )}
-      {payload.insight && <PgAiBlock label={t('AI 回饋')} value={payload.insight} />}
+      {payload.insight && <PgAiBlock label={t('Bouba 回饋')} value={payload.insight} />}
     </div>
   )
 }

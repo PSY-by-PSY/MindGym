@@ -14,7 +14,7 @@ export const TARGET_META: Record<TargetCode, { label: string }> = {
 export const TARGET_COLORS: Record<TargetCode, string> = {
   self:        '#F1C166',
   others:      '#88B8CE',
-  environment: '#7BA86E',
+  environment: '#B9B078',
   experience:  '#C99A6A',
   custom:      '#D18197',
 }

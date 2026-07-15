@@ -57,7 +57,7 @@ export async function fetchNotifications(
       type: 'like',
       entryId: l.entry_id as string,
       createdAt: l.created_at as string,
-      title: t('有人為你的感恩貼文按讚'),
+      title: t('有人為你的貼文按讚'),
       snippet: snippetById[l.entry_id as string] ?? '',
     })
   }

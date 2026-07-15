@@ -84,7 +84,8 @@ function TopHeader() {
       {/* safe-area padding 疊加在「內容列之上」：header 總高 = safe-area + 56px。
           內容列固定 h-14（56px），不被瀏海/動態島的 inset 壓縮，圖示才不會跑位。 */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#FEFAF0]/95 shadow-[0_3px_12px_rgba(0,0,0,0.05)] backdrop-blur-md pt-[env(safe-area-inset-top)]">
-        <div className="flex h-14 items-center justify-between px-5">
+        {/* mx-auto max-w-md：跟內容欄位、底部導覽列、浮標同一欄位對齊，避免畫面變寬時 logo/icons 貼著瀏覽器邊緣、跟內容欄位對不齊 */}
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
           {/* 左側佔位（維持 logo 置中） */}
           <div className="w-24" />
 
@@ -123,8 +124,8 @@ function TopHeader() {
 
       {/* Side Drawer */}
       <aside
-        className={`fixed top-0 right-0 z-50 flex h-full w-[300px] flex-col overflow-y-auto bg-[#FEFAF0] shadow-[-10px_0_30px_rgba(40,24,12,0.25)] transition-transform duration-300 ${
-          drawerOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed top-0 right-0 z-50 flex h-full w-[300px] flex-col overflow-y-auto bg-[#FEFAF0] transition-transform duration-300 ${
+          drawerOpen ? 'translate-x-0 shadow-[-10px_0_30px_rgba(40,24,12,0.25)]' : 'translate-x-full'
         }`}
       >
         <div className="flex items-center justify-between px-7 pb-3 pt-[calc(env(safe-area-inset-top)+1.6rem)]">
@@ -615,35 +616,33 @@ function BottomNav({ hidden }: { hidden: boolean }) {
   const { t } = useLanguage()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
+  // 一般 App 常見的滿版底部工具列，之後要加分頁只需在這裡加項目。
   const tabs = [
-    { to: '/app/home', label: t('首頁'), icon: <HomeIcon />, alwaysLabel: true },
-    { to: '/app/community', label: t('社群'), icon: <UsersIcon />, alwaysLabel: false },
-    { to: '/app/profile', label: t('個人'), icon: <UserIcon />, alwaysLabel: false },
+    { to: '/app/home', label: t('首頁'), icon: <HomeIcon /> },
+    { to: '/app/community', label: t('社群'), icon: <UsersIcon /> },
+    { to: '/app/profile', label: t('個人'), icon: <UserIcon /> },
   ] as const
 
   return (
     <nav
-      className={`pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-[calc(1.4rem+env(safe-area-inset-bottom))] transition-transform duration-300 ${
-        hidden ? 'translate-y-[150%]' : 'translate-y-0'
+      className={`fixed inset-x-0 bottom-0 z-50 border-t-2 border-[#542916]/12 bg-[#FEFAF0] pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(40,24,12,0.1)] transition-transform duration-300 ${
+        hidden ? 'translate-y-full' : 'translate-y-0'
       }`}
     >
-      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border-2 border-[#542916] bg-[#FEFAF0]/[0.92] px-3.5 py-2.5 shadow-[0_8px_20px_rgba(40,24,12,0.18)] backdrop-blur-md">
+      <div className="mx-auto flex max-w-md items-stretch justify-around">
         {tabs.map((tab) => {
           const isActive = pathname === tab.to || pathname.startsWith(tab.to + '/')
-          const showLabel = isActive || tab.alwaysLabel
           return (
             <Link
               key={tab.to}
               to={tab.to}
               data-status={isActive ? 'active' : undefined}
-              className={`flex items-center gap-2 rounded-full px-[18px] py-3 transition active:scale-95 ${
-                isActive ? 'bg-[#542916] text-[#FEFAF0]' : 'bg-transparent text-[#542916]'
+              className={`flex flex-1 flex-col items-center gap-1 py-2.5 transition active:scale-95 ${
+                isActive ? 'text-[#542916]' : 'text-[#542916]/40'
               }`}
             >
               {tab.icon}
-              {showLabel && (
-                <span className="text-[15px] font-semibold tracking-[0.04em]">{tab.label}</span>
-              )}
+              <span className="text-[11px] font-semibold tracking-[0.04em]">{tab.label}</span>
             </Link>
           )
         })}

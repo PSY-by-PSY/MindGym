@@ -229,7 +229,7 @@ function ProModulePlayer() {
         <button
           aria-label={t('返回')}
           onClick={() => navigate({ to: '/app/home' })}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground transition hover:bg-muted active:scale-90"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition hover:bg-muted active:scale-90"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 5l-7 7 7 7" />
@@ -386,7 +386,7 @@ function DoneScreen({
   const { t } = useLanguage()
   return (
     <div className="animate-fade-up flex flex-col items-center pt-8 text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tile-mint text-[#3f6b46]">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tile-mint text-[#71744F]">
         <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 12l5 5L20 6" />
         </svg>

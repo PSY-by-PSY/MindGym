@@ -95,6 +95,17 @@ function RadarChart({ scores, max = 5 }: { scores: InMindReport['scores']; max?:
       {keys.map((k) => {
         const L = labelLayout[k]
         const score = (scores[k] ?? 0).toFixed(1)
+        const label = t(PERMA[k].zh)
+        // 估計文字寬度，翻譯過長（如英文）時可能超出 320 寬的畫布邊界，
+        // 用 textLength 壓縮成剛好塞得下的寬度，避免被裁切。
+        const estWidth = label.length * 6.5
+        const safeWidth =
+          L.smallAnchor === 'start'
+            ? 320 - L.smallX - 4
+            : L.smallAnchor === 'end'
+              ? L.smallX - 4
+              : Math.min(L.smallX, 320 - L.smallX) * 2 - 4
+        const needsCompress = estWidth > safeWidth && safeWidth > 10
         return (
           <g key={k}>
             <text
@@ -110,8 +121,17 @@ function RadarChart({ scores, max = 5 }: { scores: InMindReport['scores']; max?:
             >
               {k}
             </text>
-            <text x={L.smallX} y={L.smallY} fontFamily="Noto Sans TC" fontWeight="700" fontSize="11" textAnchor={L.smallAnchor} fill="#151515">
-              {t(PERMA[k].zh)}
+            <text
+              x={L.smallX}
+              y={L.smallY}
+              fontFamily="Noto Sans TC"
+              fontWeight="700"
+              fontSize="11"
+              textAnchor={L.smallAnchor}
+              fill="#151515"
+              {...(needsCompress ? { textLength: safeWidth, lengthAdjust: 'spacingAndGlyphs' as const } : {})}
+            >
+              {label}
             </text>
             <text x={L.smallX} y={L.smallY + 14} fontFamily="Inter" fontWeight="500" fontSize="11" textAnchor={L.smallAnchor} fill="#959595">
               {t('{score}分', { score })}

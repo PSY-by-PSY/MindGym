@@ -55,4 +55,26 @@ export const admin: Record<string, Translation> = {
   '狀態': { 'zh-CN': '状态', en: 'Status' },
   '已知悉': { 'zh-CN': '已知悉', en: 'Acknowledged' },
   '未處理': { 'zh-CN': '未处理', en: 'Unhandled' },
+
+  // App 版本控管
+  'App 版本控管': { 'zh-CN': 'App 版本管控', en: 'App Version Control' },
+  '把某平台的「最低版本」調高，低於這個版本的使用者下次開 App 會被全螢幕擋下、導去商店更新，無法略過。網頁版使用者不受影響。': {
+    'zh-CN': '把某平台的「最低版本」调高，低于这个版本的用户下次开 App 会被全屏挡下、导去商店更新，无法略过。网页版用户不受影响。',
+    en: 'Raise the "minimum version" for a platform, and users below it will be blocked full-screen and sent to the store on next launch — no skipping. Web users are unaffected.',
+  },
+  '目前門檻 {v}': { 'zh-CN': '当前门槛 {v}', en: 'Current threshold: {v}' },
+  '尚未設定': { 'zh-CN': '尚未设置', en: 'Not set' },
+  '最低版本號': { 'zh-CN': '最低版本号', en: 'Minimum version' },
+  '商店更新連結（選填）': { 'zh-CN': '商店更新链接（选填）', en: 'Store update link (optional)' },
+  '自訂說明文字（選填，留空用預設文案）': {
+    'zh-CN': '自定义说明文字（选填，留空用默认文案）',
+    en: 'Custom message (optional, falls back to default copy if left blank)',
+  },
+  '請填寫最低版本號': { 'zh-CN': '请填写最低版本号', en: 'Please enter a minimum version' },
+  '確認調整 {platform} 的更新門檻？': { 'zh-CN': '确认调整 {platform} 的更新门槛？', en: 'Confirm updating the {platform} threshold?' },
+  '低於 {v} 的使用者下次開 App 會被強制要求更新，無法略過。請確認版本號填寫正確。': {
+    'zh-CN': '低于 {v} 的用户下次开 App 会被强制要求更新，无法略过。请确认版本号填写正确。',
+    en: 'Users below {v} will be forced to update on next launch, with no way to skip. Please double-check the version number.',
+  },
+  '確認儲存': { 'zh-CN': '确认保存', en: 'Confirm Save' },
 }

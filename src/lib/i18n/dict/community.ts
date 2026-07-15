@@ -16,6 +16,12 @@ export const community: Record<string, Translation> = {
   '放開以重整': { 'zh-CN': '松开以刷新', en: 'Release to refresh' },
   '下拉重整': { 'zh-CN': '下拉刷新', en: 'Pull to refresh' },
 
+  // 翻譯粉粿：貼文按需翻譯
+  '翻譯粉粿': { 'zh-CN': '翻译粉粿', en: 'Translate' },
+  '翻譯中…': { 'zh-CN': '翻译中…', en: 'Translating…' },
+  '顯示原文': { 'zh-CN': '显示原文', en: 'Show original' },
+  '翻譯失敗，請稍後再試': { 'zh-CN': '翻译失败，请稍后再试', en: 'Translation failed, please try again later' },
+
   // Daily modal
   '關閉': { 'zh-CN': '关闭', en: 'Close' },
   '今日社群動態': { 'zh-CN': '今日社区动态', en: "Today's Community Post" },
@@ -90,10 +96,10 @@ export const community: Record<string, Translation> = {
 
   // Practice body labels
   '我遇到的困境': { 'zh-CN': '我遇到的困境', en: 'The challenge I faced' },
-  'AI 專注錦囊': { 'zh-CN': 'AI 专注锦囊', en: 'AI Focus Tips' },
+  'Bouba 專注錦囊': { 'zh-CN': 'Bouba 专注锦囊', en: 'Bouba Focus Tips' },
   '最讓我感到專注的': { 'zh-CN': '最让我感到专注的', en: 'What made me feel most focused' },
   '我通常在這樣的條件下完成': { 'zh-CN': '我通常在这样的条件下完成', en: 'I usually get this done under these conditions' },
-  'AI 回饋': { 'zh-CN': 'AI 反馈', en: 'AI Feedback' },
+  'Bouba 回饋': { 'zh-CN': 'Bouba 反馈', en: 'Bouba Feedback' },
   '人': { 'zh-CN': '人', en: 'Who' },
   '時': { 'zh-CN': '时', en: 'When' },
   '地': { 'zh-CN': '地', en: 'Where' },

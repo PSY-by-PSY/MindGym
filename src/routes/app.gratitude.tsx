@@ -558,7 +558,7 @@ function IntroStage({
         />
         <button
           onClick={onGoBack}
-          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          className="absolute left-1 top-1 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
           aria-label={t('返回')}
         >
           <BackIcon />
@@ -570,11 +570,7 @@ function IntroStage({
       </div>
 
       {/* 3-A 大標題 */}
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記練習')}</h1>
-      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Gratitude Journal</p>
-
-      {/* 本週打卡條 */}
-      <WeeklyCheckinStrip />
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記')}</h1>
 
       {/* 3-C 常駐描述（黃色卡） */}
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
@@ -682,8 +678,7 @@ function IntroStage({
       </div>
 
       {/* 3-E 難度選擇 */}
-      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('依據你今天的能量挑一個強度')}</h3>
-      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose Intensity</p>
+      <h3 className="mb-3 mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('依據你今天的能量挑一個強度')}</h3>
       <div className="flex gap-3">
         <button
           onClick={() => onChangeDifficulty('basic')}
@@ -801,7 +796,7 @@ function WritingStage({
       {/* Back button */}
       <button
         onClick={onBack}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
         aria-label={t('返回')}
       >
         <BackIcon />
@@ -1048,67 +1043,6 @@ function SparklesIcon() {
   )
 }
 
-/** 本週打卡條（週一–週日），資料來源：本人 gratitude_entries 近 7 日。用於 INTRO 階段。 */
-function WeeklyCheckinStrip() {
-  const [dates, setDates] = useState<Set<string> | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user.id
-      if (!uid) return
-      const now = new Date()
-      const day = now.getDay()
-      const diff = day === 0 ? -6 : 1 - day
-      const monday = new Date(now)
-      monday.setDate(monday.getDate() + diff)
-      monday.setHours(0, 0, 0, 0)
-      const sunday = new Date(monday)
-      sunday.setDate(sunday.getDate() + 6)
-      const { data } = await supabase
-        .from('gratitude_entries')
-        .select('entry_date')
-        .eq('user_id', uid)
-        .eq('practice_type', 'gratitude')
-        .gte('entry_date', isoLocalDate(monday))
-        .lte('entry_date', isoLocalDate(sunday))
-      if (!cancelled) setDates(new Set((data ?? []).map((r) => String(r.entry_date))))
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  if (!dates) return null
-
-  const now = new Date()
-  const day = now.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(now)
-  monday.setDate(monday.getDate() + diff)
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(d.getDate() + i)
-    return isoLocalDate(d)
-  })
-
-  return (
-    <div className="mt-4 flex justify-between rounded-2xl bg-card px-3 py-2.5 shadow-soft">
-      {weekDates.map((d) => (
-        <span
-          key={d}
-          className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-            dates.has(d) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          {new Date(d + 'T00:00:00').getDate()}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 /** SUMMARY 底部的「回顧預告」鎖定卡：本週已記錄 N 天／滿 3 天將於週日晚間生成週回顧。 */
 function ReviewPreviewCard({ mode }: { mode: 'edit' | 'view' }) {
   const { t } = useLanguage()
@@ -1255,7 +1189,7 @@ function SummaryStage({
         <button
           onClick={onBack}
           disabled={submitting}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#efe7d6] bg-white text-foreground shadow-[0_2px_5px_rgba(0,0,0,0.06)] transition active:scale-90 disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90 disabled:opacity-50"
           aria-label={mode === 'edit' ? t('返回編輯日記') : t('返回')}
         >
           <BackIcon />
@@ -1292,9 +1226,9 @@ function SummaryStage({
       ) : displayResult ? (
         <div className="mb-6 flex flex-col gap-3">
           <div className="rounded-3xl bg-tile-mint p-5 shadow-soft">
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#3f6b46]">
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#71744F]">
               <SparklesIcon />
-              {t('AI 即時回饋')}
+              {t('Bouba 即時回饋')}
             </p>
             <p className="text-sm leading-relaxed text-foreground">{displayResult.emotional_summary}</p>
           </div>
@@ -1554,7 +1488,7 @@ function ShareCard({
 const TARGET_COLORS: Record<TargetCode, string> = {
   others:      '#6BAED6',
   self:        '#FD8D3C',
-  environment: '#74C476',
+  environment: '#B9B078',
   experience:  '#9E9AC8',
   custom:      '#BDBDBD',
 }
@@ -1735,7 +1669,7 @@ function CelebrateStage({
       {/* 返回鍵：回到 AI 日記頁面查看（唯讀，不重新生成） */}
       <button
         onClick={onBack}
-        className="mb-3 flex h-9 w-9 items-center justify-center self-start rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        className="mb-3 flex h-8 w-8 items-center justify-center self-start rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
         aria-label={t('返回查看 AI 日記')}
       >
         <BackIcon />

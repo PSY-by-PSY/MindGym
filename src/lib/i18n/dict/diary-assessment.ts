@@ -60,7 +60,7 @@ export const diaryAssessment: Record<string, Translation> = {
   // ── DiaryBuilder：步驟導覽 / 記錄格式 / 提醒時間 ─────────────────────────
   '選日記類型': { 'zh-CN': '选日记类型', en: 'Choose diary type' },
   '記錄格式': { 'zh-CN': '记录格式', en: 'Entry format' },
-  'AI 回饋': { 'zh-CN': 'AI 回馈', en: 'AI Feedback' },
+  'Bouba 回饋': { 'zh-CN': 'Bouba 回馈', en: 'Bouba Feedback' },
   '預覽': { 'zh-CN': '预览', en: 'Preview' },
   '每日要填的題目': { 'zh-CN': '每日要填的题目', en: 'Questions to fill in daily' },
   '提醒時間': { 'zh-CN': '提醒时间', en: 'Reminder time' },
@@ -109,7 +109,7 @@ export const diaryAssessment: Record<string, Translation> = {
   // ── DiaryPlayer：週打卡條 / 每日紀錄 / 回饋卡 ────────────────────────────
   '第 {n} 天 · 由 {name} 為你設計': { 'zh-CN': '第 {n} 天 · 由 {name} 为你设计', en: 'Day {n} · Designed for you by {name}' },
   '完成今天的紀錄': { 'zh-CN': '完成今天的记录', en: 'Finish today’s entry' },
-  'AI 即時回饋': { 'zh-CN': 'AI 即时回馈', en: 'AI Instant Feedback' },
+  'Bouba 即時回饋': { 'zh-CN': 'Bouba 即时回馈', en: 'Bouba Instant Feedback' },
   '整體回饋': { 'zh-CN': '整体回馈', en: 'Overall Feedback' },
   '一週成長報告': { 'zh-CN': '一周成长报告', en: 'Weekly Growth Report' },
   '還差 {n} 則解鎖': { 'zh-CN': '还差 {n} 则解锁', en: '{n} more entries to unlock' },

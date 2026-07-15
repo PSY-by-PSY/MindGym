@@ -1,11 +1,13 @@
 // 管理後台（/admin）— 隱藏頂層路由，桌機優先。非 admin（含一般登入者）看到通用「找不到頁面」，
-// 不透露這是後台。四分頁：夥伴申請、模組審核（AI 標籤僅供參考）、已上架模組、危機警示總覽。
-// 審核動作走 SECURITY DEFINER RPC（內含 is_admin 檢查）。
+// 不透露這是後台。分頁：夥伴申請、模組審核（AI 標籤僅供參考）、已上架模組、危機警示總覽、
+// App 版本控管（強制更新門檻）、使用者預覽（模組市集）。
+// 審核與版本控管動作皆走 SECURITY DEFINER RPC（內含 is_admin 檢查）。
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
+import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent, AssessmentModuleContent } from '../lib/proModules'
@@ -115,31 +117,34 @@ function Spinner() {
 
 // ── 主控台（四分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'applications' | 'reviews' | 'published' | 'crises'
+type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'appVersion' | 'preview'
 
 function AdminConsole() {
   const { t } = useLanguage()
   const [tab, setTab] = useState<Tab>('applications')
 
-  const TABS: { key: Tab; label: string }[] = [
+  const TABS: { key: Tab; label: string; icon?: React.ReactNode }[] = [
     { key: 'applications', label: t('夥伴申請') },
     { key: 'reviews', label: t('模組審核') },
     { key: 'published', label: t('已上架模組') },
     { key: 'crises', label: t('危機警示總覽') },
+    { key: 'appVersion', label: t('App 版本控管') },
+    { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
       <aside className="flex flex-wrap gap-2 lg:flex-col">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-2xl px-4 py-2.5 text-left text-[15px] font-bold transition ${
-              tab === t.key ? 'bg-foreground text-cream shadow-soft' : 'bg-card text-foreground hover:bg-muted'
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
+            className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-left text-[15px] font-bold transition ${
+              tab === tb.key ? 'bg-foreground text-cream shadow-soft' : 'bg-card text-foreground hover:bg-muted'
             }`}
           >
-            {t.label}
+            {tb.icon}
+            {tb.label}
           </button>
         ))}
       </aside>
@@ -148,6 +153,8 @@ function AdminConsole() {
         {tab === 'reviews' && <ModuleReviewTab />}
         {tab === 'published' && <PublishedModulesTab />}
         {tab === 'crises' && <CrisisOverviewTab />}
+        {tab === 'appVersion' && <AppVersionTab />}
+        {tab === 'preview' && <MarketplacePreview />}
       </section>
     </div>
   )
@@ -413,7 +420,7 @@ function ModuleReviewTab() {
 
 const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
   practice: { label: '練習', cls: 'bg-muted text-muted-foreground' },
-  diary: { label: '日記', cls: 'bg-tile-mint text-[#3f6b46]' },
+  diary: { label: '日記', cls: 'bg-tile-mint text-[#71744F]' },
   assessment: { label: '測驗', cls: 'bg-tile-peach text-[#8a6320]' },
 }
 
@@ -427,7 +434,7 @@ function KindBadge({ kind }: { kind: ProModuleKind }) {
 }
 
 const RISK_META: Record<string, { label: string; cls: string }> = {
-  low: { label: '低風險', cls: 'bg-tile-mint text-[#3f6b46]' },
+  low: { label: '低風險', cls: 'bg-tile-mint text-[#71744F]' },
   medium: { label: '中風險', cls: 'bg-gold text-[#5b3a12]' },
   high: { label: '高風險', cls: 'bg-rust text-white' },
 }
@@ -561,7 +568,7 @@ function FindingList({ title, findings }: { title: string; findings?: AiReview['
     return (
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
-        <p className="mt-1 text-sm text-[#3f6b46]">{t('未發現疑慮。')}</p>
+        <p className="mt-1 text-sm text-[#71744F]">{t('未發現疑慮。')}</p>
       </div>
     )
   }
@@ -753,7 +760,7 @@ function CrisisOverviewTab() {
                   <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
                   <td className="px-4 py-3">
                     {r.acknowledged_at ? (
-                      <span className="text-[#3f6b46]">{t('已知悉')}</span>
+                      <span className="text-[#71744F]">{t('已知悉')}</span>
                     ) : (
                       <span className="font-bold text-rust">{t('未處理')}</span>
                     )}
@@ -764,6 +771,222 @@ function CrisisOverviewTab() {
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── App 版本控管 ────────────────────────────────────────────────────────────
+// 管理 app_config 表：低於 min_version 的原生殼會被 src/lib/appVersion.ts
+// 全螢幕擋下強制更新。寫入走 update_app_config RPC（內含 is_admin 檢查），
+// 詳見 supabase/app_config.sql 開頭註解。
+
+type AppPlatform = 'ios' | 'android'
+
+type AppConfigRow = {
+  platform: AppPlatform
+  min_version: string
+  update_url: string | null
+  update_message: string | null
+  updated_at: string
+}
+
+const PLATFORMS: { key: AppPlatform; label: string }[] = [
+  { key: 'ios', label: 'iOS' },
+  { key: 'android', label: 'Android' },
+]
+
+function AppVersionTab() {
+  const { t } = useLanguage()
+  const [rows, setRows] = useState<Record<AppPlatform, AppConfigRow | null> | null>(null)
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('app_config').select('*')
+    const list = (data as AppConfigRow[]) ?? []
+    setRows({
+      ios: list.find((r) => r.platform === 'ios') ?? null,
+      android: list.find((r) => r.platform === 'android') ?? null,
+    })
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  if (rows === null) return <Spinner />
+
+  return (
+    <div>
+      <h1 className="mb-1 text-xl font-black text-foreground">{t('App 版本控管')}</h1>
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+        {t('把某平台的「最低版本」調高，低於這個版本的使用者下次開 App 會被全螢幕擋下、導去商店更新，無法略過。網頁版使用者不受影響。')}
+      </p>
+      <div className="flex flex-col gap-4">
+        {PLATFORMS.map((p) => (
+          <PlatformConfigCard key={p.key} platform={p.key} label={p.label} row={rows[p.key]} onSaved={load} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlatformConfigCard({
+  platform,
+  label,
+  row,
+  onSaved,
+}: {
+  platform: AppPlatform
+  label: string
+  row: AppConfigRow | null
+  onSaved: () => Promise<void>
+}) {
+  const { t } = useLanguage()
+  const [minVersion, setMinVersion] = useState(row?.min_version ?? '')
+  const [updateUrl, setUpdateUrl] = useState(row?.update_url ?? '')
+  const [updateMessage, setUpdateMessage] = useState(row?.update_message ?? '')
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const dirty =
+    minVersion.trim() !== (row?.min_version ?? '') ||
+    updateUrl.trim() !== (row?.update_url ?? '') ||
+    updateMessage.trim() !== (row?.update_message ?? '')
+
+  const save = async () => {
+    if (!minVersion.trim()) {
+      setError(t('請填寫最低版本號'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    const { error } = await supabase.rpc('update_app_config', {
+      p_platform: platform,
+      p_min_version: minVersion.trim(),
+      p_update_url: updateUrl.trim() || null,
+      p_update_message: updateMessage.trim() || null,
+    })
+    setBusy(false)
+    setConfirming(false)
+    if (error) {
+      console.error('[update app_config]', error)
+      setError(t('儲存失敗，請稍後再試。'))
+      return
+    }
+    await onSaved()
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[17px] font-black text-foreground">{label}</h2>
+        {row ? (
+          <span className="text-xs text-muted-foreground">
+            {t('目前門檻 {v}', { v: row.min_version })}
+          </span>
+        ) : (
+          <span className="rounded-full bg-tile-peach px-2 py-0.5 text-[11px] font-extrabold text-[#8a6320]">
+            {t('尚未設定')}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3">
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            {t('最低版本號')}
+          </span>
+          <input
+            value={minVersion}
+            onChange={(e) => setMinVersion(e.target.value)}
+            placeholder="1.2"
+            className="w-40 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            {t('商店更新連結（選填）')}
+          </span>
+          <input
+            value={updateUrl}
+            onChange={(e) => setUpdateUrl(e.target.value)}
+            placeholder="https://apps.apple.com/app/id..."
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            {t('自訂說明文字（選填，留空用預設文案）')}
+          </span>
+          <textarea
+            value={updateMessage}
+            rows={2}
+            onChange={(e) => setUpdateMessage(e.target.value)}
+            className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </label>
+      </div>
+
+      {error && <p className="mt-3 text-sm font-bold text-rust">{error}</p>}
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={busy || !dirty}
+          className="rounded-full bg-gradient-primary px-5 py-2 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
+        >
+          {t('儲存')}
+        </button>
+        {saved && <span className="text-sm font-bold text-[#3f6b46]">{t('已儲存')}</span>}
+      </div>
+
+      {confirming && (
+        <ConfirmDialog
+          title={t('確認調整 {platform} 的更新門檻？', { platform: label })}
+          body={t('低於 {v} 的使用者下次開 App 會被強制要求更新，無法略過。請確認版本號填寫正確。', { v: minVersion.trim() })}
+          confirmLabel={busy ? t('儲存中…') : t('確認儲存')}
+          onConfirm={save}
+          onCancel={() => !busy && setConfirming(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  body: string
+  confirmLabel: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const { t } = useLanguage()
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1c1714]/40 px-6" onClick={onCancel}>
+      <div className="w-full max-w-sm rounded-[24px] bg-background p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-black text-foreground">{title}</h2>
+        <p className="mt-2 text-[15px] leading-relaxed text-foreground/80">{body}</p>
+        <div className="mt-5 flex flex-col gap-2">
+          <button
+            onClick={onConfirm}
+            className="w-full rounded-full bg-gradient-primary py-3 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
+          >
+            {confirmLabel}
+          </button>
+          <button onClick={onCancel} className="w-full rounded-full py-2.5 text-sm font-bold text-muted-foreground">
+            {t('取消')}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

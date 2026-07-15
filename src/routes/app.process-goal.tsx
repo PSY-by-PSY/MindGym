@@ -10,12 +10,12 @@ import { useStageBack } from '../lib/useStageBack'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
-import heartsBanner from '../assets/ui/hearts-banner.png'
+import processGoalBanner from '../assets/ui/process-goal-intro-banner.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
 // 模組專用配色（對齊新版暖色設計）
-const TEAL = { backgroundColor: '#d7ebd9', color: '#3f6b46' }
+const TEAL = { backgroundColor: '#E8E7D3', color: '#71744F' }
 const PURPLE_BG = { backgroundColor: '#f3ead9', color: '#542916' }
 const PURPLE = '#542916'
 
@@ -385,7 +385,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
     <button
       type="button"
       onClick={onBack}
-      className="mb-4 flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+      className="mb-4 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
       aria-label={t('返回')}
     >
       <PgBackIcon />
@@ -507,15 +507,15 @@ function Intro({
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
       {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
-      <div className="relative -mx-5 h-[170px] overflow-hidden">
+      <div className="relative -mx-5 -mt-4 h-[170px] overflow-hidden">
         <img
-          src={heartsBanner}
+          src={processGoalBanner}
           alt=""
           className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
         />
         <button
           onClick={onGoBack}
-          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          className="absolute left-1 top-1 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
           aria-label={t('返回')}
         >
           <PgBackIcon />
@@ -526,8 +526,7 @@ function Intro({
         </div>
       </div>
 
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('過程目標覺察練習')}</h1>
-      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Process Goal Awareness</p>
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('過程目標覺察')}</h1>
 
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。')}
@@ -580,8 +579,7 @@ function Intro({
         ))}
       </div>
 
-      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('今天想做哪一個？')}</h3>
-      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose a Module</p>
+      <h3 className="mb-3 mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('今天想做哪一個？')}</h3>
       <p className="mb-3 text-sm text-muted-foreground">
         {getPgBoosts(t).map(({ label, delta }) => (
           <span key={label} className="mr-3">

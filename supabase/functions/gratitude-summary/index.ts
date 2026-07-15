@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
         : '使用者選擇了「初階」模式，請以溫柔、平實、簡短的語氣陪伴。'
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5',
       max_tokens: 256,
       system:
         '你是一位心理學取向的健心教練，回應請使用繁體中文，語氣溫暖、不批判、有陪伴感。只回傳純文字摘要，不要加標題、不要加引號、不要使用 Markdown。',
@@ -56,7 +56,7 @@ ${tone}
       ],
     })
 
-    await meterClaude('gratitude-summary-edge', 'claude-sonnet-4-6', message.usage)
+    await meterClaude('gratitude-summary-edge', 'claude-haiku-4-5', message.usage)
 
     const block = message.content[0]
     if (!block || block.type !== 'text') {
