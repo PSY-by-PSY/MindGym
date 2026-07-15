@@ -496,10 +496,10 @@ function PermaCards() {
                   {c.tags.map((tag) => (
                     <span
                       key={tag.t}
-                      className="flex items-center gap-1 whitespace-nowrap rounded-full border-[1.5px] border-[#6f5547] bg-cream px-2.5 py-0.5 text-xs font-bold text-foreground"
+                      className="flex max-w-full items-center gap-1 overflow-hidden rounded-full border-[1.5px] border-[#6f5547] bg-cream px-2.5 py-0.5 text-xs font-bold text-foreground"
                     >
                       <i className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tag.c }} />
-                      {t(tag.t)}
+                      <span className="min-w-0 truncate">{t(tag.t)}</span>
                     </span>
                   ))}
                 </div>
