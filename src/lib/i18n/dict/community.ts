@@ -96,7 +96,7 @@ export const community: Record<string, Translation> = {
 
   // Practice body labels
   '我遇到的困境': { 'zh-CN': '我遇到的困境', en: 'The challenge I faced' },
-  'AI 專注錦囊': { 'zh-CN': 'AI 专注锦囊', en: 'AI Focus Tips' },
+  'Bouba 專注錦囊': { 'zh-CN': 'Bouba 专注锦囊', en: 'Bouba Focus Tips' },
   '最讓我感到專注的': { 'zh-CN': '最让我感到专注的', en: 'What made me feel most focused' },
   '我通常在這樣的條件下完成': { 'zh-CN': '我通常在这样的条件下完成', en: 'I usually get this done under these conditions' },
   'Bouba 回饋': { 'zh-CN': 'Bouba 反馈', en: 'Bouba Feedback' },

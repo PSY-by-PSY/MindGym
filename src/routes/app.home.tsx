@@ -580,51 +580,55 @@ function WeekCalendar({
   const { t } = useLanguage()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const monthName = selectedDay.toLocaleDateString('en-US', { month: 'long' })
 
   return (
-    <div className="mb-3.5 flex items-center gap-1">
-      <button
-        type="button"
-        onClick={onPrevWeek}
-        aria-label={t('上一週')}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#a99a86] transition active:scale-90"
-      >
-        <WeekArrowIcon direction="prev" />
-      </button>
-      <div className="flex flex-1 gap-1.5">
-        {weekDays.map((day, i) => {
-          const isToday = day.getTime() === today.getTime()
-          const isSelected = day.getTime() === selectedDay.getTime()
-          return (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onSelectDay(day)}
-              className="flex flex-1 flex-col items-center gap-1.5"
-            >
-              <div
-                className={`flex h-[38px] w-[38px] items-center justify-center rounded-full text-sm font-bold transition ${
-                  isSelected
-                    ? 'bg-foreground text-cream'
-                    : 'border border-[#e3dccd] bg-cream text-muted-foreground'
-                }`}
+    <>
+      <p className="mb-2 text-center font-sans text-[26px] font-black tracking-[0.03em] text-foreground">{monthName}</p>
+      <div className="mb-3.5 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onPrevWeek}
+          aria-label={t('上一週')}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#a99a86] transition active:scale-90"
+        >
+          <WeekArrowIcon direction="prev" />
+        </button>
+        <div className="flex flex-1 gap-1.5">
+          {weekDays.map((day, i) => {
+            const isToday = day.getTime() === today.getTime()
+            const isSelected = day.getTime() === selectedDay.getTime()
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onSelectDay(day)}
+                className="flex flex-1 flex-col items-center gap-1.5"
               >
-                {isToday ? t('今') : t(DAY_NAMES[i])}
-              </div>
-              <span className="text-[11px] text-[#a99a86]">{day.getDate()}</span>
-            </button>
-          )
-        })}
+                <div
+                  className={`flex h-[38px] w-[38px] items-center justify-center rounded-full text-sm font-bold transition ${
+                    isSelected
+                      ? 'bg-foreground text-cream'
+                      : 'border border-[#e3dccd] bg-cream text-muted-foreground'
+                  }`}
+                >
+                  {isToday ? t('今') : t(DAY_NAMES[i])}
+                </div>
+                <span className="text-[11px] text-[#a99a86]">{day.getDate()}</span>
+              </button>
+            )
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={onNextWeek}
+          aria-label={t('下一週')}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#a99a86] transition active:scale-90"
+        >
+          <WeekArrowIcon direction="next" />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onNextWeek}
-        aria-label={t('下一週')}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#a99a86] transition active:scale-90"
-      >
-        <WeekArrowIcon direction="next" />
-      </button>
-    </div>
+    </>
   )
 }
 

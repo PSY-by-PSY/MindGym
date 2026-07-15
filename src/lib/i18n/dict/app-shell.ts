@@ -33,7 +33,7 @@ export const appShell: Record<string, Translation> = {
   '封鎖於 {date}': { 'zh-CN': '封锁于 {date}', en: 'Blocked on {date}' },
   '解除封鎖': { 'zh-CN': '解除封锁', en: 'Unblock' },
   '目前還沒有通知': { 'zh-CN': '目前还没有通知', en: 'No notifications yet' },
-  '有人為你的感恩貼文按讚': { 'zh-CN': '有人为你的感恩帖子点赞', en: 'Someone liked your gratitude post' },
+  '有人為你的貼文按讚': { 'zh-CN': '有人为你的帖子点赞', en: 'Someone liked your post' },
   '{name} 留言：{snippet}': { 'zh-CN': '{name} 留言：{snippet}', en: '{name} commented: {snippet}' },
   '有人': { 'zh-CN': '有人', en: 'Someone' },
   '你的貼文：{snippet}': { 'zh-CN': '你的帖子：{snippet}', en: 'Your post: {snippet}' },
