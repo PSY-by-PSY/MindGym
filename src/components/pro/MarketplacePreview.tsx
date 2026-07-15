@@ -97,7 +97,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     rating: 4.9,
     ratingCount: 214,
     joinedCount: 1320,
-    includes: ['21 天引導式日記', '每日 AI 溫暖回饋', '每週小結週報', '心理師遠端關注'],
+    includes: ['21 天引導式日記', '每日 Bouba 溫暖回饋', '每週小結週報', '心理師遠端關注'],
     coverCls: 'bg-tile-mint',
     coverEmoji: '🌱',
     pro: {
