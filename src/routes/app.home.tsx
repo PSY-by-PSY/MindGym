@@ -10,11 +10,13 @@ import { ProModuleSection } from '../components/pro/ProModuleSection'
 import { useLanguage } from '../lib/i18n/context'
 import homeMascot from '../assets/ui/home-mascot.png'
 import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
-import sleepingMascot from '../assets/ui/sleeping-mascot.png'
 import featuredGratitude from '../assets/ui/featured-gratitude.png'
 import exerciseGratitude from '../assets/ui/exercise-gratitude-tight.png'
 import processGoalExercise from '../assets/ui/process-goal-exercise.png'
 import processGoalIcon from '../assets/ui/過程目標覺察icon.png'
+import threeGoodThingsCover from '../assets/ui/three-good-things-cover.png'
+import selfCompassionCover from '../assets/ui/self-compassion-cover.png'
+import mindfulnessCover from '../assets/ui/mindfulness-cover.png'
 import permaP from '../assets/ui/perma-p-tight.png'
 import permaE from '../assets/ui/perma-e-tight.png'
 import permaR from '../assets/ui/perma-r-tight.png'
@@ -97,27 +99,33 @@ const modules = [
   },
   {
     name: '三件好事',
-    meta: '情緒力 · 成就力',
+    meta: '初階·五分鐘',
     to: '/app/placeholder' as const,
     searchName: '三件好事',
     locked: true,
     featured: false,
+    img: threeGoodThingsCover,
+    imgPosition: 'right' as const,
   },
   {
     name: '自我慈悲',
-    meta: '連結力 · 意義力',
+    meta: '初階·五分鐘',
     to: '/app/placeholder' as const,
     searchName: '自我慈悲',
     locked: true,
     featured: false,
+    img: selfCompassionCover,
+    imgPosition: 'center' as const,
   },
   {
     name: '正念冥想',
-    meta: '情緒力 · 投入力',
+    meta: '初階·五分鐘',
     to: '/app/placeholder' as const,
     searchName: '正念冥想',
     locked: true,
     featured: false,
+    img: mindfulnessCover,
+    imgPosition: 'center' as const,
   },
 ]
 
@@ -165,7 +173,7 @@ function HomePage() {
           mod.featured ? (
             <FeaturedModuleCard key={mod.name} {...mod} />
           ) : mod.locked ? (
-            <LockedModuleCard key={mod.name} {...mod} />
+            <WipModuleCard key={mod.name} {...mod} />
           ) : (
             <ActiveModuleCard key={mod.name} {...mod} />
           ),
@@ -280,15 +288,33 @@ function ActiveModuleCard(props: ModuleProps) {
   )
 }
 
-function LockedModuleCard({ name }: ModuleProps) {
+function WipModuleCard(props: ModuleProps) {
+  const { name, meta } = props
+  const img = 'img' in props && props.img ? props.img : featuredGratitude
+  const imgPosition = 'imgPosition' in props && props.imgPosition === 'right' ? 'right top' : 'center top'
   const { t } = useLanguage()
   return (
-    <div className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col items-center justify-center gap-3.5 overflow-hidden rounded-[22px] bg-[#B79858] shadow-[0_5px_14px_rgba(0,0,0,0.16)]">
-      <span className="rounded-[18px] border-2 border-[#FEFAF0] px-4 py-1 text-[19px] font-semibold tracking-[0.04em] text-[#FEFAF0]">
-        {t(name)}
+    <div
+      className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+      style={{ background: '#FEFAF0' }}
+    >
+      {/* 圖片高度精準卡在文字底板上緣（336 - 104 = 232px），上緣切齊卡片頂部、下緣切齊底板頂部，不留白 */}
+      <img
+        src={img}
+        alt=""
+        className="pointer-events-none absolute inset-x-0 top-0 h-[232px] w-full object-cover"
+        style={{ objectPosition: imgPosition }}
+      />
+      {/* 米白色底板：確保標題無論長短都落在卡片下半部，不會蓋到上方插畫 */}
+      <div className="absolute inset-x-0 bottom-0 z-[5] h-[104px]" style={{ background: '#FEFAF0' }} />
+      <div className="relative z-10 p-5 pb-6">
+        <div className="text-[22px] font-black leading-[1.15] tracking-[0.04em] text-foreground">{t(name)}</div>
+        <div className="mt-1.5 text-[15px] font-bold tracking-[0.04em] text-muted-foreground">{t(meta)}</div>
+      </div>
+      <span className="absolute right-3.5 top-3.5 z-10 flex items-center gap-1.5 rounded-full bg-[#1c1714]/60 px-3 py-1.5 text-[13px] font-bold text-cream backdrop-blur-sm">
+        <LockIcon className="h-3.5 w-3.5" />
+        {t('敬請期待')}
       </span>
-      <span className="text-[42px] font-black tracking-[0.05em] text-[#FEFAF0]">{t('施工中…')}</span>
-      <img src={sleepingMascot} alt="" className="mt-1 h-[120px] w-auto object-contain opacity-90" />
     </div>
   )
 }
@@ -888,6 +914,8 @@ function DailySchedule({
     setCompleted(done)
   }
 
+  const allDone = !loading && scheduled.length > 0 && scheduled.every((key) => completed.has(key))
+
   return (
     <div>
       <WeekCalendar
@@ -899,7 +927,9 @@ function DailySchedule({
       />
 
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-bold text-muted-foreground">{t('今天要做哪些練習？')}</p>
+        <p className="text-sm font-bold text-muted-foreground">
+          {allDone ? t('哇！你都做完了~~Bouba覺得你好強！！！') : t('你想為自己安排哪些練習？')}
+        </p>
         <button
           type="button"
           onClick={() => setModalOpen(true)}
@@ -1006,7 +1036,14 @@ function TrainingCenter({ recommendation, userId }: { recommendation: Recommenda
         />
       )}
 
-      {activeTab === 'perma' && <PermaCards />}
+      {activeTab === 'perma' && (
+        <>
+          <p className="mb-3 text-center text-sm font-bold" style={{ color: '#876B5F' }}>
+            {t('想知道 PERMA是什麼嗎？點點看這些卡片吧~')}
+          </p>
+          <PermaCards />
+        </>
+      )}
 
       {activeTab === 'new' && (
         <div className="flex flex-col gap-3">

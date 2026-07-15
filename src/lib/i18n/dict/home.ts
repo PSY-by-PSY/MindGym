@@ -63,7 +63,15 @@ export const home: Record<string, Translation> = {
   '約 {n} 分鐘': { 'zh-CN': '约 {n} 分钟', en: '~{n} min' },
   '上一週': { 'zh-CN': '上一周', en: 'Previous week' },
   '下一週': { 'zh-CN': '下一周', en: 'Next week' },
-  '今天要做哪些練習？': { 'zh-CN': '今天要做哪些练习？', en: 'What will you practice today?' },
+  '你想為自己安排哪些練習？': { 'zh-CN': '你想为自己安排哪些练习？', en: 'What would you like to practice today?' },
+  '哇！你都做完了~~Bouba覺得你好強！！！': {
+    'zh-CN': '哇！你都做完了~~Bouba觉得你好强！！！',
+    en: "Wow! You've finished them all~~ Bouba thinks you're amazing!!!",
+  },
+  '想知道 PERMA是什麼嗎？點點看這些卡片吧~': {
+    'zh-CN': '想知道 PERMA是什么吗？点点看这些卡片吧~',
+    en: 'Want to know what PERMA is? Tap these cards to find out~',
+  },
   '安排練習': { 'zh-CN': '安排练习', en: 'Add practice' },
   '這天還沒安排練習，點右上角的 + 開始吧': {
     'zh-CN': '这天还没安排练习，点右上角的 + 开始吧',
