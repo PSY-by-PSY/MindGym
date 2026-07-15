@@ -633,7 +633,7 @@ function IntroStage({
               <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
                 <li>
                   <strong className="font-bold text-foreground">{t('情緒極端崩潰時')}</strong>
-                  <div className="mt-0.5">{t('若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業諮商協助。')}</div>
+                  <div className="mt-0.5">{t('若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業心理協助。')}</div>
                 </li>
                 <li>
                   <strong className="font-bold text-foreground">{t('極度疲憊時')}</strong>

@@ -135,8 +135,8 @@ export const gratitude: Record<string, Translation> = {
   '・將注意力回到自己身上': { 'zh-CN': '・将注意力回到自己身上', en: '・Bring your attention back to yourself' },
   '不建議練習的時刻': { 'zh-CN': '不建议练习的时刻', en: 'When Not to Practice' },
   '情緒極端崩潰時': { 'zh-CN': '情绪极端崩溃时', en: 'During extreme emotional distress' },
-  '若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業諮商協助。': {
-    'zh-CN': '若当下正处于剧烈创伤或愤怒中，不应强迫感恩，应先进行情绪宣泄或寻求专业咨询协助。',
+  '若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業心理協助。': {
+    'zh-CN': '若当下正处于剧烈创伤或愤怒中，不应强迫感恩，应先进行情绪宣泄或寻求专业心理协助。',
     en: 'If you’re in the middle of intense trauma or anger, don’t force gratitude — release the emotion first or seek professional support.',
   },
   '極度疲憊時': { 'zh-CN': '极度疲惫时', en: 'When extremely exhausted' },

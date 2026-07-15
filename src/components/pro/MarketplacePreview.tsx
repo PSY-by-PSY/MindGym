@@ -77,7 +77,7 @@ type PreviewModule = {
 }
 
 const CATEGORY_LABEL: Record<PreviewCategory, string> = {
-  counseling: '心理諮商',
+  counseling: '心理諮詢',
   coaching: '生涯教練',
   spiritual: '身心靈',
   assessment: '測驗量表',
@@ -102,7 +102,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     coverEmoji: '🌱',
     pro: {
       name: '林曉暖',
-      title: '諮商心理師',
+      title: '心理師',
       tags: ['焦點解決 SFBT', '溫暖務實'],
       bio: '執業 9 年。相信改變不用很大，把卡住的困境拆成做得到的下一步就好。',
       avatarCls: 'bg-tile-mint text-[#3f6b46]',
@@ -111,7 +111,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
   {
     id: 'cbti-14',
     title: '睡眠重訓 · CBT-i 兩週計畫',
-    desc: '用認知行為治療的失眠介入法（CBT-i），透過睡眠日誌與刺激控制，兩週內重建你和床的關係。',
+    desc: '用認知行為取向的失眠改善法（CBT-i），透過睡眠日誌與刺激控制，兩週內重建你和床的關係。',
     kindLabel: '練習',
     kindCls: 'bg-muted text-muted-foreground',
     category: 'counseling',
@@ -128,7 +128,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     pro: {
       name: '陳以叡',
       title: '臨床心理師',
-      tags: ['認知行為治療 CBT', '睡眠醫學'],
+      tags: ['認知行為取向 CBT', '睡眠科學'],
       bio: '專長失眠與焦慮的非藥物介入，喜歡把研究實證翻譯成日常做得到的練習。',
       avatarCls: 'bg-tile-blue text-[#3e6079]',
     },
@@ -199,7 +199,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     coverEmoji: '🧘',
     pro: {
       name: '周芷晴',
-      title: '諮商心理師',
+      title: '心理師',
       tags: ['正念減壓 MBSR', '安穩沉靜'],
       bio: '正念減壓合格師資。練習不是清空念頭，而是學會溫柔地回到當下。',
       avatarCls: 'bg-tile-lemon text-[#8a6320]',
@@ -242,14 +242,14 @@ const PREVIEW_MODULES: PreviewModule[] = [
     rating: 4.8,
     ratingCount: 52,
     joinedCount: 187,
-    includes: ['每週創作主題引導', '8 人小團體分享', '藝術治療師回應', '成果作品集'],
+    includes: ['每週創作主題引導', '8 人小團體分享', '藝術療癒師回應', '成果作品集'],
     coverCls: 'bg-tile-pink',
     coverEmoji: '🎨',
-    applyHint: '小團體每期僅 8 個名額，需申請後由治療師依組成狀況配對，1–3 天內回覆。',
+    applyHint: '小團體每期僅 8 個名額，需申請後由帶領者依組成狀況配對，1–3 天內回覆。',
     pro: {
       name: '高子晏',
-      title: '藝術治療師',
-      tags: ['藝術治療', '小團體'],
+      title: '藝術療癒師',
+      tags: ['藝術療癒', '小團體'],
       bio: '相信每個人心裡都有一種天氣。你不需要會畫畫，只需要願意拿起筆。',
       avatarCls: 'bg-tile-pink text-rust',
     },
@@ -329,7 +329,7 @@ export function MarketplacePreview() {
 
   const CATEGORY_FILTERS: { key: 'all' | PreviewCategory; label: string }[] = [
     { key: 'all', label: t('全部') },
-    { key: 'counseling', label: t('心理諮商') },
+    { key: 'counseling', label: t('心理諮詢') },
     { key: 'coaching', label: t('生涯教練') },
     { key: 'spiritual', label: t('身心靈') },
     { key: 'assessment', label: t('測驗量表') },
