@@ -457,19 +457,29 @@ function PermaCards() {
           <div
             key={c.en}
             className="absolute left-0 right-0 h-[166px] transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateY(${y}px)`, zIndex: count - i, perspective: 1000 }}
+            style={{ transform: `translateY(${y}px)`, zIndex: count - i, perspective: 1000, WebkitPerspective: 1000 }}
           >
             <div
               className="relative h-full w-full transition-transform duration-500 ease-in-out [transform-style:preserve-3d]"
-              style={{ transform: isFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)' }}
+              style={{
+                transform: isFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)',
+                WebkitTransformStyle: 'preserve-3d',
+              }}
             >
               {/* front */}
+              {/* -webkit-mask-image 是修 iOS WebView 已知 bug 的寫法：同一個元素同時有
+                  overflow-hidden + border-radius + backface-visibility 時，Safari 有時不會正確
+                  裁切／隱藏背面，套用一個等效（全白→全白）的 mask 會強迫它用對的方式合成圖層 */}
               <button
                 type="button"
                 onClick={() => handleCardClick(i)}
                 aria-expanded={expanded}
                 className="absolute inset-0 flex flex-col overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] [backface-visibility:hidden]"
-                style={{ background: c.bg }}
+                style={{
+                  background: c.bg,
+                  WebkitBackfaceVisibility: 'hidden',
+                  WebkitMaskImage: '-webkit-radial-gradient(circle, #fff 100%, #000 100%)',
+                }}
               >
                 <img
                   src={c.img}
@@ -512,7 +522,12 @@ function PermaCards() {
                 type="button"
                 onClick={() => handleCardClick(i)}
                 className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] [backface-visibility:hidden] [transform:rotateY(-180deg)]"
-                style={{ background: c.bg }}
+                style={{
+                  background: c.bg,
+                  WebkitBackfaceVisibility: 'hidden',
+                  WebkitTransform: 'rotateY(-180deg)',
+                  WebkitMaskImage: '-webkit-radial-gradient(circle, #fff 100%, #000 100%)',
+                }}
               >
                 <span className="text-sm font-bold text-[#6f5547]">{t('敬請期待')}</span>
               </button>
