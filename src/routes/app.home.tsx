@@ -407,11 +407,56 @@ function WorkshopSection() {
 // ─── PERMA cards ────────────────────────────────────────────────────────────────
 
 const PERMA_CARDS = [
-  { en: 'POSITIVE EMOTION', zh: '情緒力', bg: '#88B8CE', img: permaP, tags: [{ t: '三件好事', c: '#a13a1e' }, { t: '感恩日記', c: '#71744F' }, { t: '正念冥想', c: '#F1C166' }] },
-  { en: 'ENGAGEMENT', zh: '投入力', bg: '#B9B078', img: permaE, tags: [{ t: '過程目標覺察', c: '#88B8CE' }, { t: '正念冥想', c: '#F1C166' }] },
-  { en: 'RELATIONSHIPS', zh: '連結力', bg: '#88B8CE', img: permaR, tags: [{ t: '感恩日記', c: '#71744F' }, { t: '自我慈悲', c: '#D18197' }] },
-  { en: 'MEANING', zh: '意義力', bg: '#B9B078', img: permaM, tags: [{ t: '感恩日記', c: '#71744F' }, { t: '過程目標覺察', c: '#88B8CE' }, { t: '自我慈悲', c: '#D18197' }] },
-  { en: 'ACCOMPLISHMENT', zh: '成就力', bg: '#88B8CE', img: permaA, tags: [{ t: '三件好事', c: '#a13a1e' }, { t: '過程目標覺察', c: '#88B8CE' }] },
+  {
+    en: 'POSITIVE EMOTION',
+    zh: '情緒力',
+    bg: '#88B8CE',
+    img: permaP,
+    tags: [{ t: '三件好事', c: '#a13a1e' }, { t: '感恩日記', c: '#71744F' }, { t: '正念冥想', c: '#F1C166' }],
+    backTitle: 'P｜Positive Emotion 正向情緒',
+    backBody:
+      '理論基礎來自 Barbara Fredrickson 的擴展建構理論（Broaden-and-Build Theory）：正向情緒不只是感受的終點，更是一種心理資源，能擴展個體的思考彈性與行動範疇，長期累積成韌性、創造力與社會連結。',
+  },
+  {
+    en: 'ENGAGEMENT',
+    zh: '投入力',
+    bg: '#B9B078',
+    img: permaE,
+    tags: [{ t: '過程目標覺察', c: '#88B8CE' }, { t: '正念冥想', c: '#F1C166' }],
+    backTitle: 'E｜Engagement 投入',
+    backBody:
+      '對應 Mihaly Csikszentmihalyi 提出的心流（Flow）概念。當個人技能與挑戰難度達到平衡時，便容易進入全神貫注、渾然忘我的心理狀態，這也是提升專注力與生活滿足感的核心機制。',
+  },
+  {
+    en: 'RELATIONSHIPS',
+    zh: '連結力',
+    bg: '#88B8CE',
+    img: permaR,
+    tags: [{ t: '感恩日記', c: '#71744F' }, { t: '自我慈悲', c: '#D18197' }],
+    backTitle: 'R｜Relationships 正向關係',
+    backBody:
+      '根植於依附理論（Attachment Theory）與社會支持研究。真誠、支持性的人際連結，是心理健康最強的保護因子之一，也是逆境中緩衝壓力的重要資源。',
+  },
+  {
+    en: 'MEANING',
+    zh: '意義力',
+    bg: '#B9B078',
+    img: permaM,
+    tags: [{ t: '感恩日記', c: '#71744F' }, { t: '過程目標覺察', c: '#88B8CE' }, { t: '自我慈悲', c: '#D18197' }],
+    backTitle: 'M｜Meaning 意義',
+    backBody:
+      '呼應 Viktor Frankl 的意義治療（Logotherapy）：個體隸屬於並服務於超越自身的事物（信念、家庭、志業），能建立連貫的自我敘事，是對抗存在焦慮的心理基石。',
+  },
+  {
+    en: 'ACCOMPLISHMENT',
+    zh: '成就力',
+    bg: '#88B8CE',
+    img: permaA,
+    tags: [{ t: '三件好事', c: '#a13a1e' }, { t: '過程目標覺察', c: '#88B8CE' }],
+    backTitle: 'A｜Accomplishment 成就',
+    backBody:
+      '連結自我決定理論（Self-Determination Theory）中的「勝任感」需求。為目標本身而努力、達成並精熟任務的歷程，能提升自我效能感，是獨立於情緒與人際之外的幸福構面。',
+  },
 ]
 
 const PERMA_CARD_H = 166
@@ -521,7 +566,7 @@ function PermaCards() {
               <button
                 type="button"
                 onClick={() => handleCardClick(i)}
-                className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] [backface-visibility:hidden] [transform:rotateY(-180deg)]"
+                className="absolute inset-0 flex flex-col overflow-hidden rounded-[20px] text-left shadow-[0_4px_8px_rgba(0,0,0,0.2)] [backface-visibility:hidden] [transform:rotateY(-180deg)]"
                 style={{
                   background: c.bg,
                   WebkitBackfaceVisibility: 'hidden',
@@ -529,7 +574,12 @@ function PermaCards() {
                   WebkitMaskImage: '-webkit-radial-gradient(circle, #fff 100%, #000 100%)',
                 }}
               >
-                <span className="text-sm font-bold text-[#6f5547]">{t('敬請期待')}</span>
+                <div className="flex h-full w-full flex-col items-center justify-center overflow-y-auto px-4 py-3.5">
+                  <p className="mb-1 text-center text-[13px] font-bold leading-tight text-[#542916]">
+                    {t(c.backTitle)}
+                  </p>
+                  <p className="text-left text-xs leading-relaxed text-[#542916]">{t(c.backBody)}</p>
+                </div>
               </button>
             </div>
           </div>
