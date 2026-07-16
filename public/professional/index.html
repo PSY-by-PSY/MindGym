@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PSY by PSY AI 賦能平台 · 教練旅程 MVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.30.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+
+<!-- ═══ Header ═══ -->
+<div class="hdr">
+  <div class="hdr-icon"><svg viewBox="0 0 200 190" fill="none">
+    <path d="M32 84 Q32 28 100 28 Q168 28 168 84 Q171 142 138 154 Q100 165 62 154 Q29 142 32 84 Z" fill="#FFFDF6" stroke="#4A3222" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M34 82 Q34 30 100 30 Q166 30 166 82 Q152 92 138 86 Q120 79 100 87 Q80 79 62 86 Q48 92 34 82 Z" fill="#4A3222"/>
+    <circle cx="78" cy="114" r="5" fill="#4A3222"/>
+    <circle cx="124" cy="114" r="5" fill="#4A3222"/>
+    <path d="M96 122 Q101 127 106 122" stroke="#4A3222" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="59" cy="126" rx="11" ry="7" fill="#D98B98" opacity=".9"/>
+    <ellipse cx="143" cy="126" rx="11" ry="7" fill="#D98B98" opacity=".9"/>
+  </svg></div>
+  <div>
+    <div class="hdr-title">PSY by PSY · AI 賦能平台 <span class="tag-mini">MVP</span></div>
+    <div class="hdr-sub">人生教練完整服務旅程 · 可直接串接 Claude API 測試</div>
+  </div>
+  <div class="hdr-spacer"></div>
+  <div class="hdr-btn" id="btn-export" onclick="exportData()" title="匯出所有資料為 JSON"><i class="ti ti-download"></i> 匯出</div>
+  <div class="hdr-btn" id="btn-settings" onclick="openSettings()"><i class="ti ti-settings"></i> <span id="settings-label">設定</span></div>
+</div>
+
+<!-- ═══ Nav ═══ -->
+<div class="nav" id="nav">
+  <div class="nav-item on" data-view="home" onclick="switchView('home',this)"><i class="ti ti-map-2"></i>旅程總覽</div>
+  <div class="nav-item" data-view="bot" onclick="switchView('bot',this)"><i class="ti ti-message-chatbot"></i>1 前期接觸</div>
+  <div class="nav-item" data-view="assess" onclick="switchView('assess',this)"><i class="ti ti-transform"></i>2 初始評估</div>
+  <div class="nav-item" data-view="transcript" onclick="switchView('transcript',this)"><i class="ti ti-file-analytics"></i>3 晤談分析</div>
+  <div class="nav-item" data-view="diary" onclick="switchView('diary',this)"><i class="ti ti-notebook"></i>4 每日日記</div>
+  <div class="nav-item" data-view="review" onclick="switchView('review',this)"><i class="ti ti-chart-arrows-vertical"></i>5 結案回顧</div>
+</div>
+
+<!-- ═══════════ View: Home / Journey ═══════════ -->
+<div class="view on" id="view-home">
+  <div class="card card-pad">
+    <div class="lbl">個案旅程 · 一個月教練週期</div>
+    <div class="sub">這個 MVP 把四個 AI 模組串成一條完整的教練服務旅程。依序完成每一站，最後在「結案回顧」看到 AI 整合所有資料生成的前後比較與成長報告。所有資料儲存在你的瀏覽器中（localStorage），不會上傳到任何伺服器；AI 分析經由你自己的 Claude API Key 直接呼叫 Anthropic API。</div>
+    <div id="journey-list"></div>
+  </div>
+  <div class="card card-pad">
+    <div class="lbl">知情同意書 <span class="tag-mini" id="consent-status">個案尚未簽署</span></div>
+    <div class="sub">個案在第 1 站開始對話前，會先閱讀並簽署這份同意書。以下是預設範本（會自動帶入你的教練署名），你可以直接編輯成自己的版本——【】內的部分請替換成你的實際資訊。</div>
+    <textarea id="consent-text" rows="16"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-g" onclick="consentReset()"><i class="ti ti-restore"></i> 還原預設範本</button>
+      <button class="btn btn-p" onclick="consentPreview()"><i class="ti ti-eye"></i> 預覽個案簽署畫面</button>
+    </div>
+  </div>
+  <div class="card card-pad">
+    <div class="lbl">快速開始</div>
+    <div class="sub">
+      1. 點右上角「設定」，貼上你的 Anthropic API Key（<a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--green)">到 Console 取得</a>）並測試連線。<br>
+      2. 每一站都有「填入示例」按鈕，可以不用自己打字、快速跑完整條旅程。<br>
+      3. 想重新測試時，可在設定中清除全部資料。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ View 1: Chatbot (前期接觸) ═══════════ -->
+<div class="view" id="view-bot">
+  <div class="card">
+    <div class="steps">
+      <div class="stp on" data-step="1" onclick="botGo(1)"><i class="ti ti-pencil"></i>描述需求</div>
+      <div class="stp" data-step="2" onclick="botGo(2)"><i class="ti ti-robot"></i>生成機器人</div>
+      <div class="stp" data-step="3" onclick="botGo(3)"><i class="ti ti-device-mobile"></i>個案對話</div>
+      <div class="stp" data-step="4" onclick="botGo(4)"><i class="ti ti-clipboard-text"></i>教練摘要</div>
+    </div>
+
+    <!-- step 1 -->
+    <div class="panel on" id="bot-p1">
+      <div class="lbl">用自己的話描述你的教練服務</div>
+      <div class="sub">描述你的服務對象、工作方式、希望初談機器人幫你了解個案什麼。AI 會把它整理成專業的機器人指令（System Prompt），這個機器人將在正式合作前替你和潛在個案聊聊、收集初談資訊。</div>
+      <textarea id="bot-desc" rows="6" placeholder="例如：我是人生教練，專注於職涯轉換和目標達成。我希望初談機器人能溫暖地了解個案目前的困境、想達成的改變、曾嘗試過的方法，以及他對教練合作的期待與疑慮..."></textarea>
+      <div class="slbl"><i class="ti ti-bolt"></i> 快速範例</div>
+      <div class="chips">
+        <div class="chip" onclick="botFill('career')">職涯轉換教練</div>
+        <div class="chip" onclick="botFill('wellness')">身心平衡教練</div>
+        <div class="chip" onclick="botFill('leader')">主管領導力教練</div>
+      </div>
+      <div class="btn-row"><span></span>
+        <button class="btn btn-p" id="bot-gen-btn" onclick="botGenerate()"><i class="ti ti-sparkles"></i> AI 生成機器人</button>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="panel" id="bot-p2">
+      <div class="lbl">機器人指令（可直接編輯）</div>
+      <div class="sub">這是 AI 根據你的描述生成的 System Prompt。系統會自動附加「初談資訊收集」與「安全護欄」規則。確認後啟用，就能以個案身份體驗對話。</div>
+      <div class="output-box">
+        <div class="output-header"><div class="output-dot"></div>SYSTEM PROMPT</div>
+        <textarea id="bot-prompt" rows="12" placeholder="尚未生成"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="botGo(1)"><i class="ti ti-arrow-left"></i> 重新描述</button>
+        <button class="btn btn-p" onclick="botActivate()">啟用機器人，開始對話 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="panel" id="bot-p3">
+      <div class="lbl">個案體驗 · 前期接觸對話</div>
+      <div class="sub">以下是個案看到的介面。你可以扮演個案與機器人真實對話（每一句都會呼叫 Claude API）。聊 4–6 輪之後，到下一步生成教練摘要。</div>
+      <div class="crisis" id="bot-crisis"><i class="ti ti-heart-handshake"></i><span><strong>偵測到需要關心的訊息。</strong>如果你（或測試情境中的個案）正處於強烈痛苦，請聯繫你的教練，或撥打安心專線 1925、生命線 1995。AI 不能取代真人協助。</span></div>
+      <div class="pv">
+        <div class="pv-phone">
+          <div class="pv-hd">
+            <div class="pv-av"><i class="ti ti-message-heart"></i></div>
+            <div><div class="pv-name" id="bot-name">初談小助手</div><div class="pv-day" id="bot-byline">正式合作前 · 先聊聊你的狀態</div></div>
+          </div>
+          <div class="pv-body" id="bot-chat"></div>
+          <div class="pv-input-row">
+            <input type="text" id="bot-input" placeholder="輸入訊息..." onkeydown="if(event.key==='Enter')botSend()">
+            <button class="pv-send" id="bot-send" onclick="botSend()"><i class="ti ti-send"></i></button>
+          </div>
+          <div class="pv-note">此對話將整理成摘要提供給你的教練 · 對話由 AI 進行，不構成專業建議</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="botGo(2)"><i class="ti ti-arrow-left"></i> 調整指令</button>
+        <div class="right">
+          <button class="btn btn-g" onclick="botDemo()"><i class="ti ti-wand"></i> 填入示例對話</button>
+          <button class="btn btn-p" onclick="botSummary()"><i class="ti ti-clipboard-text"></i> 生成教練摘要</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 4 -->
+    <div class="panel" id="bot-p4">
+      <div class="lbl">給教練的初談摘要</div>
+      <div class="sub">AI 根據前期接觸對話整理的個案概況。這份摘要會成為後續評估與晤談的背景資料。</div>
+      <div id="bot-summary" class="rsec green" style="display:none">
+        <div class="rsec-hd"><i class="ti ti-clipboard-text"></i> 初談摘要</div>
+        <div class="rsec-body md" id="bot-summary-body"></div>
+      </div>
+      <div class="empty" id="bot-summary-empty"><i class="ti ti-clipboard-off"></i>尚未生成摘要。回到上一步進行對話後，點「生成教練摘要」。</div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="botGo(3)"><i class="ti ti-arrow-left"></i> 回到對話</button>
+        <button class="btn btn-p" onclick="switchView('assess')">前往初始評估 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ View 2: Assessment (量表轉譯) ═══════════ -->
+<div class="view" id="view-assess">
+  <div class="card">
+    <div class="steps">
+      <div class="stp on" data-step="1" onclick="asGo(1)"><i class="ti ti-upload"></i>選擇量表</div>
+      <div class="stp" data-step="2" onclick="asGo(2)"><i class="ti ti-route-2"></i>AI 轉譯</div>
+      <div class="stp" data-step="3" onclick="asGo(3)"><i class="ti ti-device-mobile"></i>個案作答</div>
+      <div class="stp" data-step="4" onclick="asGo(4)"><i class="ti ti-report-analytics"></i>分析報告</div>
+    </div>
+
+    <!-- step 1 -->
+    <div class="panel on" id="as-p1">
+      <div class="lbl">選擇量化問卷 <span class="tag-mini" id="as-phase-tag">T0 · 初始評估</span></div>
+      <div class="sub">選擇量表後，AI 會保留原量表的維度結構，把每個題項轉譯成開放式質性問題。一個月後的結案回顧會用同一份量表再測一次（T1）做前後比較。</div>
+      <div id="as-scales"></div>
+      <div class="slbl" style="margin-top:18px"><i class="ti ti-world-search"></i> 找不到想要的？用 AI 搜尋專業量表</div>
+      <div class="sub" style="margin-bottom:8px">描述你想測量的主題，AI 會上網搜尋心理學文獻中對應的已驗證量表，並整理成適合教練情境的改寫版題目（改寫版僅供概念驗證，正式商用前仍需確認原量表授權）。</div>
+      <textarea id="as-search-input" rows="2" placeholder="例如：我想測量個案的完美主義傾向 / 職場倦怠程度 / 心理韌性 / 拖延行為..."></textarea>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-g" id="as-search-btn" onclick="asSearchScale()"><i class="ti ti-world-search"></i> AI 搜尋並生成量表</button>
+        <button class="btn btn-p" id="as-translate-btn" onclick="asTranslate()"><i class="ti ti-sparkles"></i> AI 轉譯為質性題目</button>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="panel" id="as-p2">
+      <div class="lbl">轉譯結果 · 質性題目</div>
+      <div class="sub">AI 已把量化題項轉譯為開放式問題。左側是原題，右側是個案實際會看到的問題。</div>
+      <div id="as-pairs"></div>
+      <div class="consent"><i class="ti ti-info-circle"></i><span><strong>知情同意（必要，無法關閉）</strong><br>個案開始前會看到：「這些問題背後有心理學的評估架構，你的回答會幫助你的教練更了解你。」</span></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="asGo(1)"><i class="ti ti-arrow-left"></i> 換量表</button>
+        <button class="btn btn-p" onclick="asGo(3)">個案開始作答 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="panel" id="as-p3">
+      <div class="lbl">個案作答</div>
+      <div class="sub">以個案身份回答以下開放式問題（也可點「填入示例回答」快速測試）。寫多寫少都可以。</div>
+      <div id="as-form"></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="asGo(2)"><i class="ti ti-arrow-left"></i> 回題目</button>
+        <div class="right">
+          <button class="btn btn-g" onclick="asDemoAnswers()"><i class="ti ti-wand"></i> 填入示例回答</button>
+          <button class="btn btn-p" id="as-analyze-btn" onclick="asAnalyze()"><i class="ti ti-sparkles"></i> AI 分析</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 4 -->
+    <div class="panel" id="as-p4">
+      <div class="lbl">分析報告 · 雙版本</div>
+      <div class="sub">同一次評估，兩種語言：專業完整的給教練，溫暖有希望感的給個案。個案版發送前教練可先預覽。</div>
+      <div class="rswitch">
+        <div class="rsw on" onclick="asSwitch(this,'coach')"><i class="ti ti-stethoscope"></i> 教練版本</div>
+        <div class="rsw" onclick="asSwitch(this,'client')"><i class="ti ti-sparkles"></i> 個案版本</div>
+      </div>
+      <div class="rview on" id="as-rv-coach"></div>
+      <div class="rview" id="as-rv-client"></div>
+      <div class="note"><i class="ti ti-shield-lock"></i><span>本報告不構成診斷，推估分數來自質性回答的語意映射，不可等同標準化施測分數。個案版經過「優勢轉譯」：不含分數、不含風險語言。</span></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="asGo(3)"><i class="ti ti-arrow-left"></i> 回作答</button>
+        <button class="btn btn-p" onclick="switchView('transcript')">前往晤談分析 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ View 3: Transcript ═══════════ -->
+<div class="view" id="view-transcript">
+  <div class="card">
+    <div class="steps">
+      <div class="stp on" data-step="1" onclick="trGo(1)"><i class="ti ti-upload"></i>貼上逐字稿</div>
+      <div class="stp" data-step="2" onclick="trGo(2)"><i class="ti ti-layout-grid"></i>選分析框架</div>
+      <div class="stp" data-step="3" onclick="trGo(3)"><i class="ti ti-report-analytics"></i>分析結果</div>
+    </div>
+
+    <!-- step 1 -->
+    <div class="panel on" id="tr-p1">
+      <div class="lbl">貼上晤談逐字稿</div>
+      <div class="sub">貼上你與個案的會談逐字稿文字（MVP 版支援純文字；正式版將支援錄音檔自動轉逐字稿）。</div>
+      <textarea id="tr-text" rows="10" placeholder="教練：上次我們談到你想在三個月內完成轉職準備，這週有什麼進展嗎？
+個案：嗯...其實這週我打開了履歷檔案三次，但每次都只改了幾個字就關掉了..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="trDemo()"><i class="ti ti-wand"></i> 填入示例逐字稿</button>
+        <button class="btn btn-p" onclick="trGo(2)">下一步：選分析框架 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="panel" id="tr-p2">
+      <div class="lbl">選擇分析框架（可複選）</div>
+      <div class="sub">每個框架會生成獨立的分析區塊，最後附上給教練的反思題目、下次晤談方向，以及可發送給個案的溫暖版摘要。</div>
+      <div class="slbl"><i class="ti ti-flower"></i> 正向心理學</div>
+      <div class="fgrid">
+        <div class="fcard on" data-fw="PERMA 幸福五元素"><div class="fcard-t">PERMA 幸福五元素</div><div class="fcard-s">正向情緒、投入、關係、意義、成就的分布與缺口</div></div>
+        <div class="fcard" data-fw="性格優勢 VIA"><div class="fcard-t">性格優勢 VIA</div><div class="fcard-s">辨識個案語言中展現的性格優勢與未被使用的潛能</div></div>
+      </div>
+      <div class="slbl"><i class="ti ti-target-arrow"></i> 教練框架</div>
+      <div class="fgrid">
+        <div class="fcard on" data-fw="GROW 模型歷程"><div class="fcard-t">GROW 模型歷程</div><div class="fcard-s">目標、現況、選項、意願的推進與卡點</div></div>
+        <div class="fcard" data-fw="改變語言偵測 MI"><div class="fcard-t">改變語言偵測 MI</div><div class="fcard-s">動機式晤談視角：改變語言 vs 維持語言的比例與時機</div></div>
+        <div class="fcard" data-fw="價值澄清 ACT"><div class="fcard-t">價值澄清 ACT</div><div class="fcard-s">經驗迴避、認知糾結、價值澄清度、行動承諾</div></div>
+        <div class="fcard" data-fw="敘事主題分析"><div class="fcard-t">敘事主題分析</div><div class="fcard-s">主線故事、例外經驗、可重寫的敘事節點</div></div>
+      </div>
+      <div class="slbl" style="margin-top:16px"><i class="ti ti-adjustments"></i> 自訂分析視角（選填）</div>
+      <textarea id="tr-custom" rows="2" placeholder="用自己的話描述你想分析的角度，例如：幫我看個案談到轉職時的語言變化..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="trGo(1)"><i class="ti ti-arrow-left"></i> 上一步</button>
+        <button class="btn btn-p" id="tr-analyze-btn" onclick="trAnalyze()"><i class="ti ti-sparkles"></i> 開始 AI 分析</button>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="panel" id="tr-p3">
+      <div class="lbl">分析結果 · 雙版本</div>
+      <div class="sub" id="tr-result-sub">以下內容為輔助參考，最終判斷請以你的專業評估為準。</div>
+      <div class="rswitch">
+        <div class="rsw on" onclick="trSwitch(this,'coach')"><i class="ti ti-stethoscope"></i> 教練版本</div>
+        <div class="rsw" onclick="trSwitch(this,'client')"><i class="ti ti-sparkles"></i> 個案版本</div>
+      </div>
+      <div class="rview on" id="tr-rv-coach"></div>
+      <div class="rview" id="tr-rv-client"></div>
+      <div class="note"><i class="ti ti-shield-lock"></i><span>本分析僅供專業助人工作者作為反思輔助，不構成診斷或治療建議。個案版經過優勢轉譯，發送前請先確認內容。</span></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="trGo(2)"><i class="ti ti-arrow-left"></i> 調整框架</button>
+        <button class="btn btn-p" onclick="switchView('diary')">前往每日日記 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-pad" id="tr-history-card" style="display:none">
+    <div class="lbl">已分析的晤談紀錄</div>
+    <div class="sub">結案回顧時，這些晤談分析會一併納入整體成長報告。</div>
+    <div id="tr-history"></div>
+  </div>
+</div>
+
+<!-- ═══════════ View 4: Diary ═══════════ -->
+<div class="view" id="view-diary">
+  <div class="card">
+    <div class="steps">
+      <div class="stp on" data-step="1" onclick="diGo(1)"><i class="ti ti-book"></i>日記設定</div>
+      <div class="stp" data-step="2" onclick="diGo(2)"><i class="ti ti-pencil"></i>今日書寫</div>
+      <div class="stp" data-step="3" onclick="diGo(3)"><i class="ti ti-stack-2"></i>紀錄與回饋</div>
+    </div>
+
+    <!-- step 1 -->
+    <div class="panel on" id="di-p1">
+      <div class="lbl">教練端 · 設計日記模組</div>
+      <div class="sub">為個案選擇日記類型與 AI 回饋風格。個案每天寫完，AI 立即回饋；累積 3 則解鎖跨日「整體回饋」，累積 7 則解鎖「一週成長報告」。</div>
+      <div class="slbl"><i class="ti ti-book"></i> 日記類型</div>
+      <div class="fgrid" id="di-templates"></div>
+      <div class="slbl" style="margin-top:16px"><i class="ti ti-tag"></i> 日記名稱（個案會看到）</div>
+      <input type="text" id="di-title" placeholder="例如：感恩日記 · 每日三件好事">
+      <div class="slbl" style="margin-top:16px"><i class="ti ti-list-details"></i> 記錄欄位（點文字可直接編輯，可增減）</div>
+      <div id="di-field-editor"></div>
+      <div class="chips">
+        <div class="chip" onclick="diAddField('text')"><i class="ti ti-plus" style="font-size:11px"></i> 文字題</div>
+        <div class="chip" onclick="diAddField('scale')"><i class="ti ti-plus" style="font-size:11px"></i> 量表題（1–7）</div>
+      </div>
+      <div class="slbl" style="margin-top:16px"><i class="ti ti-message-heart"></i> 每日回饋風格</div>
+      <div class="chips" id="di-styles">
+        <div class="chip on">溫暖肯定</div><div class="chip">深化反思（多問一個問題）</div><div class="chip">簡短鼓勵（一句話）</div><div class="chip">禪意留白</div><div class="chip">活力慶祝</div>
+      </div>
+      <div class="btn-row"><span></span>
+        <button class="btn btn-p" onclick="diGo(2)">個案開始書寫 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="panel" id="di-p2">
+      <div class="lbl" id="di-entry-title">今日書寫</div>
+      <div class="sub">以個案身份寫下今天的紀錄，送出後 AI 會立即回饋。</div>
+      <div class="crisis" id="di-crisis"><i class="ti ti-heart-handshake"></i><span><strong>偵測到需要關心的訊息。</strong>這則紀錄已標記通知教練。如果你正處於強烈痛苦，請聯繫你的教練，或撥打安心專線 1925、生命線 1995。</span></div>
+      <div class="byline" id="di-byline"></div>
+      <div class="pv-streak" id="di-streak"></div>
+      <div id="di-fields"></div>
+      <div id="di-feedback"></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="diGo(1)"><i class="ti ti-arrow-left"></i> 回設定</button>
+        <div class="right">
+          <button class="btn btn-g" onclick="diDemoWeek()" id="di-demo-btn"><i class="ti ti-wand"></i> 產生示例的一週紀錄</button>
+          <button class="btn btn-p" id="di-save-btn" onclick="diSave()"><i class="ti ti-sparkles"></i> 送出，取得 AI 回饋</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="panel" id="di-p3">
+      <div class="lbl">紀錄總覽與進階回饋</div>
+      <div class="sub" id="di-progress-sub"></div>
+      <div class="btn-row" style="margin:0 0 14px">
+        <button class="btn btn-g" id="di-overall-btn" onclick="diOverall()"><i class="ti ti-stack-2"></i> 生成整體回饋（滿 3 則）</button>
+        <button class="btn btn-p" id="di-week-btn" onclick="diWeekly()"><i class="ti ti-calendar-star"></i> 生成一週成長報告（滿 7 則）</button>
+      </div>
+      <div id="di-overall-out"></div>
+      <div id="di-week-out"></div>
+      <div class="slbl"><i class="ti ti-list-details"></i> 所有紀錄</div>
+      <div id="di-entries"></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="diGo(2)"><i class="ti ti-arrow-left"></i> 繼續書寫</button>
+        <button class="btn btn-p" onclick="switchView('review')">前往結案回顧 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ View 5: Review (結案回顧) ═══════════ -->
+<div class="view" id="view-review">
+  <div class="card">
+    <div class="steps">
+      <div class="stp on" data-step="1" onclick="rvGo(1)"><i class="ti ti-checklist"></i>資料檢查</div>
+      <div class="stp" data-step="2" onclick="rvGo(2)"><i class="ti ti-device-mobile"></i>T1 再測</div>
+      <div class="stp" data-step="3" onclick="rvGo(3)"><i class="ti ti-chart-arrows-vertical"></i>整體成長報告</div>
+    </div>
+
+    <!-- step 1 -->
+    <div class="panel on" id="rv-p1">
+      <div class="lbl">結案前的資料盤點</div>
+      <div class="sub">結案回顧會整合整個週期的三種資料：初始評估（T0）、晤談分析、每日日記，再加上一次同量表的再測（T1），由 AI 生成前後比較與整體成長報告。</div>
+      <div id="rv-checklist"></div>
+      <div class="btn-row"><span></span>
+        <button class="btn btn-p" id="rv-start-btn" onclick="rvStartT1()">開始 T1 再測 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="panel" id="rv-p2">
+      <div class="lbl">T1 再測 · 與 T0 相同的質性題目</div>
+      <div class="sub">個案再次回答一個月前的同一組問題。答完後 AI 會特別比較前後差異。</div>
+      <div id="rv-form"></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="rvGo(1)"><i class="ti ti-arrow-left"></i> 回檢查</button>
+        <div class="right">
+          <button class="btn btn-g" onclick="rvDemoAnswers()"><i class="ti ti-wand"></i> 填入示例回答（一個月後）</button>
+          <button class="btn btn-p" id="rv-analyze-btn" onclick="rvAnalyze()"><i class="ti ti-sparkles"></i> 生成整體成長報告</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="panel" id="rv-p3">
+      <div class="lbl">整體成長報告 · T0 → T1</div>
+      <div class="sub">AI 整合再測比較、晤談分析與日記全紀錄生成的結案報告。教練版聚焦專業判讀，個案版是一份值得收藏的「畢業快照」。</div>
+      <div class="rswitch">
+        <div class="rsw on" onclick="rvSwitch(this,'coach')"><i class="ti ti-stethoscope"></i> 教練版本</div>
+        <div class="rsw" onclick="rvSwitch(this,'client')"><i class="ti ti-sparkles"></i> 個案版本</div>
+      </div>
+      <div class="rview on" id="rv-rv-coach"></div>
+      <div class="rview" id="rv-rv-client"></div>
+      <div class="note"><i class="ti ti-shield-lock"></i><span>前後比較基於質性回答的語意推估，僅供教練與個案回顧成長使用，不構成任何臨床判斷。結案不是結束——個案版報告的最後附有自主練習計畫。</span></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="rvGo(2)"><i class="ti ti-arrow-left"></i> 回 T1 作答</button>
+        <span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ft">PSY by PSY AI 賦能平台 · 教練旅程 MVP · 讓每位助人工作者的影響力擴大 10 倍<br><span>MVP 測試版 · API Key 僅存於你的瀏覽器 · 所有 AI 內容僅供參考，不構成診斷或治療建議</span></div>
+
+</div><!-- /page -->
+
+<!-- ═══ Settings modal ═══ -->
+<div class="modal-bg" id="settings-modal">
+  <div class="modal">
+    <h3><i class="ti ti-settings"></i> 設定</h3>
+    <div class="sub">API Key 只儲存在你的瀏覽器（localStorage），呼叫直接送往 Anthropic API，不經過任何中間伺服器。此直連方式僅適合開發測試，正式產品必須改由後端代理。</div>
+    <div class="slbl"><i class="ti ti-signature"></i> 教練署名（會顯示在個案看到的每個介面）</div>
+    <input type="text" id="set-coach" placeholder="例如：小鵬教練">
+    <div class="slbl"><i class="ti ti-key"></i> Anthropic API Key</div>
+    <input type="password" id="set-key" placeholder="sk-ant-...">
+    <div class="slbl"><i class="ti ti-cpu"></i> 模型</div>
+    <select id="set-model">
+      <option value="claude-sonnet-5">Claude Sonnet 5（建議 · 品質與速度平衡）</option>
+      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5（最快最省）</option>
+      <option value="claude-opus-4-8">Claude Opus 4.8（最高品質）</option>
+    </select>
+    <div class="btn-row">
+      <button class="btn btn-g" onclick="clearAll()" style="color:var(--red-text);border-color:var(--red-border)"><i class="ti ti-trash"></i> 清除全部資料</button>
+      <div class="right">
+        <button class="btn btn-g" id="test-conn-btn" onclick="testConnection()"><i class="ti ti-plug"></i> 測試連線</button>
+        <button class="btn btn-p" onclick="saveSettings()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
