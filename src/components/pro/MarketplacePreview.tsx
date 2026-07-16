@@ -2,6 +2,10 @@
 // 讓管理員與專業夥伴體驗使用者如何探索、收藏、用 credits 預約來自不同專業夥伴的
 // 模組（類 Coursera / ClassPass 的市集）。所有互動只動 local state、不寫資料庫；
 // 模組與夥伴皆為示意用假資料，正式內容上線後再接真資料。
+//
+// 資訊架構依 docs/plans/marketplace_style_matching_plan.md：
+// 頂層＝個案語言的狀態入口（睡不好/情緒好滿…），服務類型降為次篩選；
+// 夥伴有五組風格光譜與多元背景；個案可選期待原型看相符度；部分模組可免費試玩。
 import { useState } from 'react'
 import { useLanguage } from '../../lib/i18n/context'
 
@@ -42,12 +46,76 @@ function HeartIcon({ filled, className }: { filled?: boolean; className?: string
   )
 }
 
+function SparkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+    </svg>
+  )
+}
+
 // ── 示意假資料 ──────────────────────────────────────────────────────────────
 
 const START_CREDITS = 300
 
 type PreviewCategory = 'counseling' | 'coaching' | 'spiritual' | 'assessment'
 type EnrollStatus = 'enrolled' | 'applied'
+
+/** 個案語言的狀態入口（頂層分類） */
+type IssueKey = 'sleep' | 'mood' | 'stress' | 'relation' | 'direction' | 'loss' | 'self'
+
+const ISSUE_FILTERS: { key: 'all' | IssueKey; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'sleep', label: '睡不好' },
+  { key: 'mood', label: '情緒好滿' },
+  { key: 'stress', label: '壓力爆表' },
+  { key: 'relation', label: '關係卡住' },
+  { key: 'direction', label: '找不到方向' },
+  { key: 'loss', label: '重大失落' },
+  { key: 'self', label: '想更認識自己' },
+]
+
+/** 五組風格光譜（雙方同尺，0 靠左端、100 靠右端） */
+const SPECTRUM_DEFS: { left: string; right: string }[] = [
+  { left: '陪伴傾聽', right: '主動指引' },
+  { left: '溫柔婉轉', right: '直接明快' },
+  { left: '慢熱深耕', right: '快速聚焦' },
+  { left: '感受優先', right: '思考優先' },
+  { left: '任務很少', right: '每週任務' },
+]
+
+/** 個案期待原型（預填滑桿用；demo 先只做原型選擇） */
+type ArchetypeKey = 'gentle' | 'practical' | 'explore'
+
+const ARCHETYPES: { key: ArchetypeKey; label: string; desc: string; spectrum: number[] }[] = [
+  {
+    key: 'gentle',
+    label: '溫和陪伴型',
+    desc: '希望被好好聽懂、慢慢整理感受',
+    spectrum: [25, 25, 35, 25, 25],
+  },
+  {
+    key: 'practical',
+    label: '實務導向型',
+    desc: '想要明確方向、行動計畫和回家任務',
+    spectrum: [80, 60, 75, 70, 85],
+  },
+  {
+    key: 'explore',
+    label: '深度探索型',
+    desc: '想弄懂模式從哪來，願意慢慢挖',
+    spectrum: [40, 35, 20, 50, 35],
+  },
+]
 
 type PreviewModule = {
   id: string
@@ -56,6 +124,7 @@ type PreviewModule = {
   kindLabel: string
   kindCls: string
   category: PreviewCategory
+  issues: IssueKey[]
   /** instant：直接扣 credits 加入；apply：先申請、由夥伴確認 */
   mode: 'instant' | 'apply'
   credits: number // 0 = 免費
@@ -67,12 +136,20 @@ type PreviewModule = {
   coverCls: string
   coverEmoji: string
   applyHint?: string
+  /** 免費試玩小練習（每位夥伴限一個） */
+  trial?: { title: string; minutes: number; prompt: string; feedback: string }
   pro: {
     name: string
     title: string
     tags: string[]
     bio: string
     avatarCls: string
+    /** 「我的晤談像…」一句自述 */
+    blurb: string
+    /** 多元背景標籤（跨領域經歷、語言等） */
+    backgrounds: string[]
+    /** 五組風格光譜自評 */
+    spectrum: number[]
   }
 }
 
@@ -91,6 +168,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '日記',
     kindCls: 'bg-tile-mint text-[#3f6b46]',
     category: 'counseling',
+    issues: ['direction', 'stress', 'self'],
     mode: 'instant',
     credits: 90,
     duration: '21 天 · 每天 5 分鐘',
@@ -100,12 +178,22 @@ const PREVIEW_MODULES: PreviewModule[] = [
     includes: ['21 天引導式日記', '每日 Bouba 溫暖回饋', '每週小結週報', '心理師遠端關注'],
     coverCls: 'bg-tile-mint',
     coverEmoji: '🌱',
+    trial: {
+      title: '一小步練習',
+      minutes: 3,
+      prompt: '想一件最近卡住的事。不用分析原因，直接寫下「明天就做得到的最小一步」——小到不可能失敗的那種。',
+      feedback:
+        '你寫下的這一步很具體，這正是改變開始的樣子。焦點解決的核心就是：先做得到，再談做得多。如果這種「拆小步」的節奏適合你，完整的 21 天版本會每天陪你走一步。',
+    },
     pro: {
       name: '林曉暖',
       title: '心理師',
       tags: ['焦點解決 SFBT', '溫暖務實'],
       bio: '執業 9 年。相信改變不用很大，把卡住的困境拆成做得到的下一步就好。',
       avatarCls: 'bg-tile-mint text-[#3f6b46]',
+      blurb: '像一起找「做得到的下一步」，我會陪你把大困境拆小。',
+      backgrounds: ['前國中輔導老師', '台語'],
+      spectrum: [65, 40, 70, 55, 75],
     },
   },
   {
@@ -115,6 +203,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '練習',
     kindCls: 'bg-muted text-muted-foreground',
     category: 'counseling',
+    issues: ['sleep', 'stress'],
     mode: 'apply',
     credits: 150,
     duration: '14 天 · 每天 10 分鐘',
@@ -131,6 +220,9 @@ const PREVIEW_MODULES: PreviewModule[] = [
       tags: ['認知行為取向 CBT', '睡眠科學'],
       bio: '專長失眠與焦慮的非藥物介入，喜歡把研究實證翻譯成日常做得到的練習。',
       avatarCls: 'bg-tile-blue text-[#3e6079]',
+      blurb: '像睡眠教練，直接指出讓你睡不好的習慣，並給你替代方案。',
+      backgrounds: ['醫院睡眠中心經歷', '英語'],
+      spectrum: [75, 60, 75, 80, 85],
     },
   },
   {
@@ -140,6 +232,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '日記',
     kindCls: 'bg-tile-mint text-[#3f6b46]',
     category: 'spiritual',
+    issues: ['self', 'direction'],
     mode: 'instant',
     credits: 60,
     duration: '29 天 · 跟著月相走',
@@ -155,6 +248,9 @@ const PREVIEW_MODULES: PreviewModule[] = [
       tags: ['塔羅', '占星', '儀式感'],
       bio: '以塔羅與占星為鏡，陪你在星象的節奏裡認識自己、安放心事。',
       avatarCls: 'bg-tile-pink text-rust',
+      blurb: '像在星空下聊天，用牌卡當鏡子，答案由你自己說出來。',
+      backgrounds: ['旅居歐洲 6 年', '英語'],
+      spectrum: [45, 35, 40, 40, 30],
     },
   },
   {
@@ -164,6 +260,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '教練',
     kindCls: 'bg-tile-peach text-[#8a6320]',
     category: 'coaching',
+    issues: ['direction', 'stress'],
     mode: 'instant',
     credits: 320,
     duration: '4 週 · 每週練習＋復盤',
@@ -173,12 +270,22 @@ const PREVIEW_MODULES: PreviewModule[] = [
     includes: ['目標盤點工作表', '每週行動承諾', '教練式提問引導', '成果復盤模板'],
     coverCls: 'bg-tile-peach',
     coverEmoji: '🚀',
+    trial: {
+      title: '目標一句話',
+      minutes: 3,
+      prompt: '用一句話寫下「一年後你希望別人怎麼介紹你」。不用完美，先寫出第一版。',
+      feedback:
+        '這句話裡藏著你真正在意的方向。教練的工作就是把它拆成每週做得到的行動承諾。如果你喜歡這種「先講清楚要去哪」的開場，四週衝刺會把它變成進行式。',
+    },
     pro: {
       name: 'Kai Chen',
       title: 'ICF 認證職涯教練',
       tags: ['OKR', '職涯轉換', '高效行動'],
       bio: '前科技業 PM 轉任教練，陪超過 200 位工作者完成轉職與升遷目標。',
       avatarCls: 'bg-tile-peach text-[#8a6320]',
+      blurb: '像衝刺教練，每週對齊目標、檢核行動，不讓你原地打轉。',
+      backgrounds: ['前科技業 PM', '轉職過 3 次', '英語'],
+      spectrum: [90, 70, 85, 85, 95],
     },
   },
   {
@@ -188,6 +295,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '練習',
     kindCls: 'bg-muted text-muted-foreground',
     category: 'counseling',
+    issues: ['stress', 'mood'],
     mode: 'instant',
     credits: 120,
     duration: '8 週 · 每天 15 分鐘',
@@ -197,12 +305,22 @@ const PREVIEW_MODULES: PreviewModule[] = [
     includes: ['八週漸進式正念練習', '引導語音檔', '每週反思提問', '練習時數統計'],
     coverCls: 'bg-tile-lemon',
     coverEmoji: '🧘',
+    trial: {
+      title: '3 分鐘呼吸空間',
+      minutes: 3,
+      prompt: '閉上眼睛，做三個完整的呼吸。睜開眼後，寫下你注意到的一個身體感受——緊、鬆、熱、麻，什麼都可以。',
+      feedback:
+        '能夠「注意到」就是正念的第一步——你剛剛做到了。不需要清空念頭，只要像這樣一次次回到身體。八週的完整練習會帶你從 3 分鐘慢慢走到完整的身體掃描。',
+    },
     pro: {
       name: '周芷晴',
       title: '心理師',
       tags: ['正念減壓 MBSR', '安穩沉靜'],
       bio: '正念減壓合格師資。練習不是清空念頭，而是學會溫柔地回到當下。',
       avatarCls: 'bg-tile-lemon text-[#8a6320]',
+      blurb: '像一起靜下來的同伴，我說得很少，但會陪你回到呼吸。',
+      backgrounds: ['前外商 HR', '日語'],
+      spectrum: [30, 25, 35, 30, 55],
     },
   },
   {
@@ -212,6 +330,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '測驗',
     kindCls: 'bg-tile-peach text-[#8a6320]',
     category: 'spiritual',
+    issues: ['direction', 'self'],
     mode: 'instant',
     credits: 200,
     duration: '單次 · 約 30 分鐘',
@@ -227,6 +346,9 @@ const PREVIEW_MODULES: PreviewModule[] = [
       tags: ['紫微斗數', '流年規劃'],
       bio: '命理是參考書不是判決書。用 30 年經驗陪你把選擇權拿回自己手上。',
       avatarCls: 'bg-accent text-[#8a6320]',
+      blurb: '像看地圖的長輩，直話直說，但選擇權永遠在你手上。',
+      backgrounds: ['30 年執業'],
+      spectrum: [70, 75, 60, 70, 40],
     },
   },
   {
@@ -236,6 +358,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '日記',
     kindCls: 'bg-tile-mint text-[#3f6b46]',
     category: 'counseling',
+    issues: ['mood', 'loss', 'self'],
     mode: 'apply',
     credits: 180,
     duration: '6 週 · 每週主題創作',
@@ -252,6 +375,9 @@ const PREVIEW_MODULES: PreviewModule[] = [
       tags: ['藝術療癒', '小團體'],
       bio: '相信每個人心裡都有一種天氣。你不需要會畫畫，只需要願意拿起筆。',
       avatarCls: 'bg-tile-pink text-rust',
+      blurb: '像美術教室裡的陪伴者，不評價作品，只陪你看見感受。',
+      backgrounds: ['視覺設計背景'],
+      spectrum: [20, 20, 25, 15, 45],
     },
   },
   {
@@ -261,6 +387,7 @@ const PREVIEW_MODULES: PreviewModule[] = [
     kindLabel: '測驗',
     kindCls: 'bg-tile-peach text-[#8a6320]',
     category: 'assessment',
+    issues: ['stress', 'mood'],
     mode: 'instant',
     credits: 0,
     duration: '單次 · 約 15 分鐘',
@@ -276,9 +403,38 @@ const PREVIEW_MODULES: PreviewModule[] = [
       tags: ['質性測驗', '壓力管理'],
       bio: '專長失眠與焦慮的非藥物介入，喜歡把研究實證翻譯成日常做得到的練習。',
       avatarCls: 'bg-tile-blue text-[#3e6079]',
+      blurb: '像睡眠教練，直接指出讓你睡不好的習慣，並給你替代方案。',
+      backgrounds: ['醫院睡眠中心經歷', '英語'],
+      spectrum: [75, 60, 75, 80, 85],
     },
   },
 ]
+
+// ── 相符度計算（規則式示意：100 − 五光譜平均距離） ─────────────────────────
+
+function matchScore(userSpectrum: number[], proSpectrum: number[]): number {
+  const avgDiff =
+    userSpectrum.reduce((sum, v, i) => sum + Math.abs(v - proSpectrum[i]), 0) / userSpectrum.length
+  return Math.round(100 - avgDiff)
+}
+
+/** 挑「個案最在意（最偏離中間）且雙方最接近」的維度，翻譯成一句媒合理由 */
+function matchReason(userSpectrum: number[], proSpectrum: number[]): string {
+  let best = 0
+  let bestWeight = -Infinity
+  for (let i = 0; i < userSpectrum.length; i++) {
+    const care = Math.abs(userSpectrum[i] - 50)
+    const close = 100 - Math.abs(userSpectrum[i] - proSpectrum[i])
+    const weight = care + close
+    if (weight > bestWeight) {
+      bestWeight = weight
+      best = i
+    }
+  }
+  const def = SPECTRUM_DEFS[best]
+  const side = userSpectrum[best] >= 50 ? def.right : def.left
+  return `你偏好「${side}」，這位夥伴在這一點與你相近。`
+}
 
 // ── 主元件 ──────────────────────────────────────────────────────────────────
 
@@ -287,7 +443,9 @@ type View = 'explore' | 'saved' | 'mine'
 export function MarketplacePreview() {
   const { t } = useLanguage()
   const [view, setView] = useState<View>('explore')
+  const [issue, setIssue] = useState<'all' | IssueKey>('all')
   const [category, setCategory] = useState<'all' | PreviewCategory>('all')
+  const [archetype, setArchetype] = useState<ArchetypeKey | null>(null)
   const [credits, setCredits] = useState(START_CREDITS)
   const [saved, setSaved] = useState<string[]>([])
   const [status, setStatus] = useState<Record<string, EnrollStatus>>({})
@@ -295,7 +453,9 @@ export function MarketplacePreview() {
 
   const reset = () => {
     setView('explore')
+    setIssue('all')
     setCategory('all')
+    setArchetype(null)
     setCredits(START_CREDITS)
     setSaved([])
     setStatus({})
@@ -321,14 +481,24 @@ export function MarketplacePreview() {
       return next
     })
 
+  const userSpectrum = archetype ? ARCHETYPES.find((a) => a.key === archetype)!.spectrum : null
+
   const selected = PREVIEW_MODULES.find((m) => m.id === selectedId) ?? null
   const savedModules = PREVIEW_MODULES.filter((m) => saved.includes(m.id))
   const mine = PREVIEW_MODULES.filter((m) => status[m.id])
-  const explored =
-    category === 'all' ? PREVIEW_MODULES : PREVIEW_MODULES.filter((m) => m.category === category)
+  let explored = PREVIEW_MODULES.filter(
+    (m) =>
+      (issue === 'all' || m.issues.includes(issue)) &&
+      (category === 'all' || m.category === category),
+  )
+  if (userSpectrum) {
+    explored = [...explored].sort(
+      (a, b) => matchScore(userSpectrum, b.pro.spectrum) - matchScore(userSpectrum, a.pro.spectrum),
+    )
+  }
 
   const CATEGORY_FILTERS: { key: 'all' | PreviewCategory; label: string }[] = [
-    { key: 'all', label: t('全部') },
+    { key: 'all', label: t('全部類型') },
     { key: 'counseling', label: t('心理諮詢') },
     { key: 'coaching', label: t('生涯教練') },
     { key: 'spiritual', label: t('身心靈') },
@@ -399,26 +569,88 @@ export function MarketplacePreview() {
 
       {view === 'explore' && (
         <>
+          {/* 期待原型快篩：選了之後全站顯示相符度與媒合理由 */}
+          <div className="mt-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm font-black text-foreground">
+                <SparkIcon className="h-4 w-4 text-gold-deep" />
+                {t('你希望遇到什麼樣的夥伴？')}
+              </span>
+              {ARCHETYPES.map((a) => (
+                <button
+                  key={a.key}
+                  onClick={() => setArchetype(archetype === a.key ? null : a.key)}
+                  title={a.desc}
+                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                    archetype === a.key
+                      ? 'bg-foreground text-cream'
+                      : 'bg-muted text-foreground hover:bg-border'
+                  }`}
+                >
+                  {a.label}
+                </button>
+              ))}
+              {archetype && (
+                <button
+                  onClick={() => setArchetype(null)}
+                  className="text-xs font-bold text-muted-foreground hover:text-rust"
+                >
+                  {t('清除')}
+                </button>
+              )}
+            </div>
+            {archetype && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {ARCHETYPES.find((a) => a.key === archetype)!.desc}
+                {t('——已依相符度排序，點進模組可看夥伴的風格光譜。')}
+              </p>
+            )}
+          </div>
+
+          {/* 頂層：狀態/議題白話入口 */}
           <div className="mt-4 flex flex-wrap gap-2">
+            {ISSUE_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setIssue(f.key)}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
+                  issue === f.key ? 'bg-foreground text-cream' : 'bg-card text-foreground hover:bg-muted'
+                }`}
+              >
+                {t(f.label)}
+              </button>
+            ))}
+          </div>
+
+          {/* 次篩選：服務類型 */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {CATEGORY_FILTERS.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setCategory(f.key)}
-                className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
-                  category === f.key ? 'bg-foreground text-cream' : 'bg-card text-foreground hover:bg-muted'
+                className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
+                  category === f.key
+                    ? 'bg-primary-soft text-foreground ring-1 ring-primary/50'
+                    : 'bg-muted/70 text-muted-foreground hover:bg-muted'
                 }`}
               >
                 {f.label}
               </button>
             ))}
           </div>
-          <ModuleGrid
-            modules={explored}
-            saved={saved}
-            status={status}
-            onToggleSave={toggleSave}
-            onOpen={setSelectedId}
-          />
+
+          {explored.length === 0 ? (
+            <EmptyHint>{t('這個組合目前沒有模組，換個分類試試。')}</EmptyHint>
+          ) : (
+            <ModuleGrid
+              modules={explored}
+              saved={saved}
+              status={status}
+              userSpectrum={userSpectrum}
+              onToggleSave={toggleSave}
+              onOpen={setSelectedId}
+            />
+          )}
         </>
       )}
 
@@ -430,6 +662,7 @@ export function MarketplacePreview() {
             modules={savedModules}
             saved={saved}
             status={status}
+            userSpectrum={userSpectrum}
             onToggleSave={toggleSave}
             onOpen={setSelectedId}
           />
@@ -458,6 +691,7 @@ export function MarketplacePreview() {
           credits={credits}
           status={status[selected.id]}
           saved={saved.includes(selected.id)}
+          userSpectrum={userSpectrum}
           onToggleSave={() => toggleSave(selected.id)}
           onEnroll={() => enroll(selected)}
           onApply={() => apply(selected)}
@@ -474,12 +708,14 @@ function ModuleGrid({
   modules,
   saved,
   status,
+  userSpectrum,
   onToggleSave,
   onOpen,
 }: {
   modules: PreviewModule[]
   saved: string[]
   status: Record<string, EnrollStatus>
+  userSpectrum: number[] | null
   onToggleSave: (id: string) => void
   onOpen: (id: string) => void
 }) {
@@ -490,6 +726,7 @@ function ModuleGrid({
         const st = status[m.id]
         const isSaved = saved.includes(m.id)
         const dark = m.coverCls === 'bg-gradient-night'
+        const score = userSpectrum ? matchScore(userSpectrum, m.pro.spectrum) : null
         return (
           <div
             key={m.id}
@@ -513,6 +750,15 @@ function ModuleGrid({
               >
                 {t(m.kindLabel)}
               </span>
+              {m.trial && (
+                <span
+                  className={`absolute bottom-3 left-3 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                    dark ? 'bg-cream/90 text-foreground' : 'bg-background/90 text-foreground'
+                  }`}
+                >
+                  {t('可免費試玩')}
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -534,6 +780,11 @@ function ModuleGrid({
                 <span className="truncate text-xs text-muted-foreground">
                   {m.pro.name} · {m.pro.title}
                 </span>
+                {score != null && (
+                  <span className="ml-auto shrink-0 rounded-full bg-tile-mint px-2 py-0.5 text-[10px] font-extrabold text-[#3f6b46]">
+                    {t('相符 {n}%', { n: score })}
+                  </span>
+                )}
               </div>
               <h3 className="mt-1.5 text-[16px] font-black leading-snug text-foreground">{m.title}</h3>
               <p className="mt-1 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">{m.desc}</p>
@@ -630,6 +881,155 @@ function MyCourseRow({
   )
 }
 
+// ── 風格光譜（夥伴自評 + 個案期待對照） ────────────────────────────────────
+
+function SpectrumBars({
+  proSpectrum,
+  userSpectrum,
+}: {
+  proSpectrum: number[]
+  userSpectrum: number[] | null
+}) {
+  const { t } = useLanguage()
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {SPECTRUM_DEFS.map((def, i) => (
+        <div key={def.left} className="flex items-center gap-2">
+          <span className="w-16 shrink-0 text-right text-[10px] font-bold text-muted-foreground">
+            {t(def.left)}
+          </span>
+          <div className="relative h-1.5 min-w-0 flex-1 rounded-full bg-muted">
+            {/* 夥伴自評（實心點） */}
+            <span
+              className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-soft"
+              style={{ left: `${proSpectrum[i]}%` }}
+            />
+            {/* 個案期待（空心圈，選了原型才顯示） */}
+            {userSpectrum && (
+              <span
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-gold-deep bg-transparent"
+                style={{ left: `${userSpectrum[i]}%` }}
+              />
+            )}
+          </div>
+          <span className="w-16 shrink-0 text-[10px] font-bold text-muted-foreground">{t(def.right)}</span>
+        </div>
+      ))}
+      {userSpectrum && (
+        <p className="text-[10px] text-muted-foreground">
+          {t('實心點＝夥伴自評，空心圈＝你的期待。')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── 試玩小練習 ──────────────────────────────────────────────────────────────
+
+function TrialSheet({
+  module: m,
+  saved,
+  onToggleSave,
+  onClose,
+}: {
+  module: PreviewModule
+  saved: boolean
+  onToggleSave: () => void
+  onClose: () => void
+}) {
+  const { t } = useLanguage()
+  const [answer, setAnswer] = useState('')
+  const [done, setDone] = useState(false)
+  const trial = m.trial!
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] overflow-y-auto bg-[#1c1714]/50 px-4 py-8"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
+    >
+      <div
+        className="mx-auto w-full max-w-md overflow-hidden rounded-[24px] bg-background shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <span className="rounded-full bg-tile-mint px-2.5 py-0.5 text-[11px] font-extrabold text-[#3f6b46]">
+              {t('免費試玩 · 約 {n} 分鐘', { n: trial.minutes })}
+            </span>
+            <button
+              onClick={onClose}
+              aria-label={t('關閉')}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-lg font-bold text-foreground"
+            >
+              ×
+            </button>
+          </div>
+          <h2 className="mt-3 text-lg font-black text-foreground">{trial.title}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('由 {name}（{title}）設計', { name: m.pro.name, title: m.pro.title })}
+          </p>
+
+          {!done ? (
+            <>
+              <p className="mt-4 rounded-2xl bg-card p-4 text-[15px] leading-relaxed text-foreground/85 shadow-soft">
+                {trial.prompt}
+              </p>
+              <textarea
+                value={answer}
+                rows={3}
+                placeholder={t('在這裡寫下來…')}
+                onChange={(e) => setAnswer(e.target.value)}
+                className="mt-3 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <button
+                onClick={() => setDone(true)}
+                disabled={answer.trim().length === 0}
+                className="mt-3 w-full rounded-full bg-gradient-primary py-3 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {t('完成練習')}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="mt-4 rounded-2xl bg-primary-soft/50 p-4">
+                <p className="flex items-center gap-1.5 text-xs font-black text-foreground">
+                  <SparkIcon className="h-3.5 w-3.5 text-gold-deep" />
+                  {t('AI 回饋（示意）')}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-foreground/85">{trial.feedback}</p>
+              </div>
+              <p className="mt-4 text-center text-sm font-bold text-foreground">
+                {t('這是 {name} 設計的練習，覺得有幫助嗎？', { name: m.pro.name })}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={onToggleSave}
+                  className={`flex-1 rounded-full border py-2.5 text-sm font-bold transition ${
+                    saved
+                      ? 'border-rust/40 bg-tile-pink text-rust'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {saved ? t('已收藏') : t('收藏這個模組')}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 rounded-full bg-gradient-primary py-2.5 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
+                >
+                  {t('查看完整模組')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── 模組詳情（預約／申請）────────────────────────────────────────────────────
 
 function ModuleSheet({
@@ -637,6 +1037,7 @@ function ModuleSheet({
   credits,
   status,
   saved,
+  userSpectrum,
   onToggleSave,
   onEnroll,
   onApply,
@@ -646,6 +1047,7 @@ function ModuleSheet({
   credits: number
   status: EnrollStatus | undefined
   saved: boolean
+  userSpectrum: number[] | null
   onToggleSave: () => void
   onEnroll: () => void
   onApply: () => void
@@ -654,8 +1056,10 @@ function ModuleSheet({
   const { t } = useLanguage()
   const [confirming, setConfirming] = useState(false)
   const [applyNote, setApplyNote] = useState('')
+  const [trialOpen, setTrialOpen] = useState(false)
   const insufficient = m.credits > credits
   const dark = m.coverCls === 'bg-gradient-night'
+  const score = userSpectrum ? matchScore(userSpectrum, m.pro.spectrum) : null
 
   return (
     <div
@@ -702,7 +1106,7 @@ function ModuleSheet({
           </p>
           <p className="mt-3 text-[15px] leading-relaxed text-foreground/85">{m.desc}</p>
 
-          {/* 專業夥伴 */}
+          {/* 專業夥伴：頭像列 + 一句自述 + 多元背景 + 風格光譜 + 相符度 */}
           <div className="mt-4 rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center gap-3">
               <span
@@ -714,15 +1118,46 @@ function ModuleSheet({
                 <p className="text-[15px] font-black text-foreground">{m.pro.name}</p>
                 <p className="text-xs text-muted-foreground">{m.pro.title}</p>
               </div>
-              <div className="ml-auto flex flex-wrap justify-end gap-1">
-                {m.pro.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                    {tag}
-                  </span>
-                ))}
-              </div>
+              {score != null && (
+                <span className="ml-auto shrink-0 rounded-full bg-tile-mint px-2.5 py-1 text-xs font-extrabold text-[#3f6b46]">
+                  {t('與你的期待相符 {n}%', { n: score })}
+                </span>
+              )}
             </div>
+            <p className="mt-2.5 rounded-xl bg-muted/60 px-3 py-2 text-sm leading-relaxed text-foreground/85">
+              「{m.pro.blurb}」
+            </p>
+            {score != null && userSpectrum && (
+              <p className="mt-2 text-xs font-bold text-[#3f6b46]">
+                {matchReason(userSpectrum, m.pro.spectrum)}
+              </p>
+            )}
+            <div className="mt-2.5 flex flex-wrap gap-1">
+              {m.pro.tags.map((tag) => (
+                <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                  {tag}
+                </span>
+              ))}
+              {m.pro.backgrounds.map((bg) => (
+                <span
+                  key={bg}
+                  className="rounded-full bg-tile-lemon/70 px-2 py-0.5 text-[10px] font-bold text-[#8a6320]"
+                >
+                  {bg}
+                </span>
+              ))}
+            </div>
+            <SpectrumBars proSpectrum={m.pro.spectrum} userSpectrum={userSpectrum} />
             <p className="mt-2.5 text-sm leading-relaxed text-foreground/80">{m.pro.bio}</p>
+            {m.trial && !status && (
+              <button
+                onClick={() => setTrialOpen(true)}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-primary/50 bg-primary-soft/40 py-2.5 text-sm font-extrabold text-foreground transition hover:bg-primary-soft/70 active:scale-[0.98]"
+              >
+                <SparkIcon className="h-4 w-4 text-gold-deep" />
+                {t('先免費試玩：{title}（約 {n} 分鐘）', { title: m.trial.title, n: m.trial.minutes })}
+              </button>
+            )}
           </div>
 
           {/* 內容包含 */}
@@ -832,6 +1267,10 @@ function ModuleSheet({
           </div>
         </div>
       </div>
+
+      {trialOpen && m.trial && (
+        <TrialSheet module={m} saved={saved} onToggleSave={onToggleSave} onClose={() => setTrialOpen(false)} />
+      )}
     </div>
   )
 }
