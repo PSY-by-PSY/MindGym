@@ -15,6 +15,7 @@ import { AssessmentReportView } from '../components/pro/AssessmentReportView'
 import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
 import { MatchInvitesPreview } from '../components/pro/PreSessionPreview'
 import { SessionWorkbenchPreview } from '../components/pro/MidSessionPreview'
+import { PostSessionPreviewTab } from '../components/pro/PostSessionPreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import {
@@ -273,7 +274,7 @@ function ApplicationGate({
 
 // ── 主控台（三分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'modules' | 'invites' | 'matchInvites' | 'session' | 'clients' | 'preview'
+type Tab = 'modules' | 'invites' | 'matchInvites' | 'session' | 'postSession' | 'clients' | 'preview'
 
 function Console({ ownerId }: { ownerId: string }) {
   const { t } = useLanguage()
@@ -301,6 +302,7 @@ function Console({ ownerId }: { ownerId: string }) {
     { key: 'invites', label: t('邀請碼') },
     { key: 'matchInvites', label: t('媒合邀請') },
     { key: 'session', label: t('晤談工作台') },
+    { key: 'postSession', label: t('晤談後追蹤') },
     { key: 'clients', label: t('個案追蹤') },
     { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
@@ -329,6 +331,8 @@ function Console({ ownerId }: { ownerId: string }) {
           <MatchInvitesPreview onStartSession={() => setTab('session')} />
         ) : tab === 'session' ? (
           <SessionWorkbenchPreview />
+        ) : tab === 'postSession' ? (
+          <PostSessionPreviewTab />
         ) : modules === null ? (
           <Spinner />
         ) : tab === 'modules' ? (
