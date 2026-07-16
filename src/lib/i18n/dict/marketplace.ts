@@ -19,7 +19,7 @@ export const marketplace: Record<string, Translation> = {
   '收藏': { 'zh-CN': '收藏', en: 'Saved' },
   '取消收藏': { 'zh-CN': '取消收藏', en: 'Unsave' },
   '我的課程': { 'zh-CN': '我的课程', en: 'My Programs' },
-  '心理諮商': { 'zh-CN': '心理咨询', en: 'Counseling' },
+  '心理諮詢': { 'zh-CN': '心理咨询', en: 'Consultation' },
   '生涯教練': { 'zh-CN': '生涯教练', en: 'Coaching' },
   '身心靈': { 'zh-CN': '身心灵', en: 'Mind & Spirit' },
   '測驗量表': { 'zh-CN': '测验量表', en: 'Assessments' },
