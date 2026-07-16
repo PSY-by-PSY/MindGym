@@ -14,6 +14,7 @@ import { useStageBack } from '../lib/useStageBack'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import heartsBanner from '../assets/ui/hearts-banner.png'
 import celebrateHearts from '../assets/ui/celebrate-hearts.png'
+import floatingBouba from '../assets/ui/飄浮Bouba.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -910,19 +911,27 @@ function WritingStage({
 
 function CircularProgress({ filled, chars }: { filled: number; chars: number }) {
   const { t } = useLanguage()
-  const isComplete = filled === 3
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative mx-auto h-[128px] w-[200px]">
-        <div
-          className={`absolute left-1/2 top-0 flex h-[128px] w-[128px] -translate-x-1/2 items-center justify-center rounded-full border-[9px] bg-[rgba(254,250,240,0.7)] ${
-            isComplete ? 'border-gold-deep' : 'border-foreground'
-          }`}
-          style={isComplete ? { filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.55))' } : undefined}
+      <div className="relative mx-auto h-[190px] w-[190px] overflow-hidden">
+        <img
+          src={floatingBouba}
+          alt=""
+          className="pointer-events-none absolute max-w-none"
+          style={{
+            width: '233%',
+            height: '233%',
+            left: '-67.5%',
+            top: '-54%',
+          }}
+        />
+        <span
+          className="absolute font-en text-[32px] font-bold text-foreground"
+          style={{ left: '43.5%', top: '61.8%', transform: 'translate(-50%, -50%)' }}
         >
-          <span className="font-en text-[40px] font-bold text-foreground">{filled}/3</span>
-        </div>
+          {filled}/3
+        </span>
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground">{t('今日已寫 {n} 字', { n: chars })}</p>
     </div>
