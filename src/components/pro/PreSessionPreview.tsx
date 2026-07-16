@@ -642,6 +642,25 @@ export function MatchInvitesPreview() {
         </div>
       ) : (
         <div className="mt-5 flex flex-col gap-3">
+          {state === 'accepted' && (
+            <>
+              <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                目前沒有新的配對邀請。
+              </p>
+              <div className="mt-1">
+                <h2 className="text-[17px] font-black text-foreground">待首談（示意）</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  已接受配對的個案。正式版將同步出現在「個案追蹤」，首談前可隨時回來閱讀初談包。
+                </p>
+              </div>
+              <div className="rounded-2xl bg-tile-mint px-4 py-3">
+                <p className="text-sm font-black text-[#3f6b46]">首談前準備：建議先閱讀下方 AI 初談包，帶著系統觀進首談。</p>
+                <p className="mt-1 text-xs text-[#3f6b46]/80">
+                  正式版將同步通知行政端與個案端；「開始晤談」工作台（晤談中 MVP）將從這裡進入。
+                </p>
+              </div>
+            </>
+          )}
           <div className="rounded-2xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-lg font-black text-foreground">{invite.alias}</span>
@@ -734,12 +753,6 @@ export function MatchInvitesPreview() {
               </div>
             ))}
 
-          {state === 'accepted' && (
-            <div className="rounded-2xl bg-tile-mint px-4 py-3">
-              <p className="text-sm font-black text-[#3f6b46]">已接受配對。個案將出現在「個案追蹤」，可開始安排首談。</p>
-              <p className="mt-1 text-xs text-[#3f6b46]/80">正式版將同步通知行政端與個案端。</p>
-            </div>
-          )}
         </div>
       )}
     </div>
