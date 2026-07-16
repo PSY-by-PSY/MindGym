@@ -37,6 +37,31 @@ export const home: Record<string, Translation> = {
   'P 情緒力': { 'zh-CN': 'P 情绪力', en: 'P Positive Emotion' },
   'R 連結力': { 'zh-CN': 'R 连结力', en: 'R Relationships' },
   'M 意義力': { 'zh-CN': 'M 意义力', en: 'M Meaning' },
+  'P｜Positive Emotion 正向情緒': { 'zh-CN': 'P｜Positive Emotion 正向情绪', en: 'P | Positive Emotion' },
+  '理論基礎來自 Barbara Fredrickson 的擴展建構理論（Broaden-and-Build Theory）：正向情緒不只是感受的終點，更是一種心理資源，能擴展個體的思考彈性與行動範疇，長期累積成韌性、創造力與社會連結。': {
+    'zh-CN': '理论基础来自 Barbara Fredrickson 的扩展建构理论（Broaden-and-Build Theory）：正向情绪不只是感受的终点，更是一种心理资源，能扩展个体的思考弹性与行动范畴，长期累积成韧性、创造力与社会连结。',
+    en: "Based on Barbara Fredrickson's Broaden-and-Build Theory: positive emotions aren't just an end point — they're a psychological resource that broadens thinking and expands one's range of action, building resilience, creativity, and social connection over time.",
+  },
+  'E｜Engagement 投入': { 'zh-CN': 'E｜Engagement 投入', en: 'E | Engagement' },
+  '對應 Mihaly Csikszentmihalyi 提出的心流（Flow）概念。當個人技能與挑戰難度達到平衡時，便容易進入全神貫注、渾然忘我的心理狀態，這也是提升專注力與生活滿足感的核心機制。': {
+    'zh-CN': '对应 Mihaly Csikszentmihalyi 提出的心流（Flow）概念。当个人技能与挑战难度达到平衡时，便容易进入全神贯注、浑然忘我的心理状态，这也是提升专注力与生活满足感的核心机制。',
+    en: "Draws on Mihaly Csikszentmihalyi's concept of Flow: when skill and challenge are in balance, it's easy to enter a state of total absorption — a key mechanism for boosting focus and life satisfaction.",
+  },
+  'R｜Relationships 正向關係': { 'zh-CN': 'R｜Relationships 正向关系', en: 'R | Relationships' },
+  '根植於依附理論（Attachment Theory）與社會支持研究。真誠、支持性的人際連結，是心理健康最強的保護因子之一，也是逆境中緩衝壓力的重要資源。': {
+    'zh-CN': '根植于依附理论（Attachment Theory）与社会支持研究。真诚、支持性的人际连结，是心理健康最强的保护因子之一，也是逆境中缓冲压力的重要资源。',
+    en: 'Rooted in Attachment Theory and social support research. Genuine, supportive relationships are one of the strongest protective factors for mental health and a vital buffer against stress in hard times.',
+  },
+  'M｜Meaning 意義': { 'zh-CN': 'M｜Meaning 意义', en: 'M | Meaning' },
+  '呼應 Viktor Frankl 的意義治療（Logotherapy）：個體隸屬於並服務於超越自身的事物（信念、家庭、志業），能建立連貫的自我敘事，是對抗存在焦慮的心理基石。': {
+    'zh-CN': '呼应 Viktor Frankl 的意义治疗（Logotherapy）：个体隶属于并服务于超越自身的事物（信念、家庭、志业），能建立连贯的自我叙事，是对抗存在焦虑的心理基石。',
+    en: "Echoes Viktor Frankl's Logotherapy: belonging to and serving something beyond oneself — a belief, family, or calling — builds a coherent self-narrative and forms the psychological foundation for facing existential anxiety.",
+  },
+  'A｜Accomplishment 成就': { 'zh-CN': 'A｜Accomplishment 成就', en: 'A | Accomplishment' },
+  '連結自我決定理論（Self-Determination Theory）中的「勝任感」需求。為目標本身而努力、達成並精熟任務的歷程，能提升自我效能感，是獨立於情緒與人際之外的幸福構面。': {
+    'zh-CN': '连结自我决定理论（Self-Determination Theory）中的「胜任感」需求。为目标本身而努力、达成并精熟任务的历程，能提升自我效能感，是独立于情绪与人际之外的幸福构面。',
+    en: 'Connects to the need for competence in Self-Determination Theory. Striving toward, achieving, and mastering goals builds self-efficacy — a dimension of well-being independent of emotion or relationships.',
+  },
   '我的日程': { 'zh-CN': '我的日程', en: 'My Schedule' },
   '最新上架': { 'zh-CN': '最新上架', en: 'New Arrivals' },
   '最熱門': { 'zh-CN': '最热门', en: 'Most Popular' },
