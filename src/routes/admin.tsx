@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
+import { IntakeWorkbenchPreview } from '../components/pro/PreSessionPreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent, AssessmentModuleContent } from '../lib/proModules'
@@ -117,7 +118,7 @@ function Spinner() {
 
 // ── 主控台（四分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'appVersion' | 'preview'
+type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'matching' | 'appVersion' | 'preview'
 
 function AdminConsole() {
   const { t } = useLanguage()
@@ -128,6 +129,7 @@ function AdminConsole() {
     { key: 'reviews', label: t('模組審核') },
     { key: 'published', label: t('已上架模組') },
     { key: 'crises', label: t('危機警示總覽') },
+    { key: 'matching', label: t('媒合工作台') },
     { key: 'appVersion', label: t('App 版本控管') },
     { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
@@ -153,6 +155,7 @@ function AdminConsole() {
         {tab === 'reviews' && <ModuleReviewTab />}
         {tab === 'published' && <PublishedModulesTab />}
         {tab === 'crises' && <CrisisOverviewTab />}
+        {tab === 'matching' && <IntakeWorkbenchPreview />}
         {tab === 'appVersion' && <AppVersionTab />}
         {tab === 'preview' && <MarketplacePreview />}
       </section>
