@@ -17,6 +17,9 @@ import processGoalIcon from '../assets/ui/過程目標覺察icon.png'
 import threeGoodThingsCover from '../assets/ui/three-good-things-cover.png'
 import selfCompassionCover from '../assets/ui/self-compassion-cover.png'
 import mindfulnessCover from '../assets/ui/mindfulness-cover.png'
+import threeGoodThingsIcon from '../assets/ui/three-good-things-icon-tight.png'
+import selfCompassionIcon from '../assets/ui/self-compassion-icon-tight.png'
+import mindfulnessIcon from '../assets/ui/mindfulness-icon-tight.png'
 import permaP from '../assets/ui/perma-p-tight.png'
 import permaE from '../assets/ui/perma-e-tight.png'
 import permaR from '../assets/ui/perma-r-tight.png'
@@ -127,6 +130,16 @@ const modules = [
     img: mindfulnessCover,
     imgPosition: 'center' as const,
   },
+  {
+    name: 'WOOP 目標實踐',
+    meta: '初階·五分鐘',
+    to: '/app/placeholder' as const,
+    searchName: 'WOOP 目標實踐',
+    locked: true,
+    featured: false,
+    // TODO: 目前沒有 WOOP 專屬插畫，暫用中性佔位色塊，正式插畫到位後補上 img
+    imgPosition: 'center' as const,
+  },
 ]
 
 // 工作坊專屬練習：配合線上工作坊的限定模塊，首次點擊需輸入工作坊密碼
@@ -135,7 +148,6 @@ const workshopModules = [
   { name: '暖身卡牌', to: '/app/workshop/warmup' as const },
   { name: '找尋真實自我', to: '/app/workshop/authentic-self' as const },
   { name: '生命最後一天', to: '/app/workshop/last-day' as const },
-  { name: 'WOOP 目標實踐地圖', to: '/app/workshop/woop' as const },
 ]
 
 function HomePage() {
@@ -290,7 +302,7 @@ function ActiveModuleCard(props: ModuleProps) {
 
 function WipModuleCard(props: ModuleProps) {
   const { name, meta } = props
-  const img = 'img' in props && props.img ? props.img : featuredGratitude
+  const img = 'img' in props ? props.img : undefined
   const imgPosition = 'imgPosition' in props && props.imgPosition === 'right' ? 'right top' : 'center top'
   const { t } = useLanguage()
   return (
@@ -299,12 +311,17 @@ function WipModuleCard(props: ModuleProps) {
       style={{ background: '#FEFAF0' }}
     >
       {/* 圖片高度精準卡在文字底板上緣（336 - 104 = 232px），上緣切齊卡片頂部、下緣切齊底板頂部，不留白 */}
-      <img
-        src={img}
-        alt=""
-        className="pointer-events-none absolute inset-x-0 top-0 h-[232px] w-full object-cover"
-        style={{ objectPosition: imgPosition }}
-      />
+      {img ? (
+        <img
+          src={img}
+          alt=""
+          className="pointer-events-none absolute inset-x-0 top-0 h-[232px] w-full object-cover"
+          style={{ objectPosition: imgPosition }}
+        />
+      ) : (
+        // 尚無專屬插畫時的中性佔位色塊，等插畫到位後改回 img
+        <div className="absolute inset-x-0 top-0 h-[232px] w-full bg-tile-lemon" />
+      )}
       {/* 米白色底板：確保標題無論長短都落在卡片下半部，不會蓋到上方插畫 */}
       <div className="absolute inset-x-0 bottom-0 z-[5] h-[104px]" style={{ background: '#FEFAF0' }} />
       <div className="relative z-10 p-5 pb-6">
@@ -720,17 +737,22 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
     <>
       {!isGold && <span className="absolute inset-0 -z-10 bg-cream" />}
       <span className="relative shrink-0">
-        {locked ? (
-          <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-            <LockIcon />
-          </span>
-        ) : (
+        {img ? (
           <img
             src={img}
             alt=""
             className="h-[72px] w-[72px] object-contain"
             style={rotateImage ? { transform: 'rotate(-90deg)' } : undefined}
           />
+        ) : (
+          <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+            <LockIcon />
+          </span>
+        )}
+        {locked && img && (
+          <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-cream bg-[#1c1714]/70 text-cream">
+            <LockIcon className="h-3.5 w-3.5" />
+          </span>
         )}
         {completed && !locked && (
           <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-cream bg-[#71744F] text-cream">
@@ -776,7 +798,7 @@ function ExerciseCard({ to, search, img, name, meta, badge, tone = 'cream', lock
 
 // ─── 我的日程：每天可勾選要做的練習 ───────────────────────────────────────
 
-type SchedulePracticeKey = 'gratitude' | 'process-goal' | 'three-good-things' | 'self-compassion' | 'mindfulness'
+type SchedulePracticeKey = 'gratitude' | 'process-goal' | 'three-good-things' | 'self-compassion' | 'mindfulness' | 'woop'
 
 type PracticeDef = {
   key: SchedulePracticeKey
@@ -790,9 +812,10 @@ type PracticeDef = {
 const PRACTICE_CATALOG: PracticeDef[] = [
   { key: 'gratitude', name: '感恩日記', meta: '初階 · 五分鐘', to: '/app/gratitude', img: exerciseGratitude, locked: false },
   { key: 'process-goal', name: '過程目標覺察', meta: '初階 · 三分鐘', to: '/app/process-goal', img: processGoalIcon, locked: false },
-  { key: 'three-good-things', name: '三件好事', meta: '情緒力 · 成就力', locked: true },
-  { key: 'self-compassion', name: '自我慈悲', meta: '連結力 · 意義力', locked: true },
-  { key: 'mindfulness', name: '正念冥想', meta: '情緒力 · 投入力', locked: true },
+  { key: 'three-good-things', name: '三件好事', meta: '情緒力 · 成就力', img: threeGoodThingsIcon, locked: true },
+  { key: 'self-compassion', name: '自我慈悲', meta: '連結力 · 意義力', img: selfCompassionIcon, locked: true },
+  { key: 'mindfulness', name: '正念冥想', meta: '情緒力 · 投入力', img: mindfulnessIcon, locked: true },
+  { key: 'woop', name: 'WOOP 目標實踐地圖', meta: '意義力 · 成就力', locked: true },
 ]
 
 const PRACTICE_MAP = new Map(PRACTICE_CATALOG.map((p) => [p.key, p]))
@@ -1124,8 +1147,26 @@ function TrainingCenter({ recommendation, userId }: { recommendation: Recommenda
             badge="NEW"
           />
           <ExerciseCard
+            img={threeGoodThingsIcon}
             name="三件好事"
             meta="即將上架 · 情緒力 · 成就力"
+            locked
+          />
+          <ExerciseCard
+            img={selfCompassionIcon}
+            name="自我慈悲"
+            meta="即將上架 · 連結力 · 意義力"
+            locked
+          />
+          <ExerciseCard
+            img={mindfulnessIcon}
+            name="正念冥想"
+            meta="即將上架 · 情緒力 · 投入力"
+            locked
+          />
+          <ExerciseCard
+            name="WOOP 目標實踐地圖"
+            meta="即將上架 · 意義力 · 成就力"
             locked
           />
         </div>
