@@ -9,6 +9,7 @@ import { PrimaryCta } from '../components/PrimaryCta'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
+import { PermaGrowthCard } from '../components/PermaGrowthCard'
 import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
@@ -1715,38 +1716,7 @@ function CelebrateStage({
       </div>
 
       {/* PERMA 加分 */}
-      <div className="mb-6 w-full rounded-3xl bg-card p-6 shadow-soft">
-        <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-          {t('練習後 PERMA 加分')}
-        </p>
-        <div className="flex flex-col gap-5">
-          {getPermaBoosts(t).map(({ label, delta, bar, description }, i) => (
-            <div
-              key={label}
-              className="celebrate-row flex flex-col gap-2"
-              style={{ animationDelay: `${0.15 + i * 0.18}s` }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="w-14 shrink-0 text-sm font-extrabold text-foreground">
-                  {label}
-                </span>
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full ${bar} celebrate-bar`}
-                    style={{ width: `${(delta / 3) * 100}%`, animationDelay: `${0.25 + i * 0.18}s` }}
-                  />
-                </div>
-                <span className="w-10 shrink-0 text-right text-sm font-extrabold text-primary">
-                  +{delta}
-                </span>
-              </div>
-              <p className="pl-[68px] text-xs leading-relaxed text-muted-foreground">
-                {description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <PermaGrowthCard title={t('練習後 PERMA 加分')} items={getPermaBoosts(t)} />
 
       {/* 6-B 感恩對象地圖 */}
       <div className="mb-6 w-full rounded-3xl bg-card p-5 shadow-soft">
