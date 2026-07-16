@@ -11,6 +11,7 @@ import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import processGoalBanner from '../assets/ui/process-goal-intro-banner.png'
+import fertilizerIcon from '../assets/ui/花肥.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -1325,7 +1326,8 @@ function PgCelebrateStage({
               style={{ animationDelay: `${0.15 + i * 0.18}s` }}
             >
               <div className="flex items-center gap-3">
-                <span className="w-14 shrink-0 text-sm font-extrabold text-foreground">
+                <img src={fertilizerIcon} alt="" className="h-[110px] w-[110px] shrink-0" />
+                <span className="shrink-0 text-sm font-extrabold text-foreground">
                   {label}
                 </span>
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -1338,7 +1340,7 @@ function PgCelebrateStage({
                   +{delta}
                 </span>
               </div>
-              <p className="pl-[68px] text-xs leading-relaxed text-muted-foreground">
+              <p className="pl-[122px] text-xs leading-relaxed text-muted-foreground">
                 {description}
               </p>
             </div>
