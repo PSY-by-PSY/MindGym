@@ -24,7 +24,7 @@ type IntakePacket = {
   fourChecks: { label: string; signal: string; quote: string }[]
 }
 
-type IntakeCase = {
+export type IntakeCase = {
   id: string
   alias: string
   ageGender: string
@@ -101,7 +101,7 @@ const PRACTITIONERS: RecPractitioner[] = [
   },
 ]
 
-const CASES: IntakeCase[] = [
+export const CASES: IntakeCase[] = [
   {
     id: 'case-a',
     alias: '小禾',
@@ -282,7 +282,7 @@ const CASES: IntakeCase[] = [
 
 // ── 共用小元件 ──────────────────────────────────────────────────────────────
 
-function DemoBanner({ note, onReset }: { note: string; onReset: () => void }) {
+export function DemoBanner({ note, onReset }: { note: string; onReset: () => void }) {
   return (
     <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-dashed border-primary/70 bg-primary-soft/40 px-4 py-3">
       <span className="flex items-center gap-1.5 text-sm font-black text-foreground">
@@ -313,7 +313,7 @@ function CrisisBanner({ c }: { c: IntakeCase }) {
   )
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+export function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <p className="text-sm font-black text-foreground">{title}</p>
@@ -322,7 +322,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
   )
 }
 
-function Chip({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'mint' | 'peach' | 'pink' }) {
+export function Chip({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'mint' | 'peach' | 'pink' }) {
   const cls =
     tone === 'mint'
       ? 'bg-tile-mint text-[#3f6b46]'
@@ -613,7 +613,7 @@ export function IntakeWorkbenchPreview() {
 
 type InviteState = 'incoming' | 'accepted' | 'declined'
 
-export function MatchInvitesPreview() {
+export function MatchInvitesPreview({ onStartSession }: { onStartSession?: () => void } = {}) {
   const [state, setState] = useState<InviteState>('incoming')
   const [declineNote, setDeclineNote] = useState('')
   const [declining, setDeclining] = useState(false)
@@ -655,9 +655,15 @@ export function MatchInvitesPreview() {
               </div>
               <div className="rounded-2xl bg-tile-mint px-4 py-3">
                 <p className="text-sm font-black text-[#3f6b46]">首談前準備：建議先閱讀下方 AI 初談包，帶著系統觀進首談。</p>
-                <p className="mt-1 text-xs text-[#3f6b46]/80">
-                  正式版將同步通知行政端與個案端；「開始晤談」工作台（晤談中 MVP）將從這裡進入。
-                </p>
+                <p className="mt-1 text-xs text-[#3f6b46]/80">正式版將同步通知行政端與個案端。</p>
+                {onStartSession && (
+                  <button
+                    onClick={onStartSession}
+                    className="mt-3 w-full rounded-full bg-gradient-primary py-2.5 text-sm font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
+                  >
+                    開始晤談 →
+                  </button>
+                )}
               </div>
             </>
           )}
