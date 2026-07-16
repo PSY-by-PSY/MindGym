@@ -13,6 +13,7 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as TherapistImport } from './routes/therapist'
 import { Route as StaffImport } from './routes/staff'
+import { Route as ProfessionalImport } from './routes/professional'
 import { Route as PrivacyImport } from './routes/privacy'
 import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
@@ -43,6 +44,12 @@ const TherapistRoute = TherapistImport.update({
 const StaffRoute = StaffImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ProfessionalRoute = ProfessionalImport.update({
+  id: '/professional',
+  path: '/professional',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -200,6 +207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyImport
       parentRoute: typeof rootRoute
     }
+    '/professional': {
+      id: '/professional'
+      path: '/professional'
+      fullPath: '/professional'
+      preLoaderRoute: typeof ProfessionalImport
+      parentRoute: typeof rootRoute
+    }
     '/staff': {
       id: '/staff'
       path: '/staff'
@@ -342,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/professional': typeof ProfessionalRoute
   '/staff': typeof StaffRoute
   '/therapist': typeof TherapistRoute
   '/app/community': typeof AppCommunityRoute
@@ -365,6 +380,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/professional': typeof ProfessionalRoute
   '/staff': typeof StaffRoute
   '/therapist': typeof TherapistRoute
   '/app/community': typeof AppCommunityRoute
@@ -389,6 +405,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/professional': typeof ProfessionalRoute
   '/staff': typeof StaffRoute
   '/therapist': typeof TherapistRoute
   '/app/community': typeof AppCommunityRoute
@@ -414,6 +431,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/professional'
     | '/staff'
     | '/therapist'
     | '/app/community'
@@ -436,6 +454,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/professional'
     | '/staff'
     | '/therapist'
     | '/app/community'
@@ -458,6 +477,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/professional'
     | '/staff'
     | '/therapist'
     | '/app/community'
@@ -482,6 +502,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
+  ProfessionalRoute: typeof ProfessionalRoute
   StaffRoute: typeof StaffRoute
   TherapistRoute: typeof TherapistRoute
 }
@@ -493,6 +514,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
+  ProfessionalRoute: ProfessionalRoute,
   StaffRoute: StaffRoute,
   TherapistRoute: TherapistRoute,
 }
@@ -513,6 +535,7 @@ export const routeTree = rootRoute
         "/login",
         "/onboarding",
         "/privacy",
+        "/professional",
         "/staff",
         "/therapist"
       ]
@@ -548,6 +571,9 @@ export const routeTree = rootRoute
     },
     "/privacy": {
       "filePath": "privacy.tsx"
+    },
+    "/professional": {
+      "filePath": "professional.tsx"
     },
     "/staff": {
       "filePath": "staff.tsx"
