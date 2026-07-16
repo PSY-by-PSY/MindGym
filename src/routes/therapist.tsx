@@ -16,6 +16,7 @@ import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePrevie
 import { MatchInvitesPreview } from '../components/pro/PreSessionPreview'
 import { SessionWorkbenchPreview } from '../components/pro/MidSessionPreview'
 import { PostSessionPreviewTab } from '../components/pro/PostSessionPreview'
+import { AftercarePreviewTab } from '../components/pro/AftercarePreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import {
@@ -274,7 +275,7 @@ function ApplicationGate({
 
 // ── 主控台（三分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'modules' | 'invites' | 'matchInvites' | 'session' | 'postSession' | 'clients' | 'preview'
+type Tab = 'modules' | 'invites' | 'matchInvites' | 'session' | 'postSession' | 'aftercare' | 'clients' | 'preview'
 
 function Console({ ownerId }: { ownerId: string }) {
   const { t } = useLanguage()
@@ -303,6 +304,7 @@ function Console({ ownerId }: { ownerId: string }) {
     { key: 'matchInvites', label: t('媒合邀請') },
     { key: 'session', label: t('晤談工作台') },
     { key: 'postSession', label: t('晤談後追蹤') },
+    { key: 'aftercare', label: t('結案與延續') },
     { key: 'clients', label: t('個案追蹤') },
     { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
@@ -333,6 +335,8 @@ function Console({ ownerId }: { ownerId: string }) {
           <SessionWorkbenchPreview />
         ) : tab === 'postSession' ? (
           <PostSessionPreviewTab />
+        ) : tab === 'aftercare' ? (
+          <AftercarePreviewTab />
         ) : modules === null ? (
           <Spinner />
         ) : tab === 'modules' ? (
