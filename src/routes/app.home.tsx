@@ -269,6 +269,9 @@ function ActiveModuleCard(props: ModuleProps) {
   const { name, meta, to } = props
   const img = 'img' in props && props.img ? props.img : featuredGratitude
   const imgRotated = 'imgRotated' in props && props.imgRotated
+  // 寬幅封面圖（約 2:1）走滿版裁切；未指定 imgPosition 的則是為方形插畫調過的放大裁切。
+  const imgCover = 'imgPosition' in props && props.imgPosition
+  const imgPosition = imgCover === 'right' ? 'right top' : 'center top'
   const badge = 'badge' in props ? props.badge : undefined
   const { t } = useLanguage()
   return (
@@ -289,6 +292,14 @@ function ActiveModuleCard(props: ModuleProps) {
           alt=""
           className="pointer-events-none absolute left-1/2 h-[300px] w-[230px] max-w-none object-cover"
           style={{ top: '110px', transform: 'translate(-50%, -50%) rotate(-90deg)', objectPosition: '50% 8%' }}
+        />
+      ) : imgCover ? (
+        // 圖片高度精準卡在文字底板上緣（336 - 104 = 232px），與「敬請期待」卡片的封面裁切一致。
+        <img
+          src={img}
+          alt=""
+          className="pointer-events-none absolute inset-x-0 top-0 h-[232px] w-full object-cover"
+          style={{ objectPosition: imgPosition }}
         />
       ) : (
         <img
