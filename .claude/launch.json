@@ -10,8 +10,8 @@
     },
     {
       "name": "mindgym-api",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["app.py"],
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "exec .venv/bin/python3 backend/app.py"],
       "port": 8000
     }
   ]

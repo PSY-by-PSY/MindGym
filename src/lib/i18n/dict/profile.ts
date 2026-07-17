@@ -140,6 +140,14 @@ export const profile: Record<string, Translation> = {
     'zh-CN': '本周的记录会照常累积，AI 统整分析会在周日整理完整一周后才显示。',
     en: 'Your entries this week are saved as usual — AI analysis appears once the full week is in on Sunday.',
   },
+  '想在週日分析完成時收到通知嗎？': {
+    'zh-CN': '想在周日分析完成时收到通知吗？',
+    en: "Want a notification when Sunday's analysis is ready?",
+  },
+  '✓ 週日會提醒你回來看分析': {
+    'zh-CN': '✓ 周日会提醒你回来看分析',
+    en: "✓ We'll remind you to check back on Sunday",
+  },
   '感恩 {n1} 次 · 過程 {n2} 次': { 'zh-CN': '感恩 {n1} 次 · 过程 {n2} 次', en: '{n1}x gratitude · {n2}x process' },
   '看看這週的健心狀況': { 'zh-CN': '看看这周的健心状况', en: "See how your week's been going" },
   '返回': { 'zh-CN': '返回', en: 'Back' },
