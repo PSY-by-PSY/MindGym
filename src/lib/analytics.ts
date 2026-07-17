@@ -70,6 +70,7 @@ export type AnalyticsEvent =
   | 'weekly_review_entries_expanded'  // 展開一週回顧的全部日記
   | 'weekly_review_shared'            // 生成一週回顧分享圖（Line／IG 等系統分享面板）
   | 'weekly_review_week_switched'    // 一週回顧頁切換週次
+  | 'weekly_review_notif_enable_clicked' // 一週回顧頁點擊「開啟通知」提示
 
 // 已就緒的 posthog 實例；尚未載入完成時為 null。
 let ph: PostHog | null = null
