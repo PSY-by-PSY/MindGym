@@ -11,6 +11,11 @@ import { TARGET_COLORS, TARGET_META } from '../lib/gratitudeTargets'
 import { downloadNodeAsPng } from '../lib/shareImage'
 import { useLanguage } from '../lib/i18n/context'
 import { track } from '../lib/analytics'
+import { isNativeApp } from '../lib/nativeAuth'
+import { enableNotifications, getLocalNotifPermission, type NotifPermission } from '../lib/localNotifications'
+
+// 這個提示只問一次：按過「稍後再說」就不再於本頁詢問（仍可在側邊欄「通知」開關開啟）。
+const WEEKLY_REVIEW_NOTIF_DISMISS_KEY = 'weekly_review_notif_prompt_dismissed_v1'
 
 export const Route = createFileRoute('/app/weekly-review')({
   component: WeeklyReviewPage,
@@ -59,11 +64,52 @@ function WeeklyReviewPage() {
   const [sharing, setSharing] = useState(false)
   const [isCurrentWeekSunday, setIsCurrentWeekSunday] = useState(false)
   const [nextSundayDate, setNextSundayDate] = useState<string>('')
+  const [notifState, setNotifState] = useState<NotifPermission | 'loading'>('loading')
+  const [notifBusy, setNotifBusy] = useState(false)
+  const [notifDismissed, setNotifDismissed] = useState(false)
   const shareRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user.id ?? null))
   }, [])
+
+  // 週日前的等待卡片：順便問一次要不要開啟通知，開了才能在週日 21:00 收到「回來看分析」提醒。
+  useEffect(() => {
+    try { setNotifDismissed(localStorage.getItem(WEEKLY_REVIEW_NOTIF_DISMISS_KEY) === '1') } catch { /* 忽略 */ }
+
+    const refreshNotifState = async () => {
+      if (isNativeApp()) {
+        setNotifState(await getLocalNotifPermission())
+      } else if (typeof Notification !== 'undefined') {
+        const p = Notification.permission
+        setNotifState(p === 'granted' ? 'granted' : p === 'denied' ? 'denied' : 'prompt')
+      } else {
+        setNotifState('unsupported')
+      }
+    }
+    void refreshNotifState()
+  }, [])
+
+  const enableWeeklyReviewNotif = async () => {
+    setNotifBusy(true)
+    track('weekly_review_notif_enable_clicked')
+    try {
+      if (isNativeApp()) {
+        await enableNotifications()
+        setNotifState(await getLocalNotifPermission())
+      } else if (typeof Notification !== 'undefined') {
+        const result = await Notification.requestPermission()
+        setNotifState(result === 'granted' ? 'granted' : result === 'denied' ? 'denied' : 'prompt')
+      }
+    } finally {
+      setNotifBusy(false)
+    }
+  }
+
+  const dismissNotifPrompt = () => {
+    try { localStorage.setItem(WEEKLY_REVIEW_NOTIF_DISMISS_KEY, '1') } catch { /* 忽略 */ }
+    setNotifDismissed(true)
+  }
 
   useEffect(() => { track('weekly_review_opened') }, [])
 
@@ -184,6 +230,30 @@ function WeeklyReviewPage() {
           <p className="mt-4 text-sm leading-relaxed text-foreground">
             {t('本週的紀錄會照常累積，AI 統整分析會在週日整理完整一週後才顯示。')}
           </p>
+
+          {notifState === 'prompt' && !notifDismissed && (
+            <div className="mt-5 flex flex-col items-center gap-3 border-t border-border/50 pt-4">
+              <p className="text-sm text-foreground">{t('想在週日分析完成時收到通知嗎？')}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={dismissNotifPrompt}
+                  className="rounded-full border border-border px-5 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted"
+                >
+                  {t('稍後再說')}
+                </button>
+                <button
+                  onClick={enableWeeklyReviewNotif}
+                  disabled={notifBusy}
+                  className="rounded-full bg-gradient-primary px-5 py-2 text-xs font-bold text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  {notifBusy ? t('處理中…') : t('開啟通知')}
+                </button>
+              </div>
+            </div>
+          )}
+          {notifState === 'granted' && (
+            <p className="mt-4 text-xs font-bold text-emerald-600">{t('✓ 週日會提醒你回來看分析')}</p>
+          )}
         </div>
       )}
 
