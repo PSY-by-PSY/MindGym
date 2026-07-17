@@ -91,6 +91,17 @@ const modules = [
     featured: true,
   },
   {
+    name: '自我慈悲',
+    meta: '初階·五分鐘',
+    to: '/app/self-compassion' as const,
+    searchName: '自我慈悲',
+    locked: false,
+    featured: false,
+    img: selfCompassionCover,
+    imgPosition: 'center' as const,
+    badge: '新上架',
+  },
+  {
     name: '過程目標覺察',
     meta: '初階 · 三分鐘',
     to: '/app/process-goal' as const,
@@ -109,16 +120,6 @@ const modules = [
     featured: false,
     img: threeGoodThingsCover,
     imgPosition: 'right' as const,
-  },
-  {
-    name: '自我慈悲',
-    meta: '初階·五分鐘',
-    to: '/app/self-compassion' as const,
-    searchName: '自我慈悲',
-    locked: false,
-    featured: false,
-    img: selfCompassionCover,
-    imgPosition: 'center' as const,
   },
   {
     name: '正念冥想',
@@ -268,6 +269,7 @@ function ActiveModuleCard(props: ModuleProps) {
   const { name, meta, to } = props
   const img = 'img' in props && props.img ? props.img : featuredGratitude
   const imgRotated = 'imgRotated' in props && props.imgRotated
+  const badge = 'badge' in props ? props.badge : undefined
   const { t } = useLanguage()
   return (
     <Link
@@ -276,6 +278,11 @@ function ActiveModuleCard(props: ModuleProps) {
       className="relative flex h-[336px] w-[300px] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-[22px] text-left shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition active:scale-[0.98]"
       style={{ background: '#FEFAF0' }}
     >
+      {badge && (
+        <span className="absolute right-3.5 top-3.5 z-10 rounded-full bg-tile-mint px-2.5 py-1 text-[11px] font-extrabold text-[#71744F]">
+          {t(badge)}
+        </span>
+      )}
       {imgRotated ? (
         <img
           src={img}

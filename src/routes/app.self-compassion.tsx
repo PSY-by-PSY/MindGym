@@ -336,7 +336,7 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
           <BackIcon />
         </button>
         <div className="absolute right-5 top-16 z-[2] flex h-[70px] w-[70px] flex-col items-center justify-center rounded-xl border-[3px] border-[#88B8CE] bg-cream">
-          <span className="font-en text-[30px] font-bold leading-none text-foreground">8</span>
+          <span className="font-en text-[30px] font-bold leading-none text-foreground">5</span>
           <span className="mt-0.5 text-xs text-muted-foreground">{t('分鐘')}</span>
         </div>
       </div>
@@ -375,6 +375,15 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
           </span>
         ))}
       </p>
+
+      <div className="mt-5">
+        <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
+        <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
+          <li>
+            Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
+          </li>
+        </ul>
+      </div>
 
       <button
         onClick={onStart}
