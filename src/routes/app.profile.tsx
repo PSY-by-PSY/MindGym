@@ -1075,7 +1075,7 @@ function WeeklyReviewEntry({ userId }: { userId: string }) {
     return () => { cancelled = true }
   }, [userId])
 
-  const total = (counts?.gratitudeCount ?? 0) + (counts?.processCount ?? 0)
+  const total = (counts?.gratitudeCount ?? 0) + (counts?.processCount ?? 0) + (counts?.selfCompassionCount ?? 0)
 
   return (
     <Link
@@ -1089,7 +1089,7 @@ function WeeklyReviewEntry({ userId }: { userId: string }) {
         <span className="block text-sm font-extrabold text-foreground">{t('本週回顧')}</span>
         {counts && total > 0 ? (
           <span className="block text-xs font-bold text-muted-foreground">
-            {t('感恩 {n1} 次 · 過程 {n2} 次', { n1: counts.gratitudeCount, n2: counts.processCount })}
+            {t('感恩 {n1} 次 · 過程 {n2} 次 · 慈悲 {n3} 次', { n1: counts.gratitudeCount, n2: counts.processCount, n3: counts.selfCompassionCount })}
           </span>
         ) : (
           <span className="block text-xs font-bold text-muted-foreground">{t('看看這週的健心狀況')}</span>

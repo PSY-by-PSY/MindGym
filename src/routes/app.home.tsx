@@ -113,9 +113,9 @@ const modules = [
   {
     name: '自我慈悲',
     meta: '初階·五分鐘',
-    to: '/app/placeholder' as const,
+    to: '/app/self-compassion' as const,
     searchName: '自我慈悲',
-    locked: true,
+    locked: false,
     featured: false,
     img: selfCompassionCover,
     imgPosition: 'center' as const,
@@ -804,7 +804,7 @@ type PracticeDef = {
   key: SchedulePracticeKey
   name: string
   meta: string
-  to?: '/app/gratitude' | '/app/process-goal'
+  to?: '/app/gratitude' | '/app/process-goal' | '/app/self-compassion'
   img?: string
   locked: boolean
 }
@@ -813,7 +813,7 @@ const PRACTICE_CATALOG: PracticeDef[] = [
   { key: 'gratitude', name: '感恩日記', meta: '初階 · 五分鐘', to: '/app/gratitude', img: exerciseGratitude, locked: false },
   { key: 'process-goal', name: '過程目標覺察', meta: '初階 · 三分鐘', to: '/app/process-goal', img: processGoalIcon, locked: false },
   { key: 'three-good-things', name: '三件好事', meta: '情緒力 · 成就力', img: threeGoodThingsIcon, locked: true },
-  { key: 'self-compassion', name: '自我慈悲', meta: '連結力 · 意義力', img: selfCompassionIcon, locked: true },
+  { key: 'self-compassion', name: '自我慈悲', meta: '連結力 · 意義力', to: '/app/self-compassion', img: selfCompassionIcon, locked: false },
   { key: 'mindfulness', name: '正念冥想', meta: '情緒力 · 投入力', img: mindfulnessIcon, locked: true },
   { key: 'woop', name: 'WOOP 目標實踐地圖', meta: '意義力 · 成就力', locked: true },
 ]
@@ -1153,10 +1153,11 @@ function TrainingCenter({ recommendation, userId }: { recommendation: Recommenda
             locked
           />
           <ExerciseCard
+            to="/app/self-compassion"
             img={selfCompassionIcon}
             name="自我慈悲"
-            meta="即將上架 · 連結力 · 意義力"
-            locked
+            meta="新上架 · 連結力 · 意義力"
+            badge="NEW"
           />
           <ExerciseCard
             img={mindfulnessIcon}
