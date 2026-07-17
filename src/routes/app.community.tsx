@@ -72,6 +72,11 @@ type PracticePayload = {
   // 專業模組（v='pro_module'）：不標註是哪位專業夥伴（拍板決策）
   module_title?: string
   excerpt?: string
+  // 自我慈悲（v='self_compassion'，situation 與過程目標覺察的「困境」共用欄位名）
+  awareness?: string
+  humanity?: string
+  to_friend?: string
+  to_self?: string
   [k: string]: unknown
 }
 
@@ -1458,6 +1463,8 @@ function practiceTag(practiceType: string | null): { label: string; tile: string
   switch (practiceType) {
     case 'process_goal':
       return { label: '過程目標覺察', tile: 'bg-tile-blue' }
+    case 'self_compassion':
+      return { label: '自我慈悲', tile: 'bg-tile-pink' }
     case 'workshop_authentic_self':
       return { label: '找尋真實自我', tile: 'bg-tile-pink' }
     case 'workshop_last_day':
@@ -1524,6 +1531,14 @@ function translatableFieldRefs(entry: GratitudeEntry): TranslatableFieldRef[] {
     return [
       { get: (e) => e.payload?.module_title, set: (e, v) => { if (e.payload) e.payload.module_title = v } },
       { get: (e) => e.payload?.excerpt, set: (e, v) => { if (e.payload) e.payload.excerpt = v } },
+    ]
+  }
+  if (p === 'self_compassion' && entry.payload) {
+    return [
+      { get: (e) => e.payload?.awareness, set: (e, v) => { if (e.payload) e.payload.awareness = v } },
+      { get: (e) => e.payload?.situation, set: (e, v) => { if (e.payload) e.payload.situation = v } },
+      { get: (e) => e.payload?.humanity, set: (e, v) => { if (e.payload) e.payload.humanity = v } },
+      { get: (e) => e.payload?.to_self, set: (e, v) => { if (e.payload) e.payload.to_self = v } },
     ]
   }
   return [
@@ -1625,6 +1640,9 @@ function PracticeBodyContent({ entry }: { entry: GratitudeEntry }) {
   }
   if (entry.practice_type === 'pro_module' && entry.payload) {
     return <ProModuleBody payload={entry.payload} />
+  }
+  if (entry.practice_type === 'self_compassion' && entry.payload) {
+    return <SelfCompassionBody payload={entry.payload} />
   }
   const items = [entry.item_1, entry.item_2, entry.item_3].filter(Boolean) as string[]
   return (
@@ -1766,6 +1784,25 @@ function ProModuleBody({ payload }: { payload: PracticePayload }) {
         </span>
       )}
       {excerpt && <PgFieldBlock label={t('練習摘要')} value={excerpt} />}
+    </div>
+  )
+}
+
+// 自我慈悲：正念覺察（情緒與念頭）＋ 共同人性（處境／許多人都會感受到）＋ 對自己說的話（亮色強調）。
+function SelfCompassionBody({ payload }: { payload: PracticePayload }) {
+  const { t } = useLanguage()
+  const awareness = (payload.awareness ?? '').trim()
+  const situation = (payload.situation ?? '').trim()
+  const humanity = (payload.humanity ?? '').trim()
+  const toSelf = (payload.to_self ?? '').trim()
+  const humanityText = situation && humanity
+    ? t('面對 {situation}，我感受到 {humanity}', { situation, humanity })
+    : situation || humanity
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {awareness && <PgFieldBlock label={t('正念覺察')} value={awareness} />}
+      {humanityText && <PgFieldBlock label={t('共同人性')} value={humanityText} />}
+      {toSelf && <PgAiBlock label={t('我想對自己說')} value={toSelf} />}
     </div>
   )
 }

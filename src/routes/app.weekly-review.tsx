@@ -180,7 +180,7 @@ function WeeklyReviewPage() {
     })
   }
 
-  const totalCount = (data?.gratitudeCount ?? 0) + (data?.processCount ?? 0)
+  const totalCount = (data?.gratitudeCount ?? 0) + (data?.processCount ?? 0) + (data?.selfCompassionCount ?? 0)
   const visibleComments = expanded ? (data?.comments ?? []) : (data?.comments ?? []).slice(0, 2)
   const visibleEntries = entriesExpanded ? (data?.gratitudeEntries ?? []) : (data?.gratitudeEntries ?? []).slice(0, 2)
 
@@ -296,8 +296,8 @@ function WeeklyReviewPage() {
         </div>
       ) : (
         <div className="mt-6 flex flex-col gap-5">
-          {/* 感恩／過程次數：沿用日曆詳情列的色點圓圈語言（mint+深綠點＝感恩、blue+primary 點＝過程） */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 感恩／過程／自我慈悲次數：沿用日曆詳情列的色點圓圈語言（mint+深綠點＝感恩、blue+primary 點＝過程、pink+玫瑰點＝自我慈悲） */}
+          <div className="grid grid-cols-3 gap-3">
             <div className="rounded-3xl bg-tile-mint p-5 text-center">
               <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-card">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
@@ -315,6 +315,15 @@ function WeeklyReviewPage() {
                 {data!.processCount}<span className="text-sm font-bold">{t('次')}</span>
               </p>
               <p className="mt-0.5 text-xs font-bold text-foreground/70">{t('過程目標覺察')}</p>
+            </div>
+            <div className="rounded-3xl bg-tile-pink p-5 text-center">
+              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-card">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#a85a72]" />
+              </span>
+              <p className="mt-2 text-2xl font-extrabold text-foreground">
+                {data!.selfCompassionCount}<span className="text-sm font-bold">{t('次')}</span>
+              </p>
+              <p className="mt-0.5 text-xs font-bold text-foreground/70">{t('自我慈悲')}</p>
             </div>
           </div>
 

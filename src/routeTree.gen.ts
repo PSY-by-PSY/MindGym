@@ -21,6 +21,7 @@ import { Route as AppImport } from './routes/app'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
 import { Route as AppWeeklyReviewImport } from './routes/app.weekly-review'
+import { Route as AppSelfCompassionImport } from './routes/app.self-compassion'
 import { Route as AppProfileImport } from './routes/app.profile'
 import { Route as AppProcessGoalImport } from './routes/app.process-goal'
 import { Route as AppPlaceholderImport } from './routes/app.placeholder'
@@ -92,6 +93,12 @@ const IndexRoute = IndexImport.update({
 const AppWeeklyReviewRoute = AppWeeklyReviewImport.update({
   id: '/weekly-review',
   path: '/weekly-review',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppSelfCompassionRoute = AppSelfCompassionImport.update({
+  id: '/self-compassion',
+  path: '/self-compassion',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -270,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileImport
       parentRoute: typeof AppImport
     }
+    '/app/self-compassion': {
+      id: '/app/self-compassion'
+      path: '/self-compassion'
+      fullPath: '/app/self-compassion'
+      preLoaderRoute: typeof AppSelfCompassionImport
+      parentRoute: typeof AppImport
+    }
     '/app/weekly-review': {
       id: '/app/weekly-review'
       path: '/weekly-review'
@@ -324,6 +338,7 @@ interface AppRouteChildren {
   AppPlaceholderRoute: typeof AppPlaceholderRoute
   AppProcessGoalRoute: typeof AppProcessGoalRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppSelfCompassionRoute: typeof AppSelfCompassionRoute
   AppWeeklyReviewRoute: typeof AppWeeklyReviewRoute
   AppProModuleModuleIdRoute: typeof AppProModuleModuleIdRoute
   AppWorkshopAuthenticSelfRoute: typeof AppWorkshopAuthenticSelfRoute
@@ -339,6 +354,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPlaceholderRoute: AppPlaceholderRoute,
   AppProcessGoalRoute: AppProcessGoalRoute,
   AppProfileRoute: AppProfileRoute,
+  AppSelfCompassionRoute: AppSelfCompassionRoute,
   AppWeeklyReviewRoute: AppWeeklyReviewRoute,
   AppProModuleModuleIdRoute: AppProModuleModuleIdRoute,
   AppWorkshopAuthenticSelfRoute: AppWorkshopAuthenticSelfRoute,
@@ -365,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
@@ -389,6 +406,7 @@ export interface FileRoutesByTo {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
@@ -414,6 +432,7 @@ export interface FileRoutesById {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
@@ -440,6 +459,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
@@ -463,6 +483,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
@@ -486,6 +507,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
@@ -555,6 +577,7 @@ export const routeTree = rootRoute
         "/app/placeholder",
         "/app/process-goal",
         "/app/profile",
+        "/app/self-compassion",
         "/app/weekly-review",
         "/app/pro-module/$moduleId",
         "/app/workshop/authentic-self",
@@ -603,6 +626,10 @@ export const routeTree = rootRoute
     },
     "/app/profile": {
       "filePath": "app.profile.tsx",
+      "parent": "/app"
+    },
+    "/app/self-compassion": {
+      "filePath": "app.self-compassion.tsx",
       "parent": "/app"
     },
     "/app/weekly-review": {
