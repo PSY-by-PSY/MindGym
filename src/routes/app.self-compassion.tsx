@@ -333,7 +333,7 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
 
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
-      <div className="relative -mx-5 h-[170px] overflow-hidden">
+      <div className="relative left-1/2 right-1/2 -mx-[50vw] h-[170px] w-screen overflow-hidden">
         <img
           src={heartsBanner}
           alt=""
