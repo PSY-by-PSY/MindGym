@@ -1657,7 +1657,7 @@ function PracticeBodyContent({ entry }: { entry: GratitudeEntry }) {
   )
 }
 
-function PgFieldBlock({ label, value }: { label: string; value: string }) {
+function PgFieldBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-muted px-3.5 py-3">
       <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
@@ -1666,7 +1666,7 @@ function PgFieldBlock({ label, value }: { label: string; value: string }) {
   )
 }
 
-function PgAiBlock({ label, value }: { label: string; value: string }) {
+function PgAiBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-gradient-soft px-3.5 py-3">
       <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-primary">{label}</p>
@@ -1788,21 +1788,68 @@ function ProModuleBody({ payload }: { payload: PracticePayload }) {
   )
 }
 
-// 自我慈悲：正念覺察（情緒與念頭）＋ 共同人性（處境／許多人都會感受到）＋ 對自己說的話（亮色強調）。
+// 自我慈悲：完整呈現正念覺察／共同人性／自我善待的引導語＋書寫內容（跟練習內「你的自我慈悲書寫信」
+// 頁一致的完整句子，不是精簡摘要），「我想對自己說」維持原本樣子不變。
+// 深色粗體＝使用者手寫的內容，灰色＝固定的引導語模板，方便一眼看出具體寫了什麼。
 function SelfCompassionBody({ payload }: { payload: PracticePayload }) {
   const { t } = useLanguage()
   const awareness = (payload.awareness ?? '').trim()
   const situation = (payload.situation ?? '').trim()
   const humanity = (payload.humanity ?? '').trim()
+  const toFriend = (payload.to_friend ?? '').trim()
   const toSelf = (payload.to_self ?? '').trim()
-  const humanityText = situation && humanity
-    ? t('面對 {situation}，我感受到 {humanity}', { situation, humanity })
-    : situation || humanity
   return (
     <div className="mt-4 flex flex-col gap-2">
-      {awareness && <PgFieldBlock label={t('正念覺察')} value={awareness} />}
-      {humanityText && <PgFieldBlock label={t('共同人性')} value={humanityText} />}
-      {toSelf && <PgAiBlock label={t('我想對自己說')} value={toSelf} />}
+      {awareness && (
+        <PgFieldBlock
+          label={t('正念覺察')}
+          value={
+            <>
+              <span className="text-muted-foreground">{t('此刻，我感覺到 ')}</span>
+              <span className="font-bold text-foreground">{awareness}</span>
+              <span className="text-muted-foreground">{t('，但是我有勇氣不對它進行反應，我也不對它進行任何評價。')}</span>
+            </>
+          }
+        />
+      )}
+      {(situation || humanity) && (
+        <PgFieldBlock
+          label={t('共同人性')}
+          value={
+            <>
+              <span className="text-muted-foreground">{t('我知道，面對 ')}</span>
+              <span className="font-bold text-foreground">{situation}</span>
+              <span className="text-muted-foreground">{t('，許多人都會感受到 ')}</span>
+              <span className="font-bold text-foreground">{humanity}</span>
+              <span className="text-muted-foreground">{t('，而我並不是唯一有這種感受的人。')}</span>
+            </>
+          }
+        />
+      )}
+      {(toFriend || toSelf) && (
+        <PgFieldBlock
+          label={t('自我善待')}
+          value={
+            <>
+              {toFriend && (
+                <>
+                  <span className="text-muted-foreground">{t('如果此刻有一位朋友經歷一樣的事，我會對他說「')}</span>
+                  <span className="font-bold text-foreground">{toFriend}</span>
+                  <span className="text-muted-foreground">{t('」。')}</span>
+                  {toSelf && <br />}
+                </>
+              )}
+              {toSelf && (
+                <>
+                  <span className="text-muted-foreground">{t('現在，我也要對自己說「')}</span>
+                  <span className="font-bold text-foreground">{toSelf}</span>
+                  <span className="text-muted-foreground">{t('」。')}</span>
+                </>
+              )}
+            </>
+          }
+        />
+      )}
     </div>
   )
 }
