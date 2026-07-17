@@ -9,7 +9,7 @@ import { computeUnifiedStreak } from '../lib/streak'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
 import { saveOrShareImage } from '../lib/shareImage'
-import heartsBanner from '../assets/ui/hearts-banner.png'
+import heartsBanner from '../assets/ui/自我慈悲 內頁.png'
 
 const WEEKDAY_LABELS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 
@@ -329,6 +329,7 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
   const { t } = useLanguage()
   const cards = getConceptCards(t)
   const permaBoosts = getPermaBoosts(t)
+  const [conceptsExpanded, setConceptsExpanded] = useState(false)
 
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
@@ -336,7 +337,7 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
         <img
           src={heartsBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute inset-0 w-full h-full object-cover"
         />
         <button
           onClick={onGoBack}
@@ -351,22 +352,46 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
         </div>
       </div>
 
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('自我慈悲練習')}</h1>
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('自我慈悲')}</h1>
 
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('自我慈悲，是練習用對待好朋友的溫柔，來對待正在經歷困難的自己。這個練習包含三個核心元素，讓我們先花一點時間認識它們。')}
       </div>
 
-      <div className="mt-5 flex flex-col gap-3.5">
-        {cards.map((card) => (
-          <div key={card.key} className="rounded-3xl bg-card p-4 shadow-soft">
-            <span className={`inline-block rounded-full ${card.tileClass} px-3.5 py-1.5 text-sm font-extrabold tracking-[0.05em] text-foreground/80`}>
-              {card.tag}
-            </span>
-            <p className="mt-2 text-base font-extrabold text-foreground">{card.title}</p>
-            <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">{card.body}</p>
+      <div className="mt-3">
+        {!conceptsExpanded ? (
+          <button onClick={() => setConceptsExpanded(true)} className="text-xs font-bold text-primary">
+            {t('查看更多 ▾')}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            <div className="flex flex-col gap-3.5">
+              {cards.map((card) => (
+                <div key={card.key} className="rounded-3xl bg-card p-4 shadow-soft">
+                  <span className={`inline-block rounded-full ${card.tileClass} px-3.5 py-1.5 text-sm font-extrabold tracking-[0.05em] text-foreground/80`}>
+                    {card.tag}
+                  </span>
+                  <p className="mt-2 text-base font-extrabold text-foreground">{card.title}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">{card.body}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
+              <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
+                <li>
+                  Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
+                </li>
+              </ul>
+            </div>
+            <button
+              onClick={() => setConceptsExpanded(false)}
+              className="text-left text-xs font-bold text-primary"
+            >
+              {t('收合 ▴')}
+            </button>
           </div>
-        ))}
+        )}
       </div>
 
       <div className="mt-5 flex flex-col gap-3.5">
@@ -385,15 +410,6 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
           </span>
         ))}
       </p>
-
-      <div className="mt-5">
-        <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
-        <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
-          <li>
-            Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
-          </li>
-        </ul>
-      </div>
 
       <button
         onClick={onStart}
@@ -438,7 +454,7 @@ function MeditationToggle() {
   }
 
   const toggleMute = () => {
-    sendCommand(muted ? 'mute' : 'unMute')
+    sendCommand(muted ? 'unMute' : 'mute')
     setMuted((m) => !m)
   }
 

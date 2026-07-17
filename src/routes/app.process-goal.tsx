@@ -512,7 +512,7 @@ function Intro({
         <img
           src={processGoalBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
         <button
           onClick={onGoBack}
