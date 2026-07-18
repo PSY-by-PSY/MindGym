@@ -8,7 +8,17 @@ import { isoLocalDate } from '../lib/date'
 import { computeUnifiedStreak } from '../lib/streak'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
-import heartsBanner from '../assets/ui/hearts-banner.png'
+import { saveOrShareImage } from '../lib/shareImage'
+import heartsBanner from '../assets/ui/自我慈悲 內頁.png'
+
+const WEEKDAY_LABELS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+
+function formatDate(date: Date, t: TFn): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y} / ${m} / ${d}（${t(WEEKDAY_LABELS[date.getDay()])}）`
+}
 
 // 匿名顯示名稱：故意不走 t()，理由同感恩日記（見 app.gratitude.tsx）——
 // 這是寫入資料庫的資料值，不應隨畫面語言切換而改變。
@@ -319,14 +329,15 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
   const { t } = useLanguage()
   const cards = getConceptCards(t)
   const permaBoosts = getPermaBoosts(t)
+  const [conceptsExpanded, setConceptsExpanded] = useState(false)
 
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
-      <div className="relative -mx-5 h-[170px] overflow-hidden">
+      <div className="relative left-1/2 right-1/2 -mx-[50vw] h-[170px] w-screen overflow-hidden">
         <img
           src={heartsBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute inset-0 w-full h-full object-cover"
         />
         <button
           onClick={onGoBack}
@@ -341,22 +352,46 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
         </div>
       </div>
 
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('自我慈悲練習')}</h1>
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('自我慈悲')}</h1>
 
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('自我慈悲，是練習用對待好朋友的溫柔，來對待正在經歷困難的自己。這個練習包含三個核心元素，讓我們先花一點時間認識它們。')}
       </div>
 
-      <div className="mt-5 flex flex-col gap-3.5">
-        {cards.map((card) => (
-          <div key={card.key} className="rounded-3xl bg-card p-4 shadow-soft">
-            <span className={`inline-block rounded-full ${card.tileClass} px-3.5 py-1.5 text-sm font-extrabold tracking-[0.05em] text-foreground/80`}>
-              {card.tag}
-            </span>
-            <p className="mt-2 text-base font-extrabold text-foreground">{card.title}</p>
-            <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">{card.body}</p>
+      <div className="mt-3">
+        {!conceptsExpanded ? (
+          <button onClick={() => setConceptsExpanded(true)} className="text-xs font-bold text-primary">
+            {t('查看更多 ▾')}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            <div className="flex flex-col gap-3.5">
+              {cards.map((card) => (
+                <div key={card.key} className="rounded-3xl bg-card p-4 shadow-soft">
+                  <span className={`inline-block rounded-full ${card.tileClass} px-3.5 py-1.5 text-sm font-extrabold tracking-[0.05em] text-foreground/80`}>
+                    {card.tag}
+                  </span>
+                  <p className="mt-2 text-base font-extrabold text-foreground">{card.title}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">{card.body}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
+              <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
+                <li>
+                  Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
+                </li>
+              </ul>
+            </div>
+            <button
+              onClick={() => setConceptsExpanded(false)}
+              className="text-left text-xs font-bold text-primary"
+            >
+              {t('收合 ▴')}
+            </button>
           </div>
-        ))}
+        )}
       </div>
 
       <div className="mt-5 flex flex-col gap-3.5">
@@ -375,15 +410,6 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
           </span>
         ))}
       </p>
-
-      <div className="mt-5">
-        <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
-        <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
-          <li>
-            Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
-          </li>
-        </ul>
-      </div>
 
       <button
         onClick={onStart}
@@ -428,7 +454,7 @@ function MeditationToggle() {
   }
 
   const toggleMute = () => {
-    sendCommand(muted ? 'mute' : 'unMute')
+    sendCommand(muted ? 'unMute' : 'mute')
     setMuted((m) => !m)
   }
 
@@ -647,6 +673,35 @@ function ShareStage({
   onNext: () => void
 }) {
   const { t } = useLanguage()
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const [sharing, setSharing] = useState(false)
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
+  const date = useMemo(() => formatDate(new Date(), t), [t])
+
+  const handleShare = async () => {
+    if (!shareCardRef.current || sharing) return
+    setSharing(true)
+    try {
+      const node = shareCardRef.current
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      // 動態載入 html-to-image，讓它從主包切出去（只有按下分享才載入）——同感恩日記做法。
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(node, {
+        width: 1080,
+        height: 1440,
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: '#FEFAF0',
+        style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
+      })
+      const filename = `self-compassion-${isoLocalDate(new Date())}.png`
+      await saveOrShareImage(dataUrl, filename, t('我的自我慈悲書寫信'))
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
@@ -669,35 +724,59 @@ function ShareStage({
             <span className="inline-block rounded-full bg-tile-pink px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/70">
               {t('正念覺察')}
             </span>
-            <p className="mt-2 text-sm leading-[1.85] text-foreground/85">
-              {t('此刻，我感覺到 {v}，但是我有勇氣不對它進行反應，我也不對它進行任何評價。', { v: items.awareness })}
+            <p className="mt-2 text-sm leading-[1.85]">
+              <span className="text-[#A0A0A0]">{t('此刻，我感覺到 ')}</span>
+              <span className="font-bold text-[#2C2C2C]">{items.awareness}</span>
+              <span className="text-[#A0A0A0]">{t('，但是我有勇氣不對它進行反應，我也不對它進行任何評價。')}</span>
             </p>
           </div>
           <div>
             <span className="inline-block rounded-full bg-tile-peach px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/70">
               {t('共同人性')}
             </span>
-            <p className="mt-2 text-sm leading-[1.85] text-foreground/85">
-              {t('我知道，面對 {situation}，許多人都會感受到 {humanity}，而我並不是唯一有這種感受的人。', {
-                situation: items.situation,
-                humanity: items.humanity,
-              })}
+            <p className="mt-2 text-sm leading-[1.85]">
+              <span className="text-[#A0A0A0]">{t('我知道，面對 ')}</span>
+              <span className="font-bold text-[#2C2C2C]">{items.situation}</span>
+              <span className="text-[#A0A0A0]">{t('，許多人都會感受到 ')}</span>
+              <span className="font-bold text-[#2C2C2C]">{items.humanity}</span>
+              <span className="text-[#A0A0A0]">{t('，而我並不是唯一有這種感受的人。')}</span>
             </p>
           </div>
           <div>
             <span className="inline-block rounded-full bg-tile-blue px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-foreground/70">
               {t('自我善待')}
             </span>
-            <p className="mt-2 text-sm leading-[1.85] text-foreground/85">
-              {t('如果此刻有一位朋友經歷一樣的事，我會對他說「{toFriend}」。現在，我也要對自己說「{toSelf}」。', {
-                toFriend: items.toFriend,
-                toSelf: items.toSelf,
-              })}
+            <p className="mt-2 text-sm leading-[1.85]">
+              <span className="text-[#A0A0A0]">{t('如果此刻有一位朋友經歷一樣的事，我會對他說「')}</span>
+              <span className="font-bold text-[#2C2C2C]">{items.toFriend}</span>
+              <span className="text-[#A0A0A0]">{t('」。現在，我也要對自己說「')}</span>
+              <span className="font-bold text-[#2C2C2C]">{items.toSelf}</span>
+              <span className="text-[#A0A0A0]">{t('」。')}</span>
             </p>
           </div>
         </div>
 
         <p className="mt-5 text-right font-handwriting text-base text-primary/60">{t('— 此刻的你')}</p>
+      </div>
+
+      {/* 隱藏的分享圖（畫面外，跟感恩日記一樣的做法） */}
+      <div
+        ref={shareCardRef}
+        aria-hidden
+        className="pointer-events-none fixed -left-[9999px] top-0"
+        style={{ width: '1080px', height: '1440px' }}
+      >
+        <SelfCompassionShareCard items={items} date={date} />
+      </div>
+
+      <div className="mt-5">
+        <button
+          onClick={handleShare}
+          disabled={sharing}
+          className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-border bg-white text-sm font-extrabold tracking-[0.2em] text-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+        >
+          {sharing ? t('正在生成圖片…') : isMobile ? t('分享圖片') : t('下載圖片')}
+        </button>
       </div>
 
       <div className="mt-5">
@@ -756,6 +835,110 @@ function ShareStage({
   )
 }
 
+// 分享圖：inline style（非 tailwind class）——html-to-image 轉檔時比較穩定，
+// 版面比照感恩日記的 ShareCard，深色文字（黑色）＝使用者手寫的內容，
+// 灰色文字（#A0A0A0）＝固定的引導語模板，方便一眼看出具體寫了什麼。
+function SelfCompassionShareCard({ items, date }: { items: SelfCompassionItems; date: string }) {
+  const { t } = useLanguage()
+  const guide = { color: '#A0A0A0' }
+  const answer = { fontWeight: 800, color: '#2C2C2C' }
+
+  return (
+    <div
+      style={{
+        width: '1080px',
+        height: '1440px',
+        background: 'linear-gradient(180deg, #FEFAF0 0%, #f6efe0 55%, #efe2c9 100%)',
+        padding: '76px 72px 56px',
+        boxSizing: 'border-box',
+        color: '#542916',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 30,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 18, letterSpacing: 8, fontWeight: 800, color: '#88B8CE' }}>
+          PSY BY PSY · SELF-COMPASSION
+        </div>
+        <div style={{ fontSize: 52, fontWeight: 900, marginTop: 16, lineHeight: 1.25, letterSpacing: 1 }}>
+          {t('你的自我慈悲書寫信')}
+        </div>
+        <div style={{ fontSize: 26, fontWeight: 700, opacity: 0.6, marginTop: 12 }}>{date}</div>
+      </div>
+
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: 40,
+          padding: '48px 44px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 34,
+          boxShadow: '0 8px 22px -10px rgba(40,24,12,0.18)',
+        }}
+      >
+        <div style={{ fontSize: 30, fontWeight: 800, opacity: 0.5 }}>{t('親愛的自己，')}</div>
+
+        <div>
+          <div style={{ display: 'inline-block', background: '#f3d9df', borderRadius: 999, padding: '8px 22px', fontSize: 20, fontWeight: 800 }}>
+            {t('正念覺察')}
+          </div>
+          <div style={{ fontSize: 32, lineHeight: 1.7, marginTop: 16, whiteSpace: 'pre-wrap' }}>
+            <span style={guide}>{t('此刻，我感覺到 ')}</span>
+            <span style={answer}>{items.awareness}</span>
+            <span style={guide}>{t('，但是我有勇氣不對它進行反應，我也不對它進行任何評價。')}</span>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'inline-block', background: '#f3e3c4', borderRadius: 999, padding: '8px 22px', fontSize: 20, fontWeight: 800 }}>
+            {t('共同人性')}
+          </div>
+          <div style={{ fontSize: 32, lineHeight: 1.7, marginTop: 16, whiteSpace: 'pre-wrap' }}>
+            <span style={guide}>{t('我知道，面對 ')}</span>
+            <span style={answer}>{items.situation}</span>
+            <span style={guide}>{t('，許多人都會感受到 ')}</span>
+            <span style={answer}>{items.humanity}</span>
+            <span style={guide}>{t('，而我並不是唯一有這種感受的人。')}</span>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'inline-block', background: '#cfe2ee', borderRadius: 999, padding: '8px 22px', fontSize: 20, fontWeight: 800 }}>
+            {t('自我善待')}
+          </div>
+          <div style={{ fontSize: 32, lineHeight: 1.7, marginTop: 16, whiteSpace: 'pre-wrap' }}>
+            <span style={guide}>{t('如果此刻有一位朋友經歷一樣的事，')}</span>
+            <br />
+            <span style={guide}>{t('我會對他說「')}</span>
+            <span style={answer}>{items.toFriend}</span>
+            <span style={guide}>{t('」。')}</span>
+            <br />
+            <span style={guide}>{t('現在，我也要對自己說「')}</span>
+            <span style={answer}>{items.toSelf}</span>
+            <span style={guide}>{t('」。')}</span>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'right', fontSize: 26, fontWeight: 700, opacity: 0.5, marginTop: 4 }}>
+          {t('— 此刻的你')}
+        </div>
+      </div>
+
+      {/* PSY by PSY logo */}
+      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
+        <img
+          src="/assets/logo-wordmark.png"
+          alt="PSY by PSY"
+          style={{ height: 44, objectFit: 'contain', opacity: 0.8 }}
+          crossOrigin="anonymous"
+        />
+      </div>
+    </div>
+  )
+}
+
 function QuoteMarkIcon() {
   return (
     <svg
@@ -770,7 +953,13 @@ function QuoteMarkIcon() {
 
 // ─────────────────────────── CELEBRATE ───────────────────────────
 
-function CelebrateStage({ onNavigate, onBack }: { onNavigate: () => void; onBack: () => void }) {
+function CelebrateStage({
+  onNavigate,
+  onBack,
+}: {
+  onNavigate: () => void
+  onBack: () => void
+}) {
   const { t } = useLanguage()
 
   return (

@@ -508,11 +508,11 @@ function Intro({
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
       {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
-      <div className="relative -mx-5 -mt-4 h-[170px] overflow-hidden">
+      <div className="relative left-1/2 right-1/2 -mx-[50vw] -mt-4 h-[170px] w-screen overflow-hidden">
         <img
           src={processGoalBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
         <button
           onClick={onGoBack}
