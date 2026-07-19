@@ -81,6 +81,7 @@ DROP POLICY IF EXISTS "gratitude_entries: 本人可讀"             ON gratitude
 DROP POLICY IF EXISTS "gratitude_entries: is_shared 資料公開可讀" ON gratitude_entries;
 DROP POLICY IF EXISTS "gratitude_entries: 本人可建立"           ON gratitude_entries;
 DROP POLICY IF EXISTS "gratitude_entries: 本人可更新"           ON gratitude_entries;
+DROP POLICY IF EXISTS "gratitude_entries: 本人可刪除"           ON gratitude_entries;
 
 CREATE POLICY "gratitude_entries: 本人可讀" ON gratitude_entries
   FOR SELECT USING (auth.uid() = user_id);
@@ -94,6 +95,9 @@ CREATE POLICY "gratitude_entries: 本人可建立" ON gratitude_entries
 
 CREATE POLICY "gratitude_entries: 本人可更新" ON gratitude_entries
   FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "gratitude_entries: 本人可刪除" ON gratitude_entries
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- likes（社群按讚）

@@ -16,6 +16,9 @@ import { useLanguage } from '../lib/i18n/context'
 import { translateTexts, type TranslateTargetLang } from '../lib/translate'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
+import avatar3 from '../assets/ui/頭像1 Bouba脫帽禮.png'
+import avatar4 from '../assets/ui/頭像2 Bouba種花.png'
+import avatar5 from '../assets/ui/頭像3 Bouba打瞌睡.png'
 
 type GratitudeEntry = {
   id: string
@@ -458,6 +461,9 @@ function formatDate(dateStr: string | null): string {
 const AVATAR_SRC: Record<string, string> = {
   'avatar-1': avatar1,
   'avatar-2': avatar2,
+  'avatar-3': avatar3,
+  'avatar-4': avatar4,
+  'avatar-5': avatar5,
 }
 
 function isPhotoAvatar(code: string | null | undefined): boolean {
@@ -524,6 +530,16 @@ function BlockIcon({ className = 'h-4 w-4' }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <path d="M5.5 5.5l13 13" />
+    </svg>
+  )
+}
+
+function TrashIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+      <path d="M10 11v6M14 11v6" />
     </svg>
   )
 }
@@ -1150,6 +1166,12 @@ function CommunityPage() {
     })
   }
 
+  // 刪除成功後從兩個 feed 移除（貼文可能同時出現在「社群動態」與「我的貼文」）
+  function handleDeleted(entryId: string) {
+    setCommunityFeed((prev) => prev.filter((e) => e.id !== entryId))
+    setMyEntries((prev) => prev.filter((e) => e.id !== entryId))
+  }
+
   return (
     <>
       {/* 下拉重整指示器（規格 [3]）：固定在頂部 header 下方，隨下拉距離淡入。 */}
@@ -1216,6 +1238,7 @@ function CommunityPage() {
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
                       onCommentLikeChange={handleCommentLikeChange}
                       onBlock={handleBlocked}
+                      onDelete={handleDeleted}
                     />
                   ))}
                 </div>
@@ -1276,6 +1299,7 @@ function CommunityPage() {
                       onCommentAdded={(c) => handleCommentAdded(entry.id, c)}
                       onCommentLikeChange={handleCommentLikeChange}
                       onBlock={handleBlocked}
+                      onDelete={handleDeleted}
                     />
                   ))}
                 </div>
@@ -2000,6 +2024,50 @@ function ConfirmBlock({
   )
 }
 
+// 刪除貼文確認 sheet。
+function ConfirmDelete({
+  submitting,
+  errored,
+  onConfirm,
+  onClose,
+}: {
+  submitting: boolean
+  errored: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const { t } = useLanguage()
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-6 shadow-soft"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-base font-extrabold text-foreground">{t('刪除這篇貼文？')}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {t('刪除後將無法復原，貼文的按讚與留言也會一併移除。')}
+        </p>
+        {errored && <p className="mt-2 text-xs font-semibold text-red-500">{t('刪除失敗，請稍後再試。')}</p>}
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-full border border-border bg-background py-3 text-sm font-bold text-foreground transition hover:bg-muted"
+          >
+            {t('取消')}
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={submitting}
+            className="flex-1 rounded-full bg-red-500 py-3 text-sm font-extrabold text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? t('刪除中…') : t('刪除')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // 檢舉 / 封鎖的共用狀態與 DB 寫入。回傳開啟器與要渲染的 sheets。
 // onReported：檢舉成功後通知呼叫端做樂觀隱藏；onBlock：封鎖成功後把對方加入過濾名單。
 function useModeration({
@@ -2109,6 +2177,7 @@ function EntryCard({
   onCommentAdded,
   onCommentLikeChange,
   onBlock,
+  onDelete,
 }: {
   entry: GratitudeEntry
   index: number
@@ -2125,6 +2194,7 @@ function EntryCard({
   onCommentAdded: (c: Comment) => void
   onCommentLikeChange: (commentId: string, info: LikeInfo) => void
   onBlock: (blockedUserId: string) => void
+  onDelete?: (entryId: string) => void
 }) {
   const { t } = useLanguage()
   const articleRef = useRef<HTMLElement>(null)
@@ -2139,6 +2209,9 @@ function EntryCard({
   const avatar = avatarFor(localAnonName, index, entry.avatar)
   const [showComments, setShowComments] = useState(false)
   const [liking, setLiking] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteErrored, setDeleteErrored] = useState(false)
 
   // 檢舉 / 封鎖（非本人貼文與留言）
   const [openCommentMenu, setOpenCommentMenu] = useState<string | null>(null)
@@ -2183,6 +2256,21 @@ function EntryCard({
       .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: newAnonName })
       .eq('id', entry.id)
   }
+
+  async function doDelete() {
+    if (deleting) return
+    setDeleting(true)
+    setDeleteErrored(false)
+    const { error } = await supabase.from('gratitude_entries').delete().eq('id', entry.id)
+    setDeleting(false)
+    if (error) {
+      setDeleteErrored(true)
+      return
+    }
+    setShowDeleteConfirm(false)
+    onDelete?.(entry.id)
+  }
+
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -2377,6 +2465,17 @@ function EntryCard({
                       </button>
                     )
                   })}
+                  <div className="my-1 h-px bg-border" />
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      setDeleteErrored(false)
+                      setShowDeleteConfirm(true)
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
+                  >
+                    <TrashIcon />{t('刪除貼文')}
+                  </button>
                 </div>
               </>
             )}
@@ -2674,6 +2773,14 @@ function EntryCard({
       )}
 
       {sheets}
+      {showDeleteConfirm && (
+        <ConfirmDelete
+          submitting={deleting}
+          errored={deleteErrored}
+          onConfirm={doDelete}
+          onClose={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </article>
   )
 }
