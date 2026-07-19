@@ -10,6 +10,7 @@ import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
+import { TheorySection } from '../components/TheorySection'
 import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
@@ -545,7 +546,6 @@ function IntroStage({
   onStart: () => void
 }) {
   const { t } = useLanguage()
-  const [expanded, setExpanded] = useState(false)
   const difficultyLabel = difficulty === 'basic' ? t('初階') : t('進階')
   const permaBoosts = getPermaBoosts(t)
 
@@ -580,18 +580,11 @@ function IntroStage({
         <span className="ml-1 align-baseline text-xs font-bold text-[#542916]">{t('（難度：{level}）', { level: difficultyLabel })}</span>
       </div>
 
-      {/* 3-C2 查看更多展開 */}
-      <div className="mt-3">
-        {!expanded ? (
-          <button
-            onClick={() => setExpanded(true)}
-            className="text-xs font-bold text-primary"
-          >
-            {t('查看更多 ▾')}
-          </button>
-        ) : (
-          <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
-            <div>
+      {/* 3-C2 理論說明：核心目標常駐露出，其餘由「查看更多」展開（三個練習共用版型） */}
+      <TheorySection>
+        {(expanded) => (
+          <>
+            <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed">
               <p className="font-extrabold text-foreground mb-1.5">{t('核心目標')}</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>{t('・建立覺察生活中的美好以及練習表達感恩的習慣')}</li>
@@ -603,71 +596,69 @@ function IntroStage({
                 </ul>
               </ul>
             </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('練前準備')}</p>
-              <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
-                <li>
-                  <strong className="font-bold text-foreground">{t('練習時長')}</strong>
-                  <div className="mt-0.5">{t('建議每日 5–10 分鐘。')}</div>
-                </li>
-                <li>
-                  <strong className="font-bold text-foreground">{t('時段推薦')}</strong>
-                  <div className="mt-0.5">{t('建議在 19:00–24:00 之間練習，幫助自己：')}</div>
-                  <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>{t('・回顧一天發生的事件')}</li>
-                    <li>{t('・整理自己的思緒與情緒')}</li>
-                    <li>{t('・建立睡前的感恩儀式感')}</li>
+            {expanded && (
+              <div className="mt-2.5 rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('練前準備')}</p>
+                  <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
+                    <li>
+                      <strong className="font-bold text-foreground">{t('練習時長')}</strong>
+                      <div className="mt-0.5">{t('建議每日 5–10 分鐘。')}</div>
+                    </li>
+                    <li>
+                      <strong className="font-bold text-foreground">{t('時段推薦')}</strong>
+                      <div className="mt-0.5">{t('建議在 19:00–24:00 之間練習，幫助自己：')}</div>
+                      <ul className="pl-3 mt-1 flex flex-col gap-1">
+                        <li>{t('・回顧一天發生的事件')}</li>
+                        <li>{t('・整理自己的思緒與情緒')}</li>
+                        <li>{t('・建立睡前的感恩儀式感')}</li>
+                      </ul>
+                    </li>
+                    <li>
+                      <strong className="font-bold text-foreground">{t('環境營造')}</strong>
+                      <div className="mt-0.5">{t('建議開始前：')}</div>
+                      <ul className="pl-3 mt-1 flex flex-col gap-1">
+                        <li>{t('・暫停所有訊息通知')}</li>
+                        <li>{t('・找一個舒服且安靜的空間')}</li>
+                        <li>{t('・將注意力回到自己身上')}</li>
+                      </ul>
+                    </li>
                   </ul>
-                </li>
-                <li>
-                  <strong className="font-bold text-foreground">{t('環境營造')}</strong>
-                  <div className="mt-0.5">{t('建議開始前：')}</div>
-                  <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>{t('・暫停所有訊息通知')}</li>
-                    <li>{t('・找一個舒服且安靜的空間')}</li>
-                    <li>{t('・將注意力回到自己身上')}</li>
+                </div>
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('不建議練習的時刻')}</p>
+                  <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
+                    <li>
+                      <strong className="font-bold text-foreground">{t('情緒極端崩潰時')}</strong>
+                      <div className="mt-0.5">{t('若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業心理協助。')}</div>
+                    </li>
+                    <li>
+                      <strong className="font-bold text-foreground">{t('極度疲憊時')}</strong>
+                      <div className="mt-0.5">{t('感恩書寫需要一定心理能量。若過度疲勞，容易變成應付式紀錄，同時難以書寫真實感受，可能增加心理負擔。')}</div>
+                    </li>
                   </ul>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('不建議練習的時刻')}</p>
-              <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
-                <li>
-                  <strong className="font-bold text-foreground">{t('情緒極端崩潰時')}</strong>
-                  <div className="mt-0.5">{t('若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業心理協助。')}</div>
-                </li>
-                <li>
-                  <strong className="font-bold text-foreground">{t('極度疲憊時')}</strong>
-                  <div className="mt-0.5">{t('感恩書寫需要一定心理能量。若過度疲勞，容易變成應付式紀錄，同時難以書寫真實感受，可能增加心理負擔。')}</div>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
-              <p className="text-foreground/75 mb-2">{t('持續性的感恩練習有助於提升：')}</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3 mb-3">
-                <li>{t('・情緒力（Positive Emotion）')}</li>
-                <li>{t('・連結力（Relationships）')}</li>
-                <li>{t('・意義力（Meaning）')}</li>
-                <li>{t('・心理韌性與幸福感')}</li>
-                <li>{t('・壓力調節與睡眠品質')}</li>
-              </ul>
-              <p className="font-extrabold text-foreground mb-1.5 mt-3">{t('相關文獻')}</p>
-              <ul className="flex flex-col gap-1.5 text-foreground/60 text-xs pl-3">
-                <li>Choi, H., Cha, Y., McCullough, M. E., Coles, N. A., & Oishi, S. (2025). A meta-analysis of the effectiveness of gratitude interventions on well-being across cultures. <em>Proceedings of the National Academy of Sciences, 122</em>(28), e2425193122.</li>
-                <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707.</li>
-              </ul>
-            </div>
-            <button
-              onClick={() => setExpanded(false)}
-              className="text-xs font-bold text-primary text-left"
-            >
-              {t('收合 ▴')}
-            </button>
-          </div>
+                </div>
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
+                  <p className="text-foreground/75 mb-2">{t('持續性的感恩練習有助於提升：')}</p>
+                  <ul className="flex flex-col gap-1 text-foreground/75 pl-3 mb-3">
+                    <li>{t('・情緒力（Positive Emotion）')}</li>
+                    <li>{t('・連結力（Relationships）')}</li>
+                    <li>{t('・意義力（Meaning）')}</li>
+                    <li>{t('・心理韌性與幸福感')}</li>
+                    <li>{t('・壓力調節與睡眠品質')}</li>
+                  </ul>
+                  <p className="font-extrabold text-foreground mb-1.5 mt-3">{t('相關文獻')}</p>
+                  <ul className="flex flex-col gap-1.5 text-foreground/60 text-xs pl-3">
+                    <li>Choi, H., Cha, Y., McCullough, M. E., Coles, N. A., & Oishi, S. (2025). A meta-analysis of the effectiveness of gratitude interventions on well-being across cultures. <em>Proceedings of the National Academy of Sciences, 122</em>(28), e2425193122.</li>
+                    <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </>
         )}
-      </div>
+      </TheorySection>
 
       {/* 3-D 練習內容清單 */}
       <div className="mt-5 flex flex-col gap-3.5">

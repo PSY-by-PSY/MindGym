@@ -104,7 +104,6 @@ export const gratitude: Record<string, Translation> = {
     en: 'Gratitude journaling is one of the signature practices in positive psychology. By consciously reviewing what you’re grateful for each day, it helps your brain refocus on the support, kindness, and good experiences in your life.',
   },
   '（難度：{level}）': { 'zh-CN': '（难度：{level}）', en: '(Difficulty: {level})' },
-  '查看更多 ▾': { 'zh-CN': '查看更多 ▾', en: 'See more ▾' },
   '核心目標': { 'zh-CN': '核心目标', en: 'Core Goals' },
   '・建立覺察生活中的美好以及練習表達感恩的習慣': {
     'zh-CN': '・建立觉察生活中的美好以及练习表达感恩的习惯',

@@ -1,7 +1,7 @@
 import type { Translation } from '../dictionary'
 
 // 專注力覺察模組（app.process-goal.tsx）：專注時刻記錄 + 提升專注錦囊。
-// 註：'返回'／'分鐘'／'查看更多 ▾'／'收合 ▴'／'處理中…'／'下一步'／'分享圖片'／
+// 註：'返回'／'分鐘'／'查看更多'／'收合'／'處理中…'／'下一步'／'分享圖片'／
 // '下載圖片'／'正在生成圖片…'／'今日完成'／'研究指出的效益'／'核心目標'／星期幾
 // 已在 common.ts 或 gratitude.ts 定義（文字完全相同），此處不重複列出。
 export const processGoal: Record<string, Translation> = {
