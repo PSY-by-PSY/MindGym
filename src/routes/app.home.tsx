@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
@@ -17,9 +17,11 @@ import processGoalIcon from '../assets/ui/過程目標覺察icon.png'
 import threeGoodThingsCover from '../assets/ui/three-good-things-cover.png'
 import selfCompassionCover from '../assets/ui/self-compassion-cover.png'
 import mindfulnessCover from '../assets/ui/mindfulness-cover.png'
+import woopCover from '../assets/ui/WOOP目標實踐 封面.png'
 import threeGoodThingsIcon from '../assets/ui/three-good-things-icon-tight.png'
 import selfCompassionIcon from '../assets/ui/self-compassion-icon-tight.png'
-import mindfulnessIcon from '../assets/ui/mindfulness-icon-tight.png'
+import mindfulnessIcon from '../assets/ui/正念冥想 icon.png'
+import woopIcon from '../assets/ui/WOOP目標實踐地圖 icon.png'
 import permaP from '../assets/ui/perma-p-tight.png'
 import permaE from '../assets/ui/perma-e-tight.png'
 import permaR from '../assets/ui/perma-r-tight.png'
@@ -138,8 +140,8 @@ const modules = [
     searchName: 'WOOP 目標實踐',
     locked: true,
     featured: false,
-    // TODO: 目前沒有 WOOP 專屬插畫，暫用中性佔位色塊，正式插畫到位後補上 img
-    imgPosition: 'center' as const,
+    img: woopCover,
+    imgPosition: 'left' as const,
   },
 ]
 
@@ -269,6 +271,9 @@ function ActiveModuleCard(props: ModuleProps) {
   const { name, meta, to } = props
   const img = 'img' in props && props.img ? props.img : featuredGratitude
   const imgRotated = 'imgRotated' in props && props.imgRotated
+  // 寬幅封面圖（約 2:1）走滿版裁切；未指定 imgPosition 的則是為方形插畫調過的放大裁切。
+  const imgCover = 'imgPosition' in props && props.imgPosition
+  const imgPosition = imgCover === 'right' ? 'right top' : 'center top'
   const badge = 'badge' in props ? props.badge : undefined
   const { t } = useLanguage()
   return (
@@ -290,6 +295,14 @@ function ActiveModuleCard(props: ModuleProps) {
           className="pointer-events-none absolute left-1/2 h-[300px] w-[230px] max-w-none object-cover"
           style={{ top: '110px', transform: 'translate(-50%, -50%) rotate(-90deg)', objectPosition: '50% 8%' }}
         />
+      ) : imgCover ? (
+        // 圖片高度精準卡在文字底板上緣（336 - 104 = 232px），與「敬請期待」卡片的封面裁切一致。
+        <img
+          src={img}
+          alt=""
+          className="pointer-events-none absolute inset-x-0 top-0 h-[232px] w-full object-cover"
+          style={{ objectPosition: imgPosition }}
+        />
       ) : (
         <img
           src={img}
@@ -310,7 +323,9 @@ function ActiveModuleCard(props: ModuleProps) {
 function WipModuleCard(props: ModuleProps) {
   const { name, meta } = props
   const img = 'img' in props ? props.img : undefined
-  const imgPosition = 'imgPosition' in props && props.imgPosition === 'right' ? 'right top' : 'center top'
+  const imgPositionProp = 'imgPosition' in props ? props.imgPosition : undefined
+  const imgPosition =
+    imgPositionProp === 'right' ? 'right top' : imgPositionProp === 'left' ? 'left top' : 'center top'
   const { t } = useLanguage()
   return (
     <div
@@ -346,17 +361,42 @@ function WipModuleCard(props: ModuleProps) {
 // ─── today practice floating badge（廣告浮標） ──────────────────────────────────
 
 // 關閉只作用於這次瀏覽（單純 component state，不存 storage）：重新整理或下次再進首頁就會再出現。
+// 圓圈直徑（h-44）、圖片底部外露量（-bottom-3）、文字區塊頂部留白（pt-8），
+// 用來從「文字實際高度」反推吉祥物圖片可以長到多高又不會蓋到文字。
+const BADGE_CIRCLE_SIZE = 176
+const BADGE_IMG_BOTTOM_OFFSET = 12
+const BADGE_TEXT_TOP_PADDING = 32
+const BADGE_TEXT_IMG_GAP = 6
+const BADGE_IMG_MIN_HEIGHT = 64
+const BADGE_IMG_MAX_HEIGHT = 128
+
 function TodayPracticeBadge({ recommendation }: { recommendation: Recommendation }) {
   const { t } = useLanguage()
   const [dismissed, setDismissed] = useState(false)
+  const textRef = useRef<HTMLDivElement>(null)
+  const [imgHeight, setImgHeight] = useState(80)
   const linkProps = recommendation.search
     ? { to: recommendation.to, search: recommendation.search }
     : { to: recommendation.to }
 
-  if (dismissed) return null
-
   const label = t(recommendation.name)
   const labelSizeCls = label.length > 10 ? 'text-base leading-[1.15]' : 'text-2xl leading-[1.15]'
+
+  useLayoutEffect(() => {
+    const el = textRef.current
+    if (!el) return
+    const recalc = () => {
+      const available =
+        BADGE_CIRCLE_SIZE + BADGE_IMG_BOTTOM_OFFSET - BADGE_TEXT_TOP_PADDING - el.offsetHeight - BADGE_TEXT_IMG_GAP
+      setImgHeight(Math.max(BADGE_IMG_MIN_HEIGHT, Math.min(BADGE_IMG_MAX_HEIGHT, available)))
+    }
+    recalc()
+    const observer = new ResizeObserver(recalc)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [label])
+
+  if (dismissed) return null
 
   return (
     // 外層貼齊視窗兩側、內層 mx-auto max-w-md 與其餘頁面內容同一欄位對齊（比照 BottomNav 的做法），
@@ -372,19 +412,24 @@ function TodayPracticeBadge({ recommendation }: { recommendation: Recommendation
           >
             {/* 文字獨立一層並裁切，避免超出藍色圓圈；吉祥物圖片留在外層才能露出圓圈之外 */}
             <div className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-full pt-8 text-center">
-              <span className="-rotate-3 text-xs font-bold leading-tight tracking-[0.02em] text-cream">
-                {t('點擊直接開始今天的')}
-              </span>
-              <span className={`mt-1.5 max-w-[140px] px-2 font-black tracking-[0.02em] text-cream ${labelSizeCls}`}>
-                {label}
-              </span>
+              <div ref={textRef} className="flex flex-col items-center">
+                <span className="-rotate-3 text-xs font-bold leading-tight tracking-[0.02em] text-cream">
+                  {t('點擊直接開始今天的')}
+                </span>
+                <span
+                  className={`mt-1.5 max-w-[140px] px-2 font-black tracking-[0.02em] text-cream ${labelSizeCls}`}
+                >
+                  {label}
+                </span>
+              </div>
             </div>
-            {/* 露出圓圈外的量只取決於 -bottom 位移，跟圖片高度無關：位移縮小到只露出腳尖，
-                同時把高度跟著縮小，才能維持跟上方文字的淨空間距 */}
+            {/* 圖片底部外露量固定（-bottom-3），高度則依偵測到的文字區塊高度自動放大，
+                盡量撐滿又不蓋到上方文字 */}
             <img
               src={gratitudeMascot}
               alt=""
-              className="pointer-events-none absolute -bottom-3 left-1/2 h-20 w-auto -translate-x-1/2 object-contain"
+              style={{ height: imgHeight }}
+              className="pointer-events-none absolute -bottom-3 left-1/2 w-auto -translate-x-1/2 object-contain"
             />
           </Link>
           <button
@@ -822,7 +867,7 @@ const PRACTICE_CATALOG: PracticeDef[] = [
   { key: 'three-good-things', name: '三件好事', meta: '情緒力 · 成就力', img: threeGoodThingsIcon, locked: true },
   { key: 'self-compassion', name: '自我慈悲', meta: '連結力 · 意義力', to: '/app/self-compassion', img: selfCompassionIcon, locked: false },
   { key: 'mindfulness', name: '正念冥想', meta: '情緒力 · 投入力', img: mindfulnessIcon, locked: true },
-  { key: 'woop', name: 'WOOP 目標實踐地圖', meta: '意義力 · 成就力', locked: true },
+  { key: 'woop', name: 'WOOP 目標實踐地圖', meta: '意義力 · 成就力', img: woopIcon, locked: true },
 ]
 
 const PRACTICE_MAP = new Map(PRACTICE_CATALOG.map((p) => [p.key, p]))
@@ -1173,6 +1218,7 @@ function TrainingCenter({ recommendation, userId }: { recommendation: Recommenda
             locked
           />
           <ExerciseCard
+            img={woopIcon}
             name="WOOP 目標實踐地圖"
             meta="即將上架 · 意義力 · 成就力"
             locked

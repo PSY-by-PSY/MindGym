@@ -48,8 +48,11 @@ export const profile: Record<string, Translation> = {
     en: 'Having diverse sources of gratitude means your awareness has no limits — you can draw strength from every corner of life.',
   },
   // 頭像
-  '夥伴一': { 'zh-CN': '伙伴一', en: 'Companion 1' },
-  '夥伴二': { 'zh-CN': '伙伴二', en: 'Companion 2' },
+  'Bouba的紅色證件照': { 'zh-CN': 'Bouba的红色证件照', en: "Bouba's Red ID Photo" },
+  'Bouba的綠色證件照': { 'zh-CN': 'Bouba的绿色证件照', en: "Bouba's Green ID Photo" },
+  'Bouba脫帽禮': { 'zh-CN': 'Bouba脱帽礼', en: "Bouba's Hat Tip" },
+  'Bouba種花': { 'zh-CN': 'Bouba种花', en: 'Bouba Planting Flowers' },
+  'Bouba打瞌睡': { 'zh-CN': 'Bouba打瞌睡', en: 'Bouba Napping' },
   '選擇你的頭像': { 'zh-CN': '选择你的头像', en: 'Choose Your Avatar' },
   '更換頭像': { 'zh-CN': '更换头像', en: 'Change Avatar' },
   '使用者頭像': { 'zh-CN': '用户头像', en: 'User Avatar' },

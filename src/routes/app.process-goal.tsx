@@ -117,6 +117,82 @@ function formatDate(date: Date, t: TFn): string {
   return `${y} / ${m} / ${d}（${t(WEEKDAY_LABELS[date.getDay()])}）`
 }
 
+function todayDate(): Date {
+  return new Date()
+}
+
+// 記錄日期選擇：多數練習只在當天完成才有意義，但作息跨過午夜的人常常隔天才補記，
+// 讓使用者可以把紀錄標成「今天」或「昨天」（沿用感恩日記模組的做法）。
+function DateSelector({ selectedDate, onChange }: { selectedDate: Date; onChange: (d: Date) => void }) {
+  const { t } = useLanguage()
+  const [showSheet, setShowSheet] = useState(false)
+  const today = useMemo(() => todayDate(), [])
+  const yesterday = useMemo(() => {
+    const d = todayDate()
+    d.setDate(d.getDate() - 1)
+    return d
+  }, [])
+  const selectedIso = isoLocalDate(selectedDate)
+
+  return (
+    <>
+      <div className="mt-3 flex items-center gap-2">
+        <p className="text-sm font-bold text-muted-foreground">{formatDate(selectedDate, t)}</p>
+        <button
+          onClick={() => setShowSheet(true)}
+          className="rounded-full bg-card px-3 py-1 text-xs font-bold text-primary shadow-soft transition active:scale-95"
+        >
+          {t('修改日期')}
+        </button>
+      </div>
+      {showSheet && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          onClick={() => setShowSheet(false)}
+        >
+          <div
+            className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-extrabold text-foreground">{t('選擇紀錄日期')}</p>
+              <button
+                onClick={() => setShowSheet(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {[
+                { label: t('今天'), date: today },
+                { label: t('昨天'), date: yesterday },
+              ].map(({ label, date }) => {
+                const active = selectedIso === isoLocalDate(date)
+                return (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      onChange(date)
+                      setShowSheet(false)
+                    }}
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left transition active:scale-[0.98] ${
+                      active ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50'
+                    }`}
+                  >
+                    <span className="text-sm font-bold text-foreground">{label}</span>
+                    <span className="text-xs text-muted-foreground">{formatDate(date, t)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 const AI_TIMEOUT_MS = 30000
 async function fetchJson<T>(path: string, body: unknown): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -154,6 +230,7 @@ async function insertCommunityPost(
   content: ShareContent,
   privacy: Privacy,
   payload?: Record<string, unknown>,
+  date: Date = new Date(),
 ): Promise<string | null> {
   const fields = privacyToFields(privacy)
   const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle()
@@ -172,7 +249,7 @@ async function insertCommunityPost(
     use_real_name: fields.use_real_name,
     anon_name: anonName,
     avatar: profile?.avatar ?? null,
-    entry_date: isoLocalDate(new Date()),
+    entry_date: isoLocalDate(date),
   }
 
   const attempt = (row: Record<string, unknown>) =>
@@ -508,11 +585,11 @@ function Intro({
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
       {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
-      <div className="relative -mx-5 -mt-4 h-[170px] overflow-hidden">
+      <div className="relative left-1/2 right-1/2 -mx-[50vw] -mt-4 h-[170px] w-screen overflow-hidden">
         <img
           src={processGoalBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
         <button
           onClick={onGoBack}
@@ -648,10 +725,11 @@ function RecordModule({
   const [sharing, setSharing] = useState(false)
   const { t } = useLanguage()
   const [streak, setStreak] = useState<number | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(() => todayDate())
   const savedRef = useRef(false)
   const savedEntryIdRef = useRef<string | null>(null)
   const shareCardRef = useRef<HTMLDivElement>(null)
-  const today = useMemo(() => formatDate(new Date(), t), [t])
+  const dateStr = useMemo(() => formatDate(selectedDate, t), [selectedDate, t])
 
   const fallbackInsight = () =>
     t('從你的描述裡，能感覺到你在那個情境特別投入。多記幾次，AI 就能更準地看出你需要的專注條件。')
@@ -691,7 +769,7 @@ function RecordModule({
         backgroundColor: '#FEFAF0',
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
-      const filename = `focus-moment-${isoLocalDate(new Date())}.png`
+      const filename = `focus-moment-${isoLocalDate(selectedDate)}.png`
       await saveOrShareImage(dataUrl, filename, t('我的專注時刻'))
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
@@ -711,7 +789,7 @@ function RecordModule({
       // 1. 寫入 focus_logs
       const { error } = await supabase.from('focus_logs').insert({
         user_id: userId,
-        log_date: isoLocalDate(new Date()),
+        log_date: isoLocalDate(selectedDate),
         log_kind: 'moment',
         had_focus_moment: true,
         focus_description: event || null,
@@ -737,7 +815,7 @@ function RecordModule({
         when: whenTime,
         where: wherePlace,
         insight,
-      })
+      }, selectedDate)
       savedEntryIdRef.current = entryId
 
       track('process_goal_moment_recorded')
@@ -764,6 +842,7 @@ function RecordModule({
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {t('回想一個你特別「在狀態」的片段——時間過得很快、腦子很清晰、有種自然的流動感。')}
         </p>
+        <DateSelector selectedDate={selectedDate} onChange={setSelectedDate} />
 
         <div className="mt-6">
           <p className="mb-1.5 text-sm font-bold text-foreground">{t('那是什麼事？當下的感受是什麼？')}</p>
@@ -806,7 +885,7 @@ function RecordModule({
             kind="record"
             mainText={event}
             aiText={insight}
-            date={today}
+            date={dateStr}
             streak={streak}
           />
         </div>
@@ -872,7 +951,7 @@ function RecordModule({
         savedEntryIdRef.current = null
         setEvent(''); setWho(''); setWhenTime(''); setWherePlace('')
         setInsight(''); setCategory('other'); setConditionTags([])
-        setStreak(null); setSubmitting(false)
+        setStreak(null); setSubmitting(false); setSelectedDate(todayDate())
         setPhase('R_INPUT')
       }}
       againLabel={t('再記一個專注時刻')}
@@ -906,10 +985,11 @@ function BoostModule({
   const [sharing, setSharing] = useState(false)
   const { t } = useLanguage()
   const [streak, setStreak] = useState<number | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(() => todayDate())
   const savedRef = useRef(false)
   const savedEntryIdRef = useRef<string | null>(null)
   const shareCardRef = useRef<HTMLDivElement>(null)
-  const today = useMemo(() => formatDate(new Date(), t), [t])
+  const dateStr = useMemo(() => formatDate(selectedDate, t), [selectedDate, t])
 
   const fallbackSuggestion = (records: MomentRecord[]) => {
     if (!records.length) {
@@ -955,7 +1035,7 @@ function BoostModule({
         backgroundColor: '#FEFAF0',
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
-      const filename = `focus-boost-${isoLocalDate(new Date())}.png`
+      const filename = `focus-boost-${isoLocalDate(selectedDate)}.png`
       await saveOrShareImage(dataUrl, filename, t('我的專注錦囊'))
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)
@@ -974,7 +1054,7 @@ function BoostModule({
     try {
       const { error } = await supabase.from('focus_logs').insert({
         user_id: userId,
-        log_date: isoLocalDate(new Date()),
+        log_date: isoLocalDate(selectedDate),
         log_kind: 'boost',
         had_focus_moment: false,
         difficult_task: situation || null,
@@ -992,7 +1072,7 @@ function BoostModule({
         v: 'boost',
         situation,
         suggestion,
-      })
+      }, selectedDate)
       savedEntryIdRef.current = entryId
 
       track('process_goal_boost_done')
@@ -1018,6 +1098,7 @@ function BoostModule({
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {t('說說現在這件難以專注、提不起勁的事，連同當下的情境一起講。我會從你過去的專注經驗裡，找一個能立刻試的方法。')}
         </p>
+        <DateSelector selectedDate={selectedDate} onChange={setSelectedDate} />
         <div className="mt-6">
           <AutoTextarea
             value={situation}
@@ -1048,7 +1129,7 @@ function BoostModule({
             kind="boost"
             mainText={situation}
             aiText={suggestion}
-            date={today}
+            date={dateStr}
             streak={streak}
           />
         </div>

@@ -10,7 +10,7 @@ import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from 
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
 import { TheorySection } from '../components/TheorySection'
 import { saveOrShareImage } from '../lib/shareImage'
-import heartsBanner from '../assets/ui/hearts-banner.png'
+import heartsBanner from '../assets/ui/自我慈悲 內頁.png'
 
 const WEEKDAY_LABELS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 
@@ -19,6 +19,82 @@ function formatDate(date: Date, t: TFn): string {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y} / ${m} / ${d}（${t(WEEKDAY_LABELS[date.getDay()])}）`
+}
+
+function todayDate(): Date {
+  return new Date()
+}
+
+// 記錄日期選擇：作息跨過午夜的人常常隔天才補記錄，讓使用者可以把紀錄標成
+// 「今天」或「昨天」（沿用感恩日記模組的做法）。
+function DateSelector({ selectedDate, onChange }: { selectedDate: Date; onChange: (d: Date) => void }) {
+  const { t } = useLanguage()
+  const [showSheet, setShowSheet] = useState(false)
+  const today = useMemo(() => todayDate(), [])
+  const yesterday = useMemo(() => {
+    const d = todayDate()
+    d.setDate(d.getDate() - 1)
+    return d
+  }, [])
+  const selectedIso = isoLocalDate(selectedDate)
+
+  return (
+    <>
+      <div className="mt-3 flex items-center gap-2">
+        <p className="text-sm font-bold text-muted-foreground">{formatDate(selectedDate, t)}</p>
+        <button
+          onClick={() => setShowSheet(true)}
+          className="rounded-full bg-card px-3 py-1 text-xs font-bold text-primary shadow-soft transition active:scale-95"
+        >
+          {t('修改日期')}
+        </button>
+      </div>
+      {showSheet && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          onClick={() => setShowSheet(false)}
+        >
+          <div
+            className="animate-slide-up w-full max-w-md rounded-t-3xl bg-card p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-extrabold text-foreground">{t('選擇紀錄日期')}</p>
+              <button
+                onClick={() => setShowSheet(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {[
+                { label: t('今天'), date: today },
+                { label: t('昨天'), date: yesterday },
+              ].map(({ label, date }) => {
+                const active = selectedIso === isoLocalDate(date)
+                return (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      onChange(date)
+                      setShowSheet(false)
+                    }}
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-left transition active:scale-[0.98] ${
+                      active ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50'
+                    }`}
+                  >
+                    <span className="text-sm font-bold text-foreground">{label}</span>
+                    <span className="text-xs text-muted-foreground">{formatDate(date, t)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
 }
 
 // 匿名顯示名稱：故意不走 t()，理由同感恩日記（見 app.gratitude.tsx）——
@@ -160,6 +236,7 @@ async function insertSelfCompassionEntry(
   items: SelfCompassionItems,
   privacy: Privacy,
   t: TFn,
+  date: Date = new Date(),
 ): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
@@ -188,7 +265,7 @@ async function insertSelfCompassionEntry(
     use_real_name: fields.use_real_name,
     anon_name: anonName,
     avatar: profile?.avatar ?? null,
-    entry_date: isoLocalDate(new Date()),
+    entry_date: isoLocalDate(date),
   }
   const payload = {
     v: 'self_compassion',
@@ -245,6 +322,7 @@ function SelfCompassionPage() {
   const [stage, setStage] = useState<Stage>('INTRO')
   const [items, setItems] = useState<SelfCompassionItems>(EMPTY_ITEMS)
   const [privacy, setPrivacy] = useState<Privacy>(DEFAULT_PRIVACY)
+  const [selectedDate, setSelectedDate] = useState<Date>(() => todayDate())
   const [saving, setSaving] = useState(false)
   const savedEntryIdRef = useRef<string | null>(null)
 
@@ -282,6 +360,8 @@ function SelfCompassionPage() {
         <WritingStage
           items={items}
           allFilled={allFilled}
+          selectedDate={selectedDate}
+          onChangeSelectedDate={setSelectedDate}
           onChangeItem={onChangeItem}
           onBack={triggerBack}
           onNext={() => setStage('SHARE')}
@@ -294,6 +374,7 @@ function SelfCompassionPage() {
           onChangePrivacy={setPrivacy}
           matchedShares={matchedShares}
           saving={saving}
+          selectedDate={selectedDate}
           onBack={triggerBack}
           onNext={async () => {
             if (saving) return
@@ -303,7 +384,7 @@ function SelfCompassionPage() {
             }
             setSaving(true)
             try {
-              savedEntryIdRef.current = await insertSelfCompassionEntry(items, privacy, t)
+              savedEntryIdRef.current = await insertSelfCompassionEntry(items, privacy, t, selectedDate)
               setStage('CELEBRATE')
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e)
@@ -330,14 +411,15 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
   const { t } = useLanguage()
   const cards = getConceptCards(t)
   const permaBoosts = getPermaBoosts(t)
+  const [conceptsExpanded, setConceptsExpanded] = useState(false)
 
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
-      <div className="relative -mx-5 h-[170px] overflow-hidden">
+      <div className="relative left-1/2 right-1/2 -mx-[50vw] h-[170px] w-screen overflow-hidden">
         <img
           src={heartsBanner}
           alt=""
-          className="pointer-events-none absolute bottom-[-10px] left-1/2 w-[430px] max-w-none -translate-x-1/2"
+          className="pointer-events-none absolute inset-0 w-full h-full object-cover"
         />
         <button
           onClick={onGoBack}
@@ -352,45 +434,47 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
         </div>
       </div>
 
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('自我慈悲練習')}</h1>
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('自我慈悲')}</h1>
 
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
         {t('自我慈悲，是練習用對待好朋友的溫柔，來對待正在經歷困難的自己。這個練習包含三個核心元素，讓我們先花一點時間認識它們。')}
       </div>
 
-      {/* 三個核心元素常駐露出（標籤＋標題永遠可見，說明文字先露出兩行），
-          完整說明與相關文獻由「查看更多」展開——與感恩日記／過程目標覺察同一版型。 */}
-      <TheorySection>
-        {(expanded) => (
-          <>
-            <div className="flex flex-col gap-2.5">
+      <div className="mt-3">
+        {!conceptsExpanded ? (
+          <button onClick={() => setConceptsExpanded(true)} className="text-xs font-bold text-primary">
+            {t('查看更多 ▾')}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            <div className="flex flex-col gap-3.5">
               {cards.map((card) => (
-                <div key={card.key} className="rounded-2xl bg-card p-4 shadow-soft">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`shrink-0 rounded-full ${card.tileClass} px-3 py-1 text-xs font-extrabold tracking-[0.05em] text-foreground/80`}>
-                      {card.tag}
-                    </span>
-                    <p className="text-[15px] font-extrabold text-foreground">{card.title}</p>
-                  </div>
-                  <p className={`mt-2 text-sm leading-relaxed text-foreground/75 ${expanded ? '' : 'line-clamp-2'}`}>
-                    {card.body}
-                  </p>
+                <div key={card.key} className="rounded-3xl bg-card p-4 shadow-soft">
+                  <span className={`inline-block rounded-full ${card.tileClass} px-3.5 py-1.5 text-sm font-extrabold tracking-[0.05em] text-foreground/80`}>
+                    {card.tag}
+                  </span>
+                  <p className="mt-2 text-base font-extrabold text-foreground">{card.title}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/75">{card.body}</p>
                 </div>
               ))}
             </div>
-            {expanded && (
-              <div className="mt-2.5 rounded-2xl bg-card p-4 shadow-soft">
-                <p className="mb-1.5 text-sm font-extrabold text-foreground">{t('相關文獻')}</p>
-                <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
-                  <li>
-                    Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
-                  </li>
-                </ul>
-              </div>
-            )}
-          </>
+            <div>
+              <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
+              <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
+                <li>
+                  Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
+                </li>
+              </ul>
+            </div>
+            <button
+              onClick={() => setConceptsExpanded(false)}
+              className="text-left text-xs font-bold text-primary"
+            >
+              {t('收合 ▴')}
+            </button>
+          </div>
         )}
-      </TheorySection>
+      </div>
 
       <div className="mt-5 flex flex-col gap-3.5">
         {[t('依序完成三段小小書寫'), t('可以選擇要不要分享，也能選擇匿名或僅自己看得到'), t('看見與你相似處境的分享')].map((item) => (
@@ -452,7 +536,7 @@ function MeditationToggle() {
   }
 
   const toggleMute = () => {
-    sendCommand(muted ? 'mute' : 'unMute')
+    sendCommand(muted ? 'unMute' : 'mute')
     setMuted((m) => !m)
   }
 
@@ -563,12 +647,16 @@ function TemplateBlank({
 function WritingStage({
   items,
   allFilled,
+  selectedDate,
+  onChangeSelectedDate,
   onChangeItem,
   onBack,
   onNext,
 }: {
   items: SelfCompassionItems
   allFilled: boolean
+  selectedDate: Date
+  onChangeSelectedDate: (d: Date) => void
   onChangeItem: (key: keyof SelfCompassionItems, val: string) => void
   onBack: () => void
   onNext: () => void
@@ -587,6 +675,7 @@ function WritingStage({
 
       <h1 className="mt-4 text-xl font-extrabold text-foreground">{t('自我慈悲書寫信')}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t('依序完成三段書寫，寫得越具體越好。')}</p>
+      <DateSelector selectedDate={selectedDate} onChange={onChangeSelectedDate} />
 
       {/* 1. 正念覺察 */}
       <div className="mt-5 rounded-3xl bg-card p-4 shadow-soft">
@@ -659,6 +748,7 @@ function ShareStage({
   onChangePrivacy,
   matchedShares,
   saving,
+  selectedDate,
   onBack,
   onNext,
 }: {
@@ -667,6 +757,7 @@ function ShareStage({
   onChangePrivacy: (v: Privacy) => void
   matchedShares: { anonName: string; text: string }[]
   saving: boolean
+  selectedDate: Date
   onBack: () => void
   onNext: () => void
 }) {
@@ -674,7 +765,7 @@ function ShareStage({
   const shareCardRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
   const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent)
-  const date = useMemo(() => formatDate(new Date(), t), [t])
+  const date = useMemo(() => formatDate(selectedDate, t), [selectedDate, t])
 
   const handleShare = async () => {
     if (!shareCardRef.current || sharing) return
@@ -692,7 +783,7 @@ function ShareStage({
         backgroundColor: '#FEFAF0',
         style: { position: 'static', left: '0', top: '0', transform: 'none', margin: '0' },
       })
-      const filename = `self-compassion-${isoLocalDate(new Date())}.png`
+      const filename = `self-compassion-${isoLocalDate(selectedDate)}.png`
       await saveOrShareImage(dataUrl, filename, t('我的自我慈悲書寫信'))
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') console.error('[share image]', e)

@@ -8,21 +8,27 @@ import { type TargetCode, TARGET_META, TARGET_COLORS, TARGET_INSIGHT, TARGET_INF
 import { isoLocalDate } from '../lib/date'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
+import avatar3 from '../assets/ui/頭像1 Bouba脫帽禮.png'
+import avatar4 from '../assets/ui/頭像2 Bouba種花.png'
+import avatar5 from '../assets/ui/頭像3 Bouba打瞌睡.png'
 import boabaWave from '../assets/ui/Boaba雜耍.png'
 import { useLanguage } from '../lib/i18n/context'
 
-type AvatarCode = 'avatar-1' | 'avatar-2'
+type AvatarCode = 'avatar-1' | 'avatar-2' | 'avatar-3' | 'avatar-4' | 'avatar-5'
 
 const AVATAR_OPTIONS: { code: AvatarCode; src: string; label: string }[] = [
-  { code: 'avatar-1', src: avatar1, label: '夥伴一' },
-  { code: 'avatar-2', src: avatar2, label: '夥伴二' },
+  { code: 'avatar-1', src: avatar1, label: 'Bouba的紅色證件照' },
+  { code: 'avatar-2', src: avatar2, label: 'Bouba的綠色證件照' },
+  { code: 'avatar-3', src: avatar3, label: 'Bouba脫帽禮' },
+  { code: 'avatar-4', src: avatar4, label: 'Bouba種花' },
+  { code: 'avatar-5', src: avatar5, label: 'Bouba打瞌睡' },
 ]
 
 function isPhotoAvatar(code: string | null): boolean {
   return !!code && (code.startsWith('data:image') || code.startsWith('http'))
 }
 
-// 頭像現在固定為兩張角色圖，預設 avatar-1。舊資料（emoji 代號 / null）一律回退到 avatar-1。
+// 頭像固定為五張角色圖，預設 avatar-1。舊資料（emoji 代號 / null）一律回退到 avatar-1。
 function avatarSrcByCode(code: string | null): string {
   return AVATAR_OPTIONS.find((a) => a.code === code)?.src ?? avatar1
 }
@@ -1136,7 +1142,7 @@ function AvatarPicker({
           <p className="text-sm font-extrabold text-foreground">{t('選擇你的頭像')}</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {AVATAR_OPTIONS.map((opt) => {
             const active =
               current === opt.code ||
