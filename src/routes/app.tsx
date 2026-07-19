@@ -89,8 +89,10 @@ function TopHeader() {
           {/* 左側佔位（維持 logo 置中） */}
           <div className="w-24" />
 
-          {/* 中間 Logo */}
-          <img src={logoWordmark} alt="PSY by PSY" className="h-[22px] w-auto object-contain" />
+          {/* 中間 Logo：點擊回首頁 */}
+          <Link to="/app/home" aria-label={t('回首頁')}>
+            <img src={logoWordmark} alt="PSY by PSY" className="h-[22px] w-auto object-contain" />
+          </Link>
 
           {/* 右側 icons */}
           <div className="flex w-24 items-center justify-end gap-0.5 text-foreground">
