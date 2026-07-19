@@ -26,6 +26,11 @@ __pycache__/
 # Claude Design 交付素材包（參考用，素材已複製到 src/assets/ui）
 web-app-ui/
 
+# 本機暫存工作檔案
+docs/plans/analytics_feedback_plan.md
+supabase/functions/broadcast-push/
+分析報告_20260711/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
