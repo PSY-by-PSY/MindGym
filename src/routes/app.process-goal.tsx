@@ -10,6 +10,7 @@ import { useStageBack } from '../lib/useStageBack'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
+import { TheorySection } from '../components/TheorySection'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import processGoalBanner from '../assets/ui/process-goal-intro-banner.png'
 
@@ -581,7 +582,6 @@ function Intro({
   onGoBack: () => void
 }) {
   const { t } = useLanguage()
-  const [expanded, setExpanded] = useState(false)
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
       {/* 愛心橫幅 + 3 分鐘標記（比照感恩日記進入頁） */}
@@ -610,14 +610,11 @@ function Intro({
         {t('過程目標覺察（Process Goal Awareness）幫助你看見自己「最容易專注」的條件。先把專注時刻一筆筆記下來，AI 會幫你看穿背後真正的需求；之後遇到難以投入的事，就能用你過去的成功經驗，為你量身打造一個能立刻試的方法。')}
       </div>
 
-      <div className="mt-3">
-        {!expanded ? (
-          <button onClick={() => setExpanded(true)} className="text-xs font-bold text-primary">
-            {t('查看更多 ▾')}
-          </button>
-        ) : (
-          <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
-            <div>
+      {/* 理論說明：核心目標常駐露出，其餘由「查看更多」展開（三個練習共用版型） */}
+      <TheorySection>
+        {(expanded) => (
+          <>
+            <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed">
               <p className="font-extrabold text-foreground mb-1.5">{t('核心目標')}</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>{t('・看見自己最容易專注的條件（人、時、地）')}</li>
@@ -625,27 +622,28 @@ function Intro({
                 <li>{t('・卡住時，把過去的成功條件遷移到眼前的難事')}</li>
               </ul>
             </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('怎麼進行')}</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>{t('・平常：用【專注時刻記錄】把投入的片刻存下來')}</li>
-                <li>{t('・卡關：用【提升專注錦囊】拿到一個能立刻試的方法')}</li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
-                <li>{t('・成就力（Accomplishment）與意義力（Meaning）')}</li>
-                <li>{t('・投入力（Engagement）與心流體驗')}</li>
-                <li>{t('・降低拖延、提升行動的啟動力')}</li>
-              </ul>
-            </div>
-            <button onClick={() => setExpanded(false)} className="text-xs font-bold text-primary text-left">
-              {t('收合 ▴')}
-            </button>
-          </div>
+            {expanded && (
+              <div className="mt-2.5 rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('怎麼進行')}</p>
+                  <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
+                    <li>{t('・平常：用【專注時刻記錄】把投入的片刻存下來')}</li>
+                    <li>{t('・卡關：用【提升專注錦囊】拿到一個能立刻試的方法')}</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
+                  <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
+                    <li>{t('・成就力（Accomplishment）與意義力（Meaning）')}</li>
+                    <li>{t('・投入力（Engagement）與心流體驗')}</li>
+                    <li>{t('・降低拖延、提升行動的啟動力')}</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </>
         )}
-      </div>
+      </TheorySection>
 
       {/* 練習內容清單（比照感恩日記進入頁） */}
       <div className="mt-5 flex flex-col gap-3.5">

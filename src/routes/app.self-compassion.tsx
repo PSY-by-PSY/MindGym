@@ -8,6 +8,7 @@ import { isoLocalDate } from '../lib/date'
 import { computeUnifiedStreak } from '../lib/streak'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
+import { TheorySection } from '../components/TheorySection'
 import { saveOrShareImage } from '../lib/shareImage'
 import heartsBanner from '../assets/ui/自我慈悲 內頁.png'
 
@@ -410,7 +411,6 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
   const { t } = useLanguage()
   const cards = getConceptCards(t)
   const permaBoosts = getPermaBoosts(t)
-  const [conceptsExpanded, setConceptsExpanded] = useState(false)
 
   return (
     <div className="animate-fade-up mx-auto max-w-md px-5 pt-4 pb-8">
@@ -439,13 +439,10 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
         {t('自我慈悲，是練習用對待好朋友的溫柔，來對待正在經歷困難的自己。這個練習包含三個核心元素，讓我們先花一點時間認識它們。')}
       </div>
 
-      <div className="mt-3">
-        {!conceptsExpanded ? (
-          <button onClick={() => setConceptsExpanded(true)} className="text-xs font-bold text-primary">
-            {t('查看更多 ▾')}
-          </button>
-        ) : (
-          <div className="flex flex-col gap-3.5">
+      {/* 理論說明：三個核心元素常駐露出，相關文獻由「查看更多」展開（三個練習共用版型） */}
+      <TheorySection>
+        {(expanded) => (
+          <>
             <div className="flex flex-col gap-3.5">
               {cards.map((card) => (
                 <div key={card.key} className="rounded-3xl bg-card p-4 shadow-soft">
@@ -457,23 +454,19 @@ function IntroStage({ onGoBack, onStart }: { onGoBack: () => void; onStart: () =
                 </div>
               ))}
             </div>
-            <div>
-              <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
-              <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
-                <li>
-                  Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
-                </li>
-              </ul>
-            </div>
-            <button
-              onClick={() => setConceptsExpanded(false)}
-              className="text-left text-xs font-bold text-primary"
-            >
-              {t('收合 ▴')}
-            </button>
-          </div>
+            {expanded && (
+              <div className="mt-2.5 rounded-2xl bg-card p-4 shadow-soft">
+                <p className="mb-1.5 text-xs font-extrabold text-foreground">{t('相關文獻')}</p>
+                <ul className="flex flex-col gap-1.5 pl-3 text-xs text-foreground/60">
+                  <li>
+                    Neff, K. D. (2023). Self-Compassion: Theory, Method, Research, and Intervention. <em>Annual Review of Psychology, 74</em>(1), 193–218. https://doi.org/10.1146/annurev-psych-032420-031047
+                  </li>
+                </ul>
+              </div>
+            )}
+          </>
         )}
-      </div>
+      </TheorySection>
 
       <div className="mt-5 flex flex-col gap-3.5">
         {[t('依序完成三段小小書寫'), t('可以選擇要不要分享，也能選擇匿名或僅自己看得到'), t('看見與你相似處境的分享')].map((item) => (
