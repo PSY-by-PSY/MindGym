@@ -33,6 +33,9 @@ export type AnalyticsEvent =
   | 'login_blocked_in_app_browser'   // 在 App 內建瀏覽器被擋下 Google 登入
   | 'login_started'                  // 開始登入（原生 App 用系統瀏覽器開 Google）
   | 'login_error'                    // 登入流程發生錯誤
+  | 'welcome_started'      // 進入登入後的歡迎導覽（第一頁）
+  | 'welcome_completed'    // 走完歡迎導覽、點「開始測驗」
+  | 'welcome_skipped'      // 在歡迎導覽中途按「略過」
   | 'quiz_started'         // 開始心理測驗
   | 'quiz_completed'       // 完成心理測驗
   | 'quiz_skipped'         // 跳過心理測驗

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
 import { hasSkippedOnboarding } from '../lib/onboardingSkip'
+import { hasSeenWelcome } from '../lib/welcomeSeen'
 import { checkAndGenerateReviews } from '../lib/reviews'
 import { ProModuleSection } from '../components/pro/ProModuleSection'
 import { useLanguage } from '../lib/i18n/context'
@@ -21,6 +22,11 @@ import permaA from '../assets/ui/perma-a-tight.png'
 
 export const Route = createFileRoute('/app/home')({
   beforeLoad: async ({ context }) => {
+    // 第一次登入：先看「歡迎導覽」（一頁一頁介紹 App），看過一次後就不再出現。
+    if (!hasSeenWelcome()) {
+      throw redirect({ to: '/welcome' })
+    }
+
     const user = context.session!.user
     const userId = user.id
     const userName =
