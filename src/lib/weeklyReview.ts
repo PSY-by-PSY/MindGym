@@ -16,6 +16,7 @@ export function sundayOf(monday: Date): Date {
 export interface WeeklyCounts {
   gratitudeCount: number
   processCount: number
+  selfCompassionCount: number
 }
 
 export interface WeeklyComment {
@@ -47,7 +48,7 @@ export async function fetchWeeklyCounts(userId: string, monday: Date): Promise<W
   const start = isoLocalDate(monday)
   const end = isoLocalDate(sundayOf(monday))
 
-  const [gratitudeRes, focusRes, morningRes] = await Promise.all([
+  const [gratitudeRes, focusRes, morningRes, selfCompassionRes] = await Promise.all([
     supabase
       .from('gratitude_entries')
       .select('id', { count: 'exact', head: true })
@@ -67,11 +68,19 @@ export async function fetchWeeklyCounts(userId: string, monday: Date): Promise<W
       .eq('user_id', userId)
       .gte('log_date', start)
       .lte('log_date', end),
+    supabase
+      .from('gratitude_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('practice_type', 'self_compassion')
+      .gte('entry_date', start)
+      .lte('entry_date', end),
   ])
 
   return {
     gratitudeCount: gratitudeRes.count ?? 0,
     processCount: (focusRes.count ?? 0) + (morningRes.count ?? 0),
+    selfCompassionCount: selfCompassionRes.count ?? 0,
   }
 }
 
@@ -101,7 +110,7 @@ export async function fetchWeeklyReviewData(userId: string, monday: Date): Promi
   const weekEnd = new Date(sunday)
   weekEnd.setHours(23, 59, 59, 999)
 
-  const [focusRes, morningRes, gratitudeWeekRes, myEntriesRes] = await Promise.all([
+  const [focusRes, morningRes, gratitudeWeekRes, myEntriesRes, selfCompassionRes] = await Promise.all([
     supabase
       .from('focus_logs')
       .select('id', { count: 'exact', head: true })
@@ -123,6 +132,13 @@ export async function fetchWeeklyReviewData(userId: string, monday: Date): Promi
       .lte('entry_date', end)
       .order('entry_date', { ascending: true }),
     supabase.from('gratitude_entries').select('id').eq('user_id', userId),
+    supabase
+      .from('gratitude_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('practice_type', 'self_compassion')
+      .gte('entry_date', start)
+      .lte('entry_date', end),
   ])
 
   const gratitudeRows = gratitudeWeekRes.data ?? []
@@ -160,6 +176,7 @@ export async function fetchWeeklyReviewData(userId: string, monday: Date): Promi
   return {
     gratitudeCount: gratitudeRows.length,
     processCount: (focusRes.count ?? 0) + (morningRes.count ?? 0),
+    selfCompassionCount: selfCompassionRes.count ?? 0,
     periodStart: start,
     periodEnd: end,
     comments,

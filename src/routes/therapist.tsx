@@ -13,6 +13,10 @@ import { DiaryBuilder } from '../components/pro/DiaryBuilder'
 import { AssessmentBuilder } from '../components/pro/AssessmentBuilder'
 import { AssessmentReportView } from '../components/pro/AssessmentReportView'
 import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
+import { MatchInvitesPreview } from '../components/pro/PreSessionPreview'
+import { SessionWorkbenchPreview } from '../components/pro/MidSessionPreview'
+import { PostSessionPreviewTab } from '../components/pro/PostSessionPreview'
+import { AftercarePreviewTab } from '../components/pro/AftercarePreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import {
@@ -39,14 +43,14 @@ export const Route = createFileRoute('/therapist')({
 const STATUS_META: Record<ProModuleStatus, { label: string; cls: string }> = {
   draft: { label: '草稿', cls: 'bg-muted text-muted-foreground' },
   pending_review: { label: '審核中', cls: 'bg-tile-peach text-[#8a6320]' },
-  approved: { label: '已上架', cls: 'bg-tile-mint text-[#3f6b46]' },
+  approved: { label: '已上架', cls: 'bg-tile-mint text-[#71744F]' },
   rejected: { label: '已退件', cls: 'bg-tile-pink text-rust' },
   archived: { label: '已下架', cls: 'bg-muted text-muted-foreground' },
 }
 
 const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
   practice: { label: '練習模組', cls: 'bg-muted text-muted-foreground' },
-  diary: { label: '日記模組', cls: 'bg-tile-mint text-[#3f6b46]' },
+  diary: { label: '日記模組', cls: 'bg-tile-mint text-[#71744F]' },
   assessment: { label: '質性測驗', cls: 'bg-tile-peach text-[#8a6320]' },
 }
 
@@ -271,7 +275,7 @@ function ApplicationGate({
 
 // ── 主控台（三分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'modules' | 'invites' | 'clients' | 'preview'
+type Tab = 'modules' | 'invites' | 'matchInvites' | 'session' | 'postSession' | 'aftercare' | 'clients' | 'preview'
 
 function Console({ ownerId }: { ownerId: string }) {
   const { t } = useLanguage()
@@ -297,6 +301,10 @@ function Console({ ownerId }: { ownerId: string }) {
   const TABS: { key: Tab; label: string; icon?: React.ReactNode }[] = [
     { key: 'modules', label: t('我的模組') },
     { key: 'invites', label: t('邀請碼') },
+    { key: 'matchInvites', label: t('媒合邀請') },
+    { key: 'session', label: t('晤談工作台') },
+    { key: 'postSession', label: t('晤談後追蹤') },
+    { key: 'aftercare', label: t('結案與延續') },
     { key: 'clients', label: t('個案追蹤') },
     { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
@@ -321,6 +329,14 @@ function Console({ ownerId }: { ownerId: string }) {
       <section className="min-w-0">
         {tab === 'preview' ? (
           <MarketplacePreview />
+        ) : tab === 'matchInvites' ? (
+          <MatchInvitesPreview onStartSession={() => setTab('session')} />
+        ) : tab === 'session' ? (
+          <SessionWorkbenchPreview />
+        ) : tab === 'postSession' ? (
+          <PostSessionPreviewTab />
+        ) : tab === 'aftercare' ? (
+          <AftercarePreviewTab />
         ) : modules === null ? (
           <Spinner />
         ) : tab === 'modules' ? (
@@ -660,7 +676,7 @@ function ModuleEditor({
           {t('← 返回列表')}
         </button>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm font-bold text-[#3f6b46]">{t('已儲存')}</span>}
+          {saved && <span className="text-sm font-bold text-[#71744F]">{t('已儲存')}</span>}
           <button
             onClick={handleSave}
             disabled={busy}

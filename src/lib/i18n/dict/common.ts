@@ -21,6 +21,10 @@ export const common: Record<string, Translation> = {
   '完成': { 'zh-CN': '完成', en: 'Done' },
   '語言': { 'zh-CN': '语言', en: 'Language' },
 
+  // 練習進入頁理論說明的展開／收合（components/TheorySection.tsx，供 gratitude/process-goal/self-compassion 共用）
+  '查看更多': { 'zh-CN': '查看更多', en: 'See more' },
+  '收合': { 'zh-CN': '收起', en: 'Collapse' },
+
   // 隱私分享設定（lib/privacy.ts PRIVACY_OPTIONS，供 gratitude/process-goal/community 共用）
   '匿名分享': { 'zh-CN': '匿名分享', en: 'Share anonymously' },
   '你的名字會顯示在打卡牆上': { 'zh-CN': '你的名字会显示在打卡墙上', en: 'Your name will show on the community wall' },

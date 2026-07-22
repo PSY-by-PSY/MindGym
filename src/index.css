@@ -42,7 +42,7 @@
   --tile-blue: #cfe2ee;
   --tile-peach: #f3e3c4;
   --tile-pink: #f3d9df;
-  --tile-mint: #d7ebd9;
+  --tile-mint: #E8E7D3;
   --tile-lemon: #ece0c8;
 
   --border: #e3dccd;
@@ -172,6 +172,35 @@ html[data-font-scale='xlarge'] {
   }
 }
 
+@keyframes boaba-wave {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Boaba 雜耍：三顆星星依序繞圈甩動，彼此用 animation-delay 錯開做出雜耍的節奏感。 */
+@keyframes star-juggle {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translate(14px, -22px) rotate(90deg) scale(1.08);
+  }
+  50% {
+    transform: translate(0, -34px) rotate(180deg) scale(0.96);
+  }
+  75% {
+    transform: translate(-14px, -22px) rotate(270deg) scale(1.08);
+  }
+  100% {
+    transform: translate(0, 0) rotate(360deg) scale(1);
+  }
+}
+
 @layer utilities {
   .bg-gradient-primary {
     background-image: var(--gradient-primary);
@@ -203,6 +232,9 @@ html[data-font-scale='xlarge'] {
   .animate-drawer {
     animation: drawer-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
+  .animate-star-juggle {
+    animation: star-juggle 1.8s ease-in-out infinite;
+  }
   .bg-page {
     background-image: radial-gradient(circle at 50% 0%, #efe7d6 0%, #e4dac6 60%, #d8ccb4 100%);
   }
@@ -221,5 +253,10 @@ html[data-font-scale='xlarge'] {
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+  .bg-boaba-wave {
+    background-image: linear-gradient(120deg, #6fa3bd 0%, #88b8ce 30%, #c3dce4 55%, #fefaf0 80%, #88b8ce 100%);
+    background-size: 300% 300%;
+    animation: boaba-wave 4s ease-in-out infinite;
   }
 }

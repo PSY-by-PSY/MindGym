@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
+import { IntakeWorkbenchPreview } from '../components/pro/PreSessionPreview'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent, AssessmentModuleContent } from '../lib/proModules'
@@ -117,7 +118,7 @@ function Spinner() {
 
 // ── 主控台（四分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'appVersion' | 'preview'
+type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'matching' | 'appVersion' | 'preview'
 
 function AdminConsole() {
   const { t } = useLanguage()
@@ -128,6 +129,7 @@ function AdminConsole() {
     { key: 'reviews', label: t('模組審核') },
     { key: 'published', label: t('已上架模組') },
     { key: 'crises', label: t('危機警示總覽') },
+    { key: 'matching', label: t('媒合工作台') },
     { key: 'appVersion', label: t('App 版本控管') },
     { key: 'preview', label: t('使用者預覽'), icon: <EyeIcon className="h-4 w-4 shrink-0" /> },
   ]
@@ -153,6 +155,7 @@ function AdminConsole() {
         {tab === 'reviews' && <ModuleReviewTab />}
         {tab === 'published' && <PublishedModulesTab />}
         {tab === 'crises' && <CrisisOverviewTab />}
+        {tab === 'matching' && <IntakeWorkbenchPreview />}
         {tab === 'appVersion' && <AppVersionTab />}
         {tab === 'preview' && <MarketplacePreview />}
       </section>
@@ -420,7 +423,7 @@ function ModuleReviewTab() {
 
 const KIND_META: Record<ProModuleKind, { label: string; cls: string }> = {
   practice: { label: '練習', cls: 'bg-muted text-muted-foreground' },
-  diary: { label: '日記', cls: 'bg-tile-mint text-[#3f6b46]' },
+  diary: { label: '日記', cls: 'bg-tile-mint text-[#71744F]' },
   assessment: { label: '測驗', cls: 'bg-tile-peach text-[#8a6320]' },
 }
 
@@ -434,7 +437,7 @@ function KindBadge({ kind }: { kind: ProModuleKind }) {
 }
 
 const RISK_META: Record<string, { label: string; cls: string }> = {
-  low: { label: '低風險', cls: 'bg-tile-mint text-[#3f6b46]' },
+  low: { label: '低風險', cls: 'bg-tile-mint text-[#71744F]' },
   medium: { label: '中風險', cls: 'bg-gold text-[#5b3a12]' },
   high: { label: '高風險', cls: 'bg-rust text-white' },
 }
@@ -568,7 +571,7 @@ function FindingList({ title, findings }: { title: string; findings?: AiReview['
     return (
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
-        <p className="mt-1 text-sm text-[#3f6b46]">{t('未發現疑慮。')}</p>
+        <p className="mt-1 text-sm text-[#71744F]">{t('未發現疑慮。')}</p>
       </div>
     )
   }
@@ -760,7 +763,7 @@ function CrisisOverviewTab() {
                   <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
                   <td className="px-4 py-3">
                     {r.acknowledged_at ? (
-                      <span className="text-[#3f6b46]">{t('已知悉')}</span>
+                      <span className="text-[#71744F]">{t('已知悉')}</span>
                     ) : (
                       <span className="font-bold text-rust">{t('未處理')}</span>
                     )}

@@ -48,8 +48,11 @@ export const profile: Record<string, Translation> = {
     en: 'Having diverse sources of gratitude means your awareness has no limits — you can draw strength from every corner of life.',
   },
   // 頭像
-  '夥伴一': { 'zh-CN': '伙伴一', en: 'Companion 1' },
-  '夥伴二': { 'zh-CN': '伙伴二', en: 'Companion 2' },
+  'Bouba的紅色證件照': { 'zh-CN': 'Bouba的红色证件照', en: "Bouba's Red ID Photo" },
+  'Bouba的綠色證件照': { 'zh-CN': 'Bouba的绿色证件照', en: "Bouba's Green ID Photo" },
+  'Bouba脫帽禮': { 'zh-CN': 'Bouba脱帽礼', en: "Bouba's Hat Tip" },
+  'Bouba種花': { 'zh-CN': 'Bouba种花', en: 'Bouba Planting Flowers' },
+  'Bouba打瞌睡': { 'zh-CN': 'Bouba打瞌睡', en: 'Bouba Napping' },
   '選擇你的頭像': { 'zh-CN': '选择你的头像', en: 'Choose Your Avatar' },
   '更換頭像': { 'zh-CN': '更换头像', en: 'Change Avatar' },
   '使用者頭像': { 'zh-CN': '用户头像', en: 'User Avatar' },
@@ -120,7 +123,11 @@ export const profile: Record<string, Translation> = {
   '次': { 'zh-CN': '次', en: 'x' },
   '本月完成': { 'zh-CN': '本月完成', en: 'This Month' },
   '總練習時間': { 'zh-CN': '总练习时间', en: 'Total Practice Time' },
-  '我的健心夥伴': { 'zh-CN': '我的健心伙伴', en: 'My Training Partner' },
+  '幸福經驗值': { 'zh-CN': '幸福经验值', en: 'Wellbeing Points' },
+  '你和Bouba一起種了{n}朵花～\nBouba覺得跟你一起種花非常幸福ㄛ！': {
+    'zh-CN': '你和Bouba一起种了{n}朵花～\nBouba觉得跟你一起种花非常幸福呀！',
+    en: "You and Bouba have grown {n} flowers together~\nBouba feels so happy growing flowers with you!",
+  },
   '心理肌肉雷達圖': { 'zh-CN': '心理肌肉雷达图', en: 'Mental Muscle Radar' },
   '看看哪一塊還可以再練': { 'zh-CN': '看看哪一块还可以再练', en: 'See which area you can train next' },
   '尚未完成 PERMA 評估': { 'zh-CN': '尚未完成 PERMA 评估', en: 'PERMA assessment not yet completed' },
@@ -129,6 +136,21 @@ export const profile: Record<string, Translation> = {
   '重新評估': { 'zh-CN': '重新评估', en: 'Retake Assessment' },
   // 一週回顧
   '本週回顧': { 'zh-CN': '本周回顾', en: 'Weekly Review' },
+  '本週 AI 分析將在本周日更新': { 'zh-CN': '本周 AI 分析将在本周日更新', en: 'AI analysis updates on Sunday' },
+  '請在': { 'zh-CN': '请在', en: 'Come back on' },
+  '回來查看': { 'zh-CN': '回来查看', en: 'to see it' },
+  '本週的紀錄會照常累積，AI 統整分析會在週日整理完整一週後才顯示。': {
+    'zh-CN': '本周的记录会照常累积，AI 统整分析会在周日整理完整一周后才显示。',
+    en: 'Your entries this week are saved as usual — AI analysis appears once the full week is in on Sunday.',
+  },
+  '想在週日分析完成時收到通知嗎？': {
+    'zh-CN': '想在周日分析完成时收到通知吗？',
+    en: "Want a notification when Sunday's analysis is ready?",
+  },
+  '✓ 週日會提醒你回來看分析': {
+    'zh-CN': '✓ 周日会提醒你回来看分析',
+    en: "✓ We'll remind you to check back on Sunday",
+  },
   '感恩 {n1} 次 · 過程 {n2} 次': { 'zh-CN': '感恩 {n1} 次 · 过程 {n2} 次', en: '{n1}x gratitude · {n2}x process' },
   '看看這週的健心狀況': { 'zh-CN': '看看这周的健心状况', en: "See how your week's been going" },
   '返回': { 'zh-CN': '返回', en: 'Back' },
@@ -148,14 +170,18 @@ export const profile: Record<string, Translation> = {
     'zh-CN': '再多写几篇，AI 情绪分析就会出现',
     en: 'Write a few more entries and AI emotion analysis will appear',
   },
+  'AI 情緒分析會在本週日整理後顯示': {
+    'zh-CN': 'AI 情绪分析会在本周日整理后显示',
+    en: 'AI emotion analysis appears once Sunday\'s summary is ready',
+  },
   // 感恩深度（Lin, 2015 四層次）
   '感恩深度': { 'zh-CN': '感恩深度', en: 'Gratitude depth' },
   '認知到善意': { 'zh-CN': '认知到善意', en: 'Noticing kindness' },
   '感受到感激': { 'zh-CN': '感受到感激', en: 'Feeling grateful' },
   '表達感謝與反思': { 'zh-CN': '表达感谢与反思', en: 'Expressing & reflecting' },
   '回報善意': { 'zh-CN': '回报善意', en: 'Returning favor' },
-  // AI 週統整回饋（四段敘事）
-  'AI 週統整回饋': { 'zh-CN': 'AI 周统整反馈', en: 'AI Weekly Integrative Feedback' },
+  // Bouba 週統整回饋（四段敘事）
+  'Bouba 週統整回饋': { 'zh-CN': 'Bouba 周统整反馈', en: 'Bouba Weekly Integrative Feedback' },
   'AI 正在整理你這一週的日記…': {
     'zh-CN': 'AI 正在整理你这一周的日记…',
     en: 'AI is synthesizing your week…',
@@ -181,4 +207,28 @@ export const profile: Record<string, Translation> = {
   '圖片生成中…': { 'zh-CN': '图片生成中…', en: 'Generating image…' },
   '收到留言': { 'zh-CN': '收到留言', en: 'Comments' },
   '則': { 'zh-CN': '则', en: '' },
+  // Bouba 吉祥物卡片
+  '你': { 'zh-CN': '你', en: 'you' },
+  '今天還沒跟你說早安…早安！': { 'zh-CN': '今天还没跟你说早安…早安！', en: "Haven't said good morning yet today… Good morning!" },
+  '早安{name}～我做了一個好夢哦！': { 'zh-CN': '早安{name}～我做了一个好梦哦！', en: 'Good morning {name}~ I had a nice dream!' },
+  '晚安，Bouba 先睡了！{name}也要記得好好休息唷～': {
+    'zh-CN': '晚安，Bouba 先睡了！{name}也要记得好好休息唷～',
+    en: "Good night, Bouba's going to sleep first! {name}, remember to rest well too~",
+  },
+  '{name}是晚上閃閃發亮的小星星嗎？': { 'zh-CN': '{name}是晚上闪闪发亮的小星星吗？', en: 'Are you a twinkling little star tonight, {name}?' },
+  '對了，謝謝你的肥料，讓花花們吃飽睡好，越來越香了！送你一朵我種的花花～': {
+    'zh-CN': '对了，谢谢你的肥料，让花花们吃饱睡好，越来越香了！送你一朵我种的花花～',
+    en: 'By the way, thanks for the fertilizer — the flowers are well-fed and smelling sweeter! Here, have one I grew~',
+  },
+  '啊，忘記幫我的花施肥了，你要一起來嗎？': { 'zh-CN': '啊，忘记帮我的花施肥了，你要一起来吗？', en: 'Oops, forgot to fertilize my flowers — want to come do it together?' },
+  '嗨，我是 Bouba!': { 'zh-CN': '嗨，我是 Bouba!', en: "Hi, I'm Bouba!" },
+  '我喜歡發呆、種花、曬太陽，也喜歡你來陪我玩 :D': {
+    'zh-CN': '我喜欢发呆、种花、晒太阳，也喜欢你来陪我玩 :D',
+    en: 'I like daydreaming, growing flowers, and basking in the sun — and I love it when you come play with me :D',
+  },
+  '你看我的腦袋已經開好門了～': { 'zh-CN': '你看我的脑袋已经开好门了～', en: 'Look, my mind has already opened its door~' },
+  '裡面有漂亮的山、星星和森林，每一天都是一閃一閃亮晶晶的好日子。': {
+    'zh-CN': '里面有漂亮的山、星星和森林，每一天都是一闪一闪亮晶晶的好日子。',
+    en: 'Inside there are beautiful mountains, stars, and forests — every day sparkles and shines.',
+  },
 }

@@ -9,11 +9,14 @@ import { PrimaryCta } from '../components/PrimaryCta'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
 import { FirstFeedbackSurvey } from '../components/FirstFeedbackSurvey'
+import { PermaGrowthCard } from '../components/PermaGrowthCard'
+import { TheorySection } from '../components/TheorySection'
 import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import heartsBanner from '../assets/ui/hearts-banner.png'
 import celebrateHearts from '../assets/ui/celebrate-hearts.png'
+import floatingBouba from '../assets/ui/飄浮Bouba.png'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
@@ -543,7 +546,6 @@ function IntroStage({
   onStart: () => void
 }) {
   const { t } = useLanguage()
-  const [expanded, setExpanded] = useState(false)
   const difficultyLabel = difficulty === 'basic' ? t('初階') : t('進階')
   const permaBoosts = getPermaBoosts(t)
 
@@ -558,7 +560,7 @@ function IntroStage({
         />
         <button
           onClick={onGoBack}
-          className="absolute left-5 top-5 z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+          className="absolute left-1 top-1 z-[2] flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
           aria-label={t('返回')}
         >
           <BackIcon />
@@ -570,11 +572,7 @@ function IntroStage({
       </div>
 
       {/* 3-A 大標題 */}
-      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記練習')}</h1>
-      <p className="font-en mt-1 text-[15px] font-medium tracking-[0.04em] text-muted-foreground">Gratitude Journal</p>
-
-      {/* 本週打卡條 */}
-      <WeeklyCheckinStrip />
+      <h1 className="mt-3.5 text-[27px] font-black tracking-[0.03em] text-foreground">{t('感恩日記')}</h1>
 
       {/* 3-C 常駐描述（黃色卡） */}
       <div className="mt-4 rounded-[20px] bg-gold p-4 text-[15px] leading-[1.75] text-[#5b4226]">
@@ -582,18 +580,11 @@ function IntroStage({
         <span className="ml-1 align-baseline text-xs font-bold text-[#542916]">{t('（難度：{level}）', { level: difficultyLabel })}</span>
       </div>
 
-      {/* 3-C2 查看更多展開 */}
-      <div className="mt-3">
-        {!expanded ? (
-          <button
-            onClick={() => setExpanded(true)}
-            className="text-xs font-bold text-primary"
-          >
-            {t('查看更多 ▾')}
-          </button>
-        ) : (
-          <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
-            <div>
+      {/* 3-C2 理論說明：核心目標常駐露出，其餘由「查看更多」展開（三個練習共用版型） */}
+      <TheorySection>
+        {(expanded) => (
+          <>
+            <div className="rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed">
               <p className="font-extrabold text-foreground mb-1.5">{t('核心目標')}</p>
               <ul className="flex flex-col gap-1 text-foreground/75 pl-3">
                 <li>{t('・建立覺察生活中的美好以及練習表達感恩的習慣')}</li>
@@ -605,71 +596,69 @@ function IntroStage({
                 </ul>
               </ul>
             </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('練前準備')}</p>
-              <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
-                <li>
-                  <strong className="font-bold text-foreground">{t('練習時長')}</strong>
-                  <div className="mt-0.5">{t('建議每日 5–10 分鐘。')}</div>
-                </li>
-                <li>
-                  <strong className="font-bold text-foreground">{t('時段推薦')}</strong>
-                  <div className="mt-0.5">{t('建議在 19:00–24:00 之間練習，幫助自己：')}</div>
-                  <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>{t('・回顧一天發生的事件')}</li>
-                    <li>{t('・整理自己的思緒與情緒')}</li>
-                    <li>{t('・建立睡前的感恩儀式感')}</li>
+            {expanded && (
+              <div className="mt-2.5 rounded-2xl bg-card p-4 shadow-soft text-sm leading-relaxed flex flex-col gap-4">
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('練前準備')}</p>
+                  <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
+                    <li>
+                      <strong className="font-bold text-foreground">{t('練習時長')}</strong>
+                      <div className="mt-0.5">{t('建議每日 5–10 分鐘。')}</div>
+                    </li>
+                    <li>
+                      <strong className="font-bold text-foreground">{t('時段推薦')}</strong>
+                      <div className="mt-0.5">{t('建議在 19:00–24:00 之間練習，幫助自己：')}</div>
+                      <ul className="pl-3 mt-1 flex flex-col gap-1">
+                        <li>{t('・回顧一天發生的事件')}</li>
+                        <li>{t('・整理自己的思緒與情緒')}</li>
+                        <li>{t('・建立睡前的感恩儀式感')}</li>
+                      </ul>
+                    </li>
+                    <li>
+                      <strong className="font-bold text-foreground">{t('環境營造')}</strong>
+                      <div className="mt-0.5">{t('建議開始前：')}</div>
+                      <ul className="pl-3 mt-1 flex flex-col gap-1">
+                        <li>{t('・暫停所有訊息通知')}</li>
+                        <li>{t('・找一個舒服且安靜的空間')}</li>
+                        <li>{t('・將注意力回到自己身上')}</li>
+                      </ul>
+                    </li>
                   </ul>
-                </li>
-                <li>
-                  <strong className="font-bold text-foreground">{t('環境營造')}</strong>
-                  <div className="mt-0.5">{t('建議開始前：')}</div>
-                  <ul className="pl-3 mt-1 flex flex-col gap-1">
-                    <li>{t('・暫停所有訊息通知')}</li>
-                    <li>{t('・找一個舒服且安靜的空間')}</li>
-                    <li>{t('・將注意力回到自己身上')}</li>
+                </div>
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('不建議練習的時刻')}</p>
+                  <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
+                    <li>
+                      <strong className="font-bold text-foreground">{t('情緒極端崩潰時')}</strong>
+                      <div className="mt-0.5">{t('若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業心理協助。')}</div>
+                    </li>
+                    <li>
+                      <strong className="font-bold text-foreground">{t('極度疲憊時')}</strong>
+                      <div className="mt-0.5">{t('感恩書寫需要一定心理能量。若過度疲勞，容易變成應付式紀錄，同時難以書寫真實感受，可能增加心理負擔。')}</div>
+                    </li>
                   </ul>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('不建議練習的時刻')}</p>
-              <ul className="flex flex-col gap-2 text-foreground/75 pl-3">
-                <li>
-                  <strong className="font-bold text-foreground">{t('情緒極端崩潰時')}</strong>
-                  <div className="mt-0.5">{t('若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業諮商協助。')}</div>
-                </li>
-                <li>
-                  <strong className="font-bold text-foreground">{t('極度疲憊時')}</strong>
-                  <div className="mt-0.5">{t('感恩書寫需要一定心理能量。若過度疲勞，容易變成應付式紀錄，同時難以書寫真實感受，可能增加心理負擔。')}</div>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
-              <p className="text-foreground/75 mb-2">{t('持續性的感恩練習有助於提升：')}</p>
-              <ul className="flex flex-col gap-1 text-foreground/75 pl-3 mb-3">
-                <li>{t('・情緒力（Positive Emotion）')}</li>
-                <li>{t('・連結力（Relationships）')}</li>
-                <li>{t('・意義力（Meaning）')}</li>
-                <li>{t('・心理韌性與幸福感')}</li>
-                <li>{t('・壓力調節與睡眠品質')}</li>
-              </ul>
-              <p className="font-extrabold text-foreground mb-1.5 mt-3">{t('相關文獻')}</p>
-              <ul className="flex flex-col gap-1.5 text-foreground/60 text-xs pl-3">
-                <li>Choi, H., Cha, Y., McCullough, M. E., Coles, N. A., & Oishi, S. (2025). A meta-analysis of the effectiveness of gratitude interventions on well-being across cultures. <em>Proceedings of the National Academy of Sciences, 122</em>(28), e2425193122.</li>
-                <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707.</li>
-              </ul>
-            </div>
-            <button
-              onClick={() => setExpanded(false)}
-              className="text-xs font-bold text-primary text-left"
-            >
-              {t('收合 ▴')}
-            </button>
-          </div>
+                </div>
+                <div>
+                  <p className="font-extrabold text-foreground mb-1.5">{t('研究指出的效益')}</p>
+                  <p className="text-foreground/75 mb-2">{t('持續性的感恩練習有助於提升：')}</p>
+                  <ul className="flex flex-col gap-1 text-foreground/75 pl-3 mb-3">
+                    <li>{t('・情緒力（Positive Emotion）')}</li>
+                    <li>{t('・連結力（Relationships）')}</li>
+                    <li>{t('・意義力（Meaning）')}</li>
+                    <li>{t('・心理韌性與幸福感')}</li>
+                    <li>{t('・壓力調節與睡眠品質')}</li>
+                  </ul>
+                  <p className="font-extrabold text-foreground mb-1.5 mt-3">{t('相關文獻')}</p>
+                  <ul className="flex flex-col gap-1.5 text-foreground/60 text-xs pl-3">
+                    <li>Choi, H., Cha, Y., McCullough, M. E., Coles, N. A., & Oishi, S. (2025). A meta-analysis of the effectiveness of gratitude interventions on well-being across cultures. <em>Proceedings of the National Academy of Sciences, 122</em>(28), e2425193122.</li>
+                    <li>Folk, D., & Dunn, E. (2023). A systematic review of the strength of evidence for the most commonly recommended happiness strategies in mainstream media. <em>Nature Human Behaviour, 7</em>(10), 1697–1707.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </>
         )}
-      </div>
+      </TheorySection>
 
       {/* 3-D 練習內容清單 */}
       <div className="mt-5 flex flex-col gap-3.5">
@@ -682,8 +671,7 @@ function IntroStage({
       </div>
 
       {/* 3-E 難度選擇 */}
-      <h3 className="mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('依據你今天的能量挑一個強度')}</h3>
-      <p className="font-en mb-3 text-[13px] font-medium text-muted-foreground">Choose Intensity</p>
+      <h3 className="mb-3 mt-7 text-[23px] font-black tracking-[0.02em] text-foreground">{t('依據你今天的能量挑一個強度')}</h3>
       <div className="flex gap-3">
         <button
           onClick={() => onChangeDifficulty('basic')}
@@ -801,7 +789,7 @@ function WritingStage({
       {/* Back button */}
       <button
         onClick={onBack}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
         aria-label={t('返回')}
       >
         <BackIcon />
@@ -915,19 +903,27 @@ function WritingStage({
 
 function CircularProgress({ filled, chars }: { filled: number; chars: number }) {
   const { t } = useLanguage()
-  const isComplete = filled === 3
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative mx-auto h-[128px] w-[200px]">
-        <div
-          className={`absolute left-1/2 top-0 flex h-[128px] w-[128px] -translate-x-1/2 items-center justify-center rounded-full border-[9px] bg-[rgba(254,250,240,0.7)] ${
-            isComplete ? 'border-gold-deep' : 'border-foreground'
-          }`}
-          style={isComplete ? { filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.55))' } : undefined}
+      <div className="relative mx-auto h-[190px] w-[190px] overflow-hidden">
+        <img
+          src={floatingBouba}
+          alt=""
+          className="pointer-events-none absolute max-w-none"
+          style={{
+            width: '233%',
+            height: '233%',
+            left: '-67.5%',
+            top: '-54%',
+          }}
+        />
+        <span
+          className="absolute font-en text-[32px] font-bold text-foreground"
+          style={{ left: '43.5%', top: '61.8%', transform: 'translate(-50%, -50%)' }}
         >
-          <span className="font-en text-[40px] font-bold text-foreground">{filled}/3</span>
-        </div>
+          {filled}/3
+        </span>
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground">{t('今日已寫 {n} 字', { n: chars })}</p>
     </div>
@@ -1045,67 +1041,6 @@ function SparklesIcon() {
       <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
       <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" opacity="0.7" />
     </svg>
-  )
-}
-
-/** 本週打卡條（週一–週日），資料來源：本人 gratitude_entries 近 7 日。用於 INTRO 階段。 */
-function WeeklyCheckinStrip() {
-  const [dates, setDates] = useState<Set<string> | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user.id
-      if (!uid) return
-      const now = new Date()
-      const day = now.getDay()
-      const diff = day === 0 ? -6 : 1 - day
-      const monday = new Date(now)
-      monday.setDate(monday.getDate() + diff)
-      monday.setHours(0, 0, 0, 0)
-      const sunday = new Date(monday)
-      sunday.setDate(sunday.getDate() + 6)
-      const { data } = await supabase
-        .from('gratitude_entries')
-        .select('entry_date')
-        .eq('user_id', uid)
-        .eq('practice_type', 'gratitude')
-        .gte('entry_date', isoLocalDate(monday))
-        .lte('entry_date', isoLocalDate(sunday))
-      if (!cancelled) setDates(new Set((data ?? []).map((r) => String(r.entry_date))))
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  if (!dates) return null
-
-  const now = new Date()
-  const day = now.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(now)
-  monday.setDate(monday.getDate() + diff)
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(d.getDate() + i)
-    return isoLocalDate(d)
-  })
-
-  return (
-    <div className="mt-4 flex justify-between rounded-2xl bg-card px-3 py-2.5 shadow-soft">
-      {weekDates.map((d) => (
-        <span
-          key={d}
-          className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-            dates.has(d) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          {new Date(d + 'T00:00:00').getDate()}
-        </span>
-      ))}
-    </div>
   )
 }
 
@@ -1255,7 +1190,7 @@ function SummaryStage({
         <button
           onClick={onBack}
           disabled={submitting}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#efe7d6] bg-white text-foreground shadow-[0_2px_5px_rgba(0,0,0,0.06)] transition active:scale-90 disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90 disabled:opacity-50"
           aria-label={mode === 'edit' ? t('返回編輯日記') : t('返回')}
         >
           <BackIcon />
@@ -1292,9 +1227,9 @@ function SummaryStage({
       ) : displayResult ? (
         <div className="mb-6 flex flex-col gap-3">
           <div className="rounded-3xl bg-tile-mint p-5 shadow-soft">
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#3f6b46]">
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-[#71744F]">
               <SparklesIcon />
-              {t('AI 即時回饋')}
+              {t('Bouba 即時回饋')}
             </p>
             <p className="text-sm leading-relaxed text-foreground">{displayResult.emotional_summary}</p>
           </div>
@@ -1554,7 +1489,7 @@ function ShareCard({
 const TARGET_COLORS: Record<TargetCode, string> = {
   others:      '#6BAED6',
   self:        '#FD8D3C',
-  environment: '#74C476',
+  environment: '#B9B078',
   experience:  '#9E9AC8',
   custom:      '#BDBDBD',
 }
@@ -1735,7 +1670,7 @@ function CelebrateStage({
       {/* 返回鍵：回到 AI 日記頁面查看（唯讀，不重新生成） */}
       <button
         onClick={onBack}
-        className="mb-3 flex h-9 w-9 items-center justify-center self-start rounded-full bg-card text-foreground shadow-soft transition active:scale-90"
+        className="mb-3 flex h-8 w-8 items-center justify-center self-start rounded-full border-2 border-[#542916] bg-[#FEFAF0] text-[#542916] shadow-soft transition active:scale-90"
         aria-label={t('返回查看 AI 日記')}
       >
         <BackIcon />
@@ -1772,38 +1707,7 @@ function CelebrateStage({
       </div>
 
       {/* PERMA 加分 */}
-      <div className="mb-6 w-full rounded-3xl bg-card p-6 shadow-soft">
-        <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-          {t('練習後 PERMA 加分')}
-        </p>
-        <div className="flex flex-col gap-5">
-          {getPermaBoosts(t).map(({ label, delta, bar, description }, i) => (
-            <div
-              key={label}
-              className="celebrate-row flex flex-col gap-2"
-              style={{ animationDelay: `${0.15 + i * 0.18}s` }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="w-14 shrink-0 text-sm font-extrabold text-foreground">
-                  {label}
-                </span>
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full ${bar} celebrate-bar`}
-                    style={{ width: `${(delta / 3) * 100}%`, animationDelay: `${0.25 + i * 0.18}s` }}
-                  />
-                </div>
-                <span className="w-10 shrink-0 text-right text-sm font-extrabold text-primary">
-                  +{delta}
-                </span>
-              </div>
-              <p className="pl-[68px] text-xs leading-relaxed text-muted-foreground">
-                {description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <PermaGrowthCard title={t('練習後 PERMA 加分')} items={getPermaBoosts(t)} />
 
       {/* 6-B 感恩對象地圖 */}
       <div className="mb-6 w-full rounded-3xl bg-card p-5 shadow-soft">

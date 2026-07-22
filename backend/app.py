@@ -676,14 +676,14 @@ async def generate_report(
 
     try:
         response = await claude().messages.parse(
-            model="claude-sonnet-4-5",
+            model="claude-haiku-4-5-20251001",
             max_tokens=2500,
             temperature=0.2,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
             output_format=InMindLLMResponse,
         )
-        meter_claude("report", "claude-sonnet-4-5", response.usage, user_id)
+        meter_claude("report", "claude-haiku-4-5-20251001", response.usage, user_id)
 
         result = response.parsed_output
         if result is None:
@@ -761,6 +761,17 @@ async def generate_report(
             content={"error": f"分析失敗：{str(exc)}"},
             status_code=500,
         )
+
+
+# ── AI 週分析時區與周日檢查──────────────────────────────────────────────────
+# 台灣時區（UTC+8），每週日 00:00 生成一次 AI 分析，之後不重複生成。
+
+TW_TZ = timezone(timedelta(hours=8))
+
+def is_sunday_tw() -> bool:
+    """檢查台灣時區的當前時間是否為周日（0=周日）。"""
+    now_tw = datetime.now(TW_TZ)
+    return now_tw.weekday() == 6  # Python: 0=Mon, 6=Sun
 
 
 # ── Process Goal Awareness endpoints（過程目標覺察）─────────────────────────
@@ -910,7 +921,7 @@ async def pg_focus_boost(req: FocusBoostRequest, authorization: str = Header(...
 # logger.error + 500。與前端純用 anon key + RLS 不同，這兩個端點需要用 service key
 # 讀寫追蹤資料（繞過 RLS），因此寫表放在後端。
 
-_PRO_REVIEW_MODEL = "claude-sonnet-4-5"
+_PRO_REVIEW_MODEL = "claude-haiku-4-5-20251001"
 _CRISIS_MODEL = "claude-haiku-4-5-20251001"
 
 
@@ -1186,7 +1197,7 @@ async def pro_entry_safety_check(req: EntrySafetyCheckRequest, authorization: st
 # ── 日記模組：每日即時回饋 + 定期回顧（整體／週報／內建感恩日記週回顧）─────────
 # 沿用既有慣例：service key 讀寫追蹤資料、meter_claude 記帳、AI 失敗回 fallback 不阻擋。
 
-_REVIEW_MODEL = "claude-sonnet-4-5"
+_REVIEW_MODEL = "claude-haiku-4-5-20251001"
 
 _DIARY_STYLE_PROMPTS = {
     "warm": "語氣溫暖肯定，像朋友一樣給予溫暖的肯定與陪伴感。",
@@ -1556,9 +1567,10 @@ _WEEKLY_DIGEST_SYSTEM = (
 
 @app.post("/api/reviews/weekly-digest")
 async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = Header(...)):
-    """一週回顧頁的 AI 週統整分析（v2）：量化編碼（情緒／詞彙／感恩深度）＋ 四段敘事回饋。
-    感恩對象前端已能直接統計（target_1..3 是既有結構化欄位），不在此重複。
-    該週 gratitude_entries ≥ 2 筆才生成；以 entry_count 判斷快取——週中新增紀錄會重新生成並更新同一列。"""
+    """一週回顧頁的 AI 週統整分析：每週日生成一次，之後不重複生成。
+    如果該週已有分析，直接返回快取。
+    如果該週沒有分析且不是周日，返回 409（等待周日生成）。
+    該週 gratitude_entries ≥ 2 筆才生成。"""
     token = authorization.removeprefix("Bearer ").strip()
     user_id = await get_user_id(token)
 
@@ -1587,9 +1599,12 @@ async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = H
 
     existing = await _find_existing_review(user_id, None, "weekly_digest", start.isoformat())
     if existing:
-        content = existing.get("content") or {}
-        if existing.get("entry_count") == entry_count and content.get("v", 1) >= 3:
-            return existing
+        # 該週已有分析，直接返回（無論什麼時間）
+        return existing
+
+    # 該週沒有分析，只有在台灣時區的周日才生成新的
+    if not is_sunday_tw():
+        raise HTTPException(status_code=409, detail="AI 分析將在本周日生成")
 
     # 逐件列出（而非整篇合併），AI 才能以「件」為單位做深度編碼
     lines = []
@@ -1657,8 +1672,8 @@ async def reviews_weekly_digest(req: WeeklyDigestRequest, authorization: str = H
 # ── 量表轉譯質性評估（kind='assessment'）───────────────────────────────────
 # 兩個端點：量表 AI 轉譯（專業夥伴端）＋ 測驗雙報告生成（個案端，含危機判讀）。
 
-_SCALE_TRANSFORM_MODEL = "claude-sonnet-4-5"
-_ASSESSMENT_REPORT_MODEL = "claude-sonnet-4-5"
+_SCALE_TRANSFORM_MODEL = "claude-haiku-4-5-20251001"
+_ASSESSMENT_REPORT_MODEL = "claude-haiku-4-5-20251001"
 
 _SCALE_TRANSFORM_SYSTEM = """你是心理量表轉譯助手，將標準化心理量表轉譯為開放式、生活化的質性問題。
 規則：

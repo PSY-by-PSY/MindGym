@@ -5,23 +5,30 @@ import { streakFromDates } from '../lib/streak'
 import { checkAndGenerateReviews, mondayOf } from '../lib/reviews'
 import { fetchWeeklyCounts, type WeeklyCounts } from '../lib/weeklyReview'
 import { type TargetCode, TARGET_META, TARGET_COLORS, TARGET_INSIGHT, TARGET_INFO } from '../lib/gratitudeTargets'
-import playingMascot from '../assets/ui/playing-mascot.png'
+import { isoLocalDate } from '../lib/date'
 import avatar1 from '../assets/ui/avatar-1.png'
 import avatar2 from '../assets/ui/avatar-2.png'
+import avatar3 from '../assets/ui/頭像1 Bouba脫帽禮.png'
+import avatar4 from '../assets/ui/頭像2 Bouba種花.png'
+import avatar5 from '../assets/ui/頭像3 Bouba打瞌睡.png'
+import boabaWave from '../assets/ui/Boaba雜耍.png'
 import { useLanguage } from '../lib/i18n/context'
 
-type AvatarCode = 'avatar-1' | 'avatar-2'
+type AvatarCode = 'avatar-1' | 'avatar-2' | 'avatar-3' | 'avatar-4' | 'avatar-5'
 
 const AVATAR_OPTIONS: { code: AvatarCode; src: string; label: string }[] = [
-  { code: 'avatar-1', src: avatar1, label: '夥伴一' },
-  { code: 'avatar-2', src: avatar2, label: '夥伴二' },
+  { code: 'avatar-1', src: avatar1, label: 'Bouba的紅色證件照' },
+  { code: 'avatar-2', src: avatar2, label: 'Bouba的綠色證件照' },
+  { code: 'avatar-3', src: avatar3, label: 'Bouba脫帽禮' },
+  { code: 'avatar-4', src: avatar4, label: 'Bouba種花' },
+  { code: 'avatar-5', src: avatar5, label: 'Bouba打瞌睡' },
 ]
 
 function isPhotoAvatar(code: string | null): boolean {
   return !!code && (code.startsWith('data:image') || code.startsWith('http'))
 }
 
-// 頭像現在固定為兩張角色圖，預設 avatar-1。舊資料（emoji 代號 / null）一律回退到 avatar-1。
+// 頭像固定為五張角色圖，預設 avatar-1。舊資料（emoji 代號 / null）一律回退到 avatar-1。
 function avatarSrcByCode(code: string | null): string {
   return AVATAR_OPTIONS.find((a) => a.code === code)?.src ?? avatar1
 }
@@ -33,6 +40,9 @@ type PermaScores = {
   m_score: number
   a_score: number
 }
+
+// t() 的型別別名，供元件外的純函式接參數用（不能在裡面呼叫 useLanguage）。
+type TFn = (text: string, vars?: Record<string, string | number>) => string
 
 type GratitudeEntry = {
   id: string
@@ -80,26 +90,26 @@ function EditPencilIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
   )
 }
 
-function FlameIcon() {
+function StarIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22c4 0 6.5-2.5 6.5-6 0-2.5-1.5-4-2.5-5.5.3 2-.7 3-1.5 3 .5-3-1-5.5-3.5-7 .5 2.5-.5 4-2 5.5-1.3 1.3-2.5 2.8-2.5 5 0 3.5 2.5 6 5.5 6z" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.9 6.7 19.1l1-5.8L3.5 9.2l5.9-.9L12 3z" />
     </svg>
   )
 }
 
-function CalendarIcon() {
+function CalendarIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M16 3v4M8 3v4M3 10h18" />
     </svg>
   )
 }
 
-function StopwatchIcon() {
+function StopwatchIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="13" r="8" />
       <path d="M12 9v4l3 2M9 2h6M12 2v3" />
     </svg>
@@ -110,7 +120,7 @@ export const Route = createFileRoute('/app/profile')({
   loader: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const userId = session?.user.id
-    if (!userId) return { name: null, avatar: null, scores: null, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0 }
+    if (!userId) return { name: null, avatar: null, scores: null, experience: null, harvestedFlowers: 0, userId: null, initialEntries: [], streak: 0, monthlyCount: 0, totalCount: 0, hasPracticedToday: false }
 
     const fallbackName =
       (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -161,6 +171,7 @@ export const Route = createFileRoute('/app/profile')({
       ...(morningAllRes.data ?? []).map((r) => String(r.log_date)),
     ]
     const streak = streakFromDates(unifiedDates)
+    const hasPracticedToday = unifiedDates.some((d) => d.slice(0, 10) === isoLocalDate(today))
 
     const monthlyCount =
       (entriesRes.data?.length ?? 0) + (focusMonthRes.data?.length ?? 0) + (morningMonthRes.data?.length ?? 0)
@@ -177,15 +188,51 @@ export const Route = createFileRoute('/app/profile')({
 
     const permaRows = (permaRes.data ?? []) as (PermaScores & { created_at: string })[]
 
+    // 幸福經驗值：每月一號歸零重新累積，只計算「當月」完成的練習（對齊練習完成頁顯示
+    // 的「能力提升」，見 app.gratitude.tsx / app.process-goal.tsx）。
+    const gratitudeMonthCount = entriesRes.data?.length ?? 0
+    const focusMonthCount = focusMonthRes.data?.length ?? 0
+    const experience: PermaScores = {
+      p_score: gratitudeMonthCount * 3,
+      e_score: focusMonthCount * 2,
+      r_score: gratitudeMonthCount * 3,
+      m_score: gratitudeMonthCount * 1 + focusMonthCount * 2,
+      a_score: focusMonthCount * 3,
+    }
+
+    // 花花收割數：某個 PERMA 維度單月累積到 50 分以上即代表當月已收割一朵花，
+    // 回溯所有歷史月份加總算出「一共種了幾朵花」（不需額外資料表，用既有的歷史紀錄推算）。
+    const countByMonth = (dates: string[]) => {
+      const counts = new Map<string, number>()
+      for (const d of dates) {
+        const key = d.slice(0, 7)
+        counts.set(key, (counts.get(key) ?? 0) + 1)
+      }
+      return counts
+    }
+    const gratitudeByMonth = countByMonth((allDatesRes.data ?? []).map((r) => String(r.entry_date)))
+    const focusByMonth = countByMonth((focusAllRes.data ?? []).map((r) => String(r.log_date)))
+    const allMonths = new Set([...gratitudeByMonth.keys(), ...focusByMonth.keys()])
+    let harvestedFlowers = 0
+    for (const key of allMonths) {
+      const g = gratitudeByMonth.get(key) ?? 0
+      const f = focusByMonth.get(key) ?? 0
+      const monthScores = [g * 3, f * 2, g * 3, g * 1 + f * 2, f * 3]
+      for (const s of monthScores) harvestedFlowers += Math.floor(s / EXP_MAX)
+    }
+
     return {
       name: finalName,
       avatar: (profileRes.data?.avatar ?? null) as string | null,
       scores: (permaRows[0] ?? null) as (PermaScores & { created_at?: string }) | null,
+      experience,
+      harvestedFlowers,
       userId,
       initialEntries: (entriesRes.data ?? []) as GratitudeEntry[],
       streak,
       monthlyCount,
       totalCount,
+      hasPracticedToday,
     }
   },
   pendingComponent: LoadingState,
@@ -217,7 +264,7 @@ function starPolygon(cx: number, cy: number, outer: number, inner: number): stri
 }
 
 function PermaRadar({ scores }: { scores: PermaScores }) {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const cx = 160
   const cy = 150
   const maxR = 80
@@ -234,7 +281,7 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
   const dataPoly = dataPts.map((p) => p.join(',')).join(' ')
 
   return (
-    <svg viewBox="0 0 320 300" className="w-full">
+    <svg viewBox="0 -12 320 312" className="w-full">
       {/* 藍色同心五邊形格線 */}
       {[1, 2, 3, 4, 5].map((level) => (
         <polygon
@@ -263,22 +310,31 @@ function PermaRadar({ scores }: { scores: PermaScores }) {
           strokeLinejoin="round"
         />
       ))}
-      {/* 各維度標籤 + 分數框 */}
+      {/* 各維度標籤 + 分數框，標籤一律在上、分數框在下。頂點 P 在正上方，
+          兩者都要往外（上）推才不會擠回雷達圖；其餘 4 個維度往下沿screen-space偏移
+          即已是遠離圖表方向，故沿用原本做法。 */}
       {PERMA_DIMENSIONS.map((d, i) => {
         const [lx, ly] = point(i, maxR + 30)
-        const by = ly + 13
+        const labelY = i === 0 ? ly - 26 : ly - 3
+        const by = i === 0 ? ly - 3 : ly + 22
+        const label = language === 'en' ? t(d.label) : `${d.letter} ${t(d.label)}`
+        // 標籤靠近雷達圖左右兩側時可用寬度較窄；翻譯過長（如英文）會超出畫布，
+        // 用 textLength 壓縮成剛好塞得下的寬度，避免被裁切或跟旁邊元素重疊。
+        const safeHalfWidth = Math.max(20, Math.min(lx, 320 - lx) - 4)
+        const needsCompress = label.length * 7.2 > safeHalfWidth * 2
         return (
           <g key={d.key}>
             <text
-              x={lx}
-              y={ly - 3}
-              textAnchor="middle"
+              x={needsCompress ? lx - safeHalfWidth : lx}
+              y={labelY}
+              textAnchor={needsCompress ? 'start' : 'middle'}
               dominantBaseline="middle"
               fontSize="12.5"
               fontWeight="800"
               fill="#542916"
+              {...(needsCompress ? { textLength: safeHalfWidth * 2, lengthAdjust: 'spacingAndGlyphs' as const } : {})}
             >
-              {d.letter} {t(d.label)}
+              {label}
             </text>
             <rect x={lx - 16} y={by - 11} width="32" height="22" rx="7" fill="#FEFAF0" stroke="#542916" strokeWidth="1.5" />
             <text
@@ -304,18 +360,153 @@ function Header() {
   return (
     <div className="px-5 pt-4 text-center">
       <h1 className="text-[25px] font-black tracking-[0.04em] text-foreground">{t('我的健心檔案')}</h1>
-      <p className="font-en mt-1 text-sm font-medium tracking-[0.02em] text-muted-foreground">My PSY by PSY Profile</p>
-      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-foreground">{t('本週進度，小改變促進大改變')}</p>
+      <p className="mt-4 text-xl font-bold tracking-[0.02em] text-muted-foreground">{t('本週進度，小改變促進大改變')}</p>
     </div>
   )
 }
 
-// 區段標題（中文 900 + 英文副標），對齊新版設計
-function SectionLabel({ zh, en }: { zh: string; en: string }) {
+// ── Bouba 吉祥物卡片 ────────────────────────────────────────────────────────
+// 早/晚時段優先於練習狀態；白天則依「今天有沒做練習」決定話術。
+// 每個時段各有兩句話術，每次打開頁面隨機二選一（呼應幸福經驗值花開表情的做法）。
+function pickBoabaMessage(t: TFn, name: string | null, hasPracticedToday: boolean): string {
+  const displayName = name || t('你')
+  const hour = new Date().getHours()
+  const isMorning = hour >= 6 && hour < 12
+  const isNight = hour >= 18 || hour < 6
+  const pick = (a: string, b: string) => (Math.random() < 0.5 ? a : b)
+
+  if (isMorning) {
+    return pick(
+      t('今天還沒跟你說早安…早安！'),
+      t('早安{name}～我做了一個好夢哦！', { name: displayName }),
+    )
+  }
+  if (isNight) {
+    return pick(
+      t('晚安，Bouba 先睡了！{name}也要記得好好休息唷～', { name: displayName }),
+      t('{name}是晚上閃閃發亮的小星星嗎？', { name: displayName }),
+    )
+  }
+  return hasPracticedToday
+    ? t('對了，謝謝你的肥料，讓花花們吃飽睡好，越來越香了！送你一朵我種的花花～')
+    : t('啊，忘記幫我的花施肥了，你要一起來嗎？')
+}
+
+// Boaba 圖片本身自帶的三顆星星，原圖尺寸 1640x2360，等比縮到卡片內顯示高度 264px 時的
+// 換算尺寸（挖洞用）。三顆星星在原圖上的完整範圍（含星星自帶的白色描邊光暈），用來：
+//   1. 從角色圖上挖空這塊區域（evenodd 洞），避免和下面獨立雜耍的星星重複。
+//   2. 從原圖裁出這塊區域，再用像素篩選拿掉白色描邊光暈，做成乾淨的雜耍星星（見下方 useBoabaStarSprites）。
+const BOABA_IMG_ORIG_H = 2360
+const BOABA_IMG_W = 183.5
+const BOABA_IMG_H = 264
+const BOABA_STAR_SCALE = BOABA_IMG_H / BOABA_IMG_ORIG_H
+const BOABA_STAR_SOURCE_BOXES = [
+  { left: 784, top: 64, width: 208, height: 216, delay: '0s' },
+  { left: 1176, top: 312, width: 208, height: 216, delay: '-0.6s' },
+  { left: 304, top: 560, width: 208, height: 216, delay: '-1.2s' },
+] as const
+const BOABA_STARS = BOABA_STAR_SOURCE_BOXES.map((b) => ({
+  left: b.left * BOABA_STAR_SCALE,
+  top: b.top * BOABA_STAR_SCALE,
+  width: b.width * BOABA_STAR_SCALE,
+  height: b.height * BOABA_STAR_SCALE,
+  delay: b.delay,
+}))
+const BOABA_BODY_CLIP = `path(evenodd, "M0,0H${BOABA_IMG_W}V${BOABA_IMG_H}H0Z ${BOABA_STARS.map(
+  (s) => `M${s.left},${s.top}H${s.left + s.width}V${s.top + s.height}H${s.left}Z`,
+).join(' ')}")`
+
+// 星星本身帶著一圈白色描邊光暈，貼在角色身上（白底）不明顯，但拿出來單獨在藍色底上雜耍甩動時
+// 這圈白色光暈會變成很顯眼的白色色塊。這裡用 canvas 把偏白/偏米色的描邊像素挖成透明，只留下金黃色的星星本體。
+function useBoabaStarSprites(): string[] | null {
+  const [sprites, setSprites] = useState<string[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const img = new Image()
+    img.onload = () => {
+      if (cancelled) return
+      const out = BOABA_STAR_SOURCE_BOXES.map((b) => {
+        const canvas = document.createElement('canvas')
+        canvas.width = b.width
+        canvas.height = b.height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return ''
+        ctx.drawImage(img, b.left, b.top, b.width, b.height, 0, 0, b.width, b.height)
+        const frame = ctx.getImageData(0, 0, b.width, b.height)
+        const d = frame.data
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i]
+          const g = d[i + 1]
+          const bch = d[i + 2]
+          const isHaloOrOutline = r > 225 && g > 215 && r - bch < 55
+          if (isHaloOrOutline) d[i + 3] = 0
+        }
+        ctx.putImageData(frame, 0, 0)
+        return canvas.toDataURL('image/png')
+      })
+      if (!cancelled) setSprites(out)
+    }
+    img.src = boabaWave
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return sprites
+}
+
+function BoabaCard({ name, hasPracticedToday }: { name: string | null; hasPracticedToday: boolean }) {
+  const { t } = useLanguage()
+  const [message] = useState(() => pickBoabaMessage(t, name, hasPracticedToday))
+  const starSprites = useBoabaStarSprites()
+
+  return (
+    <div className="relative mt-1 rounded-[28px] bg-boaba-wave pt-28 shadow-soft">
+      {/* 角色只露上半身，下半身刻意被下方自我介紹框蓋住，做出「埋」在裡面的效果；
+          星星允許甩出藍色底之外，呼應「雜耍」的動態感。角色群組整體往右移，
+          讓最右邊那顆星星雜耍時大部分時候不會被右上角對話框擋住。 */}
+      <div
+        className="absolute top-1"
+        style={{ width: BOABA_IMG_W, height: BOABA_IMG_H, left: 'calc(50% - 40px)', transform: 'translateX(-50%)' }}
+      >
+        <img
+          src={boabaWave}
+          alt="Bouba"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          style={{ clipPath: BOABA_BODY_CLIP }}
+        />
+        {BOABA_STARS.map((s, i) => (
+          <div
+            key={i}
+            className="absolute animate-star-juggle overflow-hidden"
+            style={{ left: s.left, top: s.top, width: s.width, height: s.height, animationDelay: s.delay }}
+          >
+            {starSprites && (
+              <img src={starSprites[i]} alt="" className="pointer-events-none absolute inset-0 h-full w-full" />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="absolute right-5 top-3 z-[2] max-w-[150px] rounded-2xl bg-cream px-3 py-2.5 text-xs leading-snug text-[#542916] shadow-soft">
+        {message}
+        <span className="absolute -bottom-1 left-8 h-3 w-3 rotate-45 bg-cream" />
+      </div>
+      <div className="relative z-[1] mx-3 mb-3 rounded-[20px] bg-cream p-4 text-sm leading-relaxed text-[#542916] shadow-soft">
+        <p className="text-lg font-extrabold">{t('嗨，我是 Bouba!')}</p>
+        <p className="mt-2.5">
+          {t('我喜歡發呆、種花、曬太陽，也喜歡你來陪我玩 :D')}
+          <br />
+          {t('你看我的腦袋已經開好門了～')}
+        </p>
+        <p className="mt-2.5">{t('裡面有漂亮的山、星星和森林，每一天都是一閃一閃亮晶晶的好日子。')}</p>
+      </div>
+    </div>
+  )
+}
+
+function SectionLabel({ zh }: { zh: string }) {
   return (
     <div className="mt-3">
       <h2 className="text-[21px] font-black tracking-[0.03em] text-foreground">{zh}</h2>
-      <p className="font-en text-[13px] font-medium text-muted-foreground">{en}</p>
     </div>
   )
 }
@@ -418,9 +609,6 @@ function GratitudeTargetMap({ userId }: { userId: string | null }) {
       <div className="rounded-3xl bg-card p-5 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Gratitude Map
-            </p>
             <h2 className="text-lg font-extrabold text-foreground">{t('感恩對象地圖')}</h2>
           </div>
           <button
@@ -637,9 +825,6 @@ function GratitudeCalendar({
   return (
     <>
       <div className="rounded-3xl bg-card p-5 shadow-soft">
-        <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-          Mental Training Log
-        </p>
         <h2 className="mb-4 text-lg font-extrabold text-foreground">{t('我的健心日記')}</h2>
 
         {/* 月份導覽 */}
@@ -717,7 +902,7 @@ function GratitudeCalendar({
                     className="flex w-full items-center gap-3 rounded-xl bg-card p-3 text-left shadow-soft transition active:scale-[0.98]"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile-mint">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#71744F]" />
                     </span>
                     <span className="flex-1 text-sm font-bold text-foreground">{t('感恩日記')}</span>
                     <span className="text-xs font-extrabold text-primary">✓ {t('已完成')}</span>
@@ -896,7 +1081,7 @@ function WeeklyReviewEntry({ userId }: { userId: string }) {
     return () => { cancelled = true }
   }, [userId])
 
-  const total = (counts?.gratitudeCount ?? 0) + (counts?.processCount ?? 0)
+  const total = (counts?.gratitudeCount ?? 0) + (counts?.processCount ?? 0) + (counts?.selfCompassionCount ?? 0)
 
   return (
     <Link
@@ -910,7 +1095,7 @@ function WeeklyReviewEntry({ userId }: { userId: string }) {
         <span className="block text-sm font-extrabold text-foreground">{t('本週回顧')}</span>
         {counts && total > 0 ? (
           <span className="block text-xs font-bold text-muted-foreground">
-            {t('感恩 {n1} 次 · 過程 {n2} 次', { n1: counts.gratitudeCount, n2: counts.processCount })}
+            {t('感恩 {n1} 次 · 過程 {n2} 次 · 慈悲 {n3} 次', { n1: counts.gratitudeCount, n2: counts.processCount, n3: counts.selfCompassionCount })}
           </span>
         ) : (
           <span className="block text-xs font-bold text-muted-foreground">{t('看看這週的健心狀況')}</span>
@@ -957,7 +1142,7 @@ function AvatarPicker({
           <p className="text-sm font-extrabold text-foreground">{t('選擇你的頭像')}</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {AVATAR_OPTIONS.map((opt) => {
             const active =
               current === opt.code ||
@@ -996,25 +1181,55 @@ const PLANTER_DIMS = [
   { key: 'a_score' as const, letter: 'A', label: '成就', color: '#c98a52' },
 ]
 
-function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#7BA86E') {
+function planterLeaf(x: number, y: number, rot: number, s: number, fill = '#B9B078') {
   return <ellipse cx={x} cy={y} rx={6 * s} ry={11 * s} fill={fill} transform={`rotate(${rot} ${x} ${y})`} />
 }
 
+// 幸福經驗值滿開（≥50）後隨機挑一種表情，簡單線條風格，每次打開頁面可能不一樣。
+const SMILEY_FACES: ((x: number, y: number) => JSX.Element)[] = [
+  (x, y) => (
+    <g key="smile">
+      <path d={`M ${x - 4} ${y - 2} Q ${x - 4} ${y} ${x - 2} ${y}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <path d={`M ${x + 2} ${y - 2} Q ${x + 4} ${y} ${x + 4} ${y}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <path d={`M ${x - 3} ${y + 1} Q ${x} ${y + 3.5} ${x + 3} ${y + 1}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+    </g>
+  ),
+  (x, y) => (
+    <g key="wink">
+      <path d={`M ${x - 4.5} ${y - 1} L ${x - 2} ${y - 1}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <circle cx={x + 3} cy={y - 1} r="1.1" fill="#fff" />
+      <path d={`M ${x - 3} ${y + 1} Q ${x} ${y + 4} ${x + 3.5} ${y + 0.5}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+    </g>
+  ),
+  (x, y) => (
+    <g key="giggle">
+      <path d={`M ${x - 4.5} ${y - 1.5} Q ${x - 3} ${y - 3} ${x - 1.5} ${y - 1.5}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <path d={`M ${x + 1.5} ${y - 1.5} Q ${x + 3} ${y - 3} ${x + 4.5} ${y - 1.5}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <path d={`M ${x - 3.5} ${y + 1} Q ${x} ${y + 4.5} ${x + 3.5} ${y + 1}`} stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+    </g>
+  ),
+]
+
+// 幸福經驗值 0~50+：0-10 嫩芽、10-20 長葉未結苞、20-30 結苞未開、30-50 開花、50+ 花開並帶笑臉。
+const EXP_MAX = 50
+
 function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScore: boolean }) {
   const rimY = 176
-  const h = 22 + (Math.max(0, Math.min(5, score)) / 5) * 112
+  const clamped = Math.max(0, Math.min(EXP_MAX, score))
+  const h = 22 + (clamped / EXP_MAX) * 112
   const topY = rimY - h
   const midY = (rimY + topY) / 2
   const sway = 5
+  const [faceIdx] = useState(() => Math.floor(Math.random() * SMILEY_FACES.length))
 
   let top: JSX.Element
   let labelOffset = 14
-  if (score < 1.5) {
+  if (score < 10) {
     top = <g>{planterLeaf(x - 3, topY + 2, -38, 0.62)}{planterLeaf(x + 3, topY + 2, 38, 0.62)}</g>
     labelOffset = 12
-  } else if (score < 2.8) {
+  } else if (score < 20) {
     top = <g>{planterLeaf(x - 4, topY + 1, -46, 0.95)}{planterLeaf(x + 4, topY + 1, 46, 0.95)}</g>
-  } else if (score < 3.8) {
+  } else if (score < 30) {
     top = (
       <g>
         <path
@@ -1023,12 +1238,12 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
           stroke="#d8ac4a"
           strokeWidth="1"
         />
-        {planterLeaf(x - 3, topY + 2, -28, 0.5, '#6f9a5c')}
-        {planterLeaf(x + 3, topY + 2, 28, 0.5, '#6f9a5c')}
+        {planterLeaf(x - 3, topY + 2, -28, 0.5)}
+        {planterLeaf(x + 3, topY + 2, 28, 0.5)}
       </g>
     )
     labelOffset = 22
-  } else if (score < 4.5) {
+  } else if (score < 50) {
     top = (
       <g>
         {[0, 72, 144, 216, 288].map((a) => {
@@ -1052,9 +1267,7 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
           return <ellipse key={k} cx={px} cy={py} rx={6} ry={11} fill="#F1C166" transform={`rotate(${a} ${px} ${py})`} />
         })}
         <circle cx={x} cy={topY - 1} r={9} fill="#c07a3e" />
-        <circle cx={x - 3} cy={topY - 2} r={1.1} fill="#fff" />
-        <circle cx={x + 3} cy={topY - 2} r={1.1} fill="#fff" />
-        <path d={`M ${x - 3} ${topY + 1} Q ${x} ${topY + 3.5} ${x + 3} ${topY + 1}`} stroke="#fff" strokeWidth="1" fill="none" strokeLinecap="round" />
+        {SMILEY_FACES[faceIdx](x, topY - 1)}
       </g>
     )
     labelOffset = 26
@@ -1062,8 +1275,8 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
 
   return (
     <g>
-      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#7BA86E" strokeWidth="4" fill="none" strokeLinecap="round" />
-      {score >= 2.4 && (
+      <path d={`M ${x} ${rimY} Q ${x + sway} ${midY} ${x} ${topY}`} stroke="#71744F" strokeWidth="4" fill="none" strokeLinecap="round" />
+      {score >= 24 && (
         <g>
           {planterLeaf(x - 9, midY, -55, 0.8)}
           {planterLeaf(x + 9, midY + 6, 55, 0.8)}
@@ -1072,57 +1285,74 @@ function PlantColumn({ x, score, hasScore }: { x: number; score: number; hasScor
       {top}
       {hasScore && (
         <text x={x} y={topY - labelOffset} textAnchor="middle" fontSize="15" fontWeight="800" fill="#7a4a2a">
-          {score.toFixed(1)}
+          {Math.round(score)}
         </text>
       )}
     </g>
   )
 }
 
-function PartnerPlanter({ scores }: { scores: PermaScores | null }) {
+function PartnerPlanter({ experience }: { experience: PermaScores | null }) {
   const { t } = useLanguage()
-  const hasScore = !!scores
-  const xs = [36, 74, 112, 150, 188]
+  const hasScore = !!experience
+  // 盆器是梯形（往下內縮），字母圓與中文字都落在偏下方的窄處，
+  // 所以间距要比盆口本身窄一些，才不會超出盆器兩側斜邊。
+  const xs = [55, 117, 178, 239, 301]
+  // 經驗值低時植物矮，若固定用最高株的畫布高度，標題與花盆之間會空出一大截。
+  // 這裡依「目前最高的那株」動態裁切畫布上緣留白，讓卡片高度貼著實際內容。
+  const maxScore = experience ? Math.max(...PLANTER_DIMS.map((d) => Math.max(0, experience[d.key]))) : 0
+  const tallestH = 22 + (Math.min(EXP_MAX, maxScore) / EXP_MAX) * 112
+  const viewBoxTop = Math.max(0, 176 - tallestH - 40)
   return (
     <div className="relative mt-2.5 overflow-hidden rounded-[22px] bg-cream">
-      <svg viewBox="0 0 360 258" className="relative z-[1] w-full">
+      <svg viewBox={`0 ${viewBoxTop} 360 ${258 - viewBoxTop}`} className="relative z-[1] w-full">
         {/* 草叢 */}
-        <g fill="#9aa86a" opacity="0.9">
+        <g fill="#B9B078" opacity="0.9">
           <path d="M6 250 q3 -22 6 0 z M14 250 q3 -28 7 0 z M24 250 q3 -18 6 0 z" />
           <path d="M330 250 q3 -24 6 0 z M340 250 q3 -30 7 0 z M351 250 q2 -16 5 0 z" />
         </g>
         {/* 植物 */}
         {PLANTER_DIMS.map((d, i) => (
-          <PlantColumn key={d.key} x={xs[i]} score={scores ? Math.max(0, scores[d.key]) : 0.6} hasScore={hasScore} />
+          <PlantColumn key={d.key} x={xs[i]} score={experience ? Math.max(0, experience[d.key]) : 0} hasScore={hasScore} />
         ))}
         {/* 盆器 */}
         <path d="M20 178 L340 178 L322 236 Q322 242 316 242 L44 242 Q38 242 38 236 Z" fill="#7a5640" />
         <rect x="14" y="170" width="332" height="16" rx="8" fill="#8a6a4a" />
-        {/* P/E/R/M/A 五色圓 + 中文 */}
-        {PLANTER_DIMS.map((d, i) => (
-          <g key={d.key}>
-            <circle cx={xs[i]} cy={203} r={14} fill={d.color} />
-            <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
-              {d.letter}
-            </text>
-            <text x={xs[i]} y={253} textAnchor="middle" fontSize="12" fontWeight="800" fill="#542916">
-              {t(d.label)}
-            </text>
-          </g>
-        ))}
+        {/* P/E/R/M/A 五色圓 + 標籤：標籤欄位只有約 56 個單位寬，翻譯過長時（如英文）用
+            textLength 強制壓縮寬度，避免跟左右鄰欄的文字重疊。盆器兩側是斜邊，最外側兩欄
+            壓縮後的文字可能落在盆器輪廓之外（米色底上看不見米色字），所以額外墊一塊深色
+            底板確保任何情況下都跟文字有足夠對比。 */}
+        {PLANTER_DIMS.map((d, i) => {
+          const label = t(d.label)
+          const isLong = label.length > 4
+          return (
+            <g key={d.key}>
+              <circle cx={xs[i]} cy={203} r={14} fill={d.color} />
+              <text x={xs[i]} y={203} textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">
+                {d.letter}
+              </text>
+              {isLong && <rect x={xs[i] - 30} y={219} width={60} height={17} rx={8} fill="#6b4a34" />}
+              <text
+                x={isLong ? xs[i] - 28 : xs[i]}
+                y={228}
+                textAnchor={isLong ? 'start' : 'middle'}
+                fontSize={isLong ? 9 : 12}
+                fontWeight="800"
+                fill="#FEFAF0"
+                {...(isLong ? { textLength: 56, lengthAdjust: 'spacingAndGlyphs' as const } : {})}
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })}
       </svg>
-      {/* 玩耍吉祥物 — 大尺寸，坐在盆器右側抱膝 */}
-      <img
-        src={playingMascot}
-        alt=""
-        className="pointer-events-none absolute bottom-[14px] right-0 z-[2] w-[152px] select-none"
-      />
     </div>
   )
 }
 
 function ProfilePage() {
-  const { name, avatar: initialAvatar, scores, userId, initialEntries, streak, monthlyCount, totalCount } = Route.useLoaderData()
+  const { name, avatar: initialAvatar, scores, experience, harvestedFlowers, userId, initialEntries, streak, monthlyCount, totalCount, hasPracticedToday } = Route.useLoaderData()
   const router = useRouter()
   const { t } = useLanguage()
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null)
@@ -1184,8 +1414,8 @@ function ProfilePage() {
         <Header />
 
         <div className="flex flex-col gap-4 px-5 pt-5">
-        {/* 名字卡 */}
-        <div className="flex items-center gap-4 rounded-3xl bg-card p-5 shadow-soft">
+        {/* 名字卡：頭像 + 名稱置中排版 */}
+        <div className="flex flex-col items-center gap-3 pt-1">
           <button
             onClick={() => setShowPicker(true)}
             className="relative shrink-0 transition active:scale-95"
@@ -1194,80 +1424,87 @@ function ProfilePage() {
             <img
               src={avatarSrc}
               alt={t('使用者頭像')}
-              className="h-[72px] w-[72px] rounded-[20px] border-[3px] border-[#542916] object-cover"
+              className="h-[132px] w-[132px] rounded-full border-[3px] border-[#542916] object-cover"
             />
-            <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#542916] bg-cream shadow">
-              <EditPencilIcon className="h-3 w-3" />
+            <span className="absolute -right-1 -top-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#542916] bg-cream shadow">
+              <EditPencilIcon className="h-4 w-4" />
             </span>
           </button>
-          <div className="flex-1">
-            <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Name
-            </p>
-            {editingName ? (
-              <div className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  value={nameValue}
-                  onChange={(e) => setNameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void handleSaveName()
-                    if (e.key === 'Escape') setEditingName(false)
-                  }}
-                  className="flex-1 rounded-xl border border-primary bg-muted px-3 py-1.5 text-base font-extrabold text-foreground outline-none focus:ring-2 focus:ring-primary"
-                />
-                <button
-                  onClick={() => void handleSaveName()}
-                  disabled={savingName}
-                  className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground transition active:scale-95 disabled:opacity-60"
-                >
-                  {savingName ? '…' : t('儲存')}
-                </button>
-                <button
-                  onClick={() => { setNameValue(name ?? ''); setEditingName(false) }}
-                  className="shrink-0 text-sm text-muted-foreground transition hover:text-foreground"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <p className="text-lg font-extrabold text-foreground">{nameValue || t('未設定名稱')}</p>
-                <button
-                  onClick={() => setEditingName(true)}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-primary hover:text-primary-foreground active:scale-95"
-                  aria-label={t('編輯名稱')}
-                >
-                  <EditPencilIcon className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-          </div>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleSaveName()
+                  if (e.key === 'Escape') setEditingName(false)
+                }}
+                className="rounded-xl border border-primary bg-muted px-3 py-1.5 text-base font-extrabold text-foreground outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                onClick={() => void handleSaveName()}
+                disabled={savingName}
+                className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground transition active:scale-95 disabled:opacity-60"
+              >
+                {savingName ? '…' : t('儲存')}
+              </button>
+              <button
+                onClick={() => { setNameValue(name ?? ''); setEditingName(false) }}
+                className="shrink-0 text-sm text-muted-foreground transition hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-extrabold text-foreground">{nameValue || t('未設定名稱')}</p>
+              <button
+                onClick={() => setEditingName(true)}
+                className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#542916] bg-cream text-foreground transition active:scale-95"
+                aria-label={t('編輯名稱')}
+              >
+                <EditPencilIcon className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 三個統計數字框 */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><FlameIcon /></span>
-            <span className="text-2xl font-extrabold text-foreground">{streak}<span className="text-base font-bold">{t('天')}</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('連續打卡')}</span>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex items-center gap-1.5 rounded-3xl bg-cream p-3 shadow-soft">
+            <span className="shrink-0 text-foreground"><StarIcon className="h-8 w-8" /></span>
+            <div className="flex min-w-0 flex-col">
+              <span className="whitespace-nowrap text-xl font-extrabold text-foreground">{streak}<span className="text-sm font-bold">{t('天')}</span></span>
+              <span className="whitespace-nowrap text-[11px] font-medium text-muted-foreground">{t('連續打卡')}</span>
+            </div>
           </div>
-          <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><CalendarIcon /></span>
-            <span className="text-2xl font-extrabold text-foreground">{monthlyCount}<span className="text-base font-bold">{t('次')}</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('本月完成')}</span>
+          <div className="flex items-center gap-1.5 rounded-3xl bg-cream p-3 shadow-soft">
+            <span className="shrink-0 text-foreground"><CalendarIcon className="h-8 w-8" /></span>
+            <div className="flex min-w-0 flex-col">
+              <span className="whitespace-nowrap text-xl font-extrabold text-foreground">{monthlyCount}<span className="text-sm font-bold">{t('次')}</span></span>
+              <span className="whitespace-nowrap text-[11px] font-medium text-muted-foreground">{t('本月完成')}</span>
+            </div>
           </div>
-          <div className="flex flex-col items-center rounded-3xl bg-card p-4 shadow-soft">
-            <span className="mb-1 text-primary"><StopwatchIcon /></span>
-            <span className="text-2xl font-extrabold text-foreground">{practiceTime.value}<span className="text-base font-bold">{practiceTime.unit}</span></span>
-            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{t('總練習時間')}</span>
+          <div className="flex items-center gap-1.5 rounded-3xl bg-cream p-3 shadow-soft">
+            <span className="shrink-0 text-foreground"><StopwatchIcon className="h-8 w-8" /></span>
+            <div className="flex min-w-0 flex-col">
+              <span className="whitespace-nowrap text-xl font-extrabold text-foreground">{practiceTime.value}<span className="text-sm font-bold">{practiceTime.unit}</span></span>
+              <span className="whitespace-nowrap text-[11px] font-medium text-muted-foreground">{t('總練習時間')}</span>
+            </div>
           </div>
         </div>
 
+        {/* Bouba 吉祥物卡片 */}
+        <BoabaCard name={name} hasPracticedToday={hasPracticedToday} />
+
         {/* 我的健心夥伴（盆栽 + 吉祥物 + PERMA 種子） */}
         <div>
-          <SectionLabel zh={t('我的健心夥伴')} en="Mental Training Partner" />
-          <PartnerPlanter scores={scores} />
+          <SectionLabel zh={t('幸福經驗值')} />
+          <p className="mt-3 whitespace-pre-line text-center text-sm font-bold" style={{ color: '#876B5F' }}>
+            {t('你和Bouba一起種了{n}朵花～\nBouba覺得跟你一起種花非常幸福ㄛ！', { n: String(harvestedFlowers) })}
+          </p>
+          <PartnerPlanter experience={experience} />
         </div>
 
         {/* 健心紀錄日曆 */}
@@ -1276,9 +1513,6 @@ function ProfilePage() {
         {/* PERMA 雷達圖 + 分數 */}
         {scores ? (
           <div className="rounded-3xl bg-card p-5 shadow-soft">
-            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-              Mental Muscle Radar
-            </p>
             <h2 className="mb-0.5 text-lg font-extrabold text-foreground">{t('心理肌肉雷達圖')}</h2>
             <p className="mb-1 text-sm text-muted-foreground">{t('看看哪一塊還可以再練')}</p>
             <PermaRadar scores={scores} />
@@ -1295,7 +1529,7 @@ function ProfilePage() {
             <Link
               to="/onboarding"
               search={{ showResult: true }}
-              className="flex flex-1 items-center justify-center rounded-2xl bg-primary-soft px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-primary transition active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center rounded-2xl border-2 border-primary bg-transparent px-3 py-3.5 text-center text-sm font-extrabold leading-snug tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
             >
               {t('觀看最近一次')}<br />{t('測驗結果')}
             </Link>
@@ -1303,7 +1537,7 @@ function ProfilePage() {
           <Link
             to="/onboarding"
             search={{ reassess: true }}
-            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center rounded-2xl bg-primary px-3 py-3.5 text-center text-sm font-extrabold tracking-wide text-foreground shadow-soft transition active:scale-[0.98]"
           >
             {t('重新評估')}
           </Link>

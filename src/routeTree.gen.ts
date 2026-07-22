@@ -13,6 +13,8 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as WelcomeImport } from './routes/welcome'
 import { Route as TherapistImport } from './routes/therapist'
+import { Route as StaffImport } from './routes/staff'
+import { Route as ProfessionalImport } from './routes/professional'
 import { Route as PrivacyImport } from './routes/privacy'
 import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
@@ -20,6 +22,7 @@ import { Route as AppImport } from './routes/app'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
 import { Route as AppWeeklyReviewImport } from './routes/app.weekly-review'
+import { Route as AppSelfCompassionImport } from './routes/app.self-compassion'
 import { Route as AppProfileImport } from './routes/app.profile'
 import { Route as AppProcessGoalImport } from './routes/app.process-goal'
 import { Route as AppPlaceholderImport } from './routes/app.placeholder'
@@ -43,6 +46,18 @@ const WelcomeRoute = WelcomeImport.update({
 const TherapistRoute = TherapistImport.update({
   id: '/therapist',
   path: '/therapist',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const StaffRoute = StaffImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ProfessionalRoute = ProfessionalImport.update({
+  id: '/professional',
+  path: '/professional',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -85,6 +100,12 @@ const IndexRoute = IndexImport.update({
 const AppWeeklyReviewRoute = AppWeeklyReviewImport.update({
   id: '/weekly-review',
   path: '/weekly-review',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppSelfCompassionRoute = AppSelfCompassionImport.update({
+  id: '/self-compassion',
+  path: '/self-compassion',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -200,6 +221,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyImport
       parentRoute: typeof rootRoute
     }
+    '/professional': {
+      id: '/professional'
+      path: '/professional'
+      fullPath: '/professional'
+      preLoaderRoute: typeof ProfessionalImport
+      parentRoute: typeof rootRoute
+    }
+    '/staff': {
+      id: '/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof StaffImport
+      parentRoute: typeof rootRoute
+    }
     '/therapist': {
       id: '/therapist'
       path: '/therapist'
@@ -256,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileImport
       parentRoute: typeof AppImport
     }
+    '/app/self-compassion': {
+      id: '/app/self-compassion'
+      path: '/self-compassion'
+      fullPath: '/app/self-compassion'
+      preLoaderRoute: typeof AppSelfCompassionImport
+      parentRoute: typeof AppImport
+    }
     '/app/weekly-review': {
       id: '/app/weekly-review'
       path: '/weekly-review'
@@ -310,6 +352,7 @@ interface AppRouteChildren {
   AppPlaceholderRoute: typeof AppPlaceholderRoute
   AppProcessGoalRoute: typeof AppProcessGoalRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppSelfCompassionRoute: typeof AppSelfCompassionRoute
   AppWeeklyReviewRoute: typeof AppWeeklyReviewRoute
   AppProModuleModuleIdRoute: typeof AppProModuleModuleIdRoute
   AppWorkshopAuthenticSelfRoute: typeof AppWorkshopAuthenticSelfRoute
@@ -325,6 +368,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPlaceholderRoute: AppPlaceholderRoute,
   AppProcessGoalRoute: AppProcessGoalRoute,
   AppProfileRoute: AppProfileRoute,
+  AppSelfCompassionRoute: AppSelfCompassionRoute,
   AppWeeklyReviewRoute: AppWeeklyReviewRoute,
   AppProModuleModuleIdRoute: AppProModuleModuleIdRoute,
   AppWorkshopAuthenticSelfRoute: AppWorkshopAuthenticSelfRoute,
@@ -342,6 +386,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/professional': typeof ProfessionalRoute
+  '/staff': typeof StaffRoute
   '/therapist': typeof TherapistRoute
   '/welcome': typeof WelcomeRoute
   '/app/community': typeof AppCommunityRoute
@@ -350,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
@@ -365,6 +412,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/professional': typeof ProfessionalRoute
+  '/staff': typeof StaffRoute
   '/therapist': typeof TherapistRoute
   '/welcome': typeof WelcomeRoute
   '/app/community': typeof AppCommunityRoute
@@ -373,6 +422,7 @@ export interface FileRoutesByTo {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
@@ -389,6 +439,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/professional': typeof ProfessionalRoute
+  '/staff': typeof StaffRoute
   '/therapist': typeof TherapistRoute
   '/welcome': typeof WelcomeRoute
   '/app/community': typeof AppCommunityRoute
@@ -397,6 +449,7 @@ export interface FileRoutesById {
   '/app/placeholder': typeof AppPlaceholderRoute
   '/app/process-goal': typeof AppProcessGoalRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
@@ -414,6 +467,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/professional'
+    | '/staff'
     | '/therapist'
     | '/welcome'
     | '/app/community'
@@ -422,6 +477,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
@@ -436,6 +492,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/professional'
+    | '/staff'
     | '/therapist'
     | '/welcome'
     | '/app/community'
@@ -444,6 +502,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
@@ -458,6 +517,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/professional'
+    | '/staff'
     | '/therapist'
     | '/welcome'
     | '/app/community'
@@ -466,6 +527,7 @@ export interface FileRouteTypes {
     | '/app/placeholder'
     | '/app/process-goal'
     | '/app/profile'
+    | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
@@ -482,6 +544,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
+  ProfessionalRoute: typeof ProfessionalRoute
+  StaffRoute: typeof StaffRoute
   TherapistRoute: typeof TherapistRoute
   WelcomeRoute: typeof WelcomeRoute
 }
@@ -493,6 +557,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
+  ProfessionalRoute: ProfessionalRoute,
+  StaffRoute: StaffRoute,
   TherapistRoute: TherapistRoute,
   WelcomeRoute: WelcomeRoute,
 }
@@ -513,6 +579,8 @@ export const routeTree = rootRoute
         "/login",
         "/onboarding",
         "/privacy",
+        "/professional",
+        "/staff",
         "/therapist",
         "/welcome"
       ]
@@ -532,6 +600,7 @@ export const routeTree = rootRoute
         "/app/placeholder",
         "/app/process-goal",
         "/app/profile",
+        "/app/self-compassion",
         "/app/weekly-review",
         "/app/pro-module/$moduleId",
         "/app/workshop/authentic-self",
@@ -548,6 +617,12 @@ export const routeTree = rootRoute
     },
     "/privacy": {
       "filePath": "privacy.tsx"
+    },
+    "/professional": {
+      "filePath": "professional.tsx"
+    },
+    "/staff": {
+      "filePath": "staff.tsx"
     },
     "/therapist": {
       "filePath": "therapist.tsx"
@@ -577,6 +652,10 @@ export const routeTree = rootRoute
     },
     "/app/profile": {
       "filePath": "app.profile.tsx",
+      "parent": "/app"
+    },
+    "/app/self-compassion": {
+      "filePath": "app.self-compassion.tsx",
       "parent": "/app"
     },
     "/app/weekly-review": {

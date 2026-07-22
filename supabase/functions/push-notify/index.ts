@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     const title = 'PSY by PSY'
     let body: string
     if (table === 'likes') {
-      body = '有人為你的感恩貼文按讚 ❤️'
+      body = '有人為你的貼文按讚 ❤️'
     } else {
       const name = record.anon_name || '有人'
       body = `${name} 留言：${snippet(record.content)}`

@@ -99,13 +99,11 @@ export const gratitude: Record<string, Translation> = {
   '初階': { 'zh-CN': '初阶', en: 'Basic' },
   '進階': { 'zh-CN': '进阶', en: 'Advanced' },
   '分鐘': { 'zh-CN': '分钟', en: 'min' },
-  '感恩日記練習': { 'zh-CN': '感恩日记练习', en: 'Gratitude Journal Exercise' },
   '感恩日記（Gratitude Journal）是正向心理學中最具代表性的練習之一，透過每天有意識地回顧值得感謝的事件，幫助大腦重新聚焦於生活中的支持、善意與美好經驗。': {
     'zh-CN': '感恩日记（Gratitude Journal）是正向心理学中最具代表性的练习之一，透过每天有意识地回顾值得感谢的事件，帮助大脑重新聚焦于生活中的支持、善意与美好经验。',
     en: 'Gratitude journaling is one of the signature practices in positive psychology. By consciously reviewing what you’re grateful for each day, it helps your brain refocus on the support, kindness, and good experiences in your life.',
   },
   '（難度：{level}）': { 'zh-CN': '（难度：{level}）', en: '(Difficulty: {level})' },
-  '查看更多 ▾': { 'zh-CN': '查看更多 ▾', en: 'See more ▾' },
   '核心目標': { 'zh-CN': '核心目标', en: 'Core Goals' },
   '・建立覺察生活中的美好以及練習表達感恩的習慣': {
     'zh-CN': '・建立觉察生活中的美好以及练习表达感恩的习惯',
@@ -136,8 +134,8 @@ export const gratitude: Record<string, Translation> = {
   '・將注意力回到自己身上': { 'zh-CN': '・将注意力回到自己身上', en: '・Bring your attention back to yourself' },
   '不建議練習的時刻': { 'zh-CN': '不建议练习的时刻', en: 'When Not to Practice' },
   '情緒極端崩潰時': { 'zh-CN': '情绪极端崩溃时', en: 'During extreme emotional distress' },
-  '若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業諮商協助。': {
-    'zh-CN': '若当下正处于剧烈创伤或愤怒中，不应强迫感恩，应先进行情绪宣泄或寻求专业咨询协助。',
+  '若當下正處於劇烈創傷或憤怒中，不應強迫感恩，應先進行情緒宣洩或尋求專業心理協助。': {
+    'zh-CN': '若当下正处于剧烈创伤或愤怒中，不应强迫感恩，应先进行情绪宣泄或寻求专业心理协助。',
     en: 'If you’re in the middle of intense trauma or anger, don’t force gratitude — release the emotion first or seek professional support.',
   },
   '極度疲憊時': { 'zh-CN': '极度疲惫时', en: 'When extremely exhausted' },

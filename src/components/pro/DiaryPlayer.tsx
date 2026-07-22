@@ -231,7 +231,7 @@ export function DiaryPlayer({
 
         {content.feedback.daily.enabled && dailyFeedback?.text && (
           <div className="mb-3 rounded-2xl bg-tile-mint p-4">
-            <p className="text-xs font-black uppercase tracking-[0.1em] text-[#3f6b46]">{t('AI 即時回饋')}</p>
+            <p className="text-xs font-black uppercase tracking-[0.1em] text-[#71744F]">{t('Bouba 即時回饋')}</p>
             <p className="mt-1 text-sm leading-relaxed text-foreground/85">{dailyFeedback.text}</p>
           </div>
         )}

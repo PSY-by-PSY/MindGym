@@ -5,12 +5,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { supabase } from '../lib/supabase'
-import { mondayOf, requestWeeklyDigest, type GratitudeDepthLevel, type WeeklyDigestContent } from '../lib/reviews'
+import { mondayOf, requestWeeklyDigest, isSunday, type GratitudeDepthLevel, type WeeklyDigestContent } from '../lib/reviews'
 import { fetchWeeklyReviewData, type WeeklyReviewData } from '../lib/weeklyReview'
 import { TARGET_COLORS, TARGET_META } from '../lib/gratitudeTargets'
 import { downloadNodeAsPng } from '../lib/shareImage'
 import { useLanguage } from '../lib/i18n/context'
 import { track } from '../lib/analytics'
+import { isNativeApp } from '../lib/nativeAuth'
+import { enableNotifications, getLocalNotifPermission, type NotifPermission } from '../lib/localNotifications'
+
+// 這個提示只問一次：按過「稍後再說」就不再於本頁詢問（仍可在側邊欄「通知」開關開啟）。
+const WEEKLY_REVIEW_NOTIF_DISMISS_KEY = 'weekly_review_notif_prompt_dismissed_v1'
 
 export const Route = createFileRoute('/app/weekly-review')({
   component: WeeklyReviewPage,
@@ -57,11 +62,54 @@ function WeeklyReviewPage() {
   const [digest, setDigest] = useState<WeeklyDigestContent | null>(null)
   const [digestState, setDigestState] = useState<DigestState>('loading')
   const [sharing, setSharing] = useState(false)
+  const [isCurrentWeekSunday, setIsCurrentWeekSunday] = useState(false)
+  const [nextSundayDate, setNextSundayDate] = useState<string>('')
+  const [notifState, setNotifState] = useState<NotifPermission | 'loading'>('loading')
+  const [notifBusy, setNotifBusy] = useState(false)
+  const [notifDismissed, setNotifDismissed] = useState(false)
   const shareRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user.id ?? null))
   }, [])
+
+  // 週日前的等待卡片：順便問一次要不要開啟通知，開了才能在週日 21:00 收到「回來看分析」提醒。
+  useEffect(() => {
+    try { setNotifDismissed(localStorage.getItem(WEEKLY_REVIEW_NOTIF_DISMISS_KEY) === '1') } catch { /* 忽略 */ }
+
+    const refreshNotifState = async () => {
+      if (isNativeApp()) {
+        setNotifState(await getLocalNotifPermission())
+      } else if (typeof Notification !== 'undefined') {
+        const p = Notification.permission
+        setNotifState(p === 'granted' ? 'granted' : p === 'denied' ? 'denied' : 'prompt')
+      } else {
+        setNotifState('unsupported')
+      }
+    }
+    void refreshNotifState()
+  }, [])
+
+  const enableWeeklyReviewNotif = async () => {
+    setNotifBusy(true)
+    track('weekly_review_notif_enable_clicked')
+    try {
+      if (isNativeApp()) {
+        await enableNotifications()
+        setNotifState(await getLocalNotifPermission())
+      } else if (typeof Notification !== 'undefined') {
+        const result = await Notification.requestPermission()
+        setNotifState(result === 'granted' ? 'granted' : result === 'denied' ? 'denied' : 'prompt')
+      }
+    } finally {
+      setNotifBusy(false)
+    }
+  }
+
+  const dismissNotifPrompt = () => {
+    try { localStorage.setItem(WEEKLY_REVIEW_NOTIF_DISMISS_KEY, '1') } catch { /* 忽略 */ }
+    setNotifDismissed(true)
+  }
 
   useEffect(() => { track('weekly_review_opened') }, [])
 
@@ -74,8 +122,22 @@ function WeeklyReviewPage() {
     setDigest(null)
     setDigestState('loading')
 
-    const monday = mondayOf(new Date())
+    const now = new Date()
+    const monday = mondayOf(now)
     monday.setDate(monday.getDate() + weekOffset * 7)
+
+    // 檢查本週是否為周日，以及下個周日的日期（用於提示文字）
+    const isThisWeekSunday = weekOffset === 0 && isSunday(now)
+    setIsCurrentWeekSunday(isThisWeekSunday)
+
+    if (weekOffset === 0) {
+      const nextSunday = new Date(now)
+      const daysUntilSunday = (7 - now.getDay()) % 7 || 7
+      nextSunday.setDate(nextSunday.getDate() + daysUntilSunday)
+      const month = nextSunday.getMonth() + 1
+      const date = nextSunday.getDate()
+      setNextSundayDate(`${month}/${date}`)
+    }
 
     fetchWeeklyReviewData(userId, monday).then((d) => {
       if (cancelled) return
@@ -118,7 +180,7 @@ function WeeklyReviewPage() {
     })
   }
 
-  const totalCount = (data?.gratitudeCount ?? 0) + (data?.processCount ?? 0)
+  const totalCount = (data?.gratitudeCount ?? 0) + (data?.processCount ?? 0) + (data?.selfCompassionCount ?? 0)
   const visibleComments = expanded ? (data?.comments ?? []) : (data?.comments ?? []).slice(0, 2)
   const visibleEntries = entriesExpanded ? (data?.gratitudeEntries ?? []) : (data?.gratitudeEntries ?? []).slice(0, 2)
 
@@ -157,6 +219,43 @@ function WeeklyReviewPage() {
         </Link>
         <h1 className="text-lg font-extrabold text-foreground">{t('本週回顧')}</h1>
       </div>
+
+      {/* 本週但還沒到周日時的提示 */}
+      {weekOffset === 0 && !isCurrentWeekSunday && (
+        <div className="mt-6 rounded-3xl bg-gradient-to-br from-primary/10 to-primary-soft p-6 text-center shadow-soft">
+          <p className="text-lg font-bold text-foreground">{t('本週 AI 分析將在本周日更新')}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t('請在')} <span className="font-bold text-primary">{nextSundayDate}</span> {t('回來查看')}
+          </p>
+          <p className="mt-4 text-sm leading-relaxed text-foreground">
+            {t('本週的紀錄會照常累積，AI 統整分析會在週日整理完整一週後才顯示。')}
+          </p>
+
+          {notifState === 'prompt' && !notifDismissed && (
+            <div className="mt-5 flex flex-col items-center gap-3 border-t border-border/50 pt-4">
+              <p className="text-sm text-foreground">{t('想在週日分析完成時收到通知嗎？')}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={dismissNotifPrompt}
+                  className="rounded-full border border-border px-5 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted"
+                >
+                  {t('稍後再說')}
+                </button>
+                <button
+                  onClick={enableWeeklyReviewNotif}
+                  disabled={notifBusy}
+                  className="rounded-full bg-gradient-primary px-5 py-2 text-xs font-bold text-white shadow-soft transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  {notifBusy ? t('處理中…') : t('開啟通知')}
+                </button>
+              </div>
+            </div>
+          )}
+          {notifState === 'granted' && (
+            <p className="mt-4 text-xs font-bold text-emerald-600">{t('✓ 週日會提醒你回來看分析')}</p>
+          )}
+        </div>
+      )}
 
       {/* 週切換 */}
       <div className="mt-3 flex items-center justify-center gap-4">
@@ -197,8 +296,8 @@ function WeeklyReviewPage() {
         </div>
       ) : (
         <div className="mt-6 flex flex-col gap-5">
-          {/* 感恩／過程次數：沿用日曆詳情列的色點圓圈語言（mint+深綠點＝感恩、blue+primary 點＝過程） */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 感恩／過程／自我慈悲次數：沿用日曆詳情列的色點圓圈語言（mint+深綠點＝感恩、blue+primary 點＝過程、pink+玫瑰點＝自我慈悲） */}
+          <div className="grid grid-cols-3 gap-3">
             <div className="rounded-3xl bg-tile-mint p-5 text-center">
               <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-card">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#3f6b46]" />
@@ -216,6 +315,15 @@ function WeeklyReviewPage() {
                 {data!.processCount}<span className="text-sm font-bold">{t('次')}</span>
               </p>
               <p className="mt-0.5 text-xs font-bold text-foreground/70">{t('過程目標覺察')}</p>
+            </div>
+            <div className="rounded-3xl bg-tile-pink p-5 text-center">
+              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-card">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#a85a72]" />
+              </span>
+              <p className="mt-2 text-2xl font-extrabold text-foreground">
+                {data!.selfCompassionCount}<span className="text-sm font-bold">{t('次')}</span>
+              </p>
+              <p className="mt-0.5 text-xs font-bold text-foreground/70">{t('自我慈悲')}</p>
             </div>
           </div>
 
@@ -372,6 +480,8 @@ function WeeklyReviewPage() {
                     </span>
                   ))}
                 </div>
+              ) : weekOffset === 0 && !isCurrentWeekSunday ? (
+                <p className="text-sm text-muted-foreground">{t('AI 情緒分析會在本週日整理後顯示')}</p>
               ) : (
                 <p className="text-sm text-muted-foreground">{t('再多寫幾篇，AI 情緒分析就會出現')}</p>
               )}
@@ -385,7 +495,7 @@ function WeeklyReviewPage() {
               <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
                 Weekly Integrative Feedback
               </p>
-              <h2 className="mb-3 text-lg font-extrabold text-foreground">{t('AI 週統整回饋')}</h2>
+              <h2 className="mb-3 text-lg font-extrabold text-foreground">{t('Bouba 週統整回饋')}</h2>
               {digestState === 'loading' ? (
                 <p className="text-sm text-muted-foreground">{t('AI 正在整理你這一週的日記…')}</p>
               ) : (

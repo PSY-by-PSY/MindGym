@@ -81,7 +81,6 @@ export function ProModuleSection() {
     <section>
       <div className="mb-3.5 mt-7">
         <h2 className="text-[23px] font-black tracking-[0.03em] text-foreground">{t('專業模組區')}</h2>
-        <p className="font-en text-sm font-medium tracking-[0.02em] text-muted-foreground">Professional Modules</p>
       </div>
 
       <div className="rounded-[22px] bg-[#B9B078]/45 p-4">
@@ -93,7 +92,7 @@ export function ProModuleSection() {
               {t('職人模組・敬請期待')}
             </p>
             <p className="mt-1.5 text-[14px] leading-relaxed text-foreground-soft">
-              {t('Side by Side 正在與專業助人工作者合作，打造由他們親自設計、為你量身安排的練習模組。未來會陸續邀請不同領域的夥伴加入，帶來更多元的陪伴內容，敬請期待。')}
+              {t('PSY by PSY 正在與專業助人工作者合作，打造由他們親自設計、為你量身安排的練習模組。未來會陸續邀請不同領域的夥伴加入，帶來更多元的陪伴內容，敬請期待。')}
             </p>
             <div className="mt-4 border-t border-foreground/10 pt-3.5">
               <p className="text-[13px] font-bold text-foreground-soft">
@@ -179,9 +178,9 @@ function ModuleCard({ m }: { m: ProModuleInfo }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <b className="truncate text-[17px] font-black tracking-[0.02em] text-foreground">{m.title}</b>
+          <b className="truncate text-[17px] font-black tracking-[0.02em] text-foreground">{t(m.title)}</b>
           {updated && (
-            <span className="shrink-0 rounded-full bg-[#d7ebd9] px-2 py-0.5 text-[10px] font-extrabold text-[#3f6b46]">
+            <span className="shrink-0 rounded-full bg-tile-mint px-2 py-0.5 text-[10px] font-extrabold text-[#71744F]">
               {t('已更新')}
             </span>
           )}
