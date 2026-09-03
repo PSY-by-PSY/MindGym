@@ -18,6 +18,14 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS current_streak integer DEFAULT 0;
 -- 記錄「第一次完成任一健心模組後跳出的創始成員邀請」是否已經跳過，一個使用者一輩子只跳一次。
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS founding_invite_shown_at timestamptz;
 
+-- 條款同意紀錄（App Store 審查指南 1.2）。登入後的政策畫面按下「我已了解」時寫入。
+--   terms_accepted_at   ：同意的時間點
+--   terms_accepted_version：同意的是哪一版條款（見 src/lib/termsVersion.ts）
+-- 存版本號的用意：日後條款有重大修訂時，把版本號往上調就能要求所有人重新同意，
+-- 不必再加欄位；法律上也才說得清楚「這個人當初同意的是哪一份」。
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS terms_accepted_version text;
+
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "profiles: 本人可讀"         ON profiles;
