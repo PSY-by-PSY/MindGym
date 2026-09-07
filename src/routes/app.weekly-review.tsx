@@ -730,7 +730,7 @@ function WeeklyReviewPage() {
                   <p className="line-clamp-3 whitespace-pre-line text-sm leading-relaxed text-foreground">
                     {digestToPlainText(digest, t)}
                   </p>
-                  <p className="mt-3 text-xs font-extrabold text-primary underline">{t('查看方案')}</p>
+                  <p className="mt-3 text-xs font-extrabold text-primary underline">{t('免費加入創始成員')}</p>
                 </button>
               ) : (
                 <div className="flex flex-col gap-3">

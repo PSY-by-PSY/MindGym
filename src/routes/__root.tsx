@@ -3,7 +3,7 @@ import type { RouterContext } from '../main'
 
 // 桌機優先的隱藏後台路由：這些頁面本來就是設計給寬螢幕用的（表格、多欄
 // 版面、全螢幕 iframe），不能套「手機外框」，否則會被壓成 480px 而跑版。
-const DESKTOP_ROUTES = ['/therapist', '/admin', '/staff', '/professional']
+const DESKTOP_ROUTES = ['/therapist', '/admin', '/staff']
 
 export function RootLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })

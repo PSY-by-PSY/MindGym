@@ -34,7 +34,7 @@ export function FoundingInviteModal({ open, onDismiss }: { open: boolean; onDism
         </button>
         <h2 className="pr-8 text-lg font-black text-foreground">{t('今天也完成練習了，太棒了！')}</h2>
         <p className="mt-2 text-[15px] leading-relaxed text-foreground/80">
-          {t('申請加入創始成員，之後你可以：')}
+          {t('免費加入創始成員，你可以：')}
         </p>
         <ul className="mt-3 flex flex-col gap-2">
           {['健身房新菜單，搶先體驗', '每週一份 AI 個人化心理健康專屬週報'].map((line) => (
@@ -48,7 +48,7 @@ export function FoundingInviteModal({ open, onDismiss }: { open: boolean; onDism
           onClick={handleApply}
           className="mt-5 w-full rounded-full bg-gradient-primary py-3 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
         >
-          {t('申請加入創始成員')}
+          {t('免費加入創始成員')}
         </button>
       </div>
     </div>

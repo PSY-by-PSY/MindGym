@@ -143,9 +143,19 @@ App Store Connect → App 隱私，依實際蒐集勾選。本 App 對應如下�
 | 聯絡資訊 - Email | ✅（Google 登入） | App 功能、帳號 | 是 |
 | 姓名 | ✅（Google 登入） | App 功能 | 是 |
 | 使用者內容（日記/貼文/語音） | ✅ | App 功能 | 是 |
-| 使用資料 - 產品互動 | ✅（PostHog） | 分析、改善產品 | 否（匿名分析） |
-| 識別碼 - 使用者 ID | ✅ | App 功能 | 是 |
-| 診斷資料 | 視 PostHog 設定 | 分析 | 否 |
+| 使用資料 - 產品互動 | ✅（PostHog） | 分析、改善產品 | **是** |
+| 識別碼 - 使用者 ID | ✅ | App 功能、分析 | 是 |
+| 診斷資料 | 視 PostHog 設定 | 分析 | 是 |
 
+> ⚠️ **「使用資料 - 產品互動」必須勾「關聯到使用者身分」**：實作上
+> `src/main.tsx` 會呼叫 `identifyUser(user.id)`，把 PostHog 事件綁到 Supabase 的
+> user id，所以它不是匿名分析。這裡曾經誤填「否（匿名分析）」，與程式碼和隱私政策
+> 三邊不一致——那正是會被 App Review 抓的地方。三份文件（本表、
+> `src/components/legal/PrivacyBody.tsx` 第二節、`src/main.tsx` 的 identify 呼叫）
+> 只能有一個真相，改一邊就三邊一起改。
+>
+> 我們送給 PostHog 的只有 user id，**不含 Email 或姓名**，所以「聯絡資訊 - Email」
+> 的蒐集方僅有 Supabase／Google／Apple 登入，不含分析工具。
+>
 > 不蒐集：精確位置、聯絡人、健康/健身的 HealthKit 資料、廣告識別碼。
 > 語音輸入：錄音傳到伺服器轉文字後不長期保存，標註於「使用者內容」。

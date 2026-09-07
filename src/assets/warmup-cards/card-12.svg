@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600" role="img" aria-label="抽象暖身卡牌 12">
+  <defs>
+    <clipPath id="c12"><rect x="0" y="0" width="400" height="600" rx="26" ry="26"/></clipPath>
+    <linearGradient id="sky12" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#FBE7D2"/>
+      <stop offset="1" stop-color="#F2A98C"/>
+    </linearGradient>
+    <filter id="soft12" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="grain12">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="12"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#c12)">
+    <rect width="400" height="600" fill="url(#sky12)"/>
+    <circle cx="292.3" cy="252.4" r="130.2" fill="#FFF7EC" opacity="0.18" filter="url(#soft12)"/>
+    <circle cx="292.3" cy="252.4" r="62.0" fill="#FFF7EC" opacity="0.9"/>
+    <circle cx="344.5" cy="193.2" r="2.0" fill="#FFF7EC" opacity="0.36"/>
+    <circle cx="330.6" cy="125.2" r="1.2" fill="#FFF7EC" opacity="0.28"/>
+    <circle cx="199.3" cy="322.4" r="1.5" fill="#FFF7EC" opacity="0.41"/>
+    <circle cx="248.0" cy="240.5" r="3.0" fill="#FFF7EC" opacity="0.48"/>
+    <circle cx="194.2" cy="211.1" r="1.4" fill="#FFF7EC" opacity="0.32"/>
+    <circle cx="307.6" cy="28.6" r="3.6" fill="#FFF7EC" opacity="0.37"/>
+    <circle cx="110.9" cy="250.2" r="4.6" fill="#FFF7EC" opacity="0.69"/>
+    <circle cx="79.8" cy="104.2" r="4.0" fill="#FFF7EC" opacity="0.69"/>
+    <circle cx="90.0" cy="318.5" r="1.7" fill="#FFF7EC" opacity="0.41"/>
+    <circle cx="258.0" cy="180.0" r="2.2" fill="#FFF7EC" opacity="0.41"/>
+    <circle cx="45.7" cy="268.5" r="1.5" fill="#FFF7EC" opacity="0.55"/>
+    <circle cx="334.4" cy="216.8" r="1.6" fill="#FFF7EC" opacity="0.26"/>
+    <circle cx="106.1" cy="26.8" r="2.7" fill="#FFF7EC" opacity="0.52"/>
+    <circle cx="92.4" cy="323.3" r="4.5" fill="#FFF7EC" opacity="0.34"/>
+    <circle cx="114.0" cy="60.1" r="3.2" fill="#FFF7EC" opacity="0.30"/>
+    <circle cx="67.0" cy="38.3" r="2.8" fill="#FFF7EC" opacity="0.41"/>
+    <circle cx="252.8" cy="314.5" r="4.1" fill="#FFF7EC" opacity="0.39"/>
+    <circle cx="175.5" cy="221.1" r="3.8" fill="#FFF7EC" opacity="0.47"/>
+    <circle cx="305.0" cy="352.3" r="4.5" fill="#FFF7EC" opacity="0.50"/>
+    <circle cx="341.8" cy="317.9" r="2.5" fill="#FFF7EC" opacity="0.20"/>
+    <circle cx="252.6" cy="431.6" r="60.0" fill="none" stroke="#D8705A" stroke-width="2.1" opacity="0.16"/>
+    <circle cx="252.6" cy="431.6" r="84.1" fill="none" stroke="#D8705A" stroke-width="2.1" opacity="0.21"/>
+    <circle cx="252.6" cy="431.6" r="146.5" fill="none" stroke="#D8705A" stroke-width="2.4" opacity="0.15"/>
+    <circle cx="252.6" cy="431.6" r="189.0" fill="none" stroke="#D8705A" stroke-width="2.2" opacity="0.26"/>
+    <path d="M -20 620 L -20 374.6 Q 30.0 346.7 80.0 399.5 Q 130.0 344.7 180.0 330.1 Q 230.0 290.9 280.0 392.4 Q 330.0 357.4 380.0 423.3 Q 430.0 397.6 480.0 393.3 L 420 620 Z" fill="#7A3E36" opacity="0.32"/>
+    <path d="M 372.0 374.3 Q 372.0 374.3 367.3 393.7 Q 362.7 413.0 344.0 418.5 Q 325.3 424.0 306.5 424.1 Q 287.7 424.2 274.4 409.3 Q 261.1 394.5 260.4 374.0 Q 259.6 353.6 276.4 343.7 Q 293.2 333.9 309.6 327.3 Q 326.0 320.7 343.7 328.7 Q 361.4 336.7 366.7 355.5 Z" fill="#D8705A" opacity="0.62"/>
+    <path d="M 261.6 391.0 Q 261.6 391.0 252.7 400.8 Q 243.7 410.6 235.2 418.8 Q 226.7 426.9 216.0 422.0 Q 205.4 417.0 198.3 409.3 Q 191.2 401.7 190.1 390.6 Q 189.0 379.6 195.5 369.4 Q 201.9 359.1 214.7 354.9 Q 227.5 350.7 237.2 359.8 Q 246.9 368.8 254.3 379.9 Z" fill="#D8705A" opacity="0.73"/>
+    <path d="M -20 620 L -20 401.6 Q 30.0 370.8 80.0 418.5 Q 130.0 393.8 180.0 383.4 Q 230.0 358.8 280.0 400.1 Q 330.0 378.7 380.0 381.3 Q 430.0 354.4 480.0 431.3 L 420 620 Z" fill="#7A3E36" opacity="0.92"/>
+    <path d="M 11.4 430.5 Q 200.0 413.7 323.1 430.5" fill="none" stroke="#FFF7EC" stroke-width="1.4" opacity="0.17"/>
+    <path d="M 0.2 467.3 Q 200.0 450.7 358.4 467.3" fill="none" stroke="#FFF7EC" stroke-width="1.4" opacity="0.13"/>
+    <rect width="400" height="600" filter="url(#grain12)" opacity="0.16" style="mix-blend-mode:multiply"/>
+  </g>
+  <rect x="1.5" y="1.5" width="397" height="597" rx="25" ry="25" fill="none" stroke="#00000018" stroke-width="3"/>
+</svg>

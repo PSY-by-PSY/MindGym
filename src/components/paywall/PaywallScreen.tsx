@@ -1,14 +1,27 @@
 // ─────────────────────────────────────────────────────────────────────────
-// 付費牆（規格 §5，變體 A：個人化標頭在上）
+// 創始成員邀請頁（原「付費牆」，規格 §5 變體 A：個人化標頭在上）
 //
-// 版面由上到下：關閉鈕 → 個人化標頭 → 利益點 → 方案卡 → 主 CTA → 條款 → 底部連結
+// 版面由上到下：關閉鈕 → 個人化標頭 → 權益列表 → 名額 → 主 CTA → 說明 → 關閉連結
 //
 // 為了滿足規格 §5.2「iPhone SE 尺寸下不捲動即可看到主 CTA」，版面切成
 // 「可捲動的內容區 + 固定在底部的 CTA 區」，CTA 永遠在畫面上。
 //
-// ⚠️ 這階段不接金流（見 docs 計畫）：主 CTA 只把付費意願寫進 paywall_intents，
-//    接著立刻顯示說明，不會讓使用者走進一段其實不存在的試用流程。
-//    規格 §8 也明令不得放任何導向官網結帳的連結——這裡完全沒有外部連結。
+// ⚠️⚠️ 這個畫面**不是購買介面**，而且必須維持這個樣子，直到真的接上 StoreKit／IAP。
+//
+//    這階段完全不接金流：主 CTA 只把「有興趣」寫進 paywall_intents，
+//    使用者不會被扣任何一塊錢，加入創始成員也是免費的。
+//
+//    因此這裡刻意**不顯示任何價格、不顯示「恢復購買」、不出現任何看起來像
+//    「已購買／已訂閱／已付款」的措辭**。
+//    以前的版本同時放了方案價格卡（PlanCard）與「恢復購買」按鈕，按下 CTA 之後卻
+//    只寫一列 paywall_intents，還跳出「全部功能已為你解鎖！」——那是一個看起來
+//    完成了交易、實際上什麼都沒發生的誤導介面，也踩到 App Store 3.1.1
+//    （App 內顯示的購買必須走 IAP）。
+//
+//    接上 IAP 之後要恢復價格顯示時：舊的方案價格卡在 git 歷史裡
+//    （src/components/paywall/PlanCard.tsx，本次一併移除），
+//    價格資料層 src/lib/pricing.ts 仍完整保留，可直接復用。
+//    屆時「恢復購買」必須接 StoreKit 的 restore，而不是跳一張說明卡。
 //
 // ⚠️ 規格 §5.3 硬性限制：無倒數計時、無閃爍、無紅色警示、無 before/after 對比、
 //    無恐懼訴求、無療效承諾；創始名額連動真實資料（founding_seats_remaining()）。
@@ -18,16 +31,10 @@ import { supabase } from '../../lib/supabase'
 import { track } from '../../lib/analytics'
 import { OPEN_FALLBACK, fetchEntitlements } from '../../lib/entitlements'
 import { useLanguage } from '../../lib/i18n/context'
-import {
-  type PricingBundle,
-  type PricingPlan,
-  effectiveAmountCents,
-  fetchPricing,
-  formatAmount,
-  foundingActive,
-} from '../../lib/pricing'
+// 只取 fetchPricing／foundingActive：這個畫面需要「創始名額還剩幾位」與變體代號，
+// 但不需要（也不可以）把金額顯示出來，所以不 import 任何格式化金額的函式。
+import { type PricingBundle, fetchPricing, foundingActive } from '../../lib/pricing'
 import { DIMENSION_CONFIGS, type DimensionKey } from '../pretest/types'
-import { PlanCard } from './PlanCard'
 
 export type PaywallSource = 'onboarding' | 'settings' | 'soft_paywall'
 
@@ -68,11 +75,9 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
   const { t } = useLanguage()
   const [bundle, setBundle] = useState<PricingBundle | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [scores, setScores] = useState<DimensionScores | null>(scoresProp ?? null)
   const [submitting, setSubmitting] = useState(false)
   const [showIntentNotice, setShowIntentNotice] = useState(false)
-  const [showRestoreNotice, setShowRestoreNotice] = useState(false)
   const [isFoundingMember, setIsFoundingMember] = useState(false)
   const [showAlreadyFoundingNotice, setShowAlreadyFoundingNotice] = useState(false)
 
@@ -95,9 +100,6 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
       const b = await fetchPricing()
       if (cancelled) return
       setBundle(b)
-      // 規格 §5.1.4：年繳預設選中。
-      const yearly = b?.plans.find((p) => p.period === 'year')
-      setSelectedPlan(yearly?.planCode ?? b?.plans[0]?.planCode ?? null)
       setLoading(false)
       if (b) track('paywall_viewed', { source, variant: b.config.variant })
     })()
@@ -131,19 +133,19 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
   }, [scoresProp])
 
   const useFounding = bundle ? foundingActive(bundle) : false
-  const yearlyPlan = bundle?.plans.find((p) => p.period === 'year')
-  const monthlyPlan = bundle?.plans.find((p) => p.period === 'month')
-  const selected: PricingPlan | undefined = bundle?.plans.find((p) => p.planCode === selectedPlan)
 
-  const handleSelect = (planCode: string) => {
-    setSelectedPlan(planCode)
-    track('paywall_plan_selected', { source, plan_code: planCode })
-  }
+  // paywall_intents.plan_code 是 NOT NULL，但畫面上已經沒有方案可選，所以這裡不再
+  // 記「使用者挑了哪個價格」，只記「他對創始成員有興趣」。仍優先帶年繳的代碼，
+  // 讓既有的後台報表不會突然讀到全新的字串；真的抓不到方案時退回固定值。
+  const intentPlanCode =
+    bundle?.plans.find((p) => p.period === 'year')?.planCode ??
+    bundle?.plans[0]?.planCode ??
+    'founding_interest'
 
   // 主 CTA：記錄付費意願，然後立刻說明目前的開放狀況。不扣款、不跳外部連結。
   // 提示視窗一定要跳出來，讓使用者知道「有點到」——背景記錄失敗與否不影響這個承諾。
   const handleCta = async () => {
-    if (!selected || submitting) return
+    if (submitting) return
     if (isFoundingMember) {
       track('paywall_already_founding_member', { source })
       setShowAlreadyFoundingNotice(true)
@@ -156,13 +158,13 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
       if (userId) {
         const { error } = await supabase.from('paywall_intents').insert({
           user_id: userId,
-          plan_code: selected.planCode,
+          plan_code: intentPlanCode,
           variant: bundle?.config.variant ?? 'A',
           source,
         })
-        if (error) console.error('[paywall] 記錄付費意願失敗', error)
+        if (error) console.error('[paywall] 記錄加入意願失敗', error)
       }
-      track('paywall_intent_recorded', { source, plan_code: selected.planCode })
+      track('paywall_intent_recorded', { source, plan_code: intentPlanCode })
     } catch (err) {
       console.error('[paywall] 記錄付費意願發生例外', err)
     } finally {
@@ -209,10 +211,10 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
             {t('立即申請加入 PSY by PSY 心理健身房 創始成員')}
           </h1>
           <p className="mt-2 text-sm font-bold text-foreground/80">
-            {t('我們開放訂閱會員的時候，你就可以擁有以下權益：')}
+            {t('創始成員現在免費開放，加入後你會擁有：')}
           </p>
 
-          {/* 3. 利益點：完整列出創始成員權益，讓使用者在看到方案價格前就先知道能拿到什麼 */}
+          {/* 3. 利益點：完整列出創始成員可以用到的東西（不涉及金額，見檔頭說明） */}
           <ul className="mt-5 flex flex-col gap-2.5">
             {[
               '每週一份 AI 個人化心理健康專屬週報',
@@ -228,26 +230,20 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
             ))}
           </ul>
 
-          {/* 4. 方案卡：年繳在上（預設選中）、月繳在下，兩個價格同時可見 */}
-          <div role="radiogroup" aria-label={t('訂閱方案')} className="mt-6 flex flex-col gap-3">
-            {loading && <div className="h-24 animate-pulse rounded-3xl bg-primary-soft" />}
-            {!loading && !bundle && (
-              <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                {t('訂閱功能尚未開放，敬請期待。')}
-              </p>
+          {/* 4. 名額卡：只呈現「剩餘名額」這個真實數字，不出現任何金額。
+                 ⚠️ 沒接 IAP 之前這裡不可以再放方案價格卡（見檔頭說明）。 */}
+          <div className="mt-6">
+            {loading && <div className="h-20 animate-pulse rounded-3xl bg-primary-soft" />}
+            {!loading && useFounding && bundle?.foundingSeatsRemaining != null && (
+              <div className="rounded-3xl border-2 border-primary bg-primary-soft px-5 py-4 text-center">
+                <p className="text-xl font-black leading-tight text-foreground">
+                  {t('創始名額・剩 {n} 位', { n: bundle.foundingSeatsRemaining })}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                  {t('限量 {n} 位，完全免費，不需付款', { n: bundle.config.foundingQuotaTotal })}
+                </p>
+              </div>
             )}
-            {bundle?.plans.map((plan) => (
-              <PlanCard
-                key={plan.planCode}
-                plan={plan}
-                selected={plan.planCode === selectedPlan}
-                onSelect={() => handleSelect(plan.planCode)}
-                useFounding={useFounding}
-                comparisonPlan={plan.period === 'year' ? monthlyPlan : yearlyPlan}
-                foundingSeatsRemaining={bundle.foundingSeatsRemaining}
-                foundingQuotaTotal={bundle.config.foundingQuotaTotal}
-              />
-            ))}
           </div>
         </div>
       </div>
@@ -257,36 +253,27 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
         <div className="mx-auto w-full max-w-sm">
           <button
             onClick={() => void handleCta()}
-            disabled={!selected || submitting}
+            disabled={submitting}
             className="flex h-14 w-full items-center justify-center rounded-full bg-gradient-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
           >
             {submitting
               ? t('處理中…')
               : isFoundingMember
                 ? t('你已經是創始成員')
-                : t('申請加入創始成員')}
+                : t('免費加入創始成員')}
           </button>
 
-          {/* 6. 條款行：說明未來的收費方式。目前尚未接金流，所以不寫「到期後扣款」
-                 這種還不存在的行為，只誠實預告開放訂閱後的價格。 */}
-          {selected && (
-            <p className="mt-2.5 text-center text-[11px] leading-relaxed text-muted-foreground">
-              {t('開放訂閱後為 {price}，屆時會先通知你，不會自動扣款。', {
-                price:
-                  formatAmount(effectiveAmountCents(selected, useFounding), selected.currency) +
-                  (selected.period === 'year' ? t('／年') : t('／月')),
-              })}
-            </p>
-          )}
+          {/* 6. 說明行：講清楚「現在不收錢」這件事。
+                 ⚠️ 這裡不可以出現金額——沒接 IAP 之前，畫面上出現價格就是在暗示
+                 一筆不存在的交易。 */}
+          <p className="mt-2.5 text-center text-[11px] leading-relaxed text-muted-foreground">
+            {t('目前完全免費，不會向你收取任何費用，也不會自動扣款。未來若開放訂閱，我們會先通知你。')}
+          </p>
 
-          {/* 7. 底部兩個純文字連結，並排、低調 */}
-          <div className="mt-3 flex items-center justify-center gap-6">
-            <button
-              onClick={() => setShowRestoreNotice(true)}
-              className="text-xs font-semibold text-muted-foreground underline"
-            >
-              {t('恢復購買')}
-            </button>
+          {/* 7. 底部連結。
+                 ⚠️ 這裡曾經有「恢復購買」——在沒有 IAP 的情況下那是一個假按鈕，
+                 已移除。接上 StoreKit 後再放回來，並且要真的呼叫 restore。 */}
+          <div className="mt-3 flex items-center justify-center">
             <button onClick={handleDismiss} className="text-xs font-semibold text-muted-foreground underline">
               {t('先自己逛逛')}
             </button>
@@ -296,13 +283,16 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
 
       {showIntentNotice && (
         <NoticeSheet
-          title={t('全部功能已為你解鎖！')}
+          title={t('歡迎加入創始成員！')}
           body={
             <>
               <p>{t('非常開心有你的加入，成為 PSY by PSY 心理健身房的創始成員！')}</p>
-              {/* ⚠️ 權益是「立即」生效的（見 supabase/subscriptions.sql 的 is_pro()），
-                  不要再寫成「開放訂閱後才有」或「審核中」——那會與實際行為不符。 */}
-              <p className="mt-3">{t('以下權益現在就可以使用：')}</p>
+              {/* ⚠️ 兩件事都要說清楚，任何一句寫錯都會與實際行為不符：
+                  1. 沒有發生付款——這裡沒有金流，使用者一塊錢都沒有被收。
+                     所以不能寫「已解鎖」「購買成功」「訂閱完成」這類交易感的字。
+                  2. 權益是「立即」生效的（見 supabase/subscriptions.sql 的 is_pro()），
+                     所以也不能寫成「開放訂閱後才有」或「審核中」。 */}
+              <p className="mt-3">{t('這是免費的，沒有向你收取任何費用。以下內容現在就可以使用：')}</p>
               <ul className="mt-3 flex flex-col gap-2">
                 {[
                   '每週一份 AI 個人化心理健康專屬週報',
@@ -318,18 +308,11 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
                 ))}
               </ul>
               <p className="mt-3 text-xs text-muted-foreground">
-                {t('未來開放訂閱時我們會先通知你，不會自動扣款。')}
+                {t('未來若開放訂閱，我們會先通知你，不會自動扣款。')}
               </p>
             </>
           }
           onClose={() => { setShowIntentNotice(false); onDismiss() }}
-        />
-      )}
-      {showRestoreNotice && (
-        <NoticeSheet
-          title={t('恢復購買')}
-          body={t('訂閱功能尚未開放，敬請期待。')}
-          onClose={() => setShowRestoreNotice(false)}
         />
       )}
       {showAlreadyFoundingNotice && (
@@ -337,7 +320,7 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
           title={t('你已經是創始成員了！')}
           body={
             <>
-              <p>{t('你已經是 PSY by PSY 心理健身房的創始成員，我們開放訂閱後，以下權益會生效：')}</p>
+              <p>{t('你已經是 PSY by PSY 心理健身房的創始成員，以下內容你現在就可以使用：')}</p>
               <ul className="mt-3 flex flex-col gap-2">
                 {[
                   '每週一份 AI 個人化心理健康專屬週報',

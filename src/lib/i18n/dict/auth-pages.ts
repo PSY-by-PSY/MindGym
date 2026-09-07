@@ -132,9 +132,9 @@ export const authPages: Record<string, Translation> = {
     en: 'If you use "voice input" to answer questionnaires, the recording is sent to our server to be converted to text (via OpenAI speech recognition). We do not retain the original recording long-term.',
   },
   '使用數據': { 'zh-CN': '使用数据', en: 'Usage Data' },
-  '為了改善產品，我們透過 PostHog 蒐集匿名的使用行為（例如你瀏覽了哪些頁面、點擊了哪些功能）。': {
-    'zh-CN': '为了改善产品，我们通过 PostHog 收集匿名的使用行为（例如你浏览了哪些页面、点击了哪些功能）。',
-    en: 'To improve the product, we use PostHog to collect anonymous usage behavior (e.g., which pages you view and which features you tap).',
+  '為了改善產品，我們透過 PostHog 蒐集你的使用行為（例如你瀏覽了哪些頁面、點擊了哪些功能）。這些紀錄會與你的帳號 ID 連結，但我們不會把你的 Email 或姓名傳給 PostHog。': {
+    'zh-CN': '为了改善产品，我们通过 PostHog 收集你的使用行为（例如你浏览了哪些页面、点击了哪些功能）。这些记录会与你的账号 ID 关联，但我们不会把你的 Email 或姓名传给 PostHog。',
+    en: 'To improve the product, we use PostHog to collect your usage behavior (e.g., which pages you view and which features you tap). These records are linked to your account ID, but we do not send your email or name to PostHog.',
   },
   '技術資料': { 'zh-CN': '技术资料', en: 'Technical Information' },
   '維持登入狀態所需的驗證憑證（token），以及裝置與瀏覽器的基本技術資訊。': {
@@ -170,7 +170,10 @@ export const authPages: Record<string, Translation> = {
   '資料儲存與帳號登入。': { 'zh-CN': '资料存储与账号登录。', en: 'Data storage and account login.' },
   '第三方登入（OAuth）。': { 'zh-CN': '第三方登录（OAuth）。', en: 'Third-party login (OAuth).' },
   '語音輸入的語音轉文字。': { 'zh-CN': '语音输入的语音转文字。', en: 'Speech-to-text for voice input.' },
-  '匿名行為分析。': { 'zh-CN': '匿名行为分析。', en: 'Anonymous behavior analytics.' },
+  '使用行為分析（以帳號 ID 識別，不含 Email）。': {
+    'zh-CN': '使用行为分析（以账号 ID 识别，不含 Email）。',
+    en: 'Usage analytics, keyed to your account ID (no email).',
+  },
   '網站與後端服務代管。': { 'zh-CN': '网站与后端服务托管。', en: 'Website and backend hosting.' },
   '我們不會將你的個人資料販售給任何第三方。': {
     'zh-CN': '我们不会将你的个人资料出售给任何第三方。',

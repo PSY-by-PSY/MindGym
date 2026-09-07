@@ -9,6 +9,10 @@
 //    不可用功能清單、佔位文字或空白頁取代。因此這個元件一定要收到
 //    `content`（後端已經生成好的報告全文），自己截前 30%，
 //    而不是由呼叫端塞一段假文案進來。
+//
+// ⚠️ 沒接 IAP 之前，這裡的 CTA 不可以寫「升級」「查看方案」——那會暗示有一個
+//    付費層可以買，但按下去只會走到免費的創始成員邀請頁（PaywallScreen）。
+//    文案必須跟那一頁一致：免費加入，不涉及付款。
 // ─────────────────────────────────────────────────────────────────────────
 import { useEffect } from 'react'
 import { track } from '../../lib/analytics'
@@ -80,13 +84,13 @@ export function SoftPaywallSheet({ content, source, onUpgrade, onClose }: SoftPa
         {/* 下半部：說明 + 升級 CTA */}
         <div className="px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4">
           <p className="text-sm font-bold leading-relaxed text-foreground">
-            {t('這份報告已經生成好了。升級後即可看完整內容。')}
+            {t('這份報告已經生成好了。免費加入創始成員即可看完整內容。')}
           </p>
           <button
             onClick={onUpgrade}
             className="mt-4 flex w-full items-center justify-center rounded-full bg-gradient-primary py-3.5 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"
           >
-            {t('查看方案')}
+            {t('免費加入創始成員')}
           </button>
           <button
             onClick={onClose}

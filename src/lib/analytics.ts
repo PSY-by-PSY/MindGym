@@ -77,9 +77,9 @@ export type AnalyticsEvent =
   | 'weekly_review_week_switched'    // 一週回顧頁切換週次
   | 'weekly_review_notif_enable_clicked' // 一週回顧頁點擊「開啟通知」提示
   | 'account_deleted'                    // 使用者在個人頁面刪除自己的帳號
-  | 'paywall_viewed'                     // 看到付費牆（含來源 onboarding／settings）
-  | 'paywall_plan_selected'              // 在付費牆切換選中的方案
-  | 'paywall_intent_recorded'            // 按下主 CTA，付費意願已寫入 paywall_intents
+  | 'paywall_viewed'                     // 看到創始成員邀請頁（含來源 onboarding／settings）
+  | 'paywall_plan_selected'              // （已停用）舊付費牆切換方案；未接 IAP 前畫面上不再有價格方案可選
+  | 'paywall_intent_recorded'            // 按下主 CTA，加入意願已寫入 paywall_intents（不涉及金流）
   | 'paywall_dismissed'                  // 關閉付費牆或點「先自己逛逛」
   | 'soft_paywall_shown'                 // 週分析額度用完，顯示軟性付費牆
   | 'community_lock_shown'               // 社群未解鎖（未貢獻），顯示貢獻換觀看提示
@@ -119,10 +119,17 @@ export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
   withPostHog((p) => p.capture(event, props))
 }
 
-/** 使用者登入後呼叫，把之後所有行為對應到這個人。 */
-export function identifyUser(id: string, props?: Record<string, unknown>) {
+/**
+ * 使用者登入後呼叫，把之後所有行為對應到同一個帳號。
+ *
+ * ⚠️ 刻意「只收 id、不收 person properties」。id 是 Supabase 的 UUID，本身不含
+ *    個資；一旦開放帶 props，很容易有人順手把 email／姓名送進 PostHog，
+ *    那就會和隱私政策與 App Privacy 表單所寫的「不含 email」對不上。
+ *    真的需要分群時，請用不含個資的事件屬性（track 的第二個參數）。
+ */
+export function identifyUser(id: string) {
   if (!analyticsEnabled) return
-  withPostHog((p) => p.identify(id, props))
+  withPostHog((p) => p.identify(id))
 }
 
 /** 使用者登出後呼叫，斷開身分綁定。 */

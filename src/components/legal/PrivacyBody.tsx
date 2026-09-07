@@ -7,9 +7,15 @@
 //
 // ⚠️ 第四節的第三方清單必須與「實際用到的服務」一致。這份清單也是回覆
 //    App Store「你們用了哪些第三方 AI」時的依據，兩邊對不上會被抓。
+//
+// ⚠️ 第二節的「使用數據」必須與 PostHog 的實作一致：
+//    src/main.tsx 只送 Supabase user id、不送 email（見該處註解），
+//    所以這裡寫「與帳號 ID 連結、不含 Email」，不能寫成「匿名」。
+//    App Privacy 表單（docs/reports/ios_app_store_listing.md §8）也是同一份事實，
+//    三邊只能有一個真相，改一邊就要三邊一起改。
 import { useLanguage } from '../../lib/i18n/context'
 
-export const PRIVACY_LAST_UPDATED = '2026 年 9 月 2 日'
+export const PRIVACY_LAST_UPDATED = '2026 年 9 月 7 日'
 export const CONTACT_EMAIL = 'psybypsy01@gmail.com'
 export const INSTAGRAM_URL = 'https://www.instagram.com/psy_by_psy/'
 
@@ -29,7 +35,7 @@ export function PrivacyBody() {
             [t('帳號資料'), t('你註冊時提供的 Email 與密碼；若使用 Google 或 Apple 登入，我們會取得該服務提供的 Email 與名稱（使用 Apple 登入時，你可以選擇隱藏真實 Email，我們只會收到 Apple 提供的轉發信箱）。這些資料用於建立並辨識你的帳號。')],
             [t('你建立的內容'), t('感恩日記、心理健康測驗的作答與結果、社群貼文與留言、專注紀錄等你主動輸入的內容。')],
             [t('語音輸入'), t('若你使用「語音輸入」回答問卷，錄音會傳送到我們的伺服器轉換成文字（透過 OpenAI 語音辨識）。我們不會長期保存原始錄音。')],
-            [t('使用數據'), t('為了改善產品，我們透過 PostHog 蒐集匿名的使用行為（例如你瀏覽了哪些頁面、點擊了哪些功能）。')],
+            [t('使用數據'), t('為了改善產品，我們透過 PostHog 蒐集你的使用行為（例如你瀏覽了哪些頁面、點擊了哪些功能）。這些紀錄會與你的帳號 ID 連結，但我們不會把你的 Email 或姓名傳給 PostHog。')],
             [t('技術資料'), t('維持登入狀態所需的驗證憑證（token），以及裝置與瀏覽器的基本技術資訊。')],
           ]}
         />
@@ -56,7 +62,7 @@ export function PrivacyBody() {
             ['Apple', t('第三方登入（Sign in with Apple）。')],
             ['Anthropic', t('生成練習回饋、週分析報告與內容標記（Claude）。')],
             ['OpenAI', t('語音輸入的語音轉文字（Whisper）。')],
-            ['PostHog', t('匿名行為分析。')],
+            ['PostHog', t('使用行為分析（以帳號 ID 識別，不含 Email）。')],
             ['Vercel / Render', t('網站與後端服務代管。')],
           ]}
         />

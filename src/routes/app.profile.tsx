@@ -1622,8 +1622,10 @@ function ProfilePage() {
               to="/paywall"
               className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-2xl bg-primary-soft px-3 py-3 text-center transition active:scale-[0.98]"
             >
-              <span className="text-base font-extrabold text-foreground">{t('訂閱方案')}</span>
-              <span className="text-sm font-bold text-gold-deep">{t('立即成為創始成員')}</span>
+              {/* ⚠️ 標題不寫「訂閱方案」——這個入口通往的是免費的創始成員邀請頁，
+                  沒有任何方案可以買（見 components/paywall/PaywallScreen.tsx 檔頭）。 */}
+              <span className="text-base font-extrabold text-foreground">{t('創始成員')}</span>
+              <span className="text-sm font-bold text-gold-deep">{t('免費加入，名額有限')}</span>
             </Link>
             <button
               onClick={() => void handleLogout()}

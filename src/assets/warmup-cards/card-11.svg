@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600" role="img" aria-label="抽象暖身卡牌 11">
+  <defs>
+    <clipPath id="c11"><rect x="0" y="0" width="400" height="600" rx="26" ry="26"/></clipPath>
+    <linearGradient id="sky11" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#2E3A52"/>
+      <stop offset="1" stop-color="#5C6B8A"/>
+    </linearGradient>
+    <filter id="soft11" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="grain11">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="11"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#c11)">
+    <rect width="400" height="600" fill="url(#sky11)"/>
+    <circle cx="89.3" cy="155.1" r="156.3" fill="#F2D9A7" opacity="0.18" filter="url(#soft11)"/>
+    <circle cx="89.3" cy="155.1" r="74.4" fill="#F2D9A7" opacity="0.9"/>
+    <circle cx="10.0" cy="265.5" r="1.6" fill="#F2D9A7" opacity="0.31"/>
+    <circle cx="58.3" cy="213.5" r="2.0" fill="#F2D9A7" opacity="0.68"/>
+    <circle cx="23.9" cy="301.8" r="2.7" fill="#F2D9A7" opacity="0.44"/>
+    <circle cx="213.5" cy="182.3" r="2.4" fill="#F2D9A7" opacity="0.33"/>
+    <circle cx="285.8" cy="65.7" r="3.1" fill="#F2D9A7" opacity="0.36"/>
+    <circle cx="57.0" cy="191.7" r="2.7" fill="#F2D9A7" opacity="0.60"/>
+    <circle cx="218.7" cy="83.9" r="2.3" fill="#F2D9A7" opacity="0.27"/>
+    <circle cx="9.6" cy="258.1" r="3.3" fill="#F2D9A7" opacity="0.54"/>
+    <circle cx="276.7" cy="256.6" r="2.5" fill="#F2D9A7" opacity="0.25"/>
+    <circle cx="78.5" cy="122.2" r="1.7" fill="#F2D9A7" opacity="0.51"/>
+    <circle cx="130.9" cy="19.8" r="1.6" fill="#F2D9A7" opacity="0.31"/>
+    <circle cx="68.2" cy="345.5" r="60.0" fill="none" stroke="#8FA5C6" stroke-width="2.4" opacity="0.20"/>
+    <circle cx="68.2" cy="345.5" r="84.1" fill="none" stroke="#8FA5C6" stroke-width="1.7" opacity="0.24"/>
+    <circle cx="68.2" cy="345.5" r="113.9" fill="none" stroke="#8FA5C6" stroke-width="1.1" opacity="0.15"/>
+    <path d="M -20 620 L -20 274.6 Q 30.0 206.9 80.0 232.3 Q 130.0 207.6 180.0 322.7 Q 230.0 271.4 280.0 321.1 Q 330.0 286.0 380.0 256.8 Q 430.0 191.3 480.0 286.4 L 420 620 Z" fill="#1B2233" opacity="0.32"/>
+    <path d="M 247.7 227.4 Q 247.7 227.4 245.6 243.1 Q 243.5 258.8 227.9 260.6 Q 212.4 262.5 197.7 265.0 Q 183.1 267.5 174.7 254.7 Q 166.3 242.0 163.2 226.3 Q 160.2 210.7 173.4 202.1 Q 186.6 193.6 199.7 192.0 Q 212.7 190.4 226.0 195.1 Q 239.2 199.7 243.5 213.6 Z" fill="#8FA5C6" opacity="0.48"/>
+    <path d="M 255.0 221.1 Q 255.0 221.1 248.6 246.6 Q 242.2 272.1 218.0 281.5 Q 193.8 291.0 168.6 289.0 Q 143.4 287.0 126.9 266.9 Q 110.5 246.9 104.7 219.0 Q 99.0 191.1 120.6 172.1 Q 142.2 153.1 167.7 153.7 Q 193.2 154.3 215.1 164.4 Q 237.0 174.5 246.0 197.8 Z" fill="#8FA5C6" opacity="0.46"/>
+    <path d="M -20 620 L -20 315.5 Q 30.0 291.6 80.0 321.4 Q 130.0 291.9 180.0 325.7 Q 230.0 306.8 280.0 320.7 Q 330.0 290.8 380.0 314.0 Q 430.0 287.0 480.0 322.0 L 420 620 Z" fill="#1B2233" opacity="0.92"/>
+    <path d="M 77.0 582.4 Q 200.0 560.7 314.3 582.4" fill="none" stroke="#F2D9A7" stroke-width="1.4" opacity="0.11"/>
+    <path d="M 28.0 445.0 Q 200.0 425.8 267.4 445.0" fill="none" stroke="#F2D9A7" stroke-width="1.4" opacity="0.19"/>
+    <path d="M 26.5 382.7 Q 200.0 357.3 317.1 382.7" fill="none" stroke="#F2D9A7" stroke-width="1.4" opacity="0.20"/>
+    <path d="M 46.0 402.7 Q 200.0 388.6 272.6 402.7" fill="none" stroke="#F2D9A7" stroke-width="1.4" opacity="0.15"/>
+    <rect width="400" height="600" filter="url(#grain11)" opacity="0.16" style="mix-blend-mode:multiply"/>
+  </g>
+  <rect x="1.5" y="1.5" width="397" height="597" rx="25" ry="25" fill="none" stroke="#00000018" stroke-width="3"/>
+</svg>
