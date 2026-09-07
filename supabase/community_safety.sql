@@ -77,6 +77,13 @@ CREATE POLICY "blocks: 本人可刪除" ON blocks FOR DELETE USING (auth.uid() =
 --        + 管理後台「檢舉處理」分頁（src/routes/admin.tsx）。
 --        另加 24 小時內處理所需的：自動隱藏、內容下架、發文者停權。
 --
+-- 第二輪回饋（同日）再補一項：
+--   ③ 規則刻意跳過所有自傷字詞，導致「大家都去自殺吧」這種鼓勵他人自殺的公開內容
+--      不命中任何規則，照樣發得出去，與服務條款第四節的零容忍互相矛盾。
+--      → category='self_harm_promotion' + action='hide'（立即隱藏 + 自動送審），
+--        以及使用者檢舉原因「鼓勵自傷或自殺」單人即隱藏。
+--        私人書寫與第一人稱的痛苦完全不受影響——那一條界線在下方規則區有完整說明。
+--
 -- 一樣可重複執行。相依：pro_modules.sql 的 is_admin()（請先跑那支）。
 -- ============================================================
 
@@ -89,19 +96,24 @@ CREATE POLICY "blocks: 本人可刪除" ON blocks FOR DELETE USING (auth.uid() =
 -- pattern 是 PostgreSQL 正則（~* 比對，大小寫不敏感）。
 -- normalized = true 時比對的是「拿掉空白與分隔符號」後的字串，防「幹 你 娘」「幹.你.娘」
 -- 這類拆字規避；中文規則都用這個。
--- action：'block' 直接擋下不寫入；'flag' 照常發佈但自動排進後台待審佇列。
+-- action：'block' 直接擋下不寫入；'hide' 照常寫入但立刻隱藏並排進後台待審；
+--         'flag' 照常發佈並排進後台待審。
 --
 -- ⚠️ 下方 seed 與前端 src/lib/contentFilter.ts 的 RULES 必須一字不差
 --    （前端那層只是提早給使用者回饋，真正把關的是這裡）。改一邊要同步另一邊。
 --
--- 刻意不列入的：自我傷害、想死、活不下去這類字眼。這是心理健康 App，
--- 使用者寫「我不想活了」是我們要接住的時刻，不是要擋掉的違規內容。
+-- 自傷字眼的界線（重要，別再一句話帶過）：
+--   第一人稱的痛苦——「我不想活了」「我活不下去」——一個字都不擋。這是心理健康 App，
+--   那是我們要接住的時刻，擋掉只會讓人學會不寫；那條路走 crisis_alerts／危機資源引導。
+--   但「鼓勵、教唆、指導、美化他人自傷或自殺」是另一回事：「大家都去自殺吧」「教你無痛自殺」
+--   不是求助，是傷害別人，而且只發生在公開內容裡。這類用 category='self_harm_promotion'
+--   + action='hide'（見本檔最下方「鼓勵自傷／自殺」一節），對應服務條款第四節的零容忍。
 -- ============================================================
 CREATE TABLE IF NOT EXISTS moderation_rules (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pattern    text NOT NULL UNIQUE,
-  category   text NOT NULL CHECK (category IN ('hate', 'harassment', 'sexual', 'violence', 'spam')),
-  action     text NOT NULL CHECK (action IN ('block', 'flag')),
+  category   text NOT NULL CHECK (category IN ('hate', 'harassment', 'sexual', 'violence', 'spam', 'self_harm_promotion')),
+  action     text NOT NULL CHECK (action IN ('block', 'hide', 'flag')),
   normalized boolean NOT NULL DEFAULT true,
   enabled    boolean NOT NULL DEFAULT true,
   created_at timestamptz DEFAULT now()
@@ -132,6 +144,51 @@ INSERT INTO moderation_rules (pattern, category, action, normalized) VALUES
   ('加賴|賴id|加line|lineid|微信號|博弈|娛樂城|百家樂|六合彩|包養|代辦貸款|刷單|兼職日結|保證獲利|穩賺不賠', 'spam', 'block', true)
 ON CONFLICT (pattern) DO NOTHING;
 
+-- ============================================================
+-- 鼓勵自傷／自殺（category='self_harm_promotion', action='hide'）
+--
+-- 為什麼獨立成一節：這是 2026-09-07 第二輪送審回饋抓到的洞。原本的規則把「自傷」
+-- 整類跳過，理由是「使用者寫『我不想活了』要接住不要擋」——那個理由對**私人書寫**成立，
+-- 對**公開內容**不成立。「大家都去自殺吧」不會命中仇恨、騷擾或暴力任何一條，
+-- 卻直接違反服務條款第四節「鼓勵自我傷害、自殺、飲食失調或其他危險行為」的零容忍。
+--
+-- 三個設計決定：
+--   ① 只針對「指向他人」的措辭：教唆（你去自殺）、教學（無痛自殺方法）、美化（自殺是解脫）、
+--      揪團（相約自殺）。第一人稱的痛苦（我不想活了／我好想消失）一律不在規則裡——
+--      比對過每一條 pattern 都必須含第二人稱、祈使、教學或揪團的成分。
+--   ② action 用 'hide' 而不是 'block'：審查回饋要的是「flag + 立即隱藏 + 人工審核」。
+--      block 會 RAISE EXCEPTION，交易回滾，等於什麼證據都不留、也沒有人審；
+--      hide 讓內容寫進 DB 但公開動態牆看不到（RLS 只放行 moderation_status='ok'），
+--      同時自動開一筆 source='auto' 的檢舉進後台佇列，管理員可再 remove + 停權。
+--   ③ 一樣只作用在公開內容：兩支觸發器開頭都對 is_shared IS NOT TRUE 直接 RETURN。
+--      私人日記寫什麼都不會命中這裡。
+--
+-- ⚠️ 與 src/lib/contentFilter.ts 的 RULES 一字不差，改一邊要同步另一邊。
+-- ============================================================
+
+-- 既有資料庫的 CHECK 還是舊的（CREATE TABLE IF NOT EXISTS 不會重建），先放寬。
+ALTER TABLE moderation_rules DROP CONSTRAINT IF EXISTS moderation_rules_category_check;
+ALTER TABLE moderation_rules ADD  CONSTRAINT moderation_rules_category_check
+  CHECK (category IN ('hate', 'harassment', 'sexual', 'violence', 'spam', 'self_harm_promotion'));
+ALTER TABLE moderation_rules DROP CONSTRAINT IF EXISTS moderation_rules_action_check;
+ALTER TABLE moderation_rules ADD  CONSTRAINT moderation_rules_action_check
+  CHECK (action IN ('block', 'hide', 'flag'));
+
+INSERT INTO moderation_rules (pattern, category, action, normalized) VALUES
+  -- 教唆他人（全部帶第二人稱或祈使／複數指涉）
+  ('你去自殺|妳去自殺|你們去自殺|大家去自殺|大家都去自殺|一起去自殺|一起自殺|去自殺吧|快去自殺|建議你自殺|勸你自殺|你該自殺|你就自殺|你們都去死|大家都去死|全部都去死|一起去死|你不如去死|你不如死一死|你死一死|你死了比較好|世界少一個你|你活著只是浪費|沒人需要你活著|你這種人就該去死',
+   'self_harm_promotion', 'hide', true),
+  -- 方法教學（不論人稱都不該公開流傳）
+  ('自殺方法|自殺教學|自殺攻略|自殺懶人包|怎麼自殺|怎樣自殺|如何自殺|無痛自殺|最快自殺|自殘方法|自殘教學|割腕方法|割腕教學|上吊方法|上吊教學|燒炭方法|燒炭教學|燒炭懶人包|致死劑量|吃幾顆會死|吃多少會死|跳樓教學|催吐教學|催吐方法|絕食教學',
+   'self_harm_promotion', 'hide', true),
+  -- 美化與揪團
+  ('自殺是解脫|自殺才是解脫|自殘很爽|割腕很爽|鼓勵自殺|揪團自殺|揪人自殺|相約自殺|約自殺|自殺互助|求死同伴|一起走的夥伴|想死的一起',
+   'self_harm_promotion', 'hide', true),
+  -- 英文／網路用語（含 pro-ana 等飲食失調鼓吹）
+  ('kill\s*your\s*self|kill\s*urself|(^|[^a-z])kys([^a-z]|$)|go\s*kill\s*yourself|hang\s*yourself|slit\s*your\s*wrist|end\s*your\s*life|you\s*should\s*die|suicide\s*method|how\s*to\s*(kill\s*yourself|commit\s*suicide)|painless\s*(suicide|death)|best\s*way\s*to\s*die|self\s*-?\s*harm\s*tips|pro\s*-?\s*ana|pro\s*-?\s*mia|thinspo',
+   'self_harm_promotion', 'hide', false)
+ON CONFLICT (pattern) DO NOTHING;
+
 -- 正規化：拿掉空白、零寬字元與常見拆字分隔符號並轉小寫。
 -- 與前端 contentFilter.ts 的 normalize() 是同一組字元。
 CREATE OR REPLACE FUNCTION moderation_normalize(txt text) RETURNS text
@@ -147,7 +204,7 @@ $$
   FROM moderation_rules r
   WHERE r.enabled
     AND (CASE WHEN r.normalized THEN moderation_normalize(txt) ELSE lower(coalesce(txt, '')) END) ~* r.pattern
-  ORDER BY CASE r.action WHEN 'block' THEN 0 ELSE 1 END, r.category
+  ORDER BY CASE r.action WHEN 'block' THEN 0 WHEN 'hide' THEN 1 ELSE 2 END, r.category
 $$;
 
 -- ============================================================
@@ -250,6 +307,19 @@ BEGIN
     RAISE EXCEPTION 'CONTENT_BLOCKED: % 內容違反社群守則', v_category;
   END IF;
 
+  -- 'hide'：寫得進去，但一出生就是隱藏狀態，公開動態牆看不到
+  -- （RLS 只放行 moderation_status = 'ok'；作者自己仍讀得到，不會以為資料不見）。
+  -- 對應的待審紀錄由 AFTER 觸發器 autoflag_content() 開，兩支合起來才是
+  -- 「flag + 立即隱藏 + 人工審核」。
+  --
+  -- 這裡刻意不 RAISE：一來要留下證據給人審與累犯判斷，二來不告訴發文者
+  -- 「哪個字被抓到」，否則規則清單等於公開，換個寫法就繞過去了。
+  IF v_action = 'hide' THEN
+    NEW.moderation_status := 'hidden';
+    NEW.moderated_at      := now();
+    NEW.moderation_note   := format('系統自動隱藏待審（%s）', v_category);
+  END IF;
+
   RETURN NEW;
 END; $$;
 
@@ -298,6 +368,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_entry
 CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_comment
   ON reports (reporter_id, comment_id) WHERE reporter_id IS NOT NULL AND comment_id IS NOT NULL;
 
+-- 自動開單（reporter_id IS NULL）不受上面兩個索引管，同一則內容每被編輯一次就會多一筆。
+-- 只對「還沒處理」的自動單去重：結案後內容又被改成違規，仍然要重新開單。
+-- 先清掉既有重複，索引才建得起來（保留最早那筆，時間戳決定 24 小時 SLA）。
+DELETE FROM reports r USING reports keep
+ WHERE r.source = 'auto' AND keep.source = 'auto'
+   AND r.status = 'pending' AND keep.status = 'pending'
+   AND r.entry_id IS NOT NULL AND keep.entry_id = r.entry_id
+   AND (keep.created_at, keep.id) < (r.created_at, r.id);
+
+DELETE FROM reports r USING reports keep
+ WHERE r.source = 'auto' AND keep.source = 'auto'
+   AND r.status = 'pending' AND keep.status = 'pending'
+   AND r.comment_id IS NOT NULL AND keep.comment_id = r.comment_id
+   AND (keep.created_at, keep.id) < (r.created_at, r.id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_auto_entry
+  ON reports (entry_id)   WHERE source = 'auto' AND status = 'pending' AND entry_id   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS reports_unique_auto_comment
+  ON reports (comment_id) WHERE source = 'auto' AND status = 'pending' AND comment_id IS NOT NULL;
+
 DROP POLICY IF EXISTS "reports: 本人可建立"     ON reports;
 DROP POLICY IF EXISTS "reports: admin 可讀全部" ON reports;
 DROP POLICY IF EXISTS "reports: admin 可更新"   ON reports;
@@ -309,14 +399,25 @@ CREATE POLICY "reports: admin 可讀全部" ON reports FOR SELECT USING (is_admi
 CREATE POLICY "reports: admin 可更新"   ON reports FOR UPDATE USING (is_admin(auth.uid()));
 
 -- ============================================================
--- 自動標記：命中 flag 級規則的內容照常發佈，但自動排進待審佇列。
--- 輕度髒話用這級，避免誤殺——真的有問題由人審，不是機器直接判死。
+-- 自動排進待審佇列：
+--   'flag'  照常發佈，只是排隊等人看（輕度髒話用這級，避免誤殺）。
+--   'hide'  BEFORE 觸發器已經把內容設成 hidden，這裡補上那筆待審紀錄——
+--           「立即隱藏 + 人工審核」的後半段。
+-- 兩級都不是機器判死：最終 remove／restore／停權都由管理員在後台按。
+--
+-- 為什麼也掛 AFTER UPDATE：最容易繞過的路徑是「先存私人、之後改成公開」，
+-- 或是發完再把內容編輯成違規。BEFORE 觸發器在那兩條路上都會重跑並隱藏，
+-- 但如果這裡只有 AFTER INSERT，佇列裡就會沒有那一筆，變成靜靜隱藏、沒人審。
+-- 重複開單由下面的 reports_unique_auto_* 唯一索引擋掉（只擋 pending 的，
+-- 所以結案後又被改成違規內容還是會重新開單）。
 -- ============================================================
 CREATE OR REPLACE FUNCTION autoflag_content() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_text     text;
+  v_action   text;
   v_category text;
+  v_note     text;
 BEGIN
   IF TG_TABLE_NAME = 'gratitude_entries' THEN
     IF NEW.is_shared IS NOT TRUE THEN RETURN NEW; END IF;
@@ -325,17 +426,23 @@ BEGIN
     v_text := NEW.content;
   END IF;
 
-  SELECT v.category INTO v_category
-    FROM moderation_verdict(v_text) v WHERE v.action = 'flag' LIMIT 1;
-  IF v_category IS NULL THEN RETURN NEW; END IF;
+  -- moderation_verdict 已依嚴重度排序（block > hide > flag），取第一筆非 block 的。
+  SELECT v.action, v.category INTO v_action, v_category
+    FROM moderation_verdict(v_text) v WHERE v.action IN ('hide', 'flag') LIMIT 1;
+  IF v_action IS NULL THEN RETURN NEW; END IF;
+
+  v_note := CASE v_action
+    WHEN 'hide' THEN '系統自動隱藏並送人工審核（鼓勵自傷／自殺等高風險內容）'
+    ELSE '系統自動標記（輕度違規字詞）'
+  END;
 
   IF TG_TABLE_NAME = 'gratitude_entries' THEN
     INSERT INTO reports (reporter_id, source, target_type, entry_id, reported_user_id, reasons, note)
-    VALUES (NULL, 'auto', 'entry', NEW.id, NEW.user_id, ARRAY[v_category], '系統自動標記（輕度違規字詞）')
+    VALUES (NULL, 'auto', 'entry', NEW.id, NEW.user_id, ARRAY[v_category], v_note)
     ON CONFLICT DO NOTHING;
   ELSE
     INSERT INTO reports (reporter_id, source, target_type, comment_id, reported_user_id, reasons, note)
-    VALUES (NULL, 'auto', 'comment', NEW.id, NEW.user_id, ARRAY[v_category], '系統自動標記（輕度違規字詞）')
+    VALUES (NULL, 'auto', 'comment', NEW.id, NEW.user_id, ARRAY[v_category], v_note)
     ON CONFLICT DO NOTHING;
   END IF;
   RETURN NEW;
@@ -345,11 +452,11 @@ DROP TRIGGER IF EXISTS trg_autoflag_entries  ON gratitude_entries;
 DROP TRIGGER IF EXISTS trg_autoflag_comments ON comments;
 
 CREATE TRIGGER trg_autoflag_entries
-  AFTER INSERT ON gratitude_entries
+  AFTER INSERT OR UPDATE OF item_1, item_2, item_3, is_shared ON gratitude_entries
   FOR EACH ROW EXECUTE FUNCTION autoflag_content();
 
 CREATE TRIGGER trg_autoflag_comments
-  AFTER INSERT ON comments
+  AFTER INSERT OR UPDATE OF content ON comments
   FOR EACH ROW EXECUTE FUNCTION autoflag_content();
 
 -- ============================================================
@@ -358,30 +465,45 @@ CREATE TRIGGER trg_autoflag_comments
 -- 1.2 要求 24 小時內處理檢舉。管理員睡覺的時候也要有人擋著，
 -- 所以門檻低一點、先隱藏（不是刪除），審完覺得沒問題再 restore。
 -- 系統自動標記（source='auto'）不計入，那一級本來就只是排進佇列。
+--
+-- 例外：檢舉原因含 'self_harm_promotion'（鼓勵自傷或自殺）時門檻降到 1 人。
+-- 這一類的傷害在「等第二個人檢舉」的期間就已經造成，且字詞規則不可能窮舉，
+-- 使用者的眼睛是最後一道網。誤報的成本只是內容暫時看不到、管理員按 restore；
+-- 漏接的成本不對等。注意這只認 'self_harm_promotion'，不認 'self_harm'——
+-- 後者是「擔心這個人有自傷風險」的關懷型檢舉，隱藏一則求助貼文正好是反效果。
 -- ============================================================
 CREATE OR REPLACE FUNCTION autohide_reported_content() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_count int;
+  v_threshold int := 2;
 BEGIN
+  IF NEW.reporter_id IS NOT NULL AND NEW.reasons @> ARRAY['self_harm_promotion'] THEN
+    v_threshold := 1;
+  END IF;
+
   IF NEW.target_type = 'entry' AND NEW.entry_id IS NOT NULL THEN
     SELECT count(DISTINCT reporter_id) INTO v_count
       FROM reports WHERE entry_id = NEW.entry_id AND reporter_id IS NOT NULL;
-    IF v_count >= 2 THEN
+    IF v_count >= v_threshold THEN
       UPDATE gratitude_entries
         SET moderation_status = 'hidden',
             moderated_at = now(),
-            moderation_note = '多人檢舉，系統自動隱藏待審'
+            moderation_note = CASE WHEN v_threshold = 1
+              THEN '檢舉為鼓勵自傷／自殺，系統立即隱藏待審'
+              ELSE '多人檢舉，系統自動隱藏待審' END
         WHERE id = NEW.entry_id AND moderation_status = 'ok';
     END IF;
   ELSIF NEW.target_type = 'comment' AND NEW.comment_id IS NOT NULL THEN
     SELECT count(DISTINCT reporter_id) INTO v_count
       FROM reports WHERE comment_id = NEW.comment_id AND reporter_id IS NOT NULL;
-    IF v_count >= 2 THEN
+    IF v_count >= v_threshold THEN
       UPDATE comments
         SET moderation_status = 'hidden',
             moderated_at = now(),
-            moderation_note = '多人檢舉，系統自動隱藏待審'
+            moderation_note = CASE WHEN v_threshold = 1
+              THEN '檢舉為鼓勵自傷／自殺，系統立即隱藏待審'
+              ELSE '多人檢舉，系統自動隱藏待審' END
         WHERE id = NEW.comment_id AND moderation_status = 'ok';
     END IF;
   END IF;

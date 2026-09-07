@@ -42,10 +42,15 @@ export const common: Record<string, Translation> = {
   '垃圾訊息或廣告': { 'zh-CN': '垃圾信息或广告', en: 'Spam or advertising' },
   '不當或冒犯內容': { 'zh-CN': '不当或冒犯内容', en: 'Inappropriate or offensive content' },
   '自我傷害疑慮': { 'zh-CN': '自我伤害疑虑', en: 'Self-harm concern' },
+  '鼓勵自傷或自殺': { 'zh-CN': '鼓励自伤或自杀', en: 'Encouraging self-harm or suicide' },
   '其他': { 'zh-CN': '其他', en: 'Other' },
 
   // 發佈前內容過濾（App Store 審查指南 1.2）的擋下提示，見 src/lib/contentFilter.ts。
   // 各練習頁與留言框共用同一組句子，使用者在哪裡被擋，看到的說法都一致。
+  '這段文字看起來在鼓勵或教導他人自我傷害，無法發佈到社群。如果此刻難受的是你自己，請撥打安心專線 1925（24 小時免付費）或生命線 1995，緊急狀況請撥 119。': {
+    'zh-CN': '这段文字看起来在鼓励或教导他人自我伤害，无法发布到社群。如果此刻难受的是你自己，请拨打安心专线 1925（24 小时免付费）或生命线 1995，紧急状况请拨 119。',
+    en: 'This text appears to encourage or instruct others to harm themselves and cannot be posted to the community. If you are the one struggling right now, please call 1925 (free, 24/7) or 1995, or dial 119 in an emergency.',
+  },
   '這段文字包含仇恨或歧視字眼，無法發佈到社群。': {
     'zh-CN': '这段文字包含仇恨或歧视字眼，无法发布到社群。',
     en: 'This text contains hateful or discriminatory language and cannot be posted to the community.',

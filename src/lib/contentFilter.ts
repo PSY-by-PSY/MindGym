@@ -12,18 +12,28 @@
 //   兩層的規則字串刻意寫成一模一樣（見下方 RULES 的 source 與 SQL 的 seed），
 //   改任何一邊都要同步另一邊。
 //
-// 刻意「不」過濾的東西：自我傷害、想死、活不下去這類字眼。
-//   這是一個心理健康 App，使用者在日記裡寫「我不想活了」是我們最需要接住的時刻，
-//   不是要擋掉的違規內容（擋掉只會讓他學會不寫）。危機字眼走的是另一條路
-//   （crisis_alerts / 危機資源引導），不在這支過濾器的職責範圍內。
+// 自傷字眼的界線（2026-09-07 第二輪送審回饋修正，別再簡化成「自傷一律不擋」）：
+//   ① 第一人稱的痛苦——「我不想活了」「我活不下去」「我好想消失」——一個字都不擋。
+//      這是一個心理健康 App，那是我們最需要接住的時刻，擋掉只會讓他學會不寫。
+//      那條路走的是 crisis_alerts / 危機資源引導，不在這支過濾器的職責範圍內。
+//   ② 但「鼓勵、教唆、指導、美化他人自傷或自殺」是完全不同的一件事。
+//      「大家都去自殺吧」「教你無痛自殺」不是求助，是傷害別人，而且只可能出現在公開內容。
+//      原本的規則跳過整個自傷主題，導致這類貼文不命中仇恨／騷擾／暴力任何一條，
+//      公開發得出去——直接違反服務條款第四節的零容忍條款。
+//      → category 'self_harm_promotion' + action 'hide'。
+//   兩者的差別寫死在 pattern 裡：每一條規則都必須含第二人稱、祈使、教學或揪團的成分。
 //
 // 分級：
 //   'block' —— 直接擋下，不寫進 DB（仇恨、露骨性內容、暴力威脅、招攬廣告、強烈辱罵）。
+//   'hide'  —— 前端不阻止送出，DB trigger 把它寫進去但立刻設成 hidden（公開動態牆看不到），
+//              同時自動開一筆待審紀錄。鼓勵自傷／自殺用這級。
+//              為什麼不在前端跳提示：一來要留下證據給人工審核與累犯判斷（block 會讓交易回滾，
+//              什麼都不留），二來不告訴發文者哪個字被抓到，否則換個寫法就繞過去了。
 //   'flag'  —— 照常發佈，但自動在 reports 建一筆 source='auto' 的待審紀錄，
 //              進管理後台「檢舉處理」佇列由人審。輕度髒話用這級，避免誤殺。
 
-export type FilterCategory = 'hate' | 'harassment' | 'sexual' | 'violence' | 'spam'
-export type FilterAction = 'block' | 'flag'
+export type FilterCategory = 'hate' | 'harassment' | 'sexual' | 'violence' | 'spam' | 'self_harm_promotion'
+export type FilterAction = 'block' | 'hide' | 'flag'
 
 interface Rule {
   category: FilterCategory
@@ -67,6 +77,18 @@ const RULES: Rule[] = [
   // ── 垃圾訊息 / 招攬廣告 ──────────────────────────────────────────────
   { category: 'spam', action: 'block', normalized: true,
     source: '加賴|賴id|加line|lineid|微信號|博弈|娛樂城|百家樂|六合彩|包養|代辦貸款|刷單|兼職日結|保證獲利|穩賺不賠' },
+
+  // ── 鼓勵 / 教唆 / 指導 / 美化他人自傷或自殺 ───────────────────────────
+  // 見檔頭②。這四條全部帶第二人稱、祈使、教學或揪團的成分，
+  // 第一人稱的痛苦（我不想活了／我好想消失）刻意不會命中任何一條。
+  { category: 'self_harm_promotion', action: 'hide', normalized: true,
+    source: '你去自殺|妳去自殺|你們去自殺|大家去自殺|大家都去自殺|一起去自殺|一起自殺|去自殺吧|快去自殺|建議你自殺|勸你自殺|你該自殺|你就自殺|你們都去死|大家都去死|全部都去死|一起去死|你不如去死|你不如死一死|你死一死|你死了比較好|世界少一個你|你活著只是浪費|沒人需要你活著|你這種人就該去死' },
+  { category: 'self_harm_promotion', action: 'hide', normalized: true,
+    source: '自殺方法|自殺教學|自殺攻略|自殺懶人包|怎麼自殺|怎樣自殺|如何自殺|無痛自殺|最快自殺|自殘方法|自殘教學|割腕方法|割腕教學|上吊方法|上吊教學|燒炭方法|燒炭教學|燒炭懶人包|致死劑量|吃幾顆會死|吃多少會死|跳樓教學|催吐教學|催吐方法|絕食教學' },
+  { category: 'self_harm_promotion', action: 'hide', normalized: true,
+    source: '自殺是解脫|自殺才是解脫|自殘很爽|割腕很爽|鼓勵自殺|揪團自殺|揪人自殺|相約自殺|約自殺|自殺互助|求死同伴|一起走的夥伴|想死的一起' },
+  { category: 'self_harm_promotion', action: 'hide', normalized: false,
+    source: 'kill\\s*your\\s*self|kill\\s*urself|(^|[^a-z])kys([^a-z]|$)|go\\s*kill\\s*yourself|hang\\s*yourself|slit\\s*your\\s*wrist|end\\s*your\\s*life|you\\s*should\\s*die|suicide\\s*method|how\\s*to\\s*(kill\\s*yourself|commit\\s*suicide)|painless\\s*(suicide|death)|best\\s*way\\s*to\\s*die|self\\s*-?\\s*harm\\s*tips|pro\\s*-?\\s*ana|pro\\s*-?\\s*mia|thinspo' },
 ]
 
 const COMPILED = RULES.map((r) => ({ ...r, re: new RegExp(r.source, 'i') }))
@@ -90,12 +112,19 @@ export interface FilterHit {
 }
 
 export interface FilterResult {
-  /** true = 可以發佈（可能仍帶 flags，代表發得出去但要送審）。 */
+  /** true = 送得出去（可能仍帶 flags / hidden，代表發得出去但不會直接公開或要送審）。 */
   ok: boolean
   /** 造成擋下的類別（ok=false 時必有）。 */
   blocked: FilterCategory | null
   /** 需要事後送審的類別。 */
   flags: FilterCategory[]
+  /**
+   * 送得出去、但 DB 會立刻把它設成 hidden 並自動送審的類別（鼓勵自傷／自殺）。
+   * ok 仍為 true：前端刻意不阻止、也不提示，理由見檔頭「分級」的 'hide'。
+   * 呼叫端一般不需要理會這個欄位，它存在是為了讓這件事在型別上是明講的，
+   * 而不是被混進 flags 裡看起來像「輕度髒話」。
+   */
+  hidden: FilterCategory[]
 }
 
 /**
@@ -104,18 +133,20 @@ export interface FilterResult {
  */
 export function screenContent(...texts: (string | null | undefined)[]): FilterResult {
   const joined = texts.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).join('\n')
-  if (!joined) return { ok: true, blocked: null, flags: [] }
+  if (!joined) return { ok: true, blocked: null, flags: [], hidden: [] }
 
   const plain = joined.toLowerCase()
   const squashed = normalize(joined)
   const flags = new Set<FilterCategory>()
+  const hidden = new Set<FilterCategory>()
 
   for (const rule of COMPILED) {
     if (!rule.re.test(rule.normalized ? squashed : plain)) continue
-    if (rule.action === 'block') return { ok: false, blocked: rule.category, flags: [] }
-    flags.add(rule.category)
+    if (rule.action === 'block') return { ok: false, blocked: rule.category, flags: [], hidden: [] }
+    if (rule.action === 'hide') hidden.add(rule.category)
+    else flags.add(rule.category)
   }
-  return { ok: true, blocked: null, flags: [...flags] }
+  return { ok: true, blocked: null, flags: [...flags], hidden: [...hidden] }
 }
 
 // 'suspended' 不是內容分類，是「這個帳號被停權了」——只會從 DB trigger 回來，
@@ -130,6 +161,10 @@ const CATEGORY_MESSAGE: Record<BlockReason, string> = {
   sexual: '這段文字包含露骨的性內容，無法發佈到社群。',
   violence: '這段文字包含威脅他人的字眼，無法發佈到社群。',
   spam: '這段文字看起來是廣告或招攬訊息，無法發佈到社群。',
+  // 這一句正常情況下不會出現：self_harm_promotion 在兩層都是 'hide'，不是 'block'。
+  // 留著是為了兩件事：① Record<BlockReason> 必須列滿；② 管理員若在後台把這類規則
+  // 改成 block 級（moderation_rules.action 可改），使用者要看到人話而不是原始 SQL 錯誤。
+  self_harm_promotion: '這段文字看起來在鼓勵或教導他人自我傷害，無法發佈到社群。如果此刻難受的是你自己，請撥打安心專線 1925（24 小時免付費）或生命線 1995，緊急狀況請撥 119。',
   suspended: '你的帳號因違反社群守則暫時無法發佈內容。私人日記仍可正常書寫，有疑問請從「設定 → 聯絡我們」與我們聯繫。',
 }
 

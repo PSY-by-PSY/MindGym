@@ -71,6 +71,10 @@ export const legal: Record<string, Translation> = {
     'zh-CN': '鼓励自我伤害、自杀、饮食失调或其他危险行为的内容',
     en: 'Content encouraging self-harm, suicide, eating disorders, or other dangerous behaviour',
   },
+  '關於自我傷害：你在私人練習與日記裡寫下的痛苦，我們不會過濾、不會因此處分你——那是這個 App 存在的理由。但在公開的社群貼文與留言中鼓勵、教唆、指導或美化他人自我傷害或自殺，屬於上述零容忍範圍：這類內容一經系統偵測或使用者檢舉，會立即從公開動態牆隱藏並送人工審核，經查證即移除並停用帳號。': {
+    'zh-CN': '关于自我伤害：你在私人练习与日记里写下的痛苦，我们不会过滤、不会因此处分你——那是这个 App 存在的理由。但在公开的社区帖子与留言中鼓励、教唆、指导或美化他人自我伤害或自杀，属于上述零容忍范围：这类内容一经系统侦测或用户检举，会立即从公开动态墙隐藏并送人工审核，经查证即移除并停用账号。',
+    en: 'On self-harm: whatever pain you write in your private exercises and journal is never filtered and will never be held against you — that is why this app exists. But encouraging, inciting, instructing, or glorifying self-harm or suicide in public community posts and comments falls squarely within the zero-tolerance policy above: such content is hidden from the public feed immediately upon automated detection or user report, sent for human review, and removed with the account suspended once confirmed.',
+  },
   '暴力、血腥或令人不安的內容': {
     'zh-CN': '暴力、血腥或令人不安的内容',
     en: 'Violent, graphic, or disturbing content',
