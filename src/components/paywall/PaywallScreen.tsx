@@ -13,9 +13,10 @@
 // ⚠️ 規格 §5.3 硬性限制：無倒數計時、無閃爍、無紅色警示、無 before/after 對比、
 //    無恐懼訴求、無療效承諾；創始名額連動真實資料（founding_seats_remaining()）。
 // ─────────────────────────────────────────────────────────────────────────
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabase'
 import { track } from '../../lib/analytics'
+import { OPEN_FALLBACK, fetchEntitlements } from '../../lib/entitlements'
 import { useLanguage } from '../../lib/i18n/context'
 import {
   type PricingBundle,
@@ -72,6 +73,20 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
   const [submitting, setSubmitting] = useState(false)
   const [showIntentNotice, setShowIntentNotice] = useState(false)
   const [showRestoreNotice, setShowRestoreNotice] = useState(false)
+  const [isFoundingMember, setIsFoundingMember] = useState(false)
+  const [showAlreadyFoundingNotice, setShowAlreadyFoundingNotice] = useState(false)
+
+  // 已核准的創始成員再點一次 CTA 時要讓他們知道「已經是了」，而不是看起來像沒反應。
+  useEffect(() => {
+    let cancelled = false
+    void fetchEntitlements().then((ent) => {
+      // fetchEntitlements 查詢失敗時回傳 OPEN_FALLBACK 這個常數本身（預設值）。
+      // 那是給「要不要顯示付費功能」用的，不能拿來當「不是創始成員」的證據。
+      if (cancelled || ent === OPEN_FALLBACK) return
+      setIsFoundingMember(ent.is_founding_member)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // 價格與名額
   useEffect(() => {
@@ -126,23 +141,34 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
   }
 
   // 主 CTA：記錄付費意願，然後立刻說明目前的開放狀況。不扣款、不跳外部連結。
+  // 提示視窗一定要跳出來，讓使用者知道「有點到」——背景記錄失敗與否不影響這個承諾。
   const handleCta = async () => {
     if (!selected || submitting) return
-    setSubmitting(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user.id
-    if (userId) {
-      const { error } = await supabase.from('paywall_intents').insert({
-        user_id: userId,
-        plan_code: selected.planCode,
-        variant: bundle?.config.variant ?? 'A',
-        source,
-      })
-      if (error) console.error('[paywall] 記錄付費意願失敗', error)
+    if (isFoundingMember) {
+      track('paywall_already_founding_member', { source })
+      setShowAlreadyFoundingNotice(true)
+      return
     }
-    track('paywall_intent_recorded', { source, plan_code: selected.planCode })
-    setSubmitting(false)
-    setShowIntentNotice(true)
+    setSubmitting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const userId = session?.user.id
+      if (userId) {
+        const { error } = await supabase.from('paywall_intents').insert({
+          user_id: userId,
+          plan_code: selected.planCode,
+          variant: bundle?.config.variant ?? 'A',
+          source,
+        })
+        if (error) console.error('[paywall] 記錄付費意願失敗', error)
+      }
+      track('paywall_intent_recorded', { source, plan_code: selected.planCode })
+    } catch (err) {
+      console.error('[paywall] 記錄付費意願發生例外', err)
+    } finally {
+      setSubmitting(false)
+      setShowIntentNotice(true)
+    }
   }
 
   const handleDismiss = () => {
@@ -153,7 +179,7 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
   const hl = highLowDimensions(scores)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <div className="fixed-viewport-h fixed inset-x-0 top-0 z-50 flex flex-col bg-background">
       {/* 1. 關閉鈕：左上角，第一秒即可見（規格 §5.1.1，不做延遲顯示） */}
       <div className="shrink-0 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         <button
@@ -180,12 +206,21 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
             </p>
           )}
           <h1 className="mt-2 text-2xl font-black leading-snug text-foreground">
-            {t('成為心理健身房會員，解鎖下週的你')}
+            {t('立即申請加入 PSY by PSY 心理健身房 創始成員')}
           </h1>
+          <p className="mt-2 text-sm font-bold text-foreground/80">
+            {t('我們開放訂閱會員的時候，你就可以擁有以下權益：')}
+          </p>
 
-          {/* 3. 利益點：最多 3 條，每條 ≤14 字（規格 §5.1.3） */}
+          {/* 3. 利益點：完整列出創始成員權益，讓使用者在看到方案價格前就先知道能拿到什麼 */}
           <ul className="mt-5 flex flex-col gap-2.5">
-            {['每週一份 AI 週分析', '社群無限瀏覽', '基線檢測無限重測'].map((line) => (
+            {[
+              '每週一份 AI 個人化心理健康專屬週報',
+              '社群功能無限瀏覽，不受免費層次數限制',
+              '健身房新菜單，搶先體驗',
+              '基線檢測（PERMA 測驗）無限次重測',
+              '貼文掛上「創始成員」專屬徽章',
+            ].map((line) => (
               <li key={line} className="flex items-center gap-2.5">
                 <CheckIcon />
                 <span className="text-sm font-bold text-foreground">{t(line)}</span>
@@ -225,7 +260,11 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
             disabled={!selected || submitting}
             className="flex h-14 w-full items-center justify-center rounded-full bg-gradient-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
           >
-            {t('申請加入創始成員')}
+            {submitting
+              ? t('處理中…')
+              : isFoundingMember
+                ? t('你已經是創始成員')
+                : t('申請加入創始成員')}
           </button>
 
           {/* 6. 條款行：說明未來的收費方式。目前尚未接金流，所以不寫「到期後扣款」
@@ -257,8 +296,32 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
 
       {showIntentNotice && (
         <NoticeSheet
-          title={t('創始會員目前僅開放給社群成員')}
-          body={t('我們記下你的興趣了。開放訂閱時會再通知你。')}
+          title={t('全部功能已為你解鎖！')}
+          body={
+            <>
+              <p>{t('非常開心有你的加入，成為 PSY by PSY 心理健身房的創始成員！')}</p>
+              {/* ⚠️ 權益是「立即」生效的（見 supabase/subscriptions.sql 的 is_pro()），
+                  不要再寫成「開放訂閱後才有」或「審核中」——那會與實際行為不符。 */}
+              <p className="mt-3">{t('以下權益現在就可以使用：')}</p>
+              <ul className="mt-3 flex flex-col gap-2">
+                {[
+                  '每週一份 AI 個人化心理健康專屬週報',
+                  '社群功能無限瀏覽，不受免費層次數限制',
+                  '健身房新菜單，搶先體驗',
+                  '基線檢測（PERMA 測驗）無限次重測',
+                  '貼文掛上「創始成員」專屬徽章',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-2">
+                    <CheckIcon />
+                    <span className="text-sm font-bold text-foreground">{t(line)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {t('未來開放訂閱時我們會先通知你，不會自動扣款。')}
+              </p>
+            </>
+          }
           onClose={() => { setShowIntentNotice(false); onDismiss() }}
         />
       )}
@@ -269,17 +332,42 @@ export function PaywallScreen({ source, scores: scoresProp, onDismiss }: Paywall
           onClose={() => setShowRestoreNotice(false)}
         />
       )}
+      {showAlreadyFoundingNotice && (
+        <NoticeSheet
+          title={t('你已經是創始成員了！')}
+          body={
+            <>
+              <p>{t('你已經是 PSY by PSY 心理健身房的創始成員，我們開放訂閱後，以下權益會生效：')}</p>
+              <ul className="mt-3 flex flex-col gap-2">
+                {[
+                  '每週一份 AI 個人化心理健康專屬週報',
+                  '社群功能無限瀏覽，不受免費層次數限制',
+                  '健身房新菜單，搶先體驗',
+                  '基線檢測（PERMA 測驗）無限次重測',
+                  '貼文掛上「創始成員」專屬徽章',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-2">
+                    <CheckIcon />
+                    <span className="text-sm font-bold text-foreground">{t(line)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          }
+          onClose={() => setShowAlreadyFoundingNotice(false)}
+        />
+      )}
     </div>
   )
 }
 
-function NoticeSheet({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
+function NoticeSheet({ title, body, onClose }: { title: string; body: ReactNode; onClose: () => void }) {
   const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#1c1714]/40 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-[24px] bg-card p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-[24px] bg-card p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-black text-foreground">{title}</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-foreground/80">{body}</p>
+        <div className="mt-2 text-[15px] leading-relaxed text-foreground/80">{body}</div>
         <button
           onClick={onClose}
           className="mt-5 w-full rounded-full bg-gradient-primary py-3 text-base font-extrabold text-primary-foreground shadow-soft transition active:scale-[0.98]"

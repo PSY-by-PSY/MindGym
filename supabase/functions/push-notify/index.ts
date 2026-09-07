@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════════════════
 // Supabase Edge Function: push-notify
 //
-// 由 likes / comments 的 AFTER INSERT 觸發器（pg_net）呼叫，向貼文主人的
-// 裝置發 APNs 遠端推播 —— 讓「按讚／留言」在 App 關閉時也收得到。
+// 由 likes / comments 的 AFTER INSERT 觸發器、以及 subscriptions 的
+// AFTER INSERT/UPDATE 觸發器（都是 pg_net）呼叫，向當事人的裝置發 APNs
+// 遠端推播 —— 讓「按讚／留言／創始成員審核通過」在 App 關閉時也收得到。
 //
 // 需要的 Function secrets（supabase secrets set ...）：
 //   APNS_KEY_ID        Apple Developer 的 APNs Auth Key ID（.p8 檔名裡那串）
@@ -120,36 +121,44 @@ Deno.serve(async (req) => {
     const payload = await req.json()
     const table: string = payload.table
     const record = payload.record ?? {}
-    const entryId: string | undefined = record.entry_id
-    const actorId: string | undefined = record.user_id
-    if (!entryId || (table !== 'likes' && table !== 'comments')) {
-      return new Response('ignored', { status: 200 })
-    }
-    // 機器人讚不推播（觸發器通常已過濾，這裡再保險一次）
-    if (record.is_bot === true) {
-      return new Response('skip bot', { status: 200 })
-    }
 
-    // 找出貼文主人
-    const { data: entry } = await supabase
-      .from('gratitude_entries')
-      .select('user_id, item_1')
-      .eq('id', entryId)
-      .maybeSingle()
-    const ownerId: string | undefined = entry?.user_id
-    if (!ownerId || ownerId === actorId) {
-      // 找不到貼文，或自己對自己互動 → 不通知
-      return new Response('skip', { status: 200 })
-    }
-
-    // 通知文案
     const title = 'PSY by PSY'
+    let ownerId: string | undefined
     let body: string
-    if (table === 'likes') {
-      body = '有人為你的貼文按讚 ❤️'
+
+    if (table === 'subscriptions') {
+      // 創始成員審核通過（admin.tsx 的核准流程 → set_user_subscription RPC → subscriptions
+      // 表 is_founding_member 變 true → subscriptions.sql 的 trigger 呼叫到這裡）。
+      ownerId = record.user_id
+      if (!ownerId) return new Response('skip', { status: 200 })
+      body = '恭喜你通過審核，歡迎你正式成為 PSY by PSY 心理健身房的創始成員！'
+    } else if (table === 'likes' || table === 'comments') {
+      const entryId: string | undefined = record.entry_id
+      const actorId: string | undefined = record.user_id
+      if (!entryId) return new Response('ignored', { status: 200 })
+      // 機器人讚不推播（觸發器通常已過濾，這裡再保險一次）
+      if (record.is_bot === true) return new Response('skip bot', { status: 200 })
+
+      // 找出貼文主人
+      const { data: entry } = await supabase
+        .from('gratitude_entries')
+        .select('user_id, item_1')
+        .eq('id', entryId)
+        .maybeSingle()
+      ownerId = entry?.user_id
+      if (!ownerId || ownerId === actorId) {
+        // 找不到貼文，或自己對自己互動 → 不通知
+        return new Response('skip', { status: 200 })
+      }
+
+      if (table === 'likes') {
+        body = '有人為你的貼文按讚 ❤️'
+      } else {
+        const name = record.anon_name || '有人'
+        body = `${name} 留言：${snippet(record.content)}`
+      }
     } else {
-      const name = record.anon_name || '有人'
-      body = `${name} 留言：${snippet(record.content)}`
+      return new Response('ignored', { status: 200 })
     }
 
     // 取得主人的所有裝置 token

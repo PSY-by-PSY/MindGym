@@ -39,9 +39,22 @@ function AppShell() {
   // 接回原本的畫面（見 app.gratitude），太久沒回來的就在這裡自動存成「僅限本人」，
   // 內容才不會白寫。放在 /app 這層，是因為使用者回來後不一定會再打開感恩日記。
   const { session } = Route.useRouteContext()
+  const userId = session?.user?.id
   useEffect(() => {
-    void flushStaleGratitudeDraft(session?.user?.id)
-  }, [session?.user?.id])
+    void flushStaleGratitudeDraft(userId)
+    // 只在掛載時檢查一次是不夠的：分享圖片後 App 常常沒被系統回收，回來時
+    // 這層根本沒有重新掛載，逾時草稿就永遠等不到人幫它存檔。每次畫面重新
+    // 回到前景時再檢查一次（未逾時的草稿不會被動到，函式自己會判斷）。
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void flushStaleGratitudeDraft(userId)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [userId])
 
   // 全站鍵盤行為（規格 [2][5]）：點空白處收鍵盤、鍵盤彈出時補底部留白。
   useGlobalKeyboard()
@@ -54,8 +67,11 @@ function AppShell() {
     pathname.startsWith('/app/workshop') ||
     pathname.startsWith('/app/pro-module')
   // 社群頁：往下捲動收起工具列、往上捲動時跳出（比照 Facebook 的捲動體驗）。
+  // ⚠️ 只在原生 App 這樣做。網頁版的社群是無限捲動，工具列一收起來就再也回不來
+  //    （滑鼠滾輪往上捲不像手機那樣頻繁、也沒有慣性回彈），使用者等於被鎖在社群頁、
+  //    點不到「個人／首頁」。網頁一律固定住工具列；App 的收合行為完全不變。
   const isCommunity = pathname.startsWith('/app/community')
-  const scrolledDown = useScrollDirection(isCommunity)
+  const scrolledDown = useScrollDirection(isCommunity && isNativeApp())
   const hideNav = isExercise || scrolledDown
 
   return (

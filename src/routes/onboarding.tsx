@@ -19,6 +19,21 @@ import { PaywallScreen } from '../components/paywall/PaywallScreen'
 
 type OnboardingSearch = { reassess?: boolean; showResult?: boolean }
 
+// 撈使用者最近一次的基線報告。報告本體（report_json）就存在 perma_scores 裡，
+// 撈不到完整 json 時用分數重建。loader 與「額度用完」的處理都用這支。
+async function fetchLatestReport(userId: string): Promise<InMindReport | null> {
+  const { data } = await supabase
+    .from('perma_scores')
+    .select('p_score, e_score, r_score, m_score, a_score, report_json')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!data) return null
+  if (data.report_json) return data.report_json as InMindReport
+  return reconstructReportFromScores(data)
+}
+
 export const Route = createFileRoute('/onboarding')({
   validateSearch: (search: Record<string, unknown>): OnboardingSearch => ({
     ...(search.reassess === true || search.reassess === 'true' ? { reassess: true } : {}),
@@ -42,16 +57,7 @@ export const Route = createFileRoute('/onboarding')({
   loaderDeps: ({ search }) => ({ showResult: search.showResult }),
   loader: async ({ context, deps }) => {
     if (!deps.showResult || !context.session) return { latestReport: null }
-    const { data } = await supabase
-      .from('perma_scores')
-      .select('p_score, e_score, r_score, m_score, a_score, report_json')
-      .eq('user_id', context.session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (!data) return { latestReport: null }
-    if (data.report_json) return { latestReport: data.report_json as InMindReport }
-    return { latestReport: reconstructReportFromScores(data) }
+    return { latestReport: await fetchLatestReport(context.session.user.id) }
   },
   component: OnboardingPage,
 })

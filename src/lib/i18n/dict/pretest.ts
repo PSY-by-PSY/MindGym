@@ -4,9 +4,11 @@ import type { Translation } from '../dictionary'
 export const pretest: Record<string, Translation> = {
   // ── IntroScreen ──────────────────────────────────────────
   '心理健康的 InBody': { 'zh-CN': '心理健康的 InBody', en: 'The InBody of mental health' },
-  '你的': { 'zh-CN': '你的', en: 'How high is your' },
+  // ⚠️ 這三個片段組成 InMind 首頁大標：{t('你的')}<span>{t('幸福')}</span>{t('指數有多高？')}
+  // 中文不需空格、英文需要，所以空格直接寫進字串裡，刪掉會變成 "yourhappinessindex?"。
+  '你的': { 'zh-CN': '你的', en: 'How high is your ' },
   '幸福': { 'zh-CN': '幸福', en: 'happiness' },
-  '指數有多高？': { 'zh-CN': '指数有多高？', en: 'index?' },
+  '指數有多高？': { 'zh-CN': '指数有多高？', en: ' index?' },
   '測出你的隱藏心理優勢': { 'zh-CN': '测出你的隐藏心理优势', en: 'Discover your hidden psychological strengths' },
   '心理健身房吉祥物：舉啞鈴的腦': { 'zh-CN': '心理健身房吉祥物：举哑铃的脑', en: 'MindGym mascot: a brain lifting dumbbells' },
   '開始測驗': { 'zh-CN': '开始测验', en: 'Start Assessment' },

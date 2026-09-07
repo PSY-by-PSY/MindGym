@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Keyboard } from '@capacitor/keyboard'
 
@@ -77,6 +77,34 @@ function scrollActiveIntoView(keyboardHeight: number) {
   }
 }
 
+// ── 主動收鍵盤 ────────────────────────────────────────────────────────────
+// 練習頁多半是「同一個路由、換 stage」：按下一步時輸入框直接被卸載，iOS 不會
+// 因此收鍵盤（沒有 blur 事件），使用者就會看到回顧頁／發佈頁上鍵盤還杵在那裡
+// （學員回報）。凡是「接下來不需要打字」的畫面，都該主動收一次。
+
+/** 主動收起鍵盤。網頁只能靠 blur；原生再叫一次 Keyboard.hide() 保險。 */
+export function dismissKeyboard(): void {
+  const el = document.activeElement as HTMLElement | null
+  if (isFormField(el)) el.blur()
+  if (Capacitor.isNativePlatform()) void Keyboard.hide()
+}
+
+/**
+ * 多階段練習用：傳入「這個畫面需不需要打字」，一旦從『需要』變成『不需要』就
+ * 收鍵盤。刻意只收在下降緣——進到書寫頁時不去動它，才不會把 autoFocus 叫出來
+ * 的鍵盤又關掉。首次掛載不觸發。
+ *
+ * 例：useAutoDismissKeyboard(stage === 'WRITING')
+ */
+export function useAutoDismissKeyboard(needsTyping: boolean): void {
+  const prevRef = useRef(needsTyping)
+  useEffect(() => {
+    const wasTyping = prevRef.current
+    prevRef.current = needsTyping
+    if (wasTyping && !needsTyping) dismissKeyboard()
+  }, [needsTyping])
+}
+
 // 「點空白處收鍵盤」只認真正的『點一下』：按下與放開要在同一個位置附近、
 // 而且夠短。用 pointerdown 直接收鍵盤的話，使用者想『把頁面往上滑一點、看
 // 自己打了什麼』時，手指一按下去鍵盤就收掉，等於根本沒辦法邊打字邊捲動
@@ -147,6 +175,28 @@ export function useGlobalKeyboard(): void {
     return () => {
       subs.forEach((s) => s.remove())
       setKeyboardHeight(0)
+    }
+  }, [])
+
+  // 安全網：鍵盤還開著、但畫面上已經沒有任何輸入框被聚焦（輸入框隨著換頁／換
+  // stage 被卸載時就是這個狀態，iOS 不會自己收鍵盤）。監看 DOM 變動，發現這種
+  // 「孤兒鍵盤」就收掉，不必每個練習頁各自記得處理。
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let timer: number | undefined
+    const check = () => {
+      if (keyboardHeight <= 0) return
+      if (isFormField(document.activeElement)) return
+      void Keyboard.hide()
+    }
+    const observer = new MutationObserver(() => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(check, 150)
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timer)
     }
   }, [])
 

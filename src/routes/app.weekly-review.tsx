@@ -13,6 +13,8 @@ import { track } from '../lib/analytics'
 import { isNativeApp } from '../lib/nativeAuth'
 import { enableNotifications, getLocalNotifPermission, type NotifPermission } from '../lib/localNotifications'
 import { SoftPaywallSheet } from '../components/paywall/SoftPaywallSheet'
+import { ReferencesSection } from '../components/ReferencesSection'
+import { WEEKLY_REVIEW_REFERENCES } from '../lib/references'
 
 // 這個提示只問一次：按過「稍後再說」就不再於本頁詢問（仍可在側邊欄「通知」開關開啟）。
 const WEEKLY_REVIEW_NOTIF_DISMISS_KEY = 'weekly_review_notif_prompt_dismissed_v1'
@@ -753,6 +755,13 @@ function WeeklyReviewPage() {
               )}
             </div>
           )}
+
+          {/* 理論依據與參考文獻（App Store 審查指南 1.4.1）。
+              週報同樣是「健康資訊」，不是只有基線檢測要掛。 */}
+          <ReferencesSection
+            references={WEEKLY_REVIEW_REFERENCES}
+            subject={t('每週 AI 統整回饋')}
+          />
 
           {/* 分享成果圖：生成 PNG 後叫出系統分享面板（Line／IG）；桌面退回下載 */}
           <button

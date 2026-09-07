@@ -203,4 +203,5 @@ export const authPages: Record<string, Translation> = {
   },
   'Email：': { 'zh-CN': 'Email：', en: 'Email: ' },
   'Instagram：': { 'zh-CN': 'Instagram：', en: 'Instagram: ' },
+  '用 email 登入': { 'zh-CN': '用 email 登录', en: 'Sign in with email' },
 }

@@ -24,8 +24,33 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
-// 'login' = 帳號密碼登入，'signup' = 註冊新帳號
-type EmailMode = 'login' | 'signup'
+// 登入方式：主推 Google／Apple，email 密碼登入收在次要入口（2026-08-29）。
+//
+// 為什麼拿掉 email「註冊」：Supabase 內建寄信服務只寄給專案 team 成員、且限
+// 2 封/小時（官方明言僅供測試），所以驗證信對站外使用者根本寄不出去——這條路
+// 從上線以來從來沒有為真實使用者運作過，測試者看到的是「驗證信寄送失敗」。
+// 實際分佈：1,088 個帳號裡 Google 1,065、Apple 21，純 email／密碼只有 2 個
+// （團隊自己開的，0 篇日記 0 次測驗）。要讓它能用得養一整條 email 管道
+// （SMTP、網域驗證、退信、外加一個目前不存在的重設密碼頁），換 0.2% 的使用者。
+//
+// 為什麼「登入」要留著：App Store 送審要在 App Review Information 附 demo 帳號的
+// email 與密碼（見 docs/plans/appstore_rejection_20260816_response.md）。審查員
+// 雖然也能用 Sign in with Apple 自己註冊，但沒有帳密可給會多一輪來回。
+// 收在「用 email 登入」這個次要入口：一般使用者看到的是乾淨的兩顆 OAuth 按鈕，
+// 審查員照 Notes 的指示點一下就找得到。
+//
+// 忘記密碼一併拿掉：resetPasswordForEmail 寄得出去也沒用，全站沒有任何
+// updateUser 的地方可以輸入新密碼。demo 帳號的密碼由管理者在 Supabase 後台重設。
+
+// 使用者主動取消登入（Apple/Google 面板按「取消」）不是錯誤，不該跳紅字。
+// Apple 的 ASAuthorizationError.canceled 是 1001；不同 plugin 版本包裝方式不一，
+// 所以 code 與訊息都比對一次。
+function isUserCancelled(err: unknown): boolean {
+  const code = (err as { code?: string | number } | null)?.code
+  if (code === 1001 || code === '1001') return true
+  const message = (err as { message?: string } | null)?.message ?? ''
+  return /cancel/i.test(message)
+}
 
 // 驗證信連結要導回的網址。App 內用線上版網域，讓在手機信箱點連結也開得起來。
 function confirmRedirectTo() {
@@ -50,16 +75,12 @@ function signUpErrorMessage(error: AuthError, t: (text: string) => string) {
 
 function LoginPage() {
   const { t } = useLanguage()
+  // email 密碼登入（僅供既有帳號與 App Store 審查用的 demo 帳號；不開放註冊）
+  const [showEmailLogin, setShowEmailLogin] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<EmailMode>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // 註冊後若專案開啟「Confirm email」，signUp() 不會馬上給 session，
-  // 要提示使用者去信箱點驗證信連結，而不是讓畫面看起來卡住。
-  const [pendingConfirmation, setPendingConfirmation] = useState(false)
-  // 驗證信重寄的結果（成功/失敗），只顯示在等待驗證的那張卡片上。
-  const [resendNotice, setResendNotice] = useState<string | null>(null)
   // 從 LINE / FB / IG… App 內建瀏覽器打開時，Google 會擋下登入，
   // 這裡記錄是哪一種 App，好顯示對應的引導畫面（null = 不顯示）。
   const [inAppNotice, setInAppNotice] = useState<InAppBrowser>(null)
@@ -88,6 +109,10 @@ function LoginPage() {
         track('login_error', { method: 'google', platform: 'native' })
         console.error('[login] native google login failed', err)
         setInAppNotice(null)
+        if (!isUserCancelled(err)) {
+          setError(t('Google 登入沒有完成。你可以再試一次，或改用下方的 email 登入。'))
+          setShowEmailLogin(true)
+        }
       }
       return
     }
@@ -116,6 +141,7 @@ function LoginPage() {
   // 網頁版沒有這顆按鈕，故這裡不用像 handleGoogleLogin 一樣處理網頁版分支。
   const handleAppleLogin = async () => {
     if (!requireAgreement()) return
+    setError(null)
     try {
       track('login_started', { method: 'apple', platform: 'native' })
       await signInWithAppleNative()
@@ -123,7 +149,38 @@ function LoginPage() {
     } catch (err) {
       track('login_error', { method: 'apple', platform: 'native' })
       console.error('[login] native apple login failed', err)
+      // 使用者自己按取消不算錯誤，不要嚇他。
+      if (isUserCancelled(err)) return
+      // ⚠️ 這裡「一定」要給使用者看得到的訊息並打開 email 登入。
+      //    2026-09-05 被 Apple 以 2.1(a) 退件，原因是 Sign in with Apple 在
+      //    審查機上失敗後畫面毫無反應，審查員直接進不了 App（"We were unable
+      //    to access the app"）。失敗本身可能是 Apple 端狀況（Apple ID 未開
+      //    兩階段驗證、iCloud 未登入、Apple 伺服器暫時性錯誤），我們控制不了；
+      //    但「失敗後沒有出口」是我們的錯，這才是被判定為 bug 的部分。
+      setError(t('Apple 登入沒有完成。你可以再試一次，或改用下方的 Google／email 登入。'))
+      setShowEmailLogin(true)
     }
+  }
+
+  const handleEmailLogin = async () => {
+    if (!requireAgreement()) return
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !password) return
+    setLoading(true)
+    setError(null)
+    track('login_started', { method: 'password', mode: 'login' })
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    })
+    setLoading(false)
+    if (signInError) {
+      track('login_error', { method: 'password', mode: 'login' })
+      setError(t('Email 或密碼錯誤，請再試一次。'))
+      return
+    }
+    track('login_completed', { method: 'password' })
+    // 成功後 onAuthStateChange 會更新 session，beforeLoad 自動導向 /app/home
   }
 
   const handleCopyUrl = async () => {
@@ -135,80 +192,6 @@ function LoginPage() {
       setCopied(false)
     }
   }
-
-  const handleSubmitPassword = async () => {
-    if (!requireAgreement()) return
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail || !password) return
-    setLoading(true)
-    setError(null)
-    track('login_started', { method: 'password', mode })
-
-    if (mode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
-      setLoading(false)
-      if (error) {
-        track('login_error', { method: 'password', mode })
-        setError(t('Email 或密碼錯誤，請再試一次。'))
-        return
-      }
-      track('login_completed', { method: 'password' })
-      // 成功後 onAuthStateChange 會更新 session，beforeLoad 自動導向 /app/home
-      return
-    }
-
-    // mode === 'signup'
-    // emailRedirectTo：驗證信裡的連結要導回線上版；不指定就吃 Supabase 專案的 Site URL，
-    // 那邊若還留著 localhost，使用者點驗證信只會打不開。
-    const { data, error } = await supabase.auth.signUp({
-      email: trimmedEmail,
-      password,
-      options: { emailRedirectTo: confirmRedirectTo() },
-    })
-    setLoading(false)
-    if (error) {
-      track('login_error', { method: 'password', mode, reason: error.code ?? String(error.status) })
-      setError(signUpErrorMessage(error, t))
-      return
-    }
-    if (data.session) {
-      // 專案未開啟「Confirm email」：註冊即登入，session 已建立。
-      track('login_completed', { method: 'password' })
-      return
-    }
-    // 開啟了「Confirm email」：還沒有 session，要先去信箱點驗證信。
-    setPendingConfirmation(true)
-  }
-
-  const handleResendConfirmation = async () => {
-    setLoading(true)
-    setResendNotice(null)
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim(),
-      options: { emailRedirectTo: confirmRedirectTo() },
-    })
-    setLoading(false)
-    setResendNotice(error ? signUpErrorMessage(error, t) : t('已重新寄出驗證信。'))
-  }
-
-  const handleForgotPassword = async () => {
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail) {
-      setError(t('請先輸入 email，才能寄送重設密碼信。'))
-      return
-    }
-    setLoading(true)
-    setError(null)
-    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail)
-    setLoading(false)
-    if (error) {
-      setError(t('寄送失敗，請確認 email 後再試一次。'))
-      return
-    }
-    setError(t('已寄出重設密碼信，請至信箱查收。'))
-  }
-
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-end overflow-x-hidden px-6 pt-12">
       {/* 外層 frame-width：把語言鈕收進手機外框的欄位（詳見 index.css 的
@@ -245,96 +228,16 @@ function LoginPage() {
         <img src={coachWelcome} alt={t('PSY by PSY 教練')} className="relative h-52 w-auto drop-shadow-sm" />
       </div>
 
-      {/* 底部 CTA：走正常排版流，不用 fixed —— 否則面板高度一變（例如加回帳密欄位、
-          多一顆 Apple 按鈕）就得同步改上面的預留 padding，改漏就會蓋住插圖與文案。 */}
+      {/* 底部 CTA：走正常排版流，不用 fixed —— 否則面板高度一變（例如多一顆
+          Apple 按鈕）就得同步改上面的預留 padding，改漏就會蓋住插圖與文案。 */}
       <div className="w-full pb-10 pt-8">
         <div className="mx-auto w-full max-w-sm space-y-3">
-          {pendingConfirmation ? (
-            <div className="rounded-3xl bg-card px-6 py-5 text-center shadow-soft">
-              <p className="text-sm font-semibold text-foreground">
-                {t('請至信箱查收驗證信，完成後即可登入。')}
-              </p>
-              {resendNotice && (
-                <p className="mt-2 text-xs font-semibold text-muted-foreground">{resendNotice}</p>
-              )}
-              <button
-                onClick={handleResendConfirmation}
-                disabled={loading}
-                className="mt-3 block w-full text-xs font-semibold text-primary underline disabled:opacity-50"
-              >
-                {t('沒收到？重寄驗證信')}
-              </button>
-              <button
-                onClick={() => {
-                  setPendingConfirmation(false)
-                  setResendNotice(null)
-                  setMode('login')
-                }}
-                className="mt-3 text-xs font-semibold text-muted-foreground underline"
-              >
-                {t('已有帳號？前往登入')}
-              </button>
-            </div>
-          ) : (
-            <>
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder={t('輸入 email')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-14 w-full rounded-full bg-card px-6 text-center text-base font-semibold text-foreground shadow-soft outline-none placeholder:text-muted-foreground/60"
-              />
-              <input
-                type="password"
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                placeholder={t('輸入密碼')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-14 w-full rounded-full bg-card px-6 text-center text-base font-semibold text-foreground shadow-soft outline-none placeholder:text-muted-foreground/60"
-              />
-
-              {error && (
-                <p className="text-center text-xs font-semibold text-red-500">{error}</p>
-              )}
-
-              <button
-                onClick={handleSubmitPassword}
-                disabled={loading || !email.trim() || !password}
-                className="flex h-16 w-full items-center justify-center rounded-full bg-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
-              >
-                {loading
-                  ? mode === 'login' ? t('登入中…') : t('建立帳號中…')
-                  : mode === 'login' ? t('登入') : t('註冊')}
-              </button>
-
-              <div className="flex items-center justify-between px-2">
-                <button
-                  onClick={() => {
-                    setMode(mode === 'login' ? 'signup' : 'login')
-                    setError(null)
-                  }}
-                  className="text-xs font-semibold text-muted-foreground underline"
-                >
-                  {mode === 'login' ? t('還沒有帳號？註冊新帳號') : t('已有帳號？前往登入')}
-                </button>
-                {mode === 'login' && (
-                  <button
-                    onClick={handleForgotPassword}
-                    className="text-xs font-semibold text-muted-foreground underline"
-                  >
-                    {t('忘記密碼？')}
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 py-1">
-                <span className="h-px flex-1 bg-muted-foreground/20" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t('或')}</span>
-                <span className="h-px flex-1 bg-muted-foreground/20" />
-              </div>
-            </>
+          {/* 三種登入方式共用的錯誤區。刻意放在按鈕「上方」且不限於 email 面板——
+              原本只在 email 面板內渲染，導致 OAuth 失敗時畫面完全沒有回饋。 */}
+          {error && (
+            <p role="alert" className="text-center text-sm font-semibold text-red-500">
+              {error}
+            </p>
           )}
 
           {isNativeApp() && (
@@ -354,6 +257,44 @@ function LoginPage() {
             <GoogleIcon />
             {t('用 Google 登入')}
           </button>
+
+          {/* email 密碼登入：收在次要入口。給既有帳號與 App Store 審查的 demo 帳號用，
+              不開放註冊（原因見檔案開頭）。 */}
+          {showEmailLogin ? (
+            <div className="space-y-3 pt-1">
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder={t('輸入 email')}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-14 w-full rounded-full bg-card px-6 text-center text-base font-semibold text-foreground shadow-soft outline-none placeholder:text-muted-foreground/60"
+              />
+              <input
+                type="password"
+                autoComplete="current-password"
+                placeholder={t('輸入密碼')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-14 w-full rounded-full bg-card px-6 text-center text-base font-semibold text-foreground shadow-soft outline-none placeholder:text-muted-foreground/60"
+              />
+              <button
+                onClick={handleEmailLogin}
+                disabled={loading || !email.trim() || !password}
+                className="flex h-14 w-full items-center justify-center rounded-full bg-primary text-base font-extrabold tracking-wide text-primary-foreground shadow-soft transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {loading ? t('登入中…') : t('登入')}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowEmailLogin(true)}
+              className="block w-full pt-1 text-center text-xs font-semibold text-muted-foreground underline"
+            >
+              {t('用 email 登入')}
+            </button>
+          )}
 
           {/* 條款同意（App Store 審查指南 1.2）。
               放在所有登入按鈕「下方」但仍在同一個面板內，讓審查錄影一次拍到
@@ -385,6 +326,14 @@ function LoginPage() {
               {t('請先勾選同意使用者條款，才能繼續。')}
             </p>
           )}
+
+          {/* 支援頁入口。刻意「不」放進上面的同意句裡——那句是 Apple 指南 1.2
+              要看的 EULA 同意文字，混進其他連結會模糊焦點。 */}
+          <p className="text-center text-[11px] text-muted-foreground">
+            <Link to="/support" className="font-bold underline">
+              {t('需要協助？聯絡我們')}
+            </Link>
+          </p>
 
           <p className="text-center text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
             PSY by PSY · Train your mind

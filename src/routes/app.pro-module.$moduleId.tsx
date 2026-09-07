@@ -31,6 +31,7 @@ import { ConsentModal } from '../components/pro/ConsentModal'
 import { CrisisResourcesModal } from '../components/pro/CrisisResourcesModal'
 import { DiaryPlayer } from '../components/pro/DiaryPlayer'
 import { AssessmentPlayer } from '../components/pro/AssessmentPlayer'
+import { useAutoDismissKeyboard } from '../lib/keyboard'
 
 export const Route = createFileRoute('/app/pro-module/$moduleId')({
   component: ProModulePlayer,
@@ -65,6 +66,8 @@ function ProModulePlayer() {
 
   const [answers, setAnswers] = useState<ProAnswers>({})
   const [stage, setStage] = useState<Stage>('writing')
+  // 離開需要打字的階段就收鍵盤（輸入框被卸載時 iOS 不會自己收）。
+  useAutoDismissKeyboard(stage === 'writing')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 

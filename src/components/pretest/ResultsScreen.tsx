@@ -3,6 +3,8 @@ import { useRef, useState } from 'react'
 import type { InMindReport, DimensionKey } from './types'
 import { DIMENSION_CONFIGS, DIMENSION_ORDER } from './types'
 import { saveOrShareImage } from '../../lib/shareImage'
+import { ReferencesSection } from '../ReferencesSection'
+import { PERMA_REFERENCES } from '../../lib/references'
 import { useLanguage } from '../../lib/i18n/context'
 
 interface Props {
@@ -811,6 +813,12 @@ export default function InMindReportPage({ report, onRestart, onComplete, onGoHo
         <RoadmapRow when={t('第 1 週')} body={take_action.after_1_week} dot="#FFDDB9" />
         <RoadmapRow when={t('第 2 週')} body={take_action.after_2_weeks} dot="#D6FFB7" />
         <RoadmapRow when={t('第 1 個月')} body={take_action.after_1_month} dot="#5C95FF" last />
+      </section>
+
+      {/* 理論依據與參考文獻（App Store 審查指南 1.4.1，不可收合、不可搬走） */}
+      <HashHeading sub="Scientific basis & citations">{t('這份報告的科學依據')}</HashHeading>
+      <section style={{ padding: '0 16px 16px' }}>
+        <ReferencesSection references={PERMA_REFERENCES} subject={t('本次心理健身基線檢測')} />
       </section>
 
       {/* 開始第一次練習 CTA */}

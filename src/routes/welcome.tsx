@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { track } from '../lib/analytics'
 import { markWelcomeSeen } from '../lib/welcomeSeen'
+import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import { useLanguage } from '../lib/i18n/context'
 import gratitudeMascot from '../assets/ui/gratitude-mascot.png'
 import exerciseGratitude from '../assets/ui/exercise-gratitude-tight.png'
@@ -192,9 +193,8 @@ function WelcomePage() {
       eyebrow: t('最後一步'),
       title: (
         <>
-          {t('先來測出')}
+          {t('先來測出你的')}
           <br />
-          {t('你的')}
           <span style={{ color: '#E26D5C' }}>{t('幸福指數')}</span>
         </>
       ),
@@ -300,6 +300,9 @@ function WelcomePage() {
           <span className="font-en text-[11px] font-bold tracking-[0.2em] text-muted-foreground">
             {index + 1} / {total}
           </span>
+          {/* 語言切換：歡迎導覽是登入後看到的第一個畫面，這裡是使用者第一個
+              能選語言的地方（登入頁的切換器在登入後就看不到了）。 */}
+          <LanguageSwitcherCompact className="ml-auto mr-3" />
           {!isLast && (
             <button
               onClick={skip}

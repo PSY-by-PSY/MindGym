@@ -58,7 +58,7 @@ export async function signInWithAppleNative(): Promise<boolean> {
   // return URL——原生流程完全不需要那一套。
   const { response } = await SignInWithApple.authorize({
     clientId: 'com.psybypsy.app',
-    redirectURI: 'https://mind-gym-kappa.vercel.app/login',
+    redirectURI: 'https://app.psybypsy.com/login',
     scopes: 'email name',
     nonce: hashedNonce,
   })

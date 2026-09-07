@@ -14,8 +14,17 @@
 --     4. 週分析額度與基線重測額度另在 backend/app.py 用已驗證的 JWT 再擋一次
 --        （那兩個動作要花 AI token，必須在生成前就擋掉）。
 --
--- 這階段**不接金流**：付費牆 CTA 只寫入 paywall_intents 量測付費意願，
--- 權益開通由管理員在 /admin →「訂閱管理」手動設定。
+-- 這階段**不接金流**：付費牆 CTA 寫入 paywall_intents 量測付費意願。
+--
+-- ⚠️ 2026-09-01 起改為「**全功能對所有登入者開放**」（產品決策）：
+--      * is_pro() 對任何登入者恆真 —— 社群不再有觀看則數上限、AI 分析不再有份數上限。
+--      * 「創始成員」（is_founding_member）降級為**純標籤／徽章**，不再牽動任何權益。
+--        它只出現在 get_my_entitlements() 的回傳與貼文徽章上。
+--      * paywall_intents 仍照常寫入 —— 付費意願量測還要繼續，只是不再拿來開通權益。
+--    因此上面第 1、2 點對「付費權益」暫時失去意義（沒有東西需要被鎖）。
+--    第 3 點的社群 RLS 與第 4 點的 AI 額度**機制仍在原地**，只是判斷式現在恆真，
+--    要收回限制時改 is_pro() 一處即可。
+--    ⚠️ 接上真實金流前，is_pro() 必須改回只認 subscriptions。
 --
 -- ⚠️ 依賴 pro_modules.sql 已建立的 is_admin(uid)，請確認該檔已先執行過。
 -- ⚠️ 金額一律以「分」儲存並記錄幣別（規格 §6）。
@@ -111,6 +120,8 @@ CREATE TABLE IF NOT EXISTS paywall_intents (
 );
 
 CREATE INDEX IF NOT EXISTS paywall_intents_created_idx ON paywall_intents (created_at DESC);
+-- is_pro() 每次都要問「這個人點過付費按鈕沒有」，沒有這個索引會全表掃描。
+CREATE INDEX IF NOT EXISTS paywall_intents_user_idx ON paywall_intents (user_id);
 
 ALTER TABLE paywall_intents ENABLE ROW LEVEL SECURITY;
 
@@ -129,16 +140,32 @@ CREATE POLICY "paywall_intents: admin 可讀" ON paywall_intents
 --    沿用 pro_modules.sql 的 is_admin()/is_practitioner() 慣例。
 -- ============================================================
 
--- 是否為有效付費會員。查無 subscriptions 列 → false（視為免費層，不報錯）。
+-- 是否享有付費權益。
+--
+-- ⚠️ 2026-09-01 起：**所有登入者一律享有完整權益**（產品決策，見檔案開頭）。
+--    社群觀看則數上限、AI 週分析份數上限都由這支函式推導出來，所以這裡回 true
+--    就等於「全部功能開放給所有人」，不必逐條去拆各處的限制邏輯。
+--
+--    這也代表「創始成員」（subscriptions.is_founding_member）與「點過付費按鈕」
+--    （paywall_intents）**都不再影響權益**：
+--      * 創始成員現在只是一個標籤／徽章，給貼文與個人頁顯示用。
+--      * paywall_intents 仍照常寫入，只作為付費意願的量測資料。
+--
+--    ⚠️ 要恢復付費分層（接金流時）只要把這支換回下面被註解掉的原始判斷即可，
+--       呼叫端（community_unlocked / weekly_analysis_period_start /
+--       get_my_entitlements）都不用動。後端 backend/app.py 的
+--       _subscription_tier() 是同一條規則的另一份實作，**必須一起改**。
+--
+--    原始判斷（保留備查）：
+--      SELECT EXISTS (SELECT 1 FROM paywall_intents WHERE user_id = uid)
+--        OR EXISTS (SELECT 1 FROM subscriptions WHERE user_id = uid
+--                     AND (is_founding_member
+--                          OR (tier IN ('pro','pass')
+--                              AND status IN ('trialing','active','grace')
+--                              AND (expires_at IS NULL OR expires_at > now()))))
 CREATE OR REPLACE FUNCTION is_pro(uid uuid) RETURNS boolean
 LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM subscriptions
-    WHERE user_id = uid
-      AND tier   IN ('pro', 'pass')
-      AND status IN ('trialing', 'active', 'grace')
-      AND (expires_at IS NULL OR expires_at > now())
-  )
+  SELECT uid IS NOT NULL
 $$;
 
 -- 社群是否已解鎖：付費會員恆真；免費會員本週發過 ≥1 則分享紀錄即解鎖當週。
@@ -176,6 +203,11 @@ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
   SELECT CASE WHEN is_pro(uid) THEN date_trunc('week', now()) ELSE date_trunc('month', now()) END
 $$;
 
+-- ⚠️ 這支把兩種報告合起來數，只給 get_my_entitlements() 回傳「大概用了幾份」
+--    當參考資訊用（目前前端未消費此欄位）。**真正決定某份報告要不要上鎖的是
+--    backend/app.py 的 _annotate_review_lock()，那裡是「每種報告各自計算」**——
+--    因為 gratitude_weekly 與 weekly_digest 同一週經常並存，合併計數會把後生成
+--    的那份誤判成超額。要拿這個數字做任何把關之前，請先改成同樣的 per-type 邏輯。
 CREATE OR REPLACE FUNCTION weekly_analysis_used(uid uuid) RETURNS integer
 LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
   SELECT count(*)::int FROM pro_reviews
@@ -214,8 +246,9 @@ BEGIN
   END IF;
 
   v_pro   := is_pro(uid);
-  -- 免費與付費的份數上限都是 1，差別在「週期長度」：免費每月 1 份、付費每週 1 份。
-  v_limit := 1;
+  -- ⚠️ 2026-09-01 起 AI 分析不再有份數上限（見檔案開頭）。-1 代表「不限」，
+  --    另外附上 unlimited 旗標讓前端不必去解讀這個數字。
+  v_limit := -1;
   v_used  := weekly_analysis_used(uid);
 
   SELECT count(*)::int INTO v_perma_used FROM perma_scores WHERE user_id = uid;
@@ -224,14 +257,16 @@ BEGIN
     'tier',               v_tier,
     'status',             v_status,
     'is_pro',             v_pro,
+    -- ⚠️ 純標籤：只給貼文徽章／個人頁顯示用，**不影響任何權益**（見 is_pro()）。
     'is_founding_member', v_founding,
     'expires_at',         v_expires,
     'weekly_analysis', jsonb_build_object(
       'period',       CASE WHEN v_pro THEN 'week' ELSE 'month' END,
       'period_start', weekly_analysis_period_start(uid),
-      'limit',        v_limit,
+      'unlimited',    true,
+      'limit',        v_limit,    -- -1 = 不限
       'used',         v_used,
-      'remaining',    GREATEST(0, v_limit - v_used)
+      'remaining',    -1
     ),
     'community', jsonb_build_object(
       'unlimited',             v_pro,
@@ -245,7 +280,7 @@ BEGIN
     ),
     'baseline_assessment', jsonb_build_object(
       'used',          v_perma_used,
-      'can_retake',    v_pro OR v_perma_used < 1   -- 免費層限 1 次
+      'can_retake',    true   -- 暫不限制重測次數，免費層也能無限重測
     ),
     -- 月報告／趨勢／成長對照這些功能目前尚未實作，先預留旗標供日後接上。
     'can_view_trends', v_pro,
@@ -308,6 +343,31 @@ BEGIN
         note               = EXCLUDED.note,
         updated_at         = now();
 END; $$;
+
+-- ============================================================
+-- 8.1 創始成員審核通過 → 自動推播通知本人
+--    沿用 push_notifications.sql 已經建好的 APNs 基礎建設
+--    （device_tokens、notify_push_on_interaction()、push-notify Edge Function），
+--    不需要重新設定任何金鑰——只是多接一張表的 trigger。
+--    push-notify/index.ts 已經加了 table === 'subscriptions' 的分支。
+--    ⚠️ 依賴 push_notifications.sql 已先執行過（notify_push_on_interaction 存在）。
+-- ============================================================
+
+-- set_user_subscription() 是 upsert：第一次核准通常是「新增一列、is_founding_member
+-- 直接是 true」（INSERT），之後在訂閱管理手動改動才是「既有列從 false 改成 true」（UPDATE）。
+-- 分成兩支 trigger 是因為同一支 trigger 不能在 INSERT 事件裡合法引用 OLD。
+DROP TRIGGER IF EXISTS subscriptions_founding_insert_push ON subscriptions;
+DROP TRIGGER IF EXISTS subscriptions_founding_update_push ON subscriptions;
+
+CREATE TRIGGER subscriptions_founding_insert_push
+  AFTER INSERT ON subscriptions
+  FOR EACH ROW WHEN (NEW.is_founding_member = true)
+  EXECUTE FUNCTION notify_push_on_interaction();
+
+CREATE TRIGGER subscriptions_founding_update_push
+  AFTER UPDATE OF is_founding_member ON subscriptions
+  FOR EACH ROW WHEN (NEW.is_founding_member = true AND OLD.is_founding_member IS DISTINCT FROM true)
+  EXECUTE FUNCTION notify_push_on_interaction();
 
 -- /admin →「訂閱管理」用：依姓名或 email 搜尋使用者並帶出訂閱狀態。
 CREATE OR REPLACE FUNCTION admin_search_subscriptions(p_query text DEFAULT '')

@@ -902,11 +902,13 @@ function GratitudeCalendar({
           className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] backdrop-blur-sm"
           onClick={() => setModalEntry(null)}
         >
+          {/* 日記可以寫得很長：卡片限高、內容區自己捲，標題與關閉鍵固定在上方，
+              不然超出畫面的段落會被裁掉又捲不到（TestFlight 回饋）。 */}
           <div
-            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-3xl bg-card p-6 shadow-soft"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-start justify-between">
+            <div className="mb-4 flex shrink-0 items-start justify-between">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
                   Gratitude journal
@@ -921,24 +923,24 @@ function GratitudeCalendar({
                 ✕
               </button>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="-mx-1 flex flex-col gap-3 overflow-y-auto overscroll-contain px-1">
               {[modalEntry.item_1, modalEntry.item_2, modalEntry.item_3].map((item, i) => (
                 <div key={i} className="flex gap-3 rounded-2xl bg-tile-mint p-4">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-card text-xs font-extrabold text-primary">
                     {i + 1}
                   </span>
-                  <p className="text-sm leading-relaxed text-foreground">{item}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{item}</p>
                 </div>
               ))}
+              {modalEntry.ai_feedback && (
+                <div className="rounded-2xl bg-primary-soft p-4">
+                  <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
+                    BOUBA {t('回饋')}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{modalEntry.ai_feedback}</p>
+                </div>
+              )}
             </div>
-            {modalEntry.ai_feedback && (
-              <div className="mt-3 rounded-2xl bg-primary-soft p-4">
-                <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">
-                  BOUBA {t('回饋')}
-                </p>
-                <p className="text-sm leading-relaxed text-foreground">{modalEntry.ai_feedback}</p>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -949,11 +951,13 @@ function GratitudeCalendar({
           className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] backdrop-blur-sm"
           onClick={() => setPgModal(null)}
         >
+          {/* 日記可以寫得很長：卡片限高、內容區自己捲，標題與關閉鍵固定在上方，
+              不然超出畫面的段落會被裁掉又捲不到（TestFlight 回饋）。 */}
           <div
-            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-3xl bg-card p-6 shadow-soft"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-start justify-between">
+            <div className="mb-4 flex shrink-0 items-start justify-between">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
                   Process Goal Awareness
@@ -970,7 +974,7 @@ function GratitudeCalendar({
                 ✕
               </button>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="-mx-1 flex flex-col gap-3 overflow-y-auto overscroll-contain px-1">
               {pgModal.kind === 'morning' && (
                 <>
                   {pgModal.today_task && (
@@ -1030,11 +1034,13 @@ function GratitudeCalendar({
           className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] backdrop-blur-sm"
           onClick={() => setWoopModal(null)}
         >
+          {/* 日記可以寫得很長：卡片限高、內容區自己捲，標題與關閉鍵固定在上方，
+              不然超出畫面的段落會被裁掉又捲不到（TestFlight 回饋）。 */}
           <div
-            className="w-full max-w-md rounded-3xl bg-card p-6 shadow-soft"
+            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-3xl bg-card p-6 shadow-soft"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-start justify-between">
+            <div className="mb-4 flex shrink-0 items-start justify-between">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
                   WOOP
@@ -1049,7 +1055,7 @@ function GratitudeCalendar({
                 ✕
               </button>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="-mx-1 flex flex-col gap-3 overflow-y-auto overscroll-contain px-1">
               {[
                 { label: t('設定目標'), value: woopModal.wish },
                 { label: t('看見結果'), value: woopModal.outcome },
@@ -1614,9 +1620,10 @@ function ProfilePage() {
           <div className="flex flex-col gap-2">
             <Link
               to="/paywall"
-              className="flex h-12 w-full items-center justify-center rounded-2xl bg-primary-soft text-sm font-bold text-foreground transition active:scale-[0.98]"
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-2xl bg-primary-soft px-3 py-3 text-center transition active:scale-[0.98]"
             >
-              {t('訂閱方案')}
+              <span className="text-base font-extrabold text-foreground">{t('訂閱方案')}</span>
+              <span className="text-sm font-bold text-gold-deep">{t('立即成為創始成員')}</span>
             </Link>
             <button
               onClick={() => void handleLogout()}

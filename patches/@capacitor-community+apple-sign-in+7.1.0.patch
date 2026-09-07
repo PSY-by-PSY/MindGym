@@ -1,0 +1,47 @@
+diff --git a/node_modules/@capacitor-community/apple-sign-in/ios/Sources/SignInWithApple/Plugin.swift b/node_modules/@capacitor-community/apple-sign-in/ios/Sources/SignInWithApple/Plugin.swift
+index f53087c..bb3e6ed 100755
+--- a/node_modules/@capacitor-community/apple-sign-in/ios/Sources/SignInWithApple/Plugin.swift
++++ b/node_modules/@capacitor-community/apple-sign-in/ios/Sources/SignInWithApple/Plugin.swift
+@@ -1,6 +1,7 @@
+ import Foundation
+ import Capacitor
+ import AuthenticationServices
++import UIKit
+ 
+ @objc(SignInWithApple)
+ public class SignInWithApple: CAPPlugin, CAPBridgedPlugin {
+@@ -24,6 +25,12 @@ public class SignInWithApple: CAPPlugin, CAPBridgedPlugin {
+ 
+         let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+         authorizationController.delegate = self
++        // PSY by PSY patch：一定要指定 presentationContextProvider。
++        // 少了它，iOS 得自己猜授權面板要掛在哪個視窗；iPhone 只有一個全螢幕視窗
++        // 所以猜得到，iPad（多視窗／Stage Manager）猜不到就直接失敗，畫面會跳出
++        // 系統的 "Sign Up Not Completed"。2026-09-05 被 Apple 以 2.1(a) 退件、
++        // 審查機正是 iPad Air 11-inch，就是這個原因。
++        authorizationController.presentationContextProvider = self
+         authorizationController.performRequests()
+     }
+ 
+@@ -83,3 +90,21 @@ extension SignInWithApple: ASAuthorizationControllerDelegate {
+         self.bridge?.releaseCall(call)
+     }
+ }
++
++// PSY by PSY patch：提供授權面板要掛載的視窗。
++extension SignInWithApple: ASAuthorizationControllerPresentationContextProviding {
++    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
++        // 首選：Capacitor WebView 自己所在的視窗，一定是使用者正在看的那個。
++        if let window = self.bridge?.viewController?.view.window {
++            return window
++        }
++        // 備援：前景 scene 的 key window。iPad 多視窗時才會走到這裡。
++        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
++        if let window = scenes.first(where: { $0.activationState == .foregroundActive })?
++            .windows.first(where: { $0.isKeyWindow })
++            ?? scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
++            return window
++        }
++        return ASPresentationAnchor()
++    }
++}

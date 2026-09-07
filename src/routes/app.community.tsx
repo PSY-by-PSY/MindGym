@@ -2519,128 +2519,136 @@ function EntryCard({
       }`}
       style={{ background: index % 2 === 0 ? 'rgba(136,184,206,0.55)' : 'rgba(185,176,120,0.5)' }}
     >
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Header
+          兩層結構：上排是「名字 ＋ 練習標籤 ＋ 選單」，下排才是日期／連續天數／徽章。
+          舊版把五樣東西擠在同一排，窄螢幕上練習標籤會把中間欄壓到剩下幾十 px，
+          名字被截斷成「水蜜頭…」、日期還被折成「2026 / 09 /」＋「01」兩行，
+          連續天數與創始成員徽章又各自換行。改成下排整條寬度給中繼資訊，就排得下。 */}
+      <div className="flex items-start gap-3">
         <img
           src={avatar.src}
           alt={t('頭像')}
-          className="h-[54px] w-[54px] rounded-full object-cover"
+          className="h-[54px] w-[54px] shrink-0 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[21px] font-black tracking-[0.03em] text-foreground">
-            {showRealName && anonName ? anonName : (localAnonName ?? t('匿名使用者'))}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-en text-sm font-semibold text-muted-foreground">{formatDate(entry.entry_date)}</p>
+          <div className="flex items-start gap-2">
+            {/* 暱稱最多折兩行再截斷（原本單行 truncate，「水蜜頭好熱好熱」會被切成「水蜜頭…」） */}
+            <p className="line-clamp-2 min-w-0 flex-1 break-words text-[21px] font-black leading-tight tracking-[0.03em] text-foreground">
+              {showRealName && anonName ? anonName : (localAnonName ?? t('匿名使用者'))}
+            </p>
+            <span className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#876B5F] bg-cream px-2.5 py-1 text-[13px] font-bold text-foreground">
+              <i className="h-2 w-2 shrink-0 rounded-full bg-[#71744F]" />
+              {t(practiceTag(entry.practice_type).label)}
+            </span>
+            {isOwn && !isWorkshopEntry && (
+              <div className="relative mt-0.5 shrink-0">
+                <button
+                  onClick={() => setShowMenu((prev) => !prev)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
+                  aria-label={t('更多選項')}
+                >
+                  <VerticalDotsIcon />
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-9 z-20 min-w-[208px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                      <p className="px-2 pb-1 pt-1 text-xs font-bold text-muted-foreground">{t('隱私設定')}</p>
+                      {PRIVACY_OPTIONS.map((opt) => {
+                        const active = localPrivacy === opt.value
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => changePrivacy(opt.value)}
+                            aria-pressed={active}
+                            className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition ${
+                              active ? 'bg-primary/10' : 'hover:bg-muted'
+                            }`}
+                          >
+                            <span className="flex-1">
+                              <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
+                                {t(opt.label)}
+                              </span>
+                              <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                                {t(opt.hint)}
+                              </span>
+                            </span>
+                            {active && <span className="text-primary">✓</span>}
+                          </button>
+                        )
+                      })}
+                      <div className="my-1 h-px bg-border" />
+                      <button
+                        onClick={() => {
+                          setShowMenu(false)
+                          setDeleteErrored(false)
+                          setShowDeleteConfirm(true)
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
+                      >
+                        <TrashIcon />{t('刪除貼文')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {!isOwn && userId && (
+              <div className="relative mt-0.5 shrink-0">
+                <button
+                  onClick={() => setShowMenu((prev) => !prev)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
+                  aria-label={t('檢舉或封鎖')}
+                >
+                  <VerticalDotsIcon />
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-9 z-20 min-w-[184px] rounded-2xl border border-border bg-card p-2 shadow-soft">
+                      <button
+                        onClick={() => {
+                          setShowMenu(false)
+                          openReport({ type: 'entry', entryId: entry.id, reportedUserId: entry.user_id })
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
+                      >
+                        <FlagIcon />{t('檢舉貼文')}
+                      </button>
+                      {entry.user_id && (
+                        <button
+                          onClick={() => {
+                            setShowMenu(false)
+                            openBlock({ userId: entry.user_id as string, label: localAnonName ?? t('這位使用者') })
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
+                        >
+                          <BlockIcon />{t('封鎖此使用者')}
+                        </button>
+                      )}
+                    </div>
+                  </>
+            )}
+              </div>
+            )}
+          </div>
+          {/* 中繼資訊獨佔一排：日期、連續天數、創始成員徽章排在同一行 */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="font-en whitespace-nowrap text-sm font-semibold text-muted-foreground">{formatDate(entry.entry_date)}</p>
             {entry.current_streak != null && entry.current_streak > 0 && (
-              <span className="text-xs font-semibold text-orange-500">{t('連續 {n} 天', { n: entry.current_streak })}</span>
+              <span className="whitespace-nowrap text-xs font-semibold text-orange-500">{t('連續 {n} 天', { n: entry.current_streak })}</span>
             )}
             {/* 創始成員徽章：後台核准（subscriptions.is_founding_member）後才會出現 */}
             {entry.is_founding_member && (
-              <span className="rounded-full bg-gold px-2 py-0.5 text-[11px] font-extrabold text-ink-deep">
+              <span className="whitespace-nowrap rounded-full bg-gold px-2 py-0.5 text-[11px] font-extrabold text-ink-deep">
                 {t('創始成員')}
               </span>
             )}
             {isOwn && localPrivacy === 'private' && (
-              <span className="text-xs font-semibold text-muted-foreground">{t('僅限本人')}</span>
+              <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">{t('僅限本人')}</span>
             )}
           </div>
         </div>
-        <span className="flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#876B5F] bg-cream px-2.5 py-1 text-[13px] font-bold text-foreground">
-          <i className="h-2 w-2 rounded-full bg-[#71744F]" />
-          {t(practiceTag(entry.practice_type).label)}
-        </span>
-        {isOwn && !isWorkshopEntry && (
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowMenu((prev) => !prev)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
-              aria-label={t('更多選項')}
-            >
-              <VerticalDotsIcon />
-            </button>
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-9 z-20 min-w-[208px] rounded-2xl border border-border bg-card p-2 shadow-soft">
-                  <p className="px-2 pb-1 pt-1 text-xs font-bold text-muted-foreground">{t('隱私設定')}</p>
-                  {PRIVACY_OPTIONS.map((opt) => {
-                    const active = localPrivacy === opt.value
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => changePrivacy(opt.value)}
-                        aria-pressed={active}
-                        className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition ${
-                          active ? 'bg-primary/10' : 'hover:bg-muted'
-                        }`}
-                      >
-                        <span className="flex-1">
-                          <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
-                            {t(opt.label)}
-                          </span>
-                          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                            {t(opt.hint)}
-                          </span>
-                        </span>
-                        {active && <span className="text-primary">✓</span>}
-                      </button>
-                    )
-                  })}
-                  <div className="my-1 h-px bg-border" />
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      setDeleteErrored(false)
-                      setShowDeleteConfirm(true)
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
-                  >
-                    <TrashIcon />{t('刪除貼文')}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-        {!isOwn && userId && (
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowMenu((prev) => !prev)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/30 transition hover:bg-muted hover:text-foreground/60"
-              aria-label={t('檢舉或封鎖')}
-            >
-              <VerticalDotsIcon />
-            </button>
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-9 z-20 min-w-[184px] rounded-2xl border border-border bg-card p-2 shadow-soft">
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      openReport({ type: 'entry', entryId: entry.id, reportedUserId: entry.user_id })
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-foreground transition hover:bg-muted"
-                  >
-                    <FlagIcon />{t('檢舉貼文')}
-                  </button>
-                  {entry.user_id && (
-                    <button
-                      onClick={() => {
-                        setShowMenu(false)
-                        openBlock({ userId: entry.user_id as string, label: localAnonName ?? t('這位使用者') })
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-muted"
-                    >
-                      <BlockIcon />{t('封鎖此使用者')}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Body（依練習類型客製版型） */}

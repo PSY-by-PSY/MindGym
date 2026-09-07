@@ -14,6 +14,9 @@ import { PermaGrowthCard } from '../components/PermaGrowthCard'
 import { TheorySection } from '../components/TheorySection'
 import { track } from '../lib/analytics'
 import { useStageBack } from '../lib/useStageBack'
+import { useAutoDismissKeyboard } from '../lib/keyboard'
+import { useFoundingInviteGate } from '../lib/useFoundingInvite'
+import { FoundingInviteModal } from '../components/paywall/FoundingInviteModal'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import {
   fetchGratitudeSummary as fetchSummary,
@@ -196,6 +199,10 @@ function GratitudePage() {
   const [summaryStreak, setSummaryStreak] = useState<number | null>(null)
   const navigate = useNavigate()
   const router = useRouter()
+  const foundingInvite = useFoundingInviteGate()
+  // 離開書寫頁就收鍵盤：進到回顧／發佈頁時輸入框被卸載，iOS 不會自己收鍵盤，
+  // 學員回報「發佈那頁鍵盤還在」。
+  useAutoDismissKeyboard(stage === 'WRITING')
 
   // 邊寫邊存草稿。只在「還沒寫進資料庫」的階段存：存檔成功後草稿就清掉了
   // （見 performSave），結束頁也不需要再存。停下來 400ms 才寫，不用每個字都碰
@@ -402,7 +409,7 @@ function GratitudePage() {
 
   const handleFinalSave = async () => {
     await router.invalidate()
-    navigate({ to: '/app/community', search: { showEntry: 1 } })
+    foundingInvite.gate(() => navigate({ to: '/app/community', search: { showEntry: 1 } }))
   }
 
   switch (stage) {
@@ -457,13 +464,16 @@ function GratitudePage() {
       )
     case 'CELEBRATE':
       return (
-        <CelebrateStage
-          privacy={privacy}
-          onPrivacyChange={handlePrivacyChange}
-          onNavigate={handleFinalSave}
-          onBack={triggerBack}
-          streakOverride={celebrateStreak}
-        />
+        <>
+          <CelebrateStage
+            privacy={privacy}
+            onPrivacyChange={handlePrivacyChange}
+            onNavigate={handleFinalSave}
+            onBack={triggerBack}
+            streakOverride={celebrateStreak}
+          />
+          <FoundingInviteModal open={foundingInvite.open} onDismiss={foundingInvite.dismiss} />
+        </>
       )
   }
 }
@@ -1521,7 +1531,11 @@ function CelebrateStage({
       const counts: Partial<Record<TargetCode, number>> = {}
       for (const row of tagsRes.data ?? []) {
         for (const val of [row.target_1, row.target_2, row.target_3]) {
-          if (val) counts[val as TargetCode] = (counts[val as TargetCode] ?? 0) + 1
+          // AI 標記偶爾會回傳不在五個已知類別內的值（見 backend /api/tag-gratitude-targets
+          // 沒有做輸出驗證），未過濾就丟給 getTargetMeta(t)[code].label 會直接 throw，
+          // 導致這個使用者往後每次完成練習都會在這裡當掉（TestFlight 回報：每次提交都出現
+          // CatchBoundary 的「Something went wrong!」）。
+          if (val && val in TARGET_COLORS) counts[val as TargetCode] = (counts[val as TargetCode] ?? 0) + 1
         }
       }
       const total = Object.values(counts).reduce((s, v) => s + v, 0)

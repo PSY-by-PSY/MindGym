@@ -908,11 +908,15 @@ function IntentInbox({ intents, onApproved }: { intents: IntentRow[] | null; onA
   const latestByUser = new Map<string, IntentRow>()
   for (const i of intents) if (!latestByUser.has(i.user_id)) latestByUser.set(i.user_id, i)
   const unique = [...latestByUser.values()]
-  const pending = unique.filter((i) => !i.is_founding_member)
+  // ⚠️ 付費意願測試期間：點過 CTA 的人「已經」享有完整權益（見 is_pro()），
+  //    這裡的「核准」只是額外加上「創始成員」徽章，不是開通權益。
+  //    所以沒有所謂「待處理」——不要用紅色待辦數字暗示有人在等。
+  const withoutBadge = unique.filter((i) => !i.is_founding_member)
 
   const approve = async (row: IntentRow) => {
     setBusyId(row.id)
-    // 核准 = 設為創始成員 + 升級為 Pro，貼文上的「創始成員」徽章隨即出現。
+    // 這些人已經有完整權益了（點過 CTA 就有）。這一步是額外授予「創始成員」
+    // 徽章，讓他們的貼文掛上標記；順手把 tier 也設成 pro，讓後台狀態一目瞭然。
     const { error } = await supabase.rpc('set_user_subscription', {
       p_user_id: row.user_id,
       p_tier: 'pro',
@@ -933,20 +937,21 @@ function IntentInbox({ intents, onApproved }: { intents: IntentRow[] | null; onA
   return (
     <div className="mb-5 rounded-2xl border border-border bg-card p-4 shadow-soft">
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-[15px] font-black text-foreground">{t('創始成員申請')}</h2>
-        {pending.length > 0 && (
-          <span className="rounded-full bg-rust px-2 py-0.5 text-[11px] font-extrabold text-white">
-            {t('待處理 {n} 筆', { n: pending.length })}
-          </span>
-        )}
+        <h2 className="text-[15px] font-black text-foreground">{t('點過付費按鈕的人')}</h2>
+        <span className="rounded-full bg-tile-mint px-2 py-0.5 text-[11px] font-extrabold text-foreground">
+          {t('共 {n} 人', { n: unique.length })}
+        </span>
       </div>
+      <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+        {t('這些人點過付費牆的 CTA，已自動享有完整權益（全部分析、全部報告、社群無限瀏覽）。下方按鈕只是額外加上「創始成員」徽章。')}
+      </p>
 
       {unique.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('目前沒有新的申請')}</p>
+        <p className="text-sm text-muted-foreground">{t('目前還沒有人點過')}</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {/* 待核准的排前面，核准過的留著當紀錄 */}
-          {[...pending, ...unique.filter((i) => i.is_founding_member)].map((row) => (
+          {/* 還沒給徽章的排前面，方便快速補發 */}
+          {[...withoutBadge, ...unique.filter((i) => i.is_founding_member)].map((row) => (
             <div key={row.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-background px-3 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-foreground">{row.name || row.email}</p>
@@ -957,8 +962,8 @@ function IntentInbox({ intents, onApproved }: { intents: IntentRow[] | null; onA
                 </p>
               </div>
               {row.is_founding_member ? (
-                <span className="shrink-0 rounded-full bg-tile-mint px-2.5 py-1 text-[11px] font-extrabold text-foreground">
-                  {t('已核准')}
+                <span className="shrink-0 rounded-full bg-gold px-2.5 py-1 text-[11px] font-extrabold text-ink-deep">
+                  {t('已有徽章')}
                 </span>
               ) : (
                 <button
@@ -966,7 +971,7 @@ function IntentInbox({ intents, onApproved }: { intents: IntentRow[] | null; onA
                   disabled={busyId === row.id}
                   className="shrink-0 rounded-full bg-gradient-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground shadow-soft transition active:scale-95 disabled:opacity-40"
                 >
-                  {busyId === row.id ? t('儲存中…') : t('核准為創始成員')}
+                  {busyId === row.id ? t('儲存中…') : t('給予創始成員徽章')}
                 </button>
               )}
             </div>

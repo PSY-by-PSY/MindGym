@@ -9,6 +9,7 @@ import { getFontScale, applyFontScale } from './lib/fontScale'
 import { isNativeApp, setupNativeAuthListener } from './lib/nativeAuth'
 import { initLocalNotifications } from './lib/localNotifications'
 import { NotificationConsent } from './components/NotificationConsent'
+import { TermsConsentGate } from './components/TermsConsentGate'
 import { ForceUpdateGate } from './components/ForceUpdateGate'
 import { LanguageProvider } from './lib/i18n/context'
 import './index.css'
@@ -109,6 +110,12 @@ function App() {
           Sign in with Apple／Google 按鈕（App Store 4.8 退件風險）。
           未登入者仍可事後從選單的「🔔 通知」開關開啟。 */}
       {session && <NotificationConsent />}
+      {/* 條款同意閘門（App Store 指南 1.2）。登入後、還沒留下同意紀錄的人會看到
+          條款與隱私政策全文 + 「我已了解」；同意一次就寫進 profiles，之後不再出現。
+          ⚠️ 這不是登入頁勾選框的替代品——Apple 要求同意必須發生在「登入前」，
+             那個勾選框仍是審查要看的那一道。這裡是讓使用者真正讀到內容、
+             並留下可查證的同意紀錄（含版本號）。 */}
+      {session && <TermsConsentGate session={session} />}
     </>
   )
 }

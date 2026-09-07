@@ -162,6 +162,21 @@ html:not(.native-app) .frame-width {
   overflow: hidden;
 }
 
+/* ── 全螢幕滿版元件（例如付費牆）在 Safari 的高度塌陷 ──────────────────
+   .app-frame 開了 container-type（見上方 .frame-width 說明），依規範它
+   會變成子孫 position: fixed 元素的 containing block。像付費牆這種
+   「自己就是整個路由唯一內容、且整個畫面都是 fixed」的元件，其正常流
+   （in-flow）高度貢獻是 0，.app-frame 因此塌成 0 高，用 inset-0（讓
+   top/bottom 各自 0、高度靠兩者相減）算出來的高度也跟著塌陷——Safari
+   會照這個算法縮成一條，Chrome 目前恰好沒有這樣算，兩邊看起來不一樣。
+   解法是不要讓高度「靠 top/bottom 相減」，改成直接給高度本身，這樣不管
+   containing block 是視窗還是 .app-frame 都不影響：兩者的頂端位置一致，
+   高度用 100dvh 直接撐好，不必依賴 bottom 反推。 */
+.fixed-viewport-h {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* 字體大小設定（無障礙大字模式）。所有 rem 字級會隨 html font-size 一起放大。 */
 html {
   font-size: 16px;

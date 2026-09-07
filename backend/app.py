@@ -172,35 +172,31 @@ async def get_user_id(token: str) -> str:
 async def _subscription_tier(user_id: str) -> str:
     """讀取訂閱層級（'free' | 'pro' | 'pass'）。
 
-    查無 subscriptions 列 = 免費層（絕大多數既有使用者都沒有這一列），
-    狀態不有效或已過期也一律降回 'free'。判斷邏輯與
-    supabase/subscriptions.sql 的 is_pro() 保持一致。
+    ⚠️ 2026-09-01 起：**所有登入者一律回 'pro'**，也就是全功能對所有人開放
+       （產品決策，見 supabase/subscriptions.sql 開頭）。這支與 SQL 的 is_pro()
+       是同一條規則的兩份實作，**改動時兩邊必須一起改**，只改一邊會讓前端顯示
+       與後端把關對不上。
+
+    ⚠️ 這代表「創始成員」（subscriptions.is_founding_member）與「點過付費按鈕」
+       （paywall_intents）都不再影響權益：前者只剩標籤／徽章，後者只是量測資料。
+
+    ⚠️ 要恢復付費分層（接金流時）把下面被註解掉的原始實作放回來即可，
+       呼叫端（_annotate_review_lock）不用動。
+
+    原始實作（保留備查）：
+        查 paywall_intents 有無紀錄 → 'pro'；
+        否則查 subscriptions：is_founding_member → 'pro'；
+        tier 需為 pro/pass、status 需為 trialing/active/grace、未過期，否則 'free'。
     """
-    resp = await db().get(
-        f"{SUPABASE_REST}/subscriptions",
-        headers=SUPABASE_HEADERS,
-        params=[("user_id", f"eq.{user_id}"), ("select", "tier,status,expires_at"), ("limit", "1")],
-    )
-    rows = resp.json() if resp.status_code == 200 else []
-    if not rows:
-        return "free"
-    row = rows[0]
-    if row.get("tier") not in ("pro", "pass"):
-        return "free"
-    if row.get("status") not in ("trialing", "active", "grace"):
-        return "free"
-    expires = row.get("expires_at")
-    if expires:
-        try:
-            if datetime.fromisoformat(str(expires).replace("Z", "+00:00")) <= datetime.now(timezone.utc):
-                return "free"
-        except ValueError:
-            logger.warning("subscriptions.expires_at 格式無法解析: %s", expires)
-    return row["tier"]
+    return "pro"
 
 
 def _analysis_period_start(tier: str, at: datetime) -> datetime:
-    """AI 週分析的額度週期起點：免費層以「當月」計、付費層以「當週」計。"""
+    """AI 週分析的額度週期起點：免費層以「當月」計、付費層以「當週」計。
+
+    ⚠️ 2026-09-01 起額度限制已取消，目前沒有呼叫端 —— 刻意保留，
+       接金流要恢復分層時 _annotate_review_lock() 會再用到它。
+    """
     if tier == "free":
         return at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return (at - timedelta(days=at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -213,6 +209,12 @@ async def _annotate_review_lock(user_id: str, row: dict) -> dict:
     判定方式是「這份報告是不是它所屬週期裡最早生成的那一份」——
     比它更早生成的同週期報告若已有 1 份，這份就是超額的，標記為 locked。
 
+    ⚠️ 額度是「每種報告各自計算」，不是兩種合起來算一份。
+       gratitude_weekly（感恩週回顧，checkAndGenerateReviews 自動生成）與
+       weekly_digest（一週回顧頁的情緒分析）是兩種不同的報告，同一週經常兩份
+       都會存在。若合併計數，後生成的那份必定被判定超額——連付費會員也會被鎖，
+       這正是 2026-09-01 使用者回報「已是創始成員卻看不到週報告」的第二個原因。
+
     ⚠️ 為什麼是「照常生成、只鎖顯示」而不是直接拒絕生成？
        規格 §3／§9 要求軟性付費牆必須呈現「真實生成內容的前 30%」，
        不可用功能清單或空白頁替代——所以報告一定得先真的存在。
@@ -222,49 +224,16 @@ async def _annotate_review_lock(user_id: str, row: dict) -> dict:
     額度用「數既有報告」推導而非另存計數，與 subscriptions.sql 的
     weekly_analysis_used() 同一套邏輯：不需要重置排程，期間邊界一到自然歸零。
     """
+    # ⚠️ 2026-09-01 起：AI 分析**不再有份數上限**，任何報告都不上鎖
+    #    （產品決策，見 supabase/subscriptions.sql 開頭）。
+    #    刻意保留這支函式與它的 locked 欄位：前端 app.weekly-review.tsx 讀
+    #    row.locked 決定要不要顯示軟性付費牆，要收回限制時只要把下面被註解掉的
+    #    計數邏輯放回來，前端一行都不用動。
+    #
+    #    原始邏輯（保留備查）：以 _analysis_period_start(tier, at) 取得週期起點，
+    #    數同一 review_type 在該週期內、比這份更早生成的報告；≥1 就是超額 → locked。
     tier = await _subscription_tier(user_id)
-    created_at = row.get("created_at")
-    try:
-        at = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
-    except (ValueError, TypeError):
-        at = datetime.now(timezone.utc)
-
-    period_start = _analysis_period_start(tier, at)
-    resp = await db().get(
-        f"{SUPABASE_REST}/pro_reviews",
-        headers=SUPABASE_HEADERS,
-        params=[
-            ("user_id", f"eq.{user_id}"),
-            ("review_type", "in.(gratitude_weekly,weekly_digest)"),
-            ("created_at", f"gte.{period_start.isoformat()}"),
-            ("created_at", f"lt.{at.isoformat()}"),
-            ("select", "id"),
-        ],
-    )
-    earlier = len(resp.json()) if resp.status_code == 200 else 0
-    return {**row, "locked": earlier >= 1, "tier": tier}
-
-
-async def _check_baseline_assessment_quota(user_id: str) -> None:
-    """基線檢測額度：免費層限 1 次、付費層無限重測（規格 §2 權益對照表）。
-
-    ⚠️ 第一次檢測永遠放行。規格 §3 明令基線報告是付費牆之前唯一的價值證明，
-       不可鎖——所以這裡只擋「已經做過至少一次、又不是付費會員」的重測。
-    """
-    resp = await db().get(
-        f"{SUPABASE_REST}/perma_scores",
-        headers=SUPABASE_HEADERS,
-        params=[("user_id", f"eq.{user_id}"), ("select", "id"), ("limit", "1")],
-    )
-    already_assessed = bool(resp.json()) if resp.status_code == 200 else False
-    if not already_assessed:
-        return  # 第一次，一律放行
-
-    if await _subscription_tier(user_id) == "free":
-        raise HTTPException(
-            status_code=402,
-            detail={"error": "quota_exceeded", "feature": "baseline_assessment", "tier": "free"},
-        )
+    return {**row, "locked": False, "tier": tier}
 
 
 # ── Models ─────────────────────────────────────────────────────────────────
@@ -772,10 +741,6 @@ async def generate_report(
 ):
     token = authorization.removeprefix("Bearer ").strip()
     user_id = await get_user_id(token)
-
-    # 基線檢測額度：免費層限 1 次、付費層無限重測（規格 §2 權益對照表）。
-    # ⚠️ 第一次檢測永遠放行——那是付費牆之前唯一的價值證明，規格 §3 明令不可鎖。
-    await _check_baseline_assessment_quota(user_id)
 
     for field, text in answers.model_dump().items():
         if len(text.strip()) < 10:

@@ -32,6 +32,8 @@ export const paywall: Record<string, Translation> = {
   '／月': { 'zh-CN': '／月', en: '/month' },
   '創始會員・剩 {n} 位': { 'zh-CN': '创始会员・剩 {n} 位', en: 'Founding member · {n} left' },
   '申請加入創始成員': { 'zh-CN': '申请加入创始成员', en: 'Apply to be a founding member' },
+  '你已經是創始成員': { 'zh-CN': '你已经是创始成员', en: 'You’re already a founding member' },
+  '處理中…': { 'zh-CN': '处理中…', en: 'Submitting…' },
   '開放訂閱後為 {price}，屆時會先通知你，不會自動扣款。': {
     'zh-CN': '开放订阅后为 {price}，届时会先通知你，不会自动扣款。',
     en: 'It will be {price} once subscriptions open. We’ll let you know first — nothing is charged automatically.',
@@ -57,8 +59,15 @@ export const paywall: Record<string, Translation> = {
 
   // /admin 創始成員申請
   '創始成員申請': { 'zh-CN': '创始成员申请', en: 'Founding member applications' },
-  '待處理 {n} 筆': { 'zh-CN': '待处理 {n} 笔', en: '{n} pending' },
-  '目前沒有新的申請': { 'zh-CN': '目前没有新的申请', en: 'No new applications' },
+  '點過付費按鈕的人': { 'zh-CN': '点过付费按钮的人', en: 'People who tapped the paywall CTA' },
+  '共 {n} 人': { 'zh-CN': '共 {n} 人', en: '{n} total' },
+  '這些人點過付費牆的 CTA，已自動享有完整權益（全部分析、全部報告、社群無限瀏覽）。下方按鈕只是額外加上「創始成員」徽章。': {
+    'zh-CN': '这些人点过付费墙的 CTA，已自动享有完整权益（全部分析、全部报告、社区无限浏览）。下方按钮只是额外加上「创始成员」徽章。',
+    en: 'These people tapped the paywall CTA and already have full access (all analyses, all reports, unlimited community). The button below only adds the "Founding Member" badge.',
+  },
+  '目前還沒有人點過': { 'zh-CN': '目前还没有人点过', en: 'Nobody has tapped it yet' },
+  '已有徽章': { 'zh-CN': '已有徽章', en: 'Has badge' },
+  '給予創始成員徽章': { 'zh-CN': '给予创始成员徽章', en: 'Grant founding member badge' },
   '已核准': { 'zh-CN': '已核准', en: 'Approved' },
   '待核准': { 'zh-CN': '待核准', en: 'Pending' },
   '核准為創始成員': { 'zh-CN': '批准为创始成员', en: 'Approve as founding member' },
@@ -71,20 +80,68 @@ export const paywall: Record<string, Translation> = {
     en: '14-day free trial, then {price}. Cancel anytime.',
   },
 
-  // ── 利益點（規格 §5.1：最多 3 條、每條 ≤14 字）────────────────────────
-  // 只列目前真的做得到的權益，不寫尚未實作的功能。
-  '每週一份 AI 週分析': { 'zh-CN': '每周一份 AI 周分析', en: 'A weekly AI analysis' },
-  '社群無限瀏覽': { 'zh-CN': '社区无限浏览', en: 'Unlimited community browsing' },
-  '基線檢測無限重測': { 'zh-CN': '基线检测无限重测', en: 'Retake your baseline anytime' },
+  // ── 利益點（2026-08-30 改版：付費牆一開始就完整列出權益，不再只列 3 條精簡版）──
+  '立即申請加入 PSY by PSY 心理健身房 創始成員': {
+    'zh-CN': '立即申请加入 PSY by PSY 心理健身房 创始成员',
+    en: 'Apply now to join PSY by PSY as a founding member',
+  },
+  '立即成為創始成員': { 'zh-CN': '立即成为创始成员', en: 'Become a founding member now' },
 
   // ── CTA 點擊後的說明（這階段不接金流）─────────────────────────────────
-  '創始會員目前僅開放給社群成員': {
-    'zh-CN': '创始会员目前仅开放给社区成员',
-    en: 'Founding membership is currently open to community members only',
+  '全部功能已為你解鎖！': {
+    'zh-CN': '全部功能已为你解锁！',
+    en: 'Everything is unlocked for you!',
   },
-  '我們記下你的興趣了。開放訂閱時會再通知你。': {
-    'zh-CN': '我们记下你的兴趣了。开放订阅时会再通知你。',
-    en: "We've noted your interest. We'll let you know when subscriptions open.",
+  '以下權益現在就可以使用：': {
+    'zh-CN': '以下权益现在就可以使用：',
+    en: 'These are available to you right now:',
+  },
+  '未來開放訂閱時我們會先通知你，不會自動扣款。': {
+    'zh-CN': '未来开放订阅时我们会先通知你，不会自动扣款。',
+    en: "We'll let you know before subscriptions open — nothing is charged automatically.",
+  },
+  '非常開心有你的加入，成為 PSY by PSY 心理健身房的創始成員！': {
+    'zh-CN': '非常开心有你的加入，成为 PSY by PSY 心理健身房的创始成员！',
+    en: "We're so glad to have you join PSY by PSY as a founding member!",
+  },
+  '我們開放訂閱會員的時候，你就可以擁有以下權益：': {
+    'zh-CN': '我们开放订阅会员的时候，你就可以拥有以下权益：',
+    en: 'Once subscriptions open, you’ll get the following benefits:',
+  },
+  '每週一份 AI 個人化心理健康專屬週報': {
+    'zh-CN': '每周一份 AI 个人化心理健康专属周报',
+    en: 'A weekly AI-personalized mental health report',
+  },
+  '社群功能無限瀏覽，不受免費層次數限制': {
+    'zh-CN': '社区功能无限浏览，不受免费层次数限制',
+    en: 'Unlimited community browsing, with no free-tier caps',
+  },
+  '健身房新菜單，搶先體驗': {
+    'zh-CN': '健身房新菜单，抢先体验',
+    en: 'Early access to new content as it launches',
+  },
+  '基線檢測（PERMA 測驗）無限次重測': {
+    'zh-CN': '基线检测（PERMA 测验）无限次重测',
+    en: 'Unlimited retakes of the baseline (PERMA) assessment',
+  },
+  '貼文掛上「創始成員」專屬徽章': {
+    'zh-CN': '贴文挂上「创始成员」专属徽章',
+    en: 'An exclusive "Founding Member" badge on your posts',
+  },
+  '通常 48 小時內會審核完成，通過後會通知你。': {
+    'zh-CN': '通常 48 小时内会审核完成，通过后会通知你。',
+    en: "Reviews usually take up to 48 hours. We'll let you know once it's approved.",
+  },
+  // ── 完成模組打卡後的創始成員邀請（一輩子只跳一次）───────────────────────
+  '今天也完成練習了，太棒了！': { 'zh-CN': '今天也完成练习了，太棒了！', en: 'You completed a practice today — nice!' },
+  '申請加入創始成員，之後你可以：': {
+    'zh-CN': '申请加入创始成员，之后你可以：',
+    en: 'Apply to be a founding member and you’ll get:',
+  },
+  '你已經是創始成員了！': { 'zh-CN': '你已经是创始成员了！', en: 'You’re already a founding member!' },
+  '你已經是 PSY by PSY 心理健身房的創始成員，我們開放訂閱後，以下權益會生效：': {
+    'zh-CN': '你已经是 PSY by PSY 心理健身房的创始成员，我们开放订阅后，以下权益会生效：',
+    en: 'You’re already a founding member of PSY by PSY — once subscriptions open, you’ll get:',
   },
   '知道了': { 'zh-CN': '知道了', en: 'Got it' },
   '訂閱功能尚未開放，敬請期待。': {
