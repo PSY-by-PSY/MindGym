@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
   // 即使用 server.url 載入遠端，Capacitor 仍要求 webDir 存在（離線 fallback 用）。
   webDir: 'dist',
   server: {
-    url: 'https://mind-gym-kappa.vercel.app',
+    url: 'https://app.psybypsy.com',
     cleartext: false,
   },
   ios: {
