@@ -6,6 +6,11 @@ import type { Translation } from '../dictionary'
 //    規格 §7 的範例寫成「每月只要 NT$66」，§8 又禁止在 client 寫死價格字串——
 //    這裡用參數化模板同時滿足兩者：渲染出來的字與 §7 一字不差，但改價不必動程式碼。
 //
+// ⚠️ 2026-09-07：接上 StoreKit／IAP 之前，帶價格的字串一律**不得被畫面使用**
+//    （見 src/components/paywall/PaywallScreen.tsx 檔頭）。下面標了「（IAP 前停用）」
+//    的條目先留著等接金流時復用，但不可以再被 render 出來；
+//    同理，「升級」「查看方案」「恢復購買」這類暗示付費的措辭也一併停用。
+//
 // ⚠️ 規格 §5.3：本頁禁止倒數計時、閃爍、紅色警示、恐懼訴求、療效承諾與 before/after 對比，
 //    文案措辭請維持中性、口語、對使用者說「你」。
 export const paywall: Record<string, Translation> = {
@@ -18,13 +23,16 @@ export const paywall: Record<string, Translation> = {
     'zh-CN': '你的{high}最亮，{low}正在长',
     en: 'Your {high} shines brightest; your {low} is still growing',
   },
+  // （IAP 前停用）
   '每月只要 {price}': { 'zh-CN': '每月只要 {price}', en: 'Just {price} a month' },
   '{price}／年・前 {n} 名創始會員永久鎖價': {
     'zh-CN': '{price}／年・前 {n} 名创始会员永久锁价',
     en: '{price}/year · price locked forever for the first {n} founding members',
   },
+  // （IAP 前停用）
   '{price}／月': { 'zh-CN': '{price}／月', en: '{price}/month' },
   '{price}／年・省 {n}%': { 'zh-CN': '{price}／年・省 {n}%', en: '{price}/year · save {n}%' },
+  // （IAP 前停用）
   '{price}／年': { 'zh-CN': '{price}／年', en: '{price}/year' },
   '每年': { 'zh-CN': '每年', en: 'per year' },
   '每月': { 'zh-CN': '每月', en: 'per month' },
@@ -37,6 +45,56 @@ export const paywall: Record<string, Translation> = {
   '開放訂閱後為 {price}，屆時會先通知你，不會自動扣款。': {
     'zh-CN': '开放订阅后为 {price}，届时会先通知你，不会自动扣款。',
     en: 'It will be {price} once subscriptions open. We’ll let you know first — nothing is charged automatically.',
+  },
+
+  '創始成員現在免費開放，加入後你會擁有：': {
+    'zh-CN': '创始成员现在免费开放，加入后你会拥有：',
+    en: 'Founding membership is free right now. Join and you’ll get:',
+  },
+  '創始名額・剩 {n} 位': {
+    'zh-CN': '创始名额・剩 {n} 位',
+    en: 'Founding seats · {n} left',
+  },
+  '限量 {n} 位，完全免費，不需付款': {
+    'zh-CN': '限量 {n} 位，完全免费，不需付款',
+    en: 'Limited to {n} seats · completely free, no payment required',
+  },
+  '免費加入創始成員': {
+    'zh-CN': '免费加入创始成员',
+    en: 'Join as a founding member — free',
+  },
+  '目前完全免費，不會向你收取任何費用，也不會自動扣款。未來若開放訂閱，我們會先通知你。': {
+    'zh-CN': '目前完全免费，不会向你收取任何费用，也不会自动扣款。未来若开放订阅，我们会先通知你。',
+    en: 'This is completely free — you will not be charged anything, and nothing is charged automatically. If subscriptions open in the future, we’ll let you know first.',
+  },
+  '歡迎加入創始成員！': {
+    'zh-CN': '欢迎加入创始成员！',
+    en: 'Welcome, founding member!',
+  },
+  '這是免費的，沒有向你收取任何費用。以下內容現在就可以使用：': {
+    'zh-CN': '这是免费的，没有向你收取任何费用。以下内容现在就可以使用：',
+    en: 'This is free — you have not been charged anything. Here’s what you can use right now:',
+  },
+  '未來若開放訂閱，我們會先通知你，不會自動扣款。': {
+    'zh-CN': '未来若开放订阅，我们会先通知你，不会自动扣款。',
+    en: 'If subscriptions open in the future, we’ll let you know first — nothing is charged automatically.',
+  },
+  '你已經是 PSY by PSY 心理健身房的創始成員，以下內容你現在就可以使用：': {
+    'zh-CN': '你已经是 PSY by PSY 心理健身房的创始成员，以下内容你现在就可以使用：',
+    en: 'You’re already a founding member of PSY by PSY — here’s what you can use right now:',
+  },
+  '免費加入創始成員，你可以：': {
+    'zh-CN': '免费加入创始成员，你可以：',
+    en: 'Join as a founding member for free and you’ll get:',
+  },
+  '這份報告已經生成好了。免費加入創始成員即可看完整內容。': {
+    'zh-CN': '这份报告已经生成好了。免费加入创始成员即可看完整内容。',
+    en: 'This report is ready. Join as a founding member (free) to read all of it.',
+  },
+
+  '免費加入，名額有限': {
+    'zh-CN': '免费加入，名额有限',
+    en: 'Free to join · limited seats',
   },
 
   // 社群封頂區塊（免費會員滑到預覽上限）
@@ -74,6 +132,7 @@ export const paywall: Record<string, Translation> = {
   '年繳': { 'zh-CN': '年缴', en: 'Yearly' },
   '月繳': { 'zh-CN': '月缴', en: 'Monthly' },
   '先自己逛逛': { 'zh-CN': '先自己逛逛', en: 'Just look around first' },
+  // （IAP 前停用：沒有 StoreKit 就沒有東西可以 restore）
   '恢復購買': { 'zh-CN': '恢复购买', en: 'Restore purchase' },
   '14 天免費體驗，到期後 {price}，隨時可取消。': {
     'zh-CN': '14 天免费体验，到期后 {price}，随时可取消。',

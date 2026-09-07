@@ -16,7 +16,6 @@ import { Route as TherapistImport } from './routes/therapist'
 import { Route as TermsImport } from './routes/terms'
 import { Route as SupportImport } from './routes/support'
 import { Route as StaffImport } from './routes/staff'
-import { Route as ProfessionalImport } from './routes/professional'
 import { Route as PrivacyImport } from './routes/privacy'
 import { Route as PaywallImport } from './routes/paywall'
 import { Route as OnboardingImport } from './routes/onboarding'
@@ -68,12 +67,6 @@ const SupportRoute = SupportImport.update({
 const StaffRoute = StaffImport.update({
   id: '/staff',
   path: '/staff',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const ProfessionalRoute = ProfessionalImport.update({
-  id: '/professional',
-  path: '/professional',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -254,13 +247,6 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyImport
-      parentRoute: typeof rootRoute
-    }
-    '/professional': {
-      id: '/professional'
-      path: '/professional'
-      fullPath: '/professional'
-      preLoaderRoute: typeof ProfessionalImport
       parentRoute: typeof rootRoute
     }
     '/staff': {
@@ -445,7 +431,6 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
   '/privacy': typeof PrivacyRoute
-  '/professional': typeof ProfessionalRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -475,7 +460,6 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
   '/privacy': typeof PrivacyRoute
-  '/professional': typeof ProfessionalRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -506,7 +490,6 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
   '/privacy': typeof PrivacyRoute
-  '/professional': typeof ProfessionalRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -538,7 +521,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/paywall'
     | '/privacy'
-    | '/professional'
     | '/staff'
     | '/support'
     | '/terms'
@@ -567,7 +549,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/paywall'
     | '/privacy'
-    | '/professional'
     | '/staff'
     | '/support'
     | '/terms'
@@ -596,7 +577,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/paywall'
     | '/privacy'
-    | '/professional'
     | '/staff'
     | '/support'
     | '/terms'
@@ -627,7 +607,6 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   PaywallRoute: typeof PaywallRoute
   PrivacyRoute: typeof PrivacyRoute
-  ProfessionalRoute: typeof ProfessionalRoute
   StaffRoute: typeof StaffRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
@@ -643,7 +622,6 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   PaywallRoute: PaywallRoute,
   PrivacyRoute: PrivacyRoute,
-  ProfessionalRoute: ProfessionalRoute,
   StaffRoute: StaffRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
@@ -668,7 +646,6 @@ export const routeTree = rootRoute
         "/onboarding",
         "/paywall",
         "/privacy",
-        "/professional",
         "/staff",
         "/support",
         "/terms",
@@ -712,9 +689,6 @@ export const routeTree = rootRoute
     },
     "/privacy": {
       "filePath": "privacy.tsx"
-    },
-    "/professional": {
-      "filePath": "professional.tsx"
     },
     "/staff": {
       "filePath": "staff.tsx"

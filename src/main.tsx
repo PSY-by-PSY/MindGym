@@ -79,9 +79,16 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
-      // 綁定／解除 PostHog 身分，讓每筆行為都對應到真實使用者
+      // 綁定／解除 PostHog 身分。
+      //
+      // ⚠️ 只送 Supabase 的 user id（一組無意義的 UUID），絕對不要再把 email、
+      //    姓名或任何可直接聯絡到本人的欄位當成 person property 送出去。
+      //    隱私政策（src/components/legal/PrivacyBody.tsx 第二節「使用數據」）與
+      //    App Privacy 表單（docs/reports/ios_app_store_listing.md §8）都是照這個
+      //    實作寫的：「使用數據會與你的帳號 ID 連結，但不含 email」。
+      //    三邊只能有一個真相，改這裡就要一起改那兩份。
       if (s?.user) {
-        identifyUser(s.user.id, { email: s.user.email })
+        identifyUser(s.user.id)
       } else {
         resetUser()
       }

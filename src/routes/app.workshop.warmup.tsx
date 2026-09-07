@@ -21,11 +21,18 @@ function WarmupModule() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// 暖身卡牌：正式說書人（Dixit 風格）卡牌清單
+// 暖身卡牌：投射式說故事用的抽象卡牌
 //
-// 卡牌圖片放在 src/assets/dixit/ 資料夾，用 import.meta.glob 自動載入整個
-// 資料夾，並依檔名排序後依序編號 1、2、3……方便分享時直接報號碼對應。
-// 之後要新增／替換卡牌，只要把圖片放進那個資料夾即可，不需要改這裡的程式碼。
+// 卡牌圖放在 src/assets/warmup-cards/，用 import.meta.glob 自動載入整個資料夾，
+// 依檔名排序後編號 1、2、3……方便分享時直接報號碼對應。
+//
+// ⚠️ 2026-09-07 換素材：這裡原本載入的是市售說書人桌遊（Dixit）實體卡牌的
+//    翻拍照片。我們沒有可用於 App 發佈的授權，那是明確的著作權風險，已全部移除。
+//    現在的圖是自己用程式畫的抽象構圖，產生器在 scripts/generate_warmup_cards.mjs，
+//    重跑 `node scripts/generate_warmup_cards.mjs` 就會產出同樣的 20 張。
+//
+//    要新增／替換卡牌時，請確認新素材是**自製或持有明確可商用授權**的圖，
+//    再放進那個資料夾（程式會自動吃到，不需要改這裡）。不要再放翻拍的市售卡牌。
 // ─────────────────────────────────────────────────────────────────────────
 interface WarmupCard {
   id: string
@@ -33,7 +40,7 @@ interface WarmupCard {
   image: string
 }
 
-const cardImageModules = import.meta.glob('../assets/dixit/*.{jpg,jpeg,png}', {
+const cardImageModules = import.meta.glob('../assets/warmup-cards/*.{svg,jpg,jpeg,png}', {
   eager: true,
   import: 'default',
 }) as Record<string, string>
