@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
-import type { AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import {
@@ -50,27 +49,6 @@ function isUserCancelled(err: unknown): boolean {
   if (code === 1001 || code === '1001') return true
   const message = (err as { message?: string } | null)?.message ?? ''
   return /cancel/i.test(message)
-}
-
-// 驗證信連結要導回的網址。App 內用線上版網域，讓在手機信箱點連結也開得起來。
-function confirmRedirectTo() {
-  return `${window.location.origin}/app/home`
-}
-
-// 註冊失敗的原因差很多（信箱已註冊 vs 驗證信根本寄不出去），
-// 全部收斂成「請稍後再試」的話使用者與我們都查不出是哪一種，這裡把常見的分開講。
-function signUpErrorMessage(error: AuthError, t: (text: string) => string) {
-  const message = error.message.toLowerCase()
-  if (error.code === 'user_already_exists' || message.includes('already registered')) {
-    return t('這個 email 已經註冊過了，請直接登入。')
-  }
-  if (error.status === 429 || message.includes('rate limit') || message.includes('for security purposes')) {
-    return t('驗證信寄送已達次數上限，請稍後再試，或改用 Google 登入。')
-  }
-  if (message.includes('sending confirmation email') || message.includes('sending email')) {
-    return t('驗證信寄送失敗（信件服務異常），請改用 Google 登入或聯絡我們。')
-  }
-  return t('註冊失敗，請確認 email 格式或稍後再試。')
 }
 
 function LoginPage() {
