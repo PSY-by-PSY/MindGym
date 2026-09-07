@@ -18,6 +18,19 @@
 - **＋ Capability → Push Notifications**（會自動產生 `App.entitlements` 的 `aps-environment`）
 - （Capacitor 的 push 插件會自動接 AppDelegate 的 token 回呼，不用改原生碼。）
 
+> ⚠️ **entitlements 已拆成兩份**（2026-09-07）。Xcode 加 capability 時只會產生一份
+> `aps-environment = development` 的 `App.entitlements`，拿它 archive 上架，
+> 使用者的裝置拿到的是 sandbox token，正式 APNs 一律回 `BadDeviceToken`——
+> **不會有任何錯誤畫面，推播就是不會來**。所以：
+>
+> | 設定 | CODE_SIGN_ENTITLEMENTS | aps-environment |
+> |---|---|---|
+> | Debug（Xcode 跑實機） | `App/App.entitlements` | `development` |
+> | Release（Archive／TestFlight／App Store） | `App/AppRelease.entitlements` | `production` |
+>
+> 兩份檔案除了這一行完全相同；**之後在 Xcode 加任何 capability，記得兩份都要加**
+> （Xcode 只會改當前 scheme 設定所指的那一份）。
+
 ## 3. 設定 Edge Function secrets
 ```bash
 supabase secrets set \
@@ -56,6 +69,26 @@ Xcode 跑到**實機**（⚠️ 模擬器收不到真正的 APNs）：
 2. 確認 Supabase `device_tokens` 出現一筆你的 token。
 3. 用**另一個帳號**對你的貼文按讚／留言。
 4. 把 App 滑掉（關閉）→ 應該幾秒內收到推播。
+
+---
+
+## 7. 送審前必做：正式環境（production）推播驗證
+
+模擬器與 Xcode Debug build **驗證不到這件事**——模擬器根本拿不到真的 APNs token，
+Debug build 拿到的是 sandbox token。上架前唯一算數的驗證是下面這一輪：
+
+1. Xcode → **Product → Archive**（Release 設定，會吃 `AppRelease.entitlements`）。
+2. Organizer → **Distribute App → TestFlight (Internal Only) 或 App Store Connect**，
+   用 **Distribution provisioning profile** 簽。
+3. 從 **TestFlight** 安裝到**實機**（不要用 Xcode 直接 run，那又變回 Debug）。
+4. App 內「選單 🔔 通知 → 開啟通知」授權，確認 Supabase `device_tokens` 多出一筆
+   **新的** token（production token 與先前 Debug 那筆不同，舊的留著會 `BadDeviceToken`，
+   Edge Function 會自動清掉）。
+5. 確認 secret 是 `APNS_HOST=api.push.apple.com`（見步驟 3）。
+6. 用**另一個帳號**對你的貼文按讚／留言 → 把 App 滑掉 → 幾秒內應收到推播。
+7. `supabase functions logs push-notify` 應看到該次為 200，沒有 `BadDeviceToken`。
+
+第 6 步收到推播，才算「正式環境推播已驗證」。這一輪沒跑過就不要送審。
 
 ---
 

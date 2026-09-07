@@ -10,7 +10,12 @@
 //   APNS_TEAM_ID       Apple Developer Team ID
 //   APNS_PRIVATE_KEY   .p8 內容（含 -----BEGIN PRIVATE KEY----- 整段）
 //   APNS_BUNDLE_ID     com.psybypsy.app（預設值，可省）
-//   APNS_HOST          api.push.apple.com（正式）/ api.sandbox.push.apple.com（開發/TestFlight 用 sandbox）
+//   APNS_HOST          api.push.apple.com（預設，TestFlight 與 App Store 都用這個）
+//                      api.sandbox.push.apple.com（只有「Xcode 直接跑到實機」的 Debug build 要用）
+//                      —— 判準是 build 的 aps-environment，不是「有沒有上架」：
+//                      Debug build 走 App.entitlements（development）→ sandbox；
+//                      Release／Archive 走 AppRelease.entitlements（production）→ 正式。
+//                      環境不符會回 BadDeviceToken，而且是靜默的，只有 logs 看得到。
 //   WEBHOOK_SECRET     與 SQL 觸發器 header 的 x-webhook-secret 相同
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  讀 device_tokens、gratitude_entries（繞過 RLS）
 //

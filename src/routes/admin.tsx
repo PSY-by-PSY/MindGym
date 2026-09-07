@@ -735,6 +735,7 @@ const REPORT_REASON_LABEL: Record<string, string> = {
   spam: '垃圾訊息或廣告',
   inappropriate: '不當或冒犯內容',
   self_harm: '自我傷害疑慮',
+  self_harm_promotion: '鼓勵自傷或自殺',
   hate: '仇恨或歧視',
   sexual: '性內容',
   violence: '暴力威脅',

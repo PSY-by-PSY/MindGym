@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Release（Archive / TestFlight / App Store）專用。
+	     App.entitlements 是 Debug 用的，aps-environment = development，
+	     那把 APNs token 只有 sandbox 閘道收得到；用它 archive 出去，
+	     正式環境的推播會全部靜默失敗（不會報錯，這是最難察覺的一種）。
+	     兩個檔案的差別只有 aps-environment 一行，其他 capability 要同步。 -->
+	<key>aps-environment</key>
+	<string>production</string>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

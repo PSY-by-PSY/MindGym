@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Debug（Xcode 直接跑實機）專用。Release／Archive 走 AppRelease.entitlements，
+	     那份是 aps-environment = production。加任何 capability 兩份都要加。
+	     設定在 App.xcodeproj 的 CODE_SIGN_ENTITLEMENTS（Debug / Release 各指一份）。 -->
 	<key>aps-environment</key>
 	<string>development</string>
 	<key>com.apple.developer.applesignin</key>

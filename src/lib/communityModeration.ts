@@ -21,6 +21,11 @@ export const REPORT_REASONS: { code: string; label: string }[] = [
   { code: 'spam',          label: '垃圾訊息或廣告' },
   { code: 'inappropriate', label: '不當或冒犯內容' },
   { code: 'self_harm',     label: '自我傷害疑慮' },
+  // 與上面那條刻意分開：'self_harm' 是「我擔心這個人」的關懷型檢舉，
+  // 'self_harm_promotion' 是「這則內容在慫恿別人去死」。後者在 DB 端
+  // （community_safety.sql 的 autohide_reported_content）一個人檢舉就立刻隱藏，
+  // 前者不會——把一則求助貼文藏起來正好是反效果。
+  { code: 'self_harm_promotion', label: '鼓勵自傷或自殺' },
   { code: 'other',         label: '其他' },
 ]
 
