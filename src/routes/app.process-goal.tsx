@@ -6,6 +6,7 @@ import { computeUnifiedStreak } from '../lib/streak'
 import { isoLocalDate } from '../lib/date'
 import { saveOrShareImage } from '../lib/shareImage'
 import { track } from '../lib/analytics'
+import { assertPublishable, toContentBlockedError, ContentBlockedError } from '../lib/contentFilter'
 import { useStageBack } from '../lib/useStageBack'
 import AiProgressBar from '../components/AiProgressBar'
 import VoiceInput from '../components/pretest/VoiceInput'
@@ -212,6 +213,16 @@ async function insertCommunityPost(
   date: Date = new Date(),
 ): Promise<string | null> {
   const fields = privacyToFields(privacy)
+  // 發佈前過濾（App Store 1.2）：只擋要公開的內容，私人紀錄不審查。
+  // DB 端有同規則的 trigger（community_safety.sql），前端這層只是提早給回饋。
+  if (fields.is_shared) {
+    assertPublishable(
+      content.item_1,
+      content.item_2,
+      content.item_3,
+      ...(payload ? Object.values(payload).map((v) => (typeof v === 'string' ? v : null)) : []),
+    )
+  }
   const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', userId).maybeSingle()
   const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
   // item_1~3 在 DB 有 NOT NULL 約束（感恩日記固定填三項），過程目標覺察
@@ -244,6 +255,8 @@ async function insertCommunityPost(
   }
 
   if (error) {
+    const blocked = toContentBlockedError(error)
+    if (blocked) throw blocked
     console.error('[process-goal community]', error)
     return null
   }
@@ -252,14 +265,44 @@ async function insertCommunityPost(
   return id
 }
 
-async function updateCommunityPrivacy(entryId: string, userId: string, privacy: Privacy) {
+// 「先存私人、再切公開」是發佈前過濾最容易被繞過的路徑（私人內容當初沒檢查），
+// 轉公開時要重新檢查一次。回傳 ContentBlockedError 代表擋下、DB 沒被改動。
+async function updateCommunityPrivacy(
+  entryId: string,
+  userId: string,
+  privacy: Privacy,
+): Promise<ContentBlockedError | null> {
   const fields = privacyToFields(privacy)
+  if (fields.is_shared) {
+    const { data: entry } = await supabase
+      .from('gratitude_entries')
+      .select('item_1, item_2, item_3, payload')
+      .eq('id', entryId)
+      .maybeSingle()
+    if (entry) {
+      const payloadTexts = entry.payload && typeof entry.payload === 'object'
+        ? Object.values(entry.payload as Record<string, unknown>).map((v) => (typeof v === 'string' ? v : null))
+        : []
+      try {
+        assertPublishable(entry.item_1, entry.item_2, entry.item_3, ...payloadTexts)
+      } catch (e) {
+        if (e instanceof ContentBlockedError) return e
+        throw e
+      }
+    }
+  }
   const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
   const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
-  await supabase
+  const { error } = await supabase
     .from('gratitude_entries')
     .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: anonName })
     .eq('id', entryId)
+  if (error) {
+    const blocked = toContentBlockedError(error)
+    if (blocked) return blocked
+    console.error('[process-goal privacy]', error)
+  }
+  return null
 }
 
 async function loadMomentRecords(userId: string): Promise<MomentRecord[]> {
@@ -805,6 +848,11 @@ function RecordModule({
       setPhase('R_CELEBRATE')
     } catch (e: unknown) {
       savedRef.current = false
+      // 內容被過濾器擋下要講清楚是哪一類違規，不要混進「儲存失敗」的技術訊息裡。
+      if (e instanceof ContentBlockedError) {
+        alert(t(e.message))
+        return
+      }
       const msg = e instanceof Error ? e.message : String(e)
       alert(t('儲存失敗：{msg}', { msg }))
     } finally {
@@ -1062,6 +1110,11 @@ function BoostModule({
       setPhase('B_CELEBRATE')
     } catch (e: unknown) {
       savedRef.current = false
+      // 內容被過濾器擋下要講清楚是哪一類違規，不要混進「儲存失敗」的技術訊息裡。
+      if (e instanceof ContentBlockedError) {
+        alert(t(e.message))
+        return
+      }
       const msg = e instanceof Error ? e.message : String(e)
       alert(t('儲存失敗：{msg}', { msg }))
     } finally {
@@ -1330,10 +1383,16 @@ function PgCelebrateStage({
     return () => { cancelled = true }
   }, [userId])
 
+  // 轉公開時會重跑一次內容過濾；被擋下就把選項切回原本的隱私設定，
+  // 不能讓畫面顯示「已公開」但資料庫其實沒改。
   const handlePrivacyChange = async (next: Privacy) => {
+    const previous = privacy
     setPrivacy(next)
-    if (savedEntryId) {
-      void updateCommunityPrivacy(savedEntryId, userId, next)
+    if (!savedEntryId) return
+    const blocked = await updateCommunityPrivacy(savedEntryId, userId, next)
+    if (blocked) {
+      setPrivacy(previous)
+      alert(t(blocked.message))
     }
   }
 

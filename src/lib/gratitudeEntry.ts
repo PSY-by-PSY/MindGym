@@ -3,6 +3,7 @@
 // 原本這些都寫在 app.gratitude.tsx 裡，但草稿自動存檔（見 gratitudeDraft）也需要
 // 同一條寫入路徑——不能為了自動存檔複製一份、之後兩邊各自改到走鐘，所以抽出來共用。
 import { supabase } from './supabase'
+import { assertPublishable, toContentBlockedError } from './contentFilter'
 import { computeUnifiedStreak } from './streak'
 import { isoLocalDate } from './date'
 import { privacyToFields, type Privacy } from './privacy'
@@ -116,10 +117,17 @@ export interface SaveGratitudeInput {
 
 /**
  * 寫入一筆感恩日記，回傳 entry id。
- * 錯誤直接往上丟（呼叫端決定要不要跳提示）。
+ * 錯誤直接往上丟（呼叫端決定要不要跳提示）；內容違規時丟的是 ContentBlockedError，
+ * 呼叫端要用 instanceof 判斷，顯示「內容被擋」而不是「儲存失敗」。
  */
 export async function saveGratitudeEntry(input: SaveGratitudeInput): Promise<string | null> {
   const { userId, items, entryDate, privacy, aiFeedback, tags, realNameFallback } = input
+
+  // 發佈前過濾（App Store 1.2）：只擋要公開到打卡牆的內容，私人日記不審查。
+  // DB 端有同規則的 trigger，這裡只是提早給回饋。
+  if (privacyToFields(privacy).is_shared) {
+    assertPublishable(items.item_1, items.item_2, items.item_3)
+  }
 
   const t1 = tags.find((t) => t.item === 1)
   const t2 = tags.find((t) => t.item === 2)
@@ -166,6 +174,8 @@ export async function saveGratitudeEntry(input: SaveGratitudeInput): Promise<str
     .single()
 
   if (error) {
+    const blocked = toContentBlockedError(error)
+    if (blocked) throw blocked
     console.error('[gratitude save]', error)
     throw new Error(error.message || JSON.stringify(error))
   }

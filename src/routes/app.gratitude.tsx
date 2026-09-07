@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { ContentBlockedError, screenContent, blockedMessage, toContentBlockedError } from '../lib/contentFilter'
 import { useLanguage } from '../lib/i18n/context'
 import { computeStreak, streakFromDates } from '../lib/streak'
 import { isoLocalDate, parseLocalDate } from '../lib/date'
@@ -346,6 +347,11 @@ function GratitudePage() {
           session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? null,
       })
     } catch (err) {
+      // 內容被過濾器擋下不是 bug，不用叫使用者截圖回報——直接說哪一類違規。
+      if (err instanceof ContentBlockedError) {
+        alert(t(err.message))
+        throw err
+      }
       const msg = err instanceof Error ? err.message : String(err)
       alert(t('儲存失敗：{msg}\n\n請截圖回報給工程師。', { msg }))
       throw err
@@ -376,8 +382,19 @@ function GratitudePage() {
   // CELEBRATE 階段的「隱私設定」：日記在進入此階段前就已寫入 DB，
   // 所以切換時必須同步更新該筆資料，否則選項只是裝飾（隱私問題）。
   const handlePrivacyChange = async (next: Privacy) => {
+    const previous = privacy
     setPrivacy(next)
     if (!savedEntryId) return
+    // 「先存私人、再切公開」是發佈前過濾最容易被繞過的路徑（私人日記當初沒檢查），
+    // 轉公開時要重跑一次。擋下就把選項切回去，不能讓畫面顯示公開但 DB 沒改。
+    if (privacyToFields(next).is_shared) {
+      const screened = screenContent(items.item_1, items.item_2, items.item_3)
+      if (!screened.ok && screened.blocked) {
+        setPrivacy(previous)
+        alert(t(blockedMessage(screened.blocked)))
+        return
+      }
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
@@ -401,7 +418,16 @@ function GratitudePage() {
         .from('gratitude_entries')
         .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: anonName })
         .eq('id', savedEntryId)
-      if (error) console.error('[privacy update]', error)
+      if (error) {
+        // DB trigger 擋下（規則比前端新）→ 一樣把選項切回去並說明原因。
+        const blocked = toContentBlockedError(error)
+        if (blocked) {
+          setPrivacy(previous)
+          alert(t(blocked.message))
+        } else {
+          console.error('[privacy update]', error)
+        }
+      }
     } catch (e) {
       console.error('[privacy update]', e)
     }

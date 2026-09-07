@@ -57,6 +57,8 @@ export type AnalyticsEvent =
   | 'invite_code_regenerated'    // 專業夥伴重新產生邀請碼
   | 'admin_module_approved'      // 管理員核准模組上架
   | 'admin_module_rejected'      // 管理員退回模組
+  | 'admin_report_resolved'      // 管理員處理一件社群檢舉（下架／隱藏／放回／結案）
+  | 'admin_user_suspended'       // 管理員停權一位使用者
   | 'pro_diary_created'          // 專業夥伴建立日記模組草稿
   | 'pro_diary_entry_submitted'  // 個案完成一次日記模組打卡
   | 'pro_diary_feedback_shown'   // 個案看到日記每日即時 AI 回饋

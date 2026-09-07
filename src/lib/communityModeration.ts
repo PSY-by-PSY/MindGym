@@ -1,9 +1,15 @@
 // 社群安全（檢舉 / 封鎖）的共用資料流。
 //
-// App Store 審查指南 1.2（UGC）要求 App 提供「檢舉冒犯內容」與「封鎖騷擾使用者」。
+// App Store 審查指南 1.2（UGC）對這個 App 有四項要求，分別落在：
+//   ① 過濾冒犯內容 → src/lib/contentFilter.ts + community_safety.sql 的 trigger
+//   ② 檢舉機制     → 本檔 submitReport
+//   ③ 封鎖機制     → 本檔 blockUser / fetchBlockedIds
+//   ④ 24 小時內處理→ 管理後台「檢舉處理」分頁（src/routes/admin.tsx 的 ReportsTab）
+//
 // 對應兩張表：reports（檢舉）、blocks（封鎖），SQL 在 supabase/community_safety.sql，
 // 需手動在 Supabase SQL Editor 執行。沿用最新慣例：前端 anon key + RLS 直接寫入
-// （auth.uid() = reporter_id / blocker_id）。
+// （auth.uid() = reporter_id / blocker_id）；檢舉送出後由 admin 走 SECURITY DEFINER
+// RPC 處理，一般使用者仍然只讀得到自己送出的那幾筆。
 //
 // 降級：若 migration 尚未執行（表不存在），讀取一律回空、寫入回 false 並 console.warn，
 // 確保社群頁照常載入、不會 crash（比照 communityPost.ts 的 fallback 風格）。
@@ -42,6 +48,10 @@ export async function submitReport(args: SubmitReportArgs): Promise<boolean> {
     note: args.note?.trim() ? args.note.trim() : null,
   })
   if (error) {
+    // 23505 = 唯一索引衝突：同一個人對同一則內容已經檢舉過了
+    // （community_safety.sql 用唯一索引擋重複檢舉，避免一個人把別人洗到自動隱藏）。
+    // 對使用者而言「已經檢舉過」就是成功，不該跳失敗。
+    if (error.code === '23505') return true
     console.error('[community report]', error)
     return false
   }
