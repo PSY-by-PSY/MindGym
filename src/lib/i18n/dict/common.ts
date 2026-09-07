@@ -43,4 +43,32 @@ export const common: Record<string, Translation> = {
   '不當或冒犯內容': { 'zh-CN': '不当或冒犯内容', en: 'Inappropriate or offensive content' },
   '自我傷害疑慮': { 'zh-CN': '自我伤害疑虑', en: 'Self-harm concern' },
   '其他': { 'zh-CN': '其他', en: 'Other' },
+
+  // 發佈前內容過濾（App Store 審查指南 1.2）的擋下提示，見 src/lib/contentFilter.ts。
+  // 各練習頁與留言框共用同一組句子，使用者在哪裡被擋，看到的說法都一致。
+  '這段文字包含仇恨或歧視字眼，無法發佈到社群。': {
+    'zh-CN': '这段文字包含仇恨或歧视字眼，无法发布到社群。',
+    en: 'This text contains hateful or discriminatory language and cannot be posted to the community.',
+  },
+  '這段文字包含攻擊或辱罵他人的字眼，無法發佈到社群。': {
+    'zh-CN': '这段文字包含攻击或辱骂他人的字眼，无法发布到社群。',
+    en: 'This text contains abusive language directed at others and cannot be posted to the community.',
+  },
+  '這段文字包含露骨的性內容，無法發佈到社群。': {
+    'zh-CN': '这段文字包含露骨的性内容，无法发布到社群。',
+    en: 'This text contains explicit sexual content and cannot be posted to the community.',
+  },
+  '這段文字包含威脅他人的字眼，無法發佈到社群。': {
+    'zh-CN': '这段文字包含威胁他人的字眼，无法发布到社群。',
+    en: 'This text contains threats against others and cannot be posted to the community.',
+  },
+  '這段文字看起來是廣告或招攬訊息，無法發佈到社群。': {
+    'zh-CN': '这段文字看起来是广告或招揽讯息，无法发布到社群。',
+    en: 'This text looks like advertising or solicitation and cannot be posted to the community.',
+  },
+
+  '你的帳號因違反社群守則暫時無法發佈內容。私人日記仍可正常書寫，有疑問請從「設定 → 聯絡我們」與我們聯繫。': {
+    'zh-CN': '你的账号因违反社群守则暂时无法发布内容。私人日记仍可正常书写，有疑问请从「设置 → 联络我们」与我们联系。',
+    en: 'Your account is temporarily suspended from posting for violating the community guidelines. Private journaling still works — contact us via Settings → Contact Us if you have questions.',
+  },
 }

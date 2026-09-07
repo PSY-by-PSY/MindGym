@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { DEFAULT_PRIVACY } from '../lib/privacy'
 import { insertCommunityPost, markStreak } from '../lib/communityPost'
+import { ContentBlockedError } from '../lib/contentFilter'
 import {
   getMyModules,
   stopEnrollment,
@@ -198,7 +199,11 @@ function ProModulePlayer() {
       track('pro_module_shared', { module_id: moduleId })
       setShared(true)
     } catch (e) {
-      console.error('[pro share]', e)
+      if (e instanceof ContentBlockedError) {
+        alert(t(e.message))
+      } else {
+        console.error('[pro share]', e)
+      }
     } finally {
       setSharing(false)
     }

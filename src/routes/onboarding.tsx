@@ -332,6 +332,15 @@ function OnboardingPage() {
         body: JSON.stringify(finalAnswers),
         signal: controller.signal,
       })
+      // 402 = 後端 _check_baseline_assessment_quota 擋下「免費層重測」。
+      // 這不是故障：規格 §2 免費層基線檢測限 1 次，第二次起要付費。
+      // 若不在這裡攔，會掉進下面的 throw，錯誤頁顯示「網路或 AI 服務暫時有問題」——
+      // 使用者按重試永遠是同一個 402，看起來就像測驗壞掉（2026-08-29 的實際災情）。
+      if (res.status === 402) {
+        setScreen('quiz')  // 保留作答，付費牆疊在上面
+        setShowPaywall(true)
+        return
+      }
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
       setReport(data)

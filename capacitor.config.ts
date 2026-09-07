@@ -5,7 +5,6 @@ import type { CapacitorConfig } from '@capacitor/cli'
 //
 // 核心策略：server.url 指向 Vercel 線上版。
 //   → App 啟動時直接載入線上網站，內容/UI/練習模組改 web → push 即時生效，
-//     99% 的更新「不需重新送審」。只有殼本身（icon、權限、plugin、版本）改動才需重打包。
 //
 // ⚠️ 注意：因為 WebView 載入的是「遠端 Vercel bundle」，任何要在 App 內生效的
 //   前端 JS 變更（含呼叫 Capacitor plugin 的程式碼）都必須先 deploy 到 Vercel。
@@ -18,7 +17,7 @@ const config: CapacitorConfig = {
   // 即使用 server.url 載入遠端，Capacitor 仍要求 webDir 存在（離線 fallback 用）。
   webDir: 'dist',
   server: {
-    url: 'https://mind-gym-kappa.vercel.app',
+    url: 'https://app.psybypsy.com',
     cleartext: false,
   },
   ios: {

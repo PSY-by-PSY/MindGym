@@ -6,6 +6,7 @@ import { useStageBack } from '../lib/useStageBack'
 import { supabase } from '../lib/supabase'
 import { isoLocalDate } from '../lib/date'
 import { computeUnifiedStreak } from '../lib/streak'
+import { assertPublishable, toContentBlockedError, ContentBlockedError } from '../lib/contentFilter'
 import { type Privacy, DEFAULT_PRIVACY, PRIVACY_OPTIONS, privacyToFields } from '../lib/privacy'
 import { PermaGrowthCard } from '../components/PermaGrowthCard'
 import { DateSwipeSheet } from '../components/DateSwipeSheet'
@@ -255,6 +256,12 @@ async function insertSelfCompassionEntry(
     to_self: items.toSelf,
   }
 
+  // 發佈前過濾（App Store 1.2）：只擋要公開的內容，私人紀錄不審查。
+  // DB 端有同規則的 trigger（community_safety.sql），前端這層只是提早給回饋。
+  if (fields.is_shared) {
+    assertPublishable(item1, item2, item3, items.toFriend)
+  }
+
   const attempt = (row: Record<string, unknown>) =>
     supabase.from('gratitude_entries').insert(row).select('id').single()
 
@@ -265,6 +272,8 @@ async function insertSelfCompassionEntry(
     ;({ data, error } = await attempt(baseRow))
   }
   if (error) {
+    const blocked = toContentBlockedError(error)
+    if (blocked) throw blocked
     console.error('[self-compassion save]', error)
     throw error
   }
@@ -369,8 +378,13 @@ function SelfCompassionPage() {
               savedEntryIdRef.current = await insertSelfCompassionEntry(items, privacy, t, selectedDate)
               setStage('CELEBRATE')
             } catch (e) {
-              const msg = e instanceof Error ? e.message : String(e)
-              alert(t('儲存失敗：{msg}\n\n請稍後再試一次。', { msg }))
+              // 內容被過濾器擋下：講清楚是哪一類違規，不要顯示技術錯誤訊息。
+              if (e instanceof ContentBlockedError) {
+                alert(t(e.message))
+              } else {
+                const msg = e instanceof Error ? e.message : String(e)
+                alert(t('儲存失敗：{msg}\n\n請稍後再試一次。', { msg }))
+              }
             } finally {
               setSaving(false)
             }

@@ -118,7 +118,7 @@ function Spinner() {
 
 // ── 主控台（四分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'applications' | 'reviews' | 'published' | 'crises' | 'matching' | 'appVersion' | 'subscriptions' | 'preview'
+type Tab = 'applications' | 'reviews' | 'reports' | 'published' | 'crises' | 'matching' | 'appVersion' | 'subscriptions' | 'preview'
 
 function AdminConsole() {
   const { t } = useLanguage()
@@ -127,6 +127,7 @@ function AdminConsole() {
   const TABS: { key: Tab; label: string; icon?: React.ReactNode }[] = [
     { key: 'applications', label: t('夥伴申請') },
     { key: 'reviews', label: t('模組審核') },
+    { key: 'reports', label: t('檢舉處理') },
     { key: 'published', label: t('已上架模組') },
     { key: 'crises', label: t('危機警示總覽') },
     { key: 'matching', label: t('媒合工作台') },
@@ -154,6 +155,7 @@ function AdminConsole() {
       <section className="min-w-0">
         {tab === 'applications' && <ApplicationsTab />}
         {tab === 'reviews' && <ModuleReviewTab />}
+        {tab === 'reports' && <ReportsTab />}
         {tab === 'published' && <PublishedModulesTab />}
         {tab === 'crises' && <CrisisOverviewTab />}
         {tab === 'matching' && <IntakeWorkbenchPreview />}
@@ -697,6 +699,298 @@ function PublishedModulesTab() {
         />
       )}
     </div>
+  )
+}
+
+// ── 檢舉處理 ────────────────────────────────────────────────────────────────
+// App Store 審查指南 1.2 要求「在 24 小時內處理檢舉、移除違規內容與違規者」。
+// 這個分頁就是那個「處理」的地方——在此之前 reports 只有檢舉者自己讀得到，
+// 送出去等於石沉大海（這是 1.2 被退件的原因之一）。
+//
+// 佇列以「被檢舉的內容」為單位（同一則貼文被十個人檢舉是一件事，不是十件），
+// 由 admin_review_queue() 這支 SECURITY DEFINER RPC 組好——已隱藏的內容被 RLS
+// 擋住，前端自己 join 是撈不到的。所有處置也都走 RPC，函式內再檢查一次 is_admin。
+
+type ReviewQueueRow = {
+  target_type: 'entry' | 'comment'
+  target_id: string
+  author_id: string | null
+  author_name: string | null
+  author_suspended: boolean
+  content_preview: string | null
+  moderation_status: string | null
+  report_count: number
+  auto_flagged: boolean
+  reasons: string[] | null
+  notes: string[] | null
+  first_reported_at: string
+  last_reported_at: string
+  report_ids: string[]
+}
+
+type ReportAction = 'hide' | 'remove' | 'restore' | 'dismiss'
+
+const REPORT_REASON_LABEL: Record<string, string> = {
+  harassment: '騷擾或霸凌',
+  spam: '垃圾訊息或廣告',
+  inappropriate: '不當或冒犯內容',
+  self_harm: '自我傷害疑慮',
+  hate: '仇恨或歧視',
+  sexual: '性內容',
+  violence: '暴力威脅',
+  other: '其他',
+}
+
+const MODERATION_LABEL: Record<string, { label: string; cls: string }> = {
+  ok: { label: '仍公開中', cls: 'bg-rust/15 text-rust' },
+  hidden: { label: '已隱藏', cls: 'bg-muted text-muted-foreground' },
+  removed: { label: '已下架', cls: 'bg-foreground/10 text-foreground/60' },
+}
+
+/** 距離第一次被檢舉過了多久——1.2 的 24 小時就看這個。 */
+function hoursSince(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / 36e5
+}
+
+function ReportsTab() {
+  const { t } = useLanguage()
+  const [status, setStatus] = useState<'pending' | 'all'>('pending')
+  const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async (s: 'pending' | 'all') => {
+    setRows(null)
+    const { data, error } = await supabase.rpc('admin_review_queue', { p_status: s })
+    if (error) {
+      // 最常見的原因是 community_safety.sql 還沒在 Supabase 跑過。
+      setError(error.message)
+      setRows([])
+      return
+    }
+    setError(null)
+    setRows((data as ReviewQueueRow[]) ?? [])
+  }, [])
+
+  useEffect(() => {
+    void load(status)
+  }, [load, status])
+
+  const act = async (row: ReviewQueueRow, action: ReportAction, note: string | null) => {
+    setBusy(row.target_id)
+    const { error } = await supabase.rpc('admin_resolve_reports', {
+      p_target_type: row.target_type,
+      p_target_id: row.target_id,
+      p_action: action,
+      p_note: note,
+    })
+    setBusy(null)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    track('admin_report_resolved', { action, target_type: row.target_type })
+    await load(status)
+  }
+
+  const suspend = async (row: ReviewQueueRow, days: number | null) => {
+    if (!row.author_id) return
+    setBusy(row.target_id)
+    const { error } = await supabase.rpc('admin_suspend_user', {
+      p_user_id: row.author_id,
+      p_days: days,
+      p_reason: t('違反社群守則（檢舉處理）'),
+    })
+    setBusy(null)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    track('admin_user_suspended', { days: days ?? 0 })
+    await load(status)
+  }
+
+  const pending = (rows ?? []).filter((r) => hoursSince(r.first_reported_at) >= 24)
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-black text-foreground">{t('檢舉處理')}</h1>
+        <div className="flex gap-2">
+          {([['pending', '待處理'], ['all', '全部']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setStatus(key)}
+              className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
+                status === key ? 'bg-foreground text-cream' : 'bg-card text-foreground hover:bg-muted'
+              }`}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+        {t('App Store 審查指南 1.2 要求 24 小時內處理檢舉。被兩位以上使用者檢舉的內容已由系統自動隱藏，仍需要在這裡確認下架或放回。')}
+      </p>
+
+      {pending.length > 0 && (
+        <p className="mb-4 rounded-2xl bg-rust/10 px-4 py-3 text-sm font-bold text-rust">
+          {t('有 {n} 件超過 24 小時尚未處理', { n: String(pending.length) })}
+        </p>
+      )}
+
+      {error && (
+        <p className="mb-4 rounded-2xl bg-rust/10 px-4 py-3 text-sm text-rust">
+          {t('讀取失敗：{msg}', { msg: error })}
+        </p>
+      )}
+
+      {rows === null ? (
+        <Spinner />
+      ) : rows.length === 0 ? (
+        <EmptyHint>{t('目前沒有待處理的檢舉。')}</EmptyHint>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {rows.map((row) => (
+            <ReportCard
+              key={`${row.target_type}-${row.target_id}`}
+              row={row}
+              busy={busy === row.target_id}
+              onAct={act}
+              onSuspend={suspend}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReportCard({
+  row,
+  busy,
+  onAct,
+  onSuspend,
+}: {
+  row: ReviewQueueRow
+  busy: boolean
+  onAct: (row: ReviewQueueRow, action: ReportAction, note: string | null) => Promise<void>
+  onSuspend: (row: ReviewQueueRow, days: number | null) => Promise<void>
+}) {
+  const { t } = useLanguage()
+  const [removing, setRemoving] = useState(false)
+  const [suspending, setSuspending] = useState(false)
+  const overdue = hoursSince(row.first_reported_at) >= 24
+  const meta = MODERATION_LABEL[row.moderation_status ?? 'ok'] ?? MODERATION_LABEL.ok
+
+  return (
+    <article className={`rounded-3xl border bg-card p-5 shadow-soft ${overdue ? 'border-rust/50' : 'border-border'}`}>
+      <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+        <span className="rounded-full bg-muted px-2.5 py-0.5 text-muted-foreground">
+          {row.target_type === 'entry' ? t('貼文') : t('留言')}
+        </span>
+        <span className={`rounded-full px-2.5 py-0.5 ${meta.cls}`}>{t(meta.label)}</span>
+        {row.auto_flagged && (
+          <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-primary">{t('系統自動標記')}</span>
+        )}
+        {row.author_suspended && (
+          <span className="rounded-full bg-foreground/10 px-2.5 py-0.5 text-foreground/70">{t('作者已停權')}</span>
+        )}
+        <span className={overdue ? 'text-rust' : 'text-muted-foreground'}>
+          {t('{n} 次檢舉 · 首次 {time}', {
+            n: String(row.report_count),
+            time: formatDateTime(row.first_reported_at),
+          })}
+        </span>
+      </div>
+
+      <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-muted/50 px-4 py-3 text-[15px] leading-relaxed text-foreground">
+        {row.content_preview || t('（內容已被作者刪除）')}
+      </p>
+
+      <div className="mt-3 space-y-1 text-sm">
+        <Detail
+          label={t('檢舉原因')}
+          value={(row.reasons ?? []).map((r) => t(REPORT_REASON_LABEL[r] ?? r)).join('、') || null}
+        />
+        <Detail label={t('補充說明')} value={(row.notes ?? []).join(' / ') || null} />
+        {/* 作者身分只給管理員看，不回寫到任何前台畫面，匿名貼文的匿名性不受影響。 */}
+        <Detail label={t('作者')} value={row.author_name || row.author_id || null} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {row.moderation_status !== 'removed' && (
+          <button
+            disabled={busy}
+            onClick={() => setRemoving(true)}
+            className="rounded-full bg-rust px-4 py-2 text-sm font-extrabold text-white transition active:scale-[0.98] disabled:opacity-50"
+          >
+            {t('確認違規並下架')}
+          </button>
+        )}
+        {row.moderation_status !== 'hidden' && row.moderation_status !== 'removed' && (
+          <button
+            disabled={busy}
+            onClick={() => void onAct(row, 'hide', null)}
+            className="rounded-full bg-foreground px-4 py-2 text-sm font-extrabold text-cream transition active:scale-[0.98] disabled:opacity-50"
+          >
+            {t('先隱藏待查')}
+          </button>
+        )}
+        {row.moderation_status !== 'ok' && (
+          <button
+            disabled={busy}
+            onClick={() => void onAct(row, 'restore', null)}
+            className="rounded-full bg-card px-4 py-2 text-sm font-extrabold text-foreground ring-1 ring-border transition active:scale-[0.98] disabled:opacity-50"
+          >
+            {t('放回動態牆')}
+          </button>
+        )}
+        <button
+          disabled={busy}
+          onClick={() => void onAct(row, 'dismiss', null)}
+          className="rounded-full px-4 py-2 text-sm font-bold text-muted-foreground transition disabled:opacity-50"
+        >
+          {t('內容沒問題，結案')}
+        </button>
+        {row.author_id && !row.author_suspended && (
+          <button
+            disabled={busy}
+            onClick={() => setSuspending(true)}
+            className="rounded-full px-4 py-2 text-sm font-bold text-rust transition disabled:opacity-50"
+          >
+            {t('停權作者')}
+          </button>
+        )}
+      </div>
+
+      {removing && (
+        <ReasonDialog
+          title={t('確認違規並下架')}
+          placeholder={t('請說明下架理由（保留紀錄，供後續申訴查證）')}
+          confirmLabel={t('確認下架')}
+          onCancel={() => setRemoving(false)}
+          onConfirm={(note) => {
+            setRemoving(false)
+            void onAct(row, 'remove', note)
+          }}
+        />
+      )}
+      {suspending && (
+        <ConfirmDialog
+          title={t('停權這位作者')}
+          body={t('停權期間他無法發佈貼文與留言（仍可寫私人日記）。先停權 7 天，需要永久停權請在 Supabase 直接調整 user_suspensions。')}
+          confirmLabel={t('停權 7 天')}
+          onCancel={() => setSuspending(false)}
+          onConfirm={() => {
+            setSuspending(false)
+            void onSuspend(row, 7)
+          }}
+        />
+      )}
+    </article>
   )
 }
 

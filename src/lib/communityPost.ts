@@ -9,6 +9,7 @@
 // 但線上有），未用到的欄位一律補空字串而非 null；社群卡片以 filter(Boolean) 過濾，
 // 不會顯示空泡泡。
 import { supabase } from './supabase'
+import { assertPublishable, toContentBlockedError, ContentBlockedError } from './contentFilter'
 import { type Privacy, privacyToFields } from './privacy'
 import { computeUnifiedStreak } from './streak'
 import { isoLocalDate } from './date'
@@ -32,6 +33,9 @@ export interface ShareContent {
  * @param practiceType  例如 'workshop_authentic_self'、'workshop_last_day'
  * @param payload       客製版型的結構化欄位（存進 jsonb payload）
  * @returns 新貼文 id；失敗回 null
+ * @throws ContentBlockedError 內容含違規字眼（App Store 1.2 要求的發佈前過濾）。
+ *         呼叫端要用 instanceof 判斷並顯示 e.message，別跟一般失敗混在一起——
+ *         使用者需要知道「是內容被擋」而不是「系統壞了」。
  */
 export async function insertCommunityPost(
   userId: string,
@@ -41,6 +45,17 @@ export async function insertCommunityPost(
   payload?: Record<string, unknown>,
 ): Promise<string | null> {
   const fields = privacyToFields(privacy)
+  // 發佈前過濾：公開貼文才擋。私人日記寫什麼是使用者的事，不該被審查
+  // （這也是為什麼過濾放在這裡、而不是無差別套在所有寫入上）。
+  // DB 端還有一層同規則的 trigger（community_safety.sql），前端這層只是提早給回饋。
+  if (fields.is_shared) {
+    assertPublishable(
+      content.item_1,
+      content.item_2,
+      content.item_3,
+      ...(payload ? Object.values(payload).map((v) => (typeof v === 'string' ? v : null)) : []),
+    )
+  }
   const { data: profile } = await supabase
     .from('profiles')
     .select('name, avatar')
@@ -75,6 +90,10 @@ export async function insertCommunityPost(
   }
 
   if (error) {
+    // DB trigger 擋下（管理員可能在後台加了前端還沒有的詞）→ 轉成同一種錯誤丟出去，
+    // 讓呼叫端顯示「內容被擋」而不是「發佈失敗」。
+    const blocked = toContentBlockedError(error)
+    if (blocked) throw blocked
     console.error('[community insert]', error)
     return null
   }
@@ -96,17 +115,51 @@ export async function markStreak(userId: string): Promise<void> {
   }
 }
 
-/** 在完成頁切換隱私時，同步更新已建立的貼文。 */
-export async function updateCommunityPrivacy(entryId: string, userId: string, privacy: Privacy) {
+/**
+ * 在完成頁切換隱私時，同步更新已建立的貼文。
+ *
+ * 「先存成私人、再切成公開」是發佈前過濾最容易被繞過的路徑（私人內容當初沒被檢查），
+ * 所以這裡在轉公開時要重新檢查一次。回傳 ContentBlockedError 代表擋下、DB 沒有被改動，
+ * 呼叫端要把畫面上的選項切回去並提示使用者；成功回 null。
+ */
+export async function updateCommunityPrivacy(
+  entryId: string,
+  userId: string,
+  privacy: Privacy,
+): Promise<ContentBlockedError | null> {
   const fields = privacyToFields(privacy)
+  if (fields.is_shared) {
+    const { data: entry } = await supabase
+      .from('gratitude_entries')
+      .select('item_1, item_2, item_3, payload')
+      .eq('id', entryId)
+      .maybeSingle()
+    if (entry) {
+      const payloadTexts = entry.payload && typeof entry.payload === 'object'
+        ? Object.values(entry.payload as Record<string, unknown>).map((v) => (typeof v === 'string' ? v : null))
+        : []
+      try {
+        assertPublishable(entry.item_1, entry.item_2, entry.item_3, ...payloadTexts)
+      } catch (e) {
+        if (e instanceof ContentBlockedError) return e
+        throw e
+      }
+    }
+  }
   const { data: profile } = await supabase
     .from('profiles')
     .select('name')
     .eq('id', userId)
     .maybeSingle()
   const anonName = fields.use_real_name ? (profile?.name || pickAnonName()) : pickAnonName()
-  await supabase
+  const { error } = await supabase
     .from('gratitude_entries')
     .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: anonName })
     .eq('id', entryId)
+  if (error) {
+    const blocked = toContentBlockedError(error)
+    if (blocked) return blocked
+    console.error('[community privacy]', error)
+  }
+  return null
 }

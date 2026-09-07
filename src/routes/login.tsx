@@ -170,7 +170,6 @@ function LoginPage() {
       setCopied(false)
     }
   }
-
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-end overflow-x-hidden px-6 pt-12">
       {/* 外層 frame-width：把語言鈕收進手機外框的欄位（詳見 index.css 的

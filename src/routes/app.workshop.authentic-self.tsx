@@ -8,6 +8,7 @@ import {
 } from '../components/workshop/WorkshopUI'
 import { supabase } from '../lib/supabase'
 import { insertCommunityPost, markStreak } from '../lib/communityPost'
+import { ContentBlockedError } from '../lib/contentFilter'
 import { isoLocalDate } from '../lib/date'
 import { getWorkshopId } from '../lib/workshop'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
@@ -150,8 +151,13 @@ function AuthenticSelfFlow() {
         search: { workshop: workshopId, ...(entryId ? { focus: entryId } : {}) },
       })
     } catch (e) {
-      console.error('[authentic-self publish]', e)
       setPublishing(false)
+      // 內容被過濾器擋下不是「系統壞掉」，要講清楚是哪一類違規，使用者才知道怎麼改。
+      if (e instanceof ContentBlockedError) {
+        alert(t(e.message))
+        return
+      }
+      console.error('[authentic-self publish]', e)
       alert(t('發佈失敗，請稍後再試一次。'))
     }
   }

@@ -8,6 +8,7 @@ import { DateSwipeSheet } from '../components/DateSwipeSheet'
 import woopBanner from '../assets/ui/WOOP目標實踐 封面與內頁.png'
 import { supabase } from '../lib/supabase'
 import { insertCommunityPost, markStreak, updateCommunityPrivacy } from '../lib/communityPost'
+import { ContentBlockedError } from '../lib/contentFilter'
 import { scheduleWoopReminder } from '../lib/localNotifications'
 import { isoLocalDate } from '../lib/date'
 import { downloadNodeAsPng, isMobileDevice } from '../lib/shareImage'
@@ -404,15 +405,27 @@ function WoopFlow() {
       void scheduleWoopReminder(entryId, ifThen, targetIso)
       return entryId
     } catch (e) {
+      if (e instanceof ContentBlockedError) {
+        alert(t(e.message))
+        return null
+      }
       console.error('[woop save]', e)
       return null
     }
   }
 
   // 完成頁切換隱私：即時更新已存檔的那筆貼文（跟感恩日記／過程目標覺察一致）。
+  // 轉公開時會重跑一次內容過濾；被擋下就把選項切回原本的隱私設定，
+  // 不能讓畫面顯示「已公開」但資料庫其實沒改。
   const handlePrivacyChange = (next: Privacy) => {
+    const previous = privacy
     setPrivacy(next)
-    if (savedEntryId && userId) void updateCommunityPrivacy(savedEntryId, userId, next)
+    if (!savedEntryId || !userId) return
+    void updateCommunityPrivacy(savedEntryId, userId, next).then((blocked) => {
+      if (!blocked) return
+      setPrivacy(previous)
+      alert(t(blocked.message))
+    })
   }
 
   // 「結束今天練習」：貼文已經存在，這裡只是離開到社群動態牆。

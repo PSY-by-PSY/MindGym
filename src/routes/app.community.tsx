@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { screenContent, blockedMessage, toContentBlockedError } from '../lib/contentFilter'
 import { type Privacy, PRIVACY_OPTIONS, privacyToFields, privacyFromFields } from '../lib/privacy'
 import { workshopIdFromPayload, formatWorkshopLabel } from '../lib/workshop'
 import {
@@ -23,6 +24,28 @@ import avatar2 from '../assets/ui/avatar-2.png'
 import avatar3 from '../assets/ui/頭像1 Bouba脫帽禮.png'
 import avatar4 from '../assets/ui/頭像2 Bouba種花.png'
 import avatar5 from '../assets/ui/頭像3 Bouba打瞌睡.png'
+
+// ── 發佈前內容過濾（App Store 審查指南 1.2）────────────────────────────────
+// 留言是 App 內另一條 UGC 寫入路徑（貼文那條在 lib/communityPost.ts）。
+// 兩支小工具讓三個送出點（貼文彈窗留言、卡片留言、回覆）用同一套規則與同一句提示。
+// 真正的把關在 DB trigger（supabase/community_safety.sql）——前端 anon key 可被繞過，
+// 這裡只是提早給回饋。
+
+/** 檢查留言內容；被擋下時跳提示並回傳 false（呼叫端直接 return）。 */
+function screenAndWarn(content: string, t: (text: string) => string): boolean {
+  const result = screenContent(content)
+  if (result.ok) return true
+  alert(t(blockedMessage(result.blocked!)))
+  return false
+}
+
+/** DB trigger 擋下時（規則比前端新）也要翻成同一句人話，不要吐原始 SQL 錯誤。 */
+function warnIfBlockedByDb(error: { message?: string } | null, t: (text: string) => string) {
+  const blocked = toContentBlockedError(error)
+  if (blocked) alert(t(blocked.message))
+  else console.error('[community comment]', error)
+}
+
 
 type GratitudeEntry = {
   id: string
@@ -754,12 +777,16 @@ function DailyModal({
   async function submitComment() {
     const content = commentText.trim()
     if (!content || !userId || submitting) return
+    // 發佈前過濾（App Store 1.2）：留言一律公開，所以無條件檢查。
+    // DB 端有同規則的 trigger，這裡只是提早給回饋、少跑一趟網路。
+    if (!screenAndWarn(content, t)) return
     setSubmitting(true)
     const { data, error } = await supabase
       .from('comments')
       .insert({ entry_id: entryId, user_id: userId, anon_name: anonName, content })
       .select('id, user_id, anon_name, content, created_at')
       .single()
+    if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
       setCommentText('')
@@ -2359,14 +2386,34 @@ function EntryCard({
       return
     }
     const fields = privacyToFields(next)
+    // 「先存私人、再從這裡切公開」會繞過發佈當下的內容過濾（私人內容當初沒檢查），
+    // 所以轉公開時要重跑一次；被擋下就維持原設定。
+    if (fields.is_shared) {
+      const payloadTexts = entry.payload && typeof entry.payload === 'object'
+        ? Object.values(entry.payload as Record<string, unknown>).map((v) => (typeof v === 'string' ? v : null))
+        : []
+      const screened = screenContent(entry.item_1, entry.item_2, entry.item_3, ...payloadTexts)
+      if (!screened.ok && screened.blocked) {
+        setShowMenu(false)
+        alert(t(blockedMessage(screened.blocked)))
+        return
+      }
+    }
     const newAnonName = fields.use_real_name ? anonName : (localAnonName ?? anonName)
+    const previous = localPrivacy
     setLocalPrivacy(next)
     setLocalAnonName(newAnonName)
     setShowMenu(false)
-    await supabase
+    const { error } = await supabase
       .from('gratitude_entries')
       .update({ is_shared: fields.is_shared, use_real_name: fields.use_real_name, anon_name: newAnonName })
       .eq('id', entry.id)
+    if (error) {
+      const blocked = toContentBlockedError(error)
+      setLocalPrivacy(previous)
+      if (blocked) alert(t(blocked.message))
+      else console.error('[community privacy]', error)
+    }
   }
 
   async function doDelete() {
@@ -2427,12 +2474,14 @@ function EntryCard({
   async function submitReply() {
     const content = replyText.trim()
     if (!content || !userId || !replyingTo || submitting) return
+    if (!screenAndWarn(content, t)) return
     setSubmitting(true)
     const { data, error } = await supabase
       .from('comments')
       .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo })
       .select('id, user_id, anon_name, content, created_at, parent_id')
       .single()
+    if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
       setReplyText('')
@@ -2479,12 +2528,14 @@ function EntryCard({
   async function submitComment() {
     const content = commentText.trim()
     if (!content || !userId || submitting) return
+    if (!screenAndWarn(content, t)) return
     setSubmitting(true)
     const { data, error } = await supabase
       .from('comments')
       .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content })
       .select('id, user_id, anon_name, content, created_at')
       .single()
+    if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
       setCommentText('')

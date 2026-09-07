@@ -84,6 +84,12 @@ ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS target_2    text;
 ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS target_3    text;
 ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS avatar      text;
 ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS use_real_name bool;
+-- 內容審核狀態（'ok' / 'hidden' / 'removed'）：被檢舉下架的貼文靠這欄從動態牆消失。
+-- 完整說明與管理流程在 community_safety.sql；這裡建欄位是為了讓下面的讀取政策
+-- 在只跑過 schema.sql 的環境也成立。
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS moderation_status text NOT NULL DEFAULT 'ok';
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS moderated_at      timestamptz;
+ALTER TABLE gratitude_entries ADD COLUMN IF NOT EXISTS moderation_note   text;
 
 ALTER TABLE gratitude_entries ENABLE ROW LEVEL SECURITY;
 
@@ -96,8 +102,10 @@ DROP POLICY IF EXISTS "gratitude_entries: 本人可刪除"           ON gratitud
 CREATE POLICY "gratitude_entries: 本人可讀" ON gratitude_entries
   FOR SELECT USING (auth.uid() = user_id);
 
+-- ⚠️ 這條政策在 community_safety.sql 也有一份完全相同的定義（審核機制的主檔）。
+--    改一處要同步另一處，否則重跑其中一支會讓已下架的內容重見天日。
 CREATE POLICY "gratitude_entries: is_shared 資料公開可讀" ON gratitude_entries
-  FOR SELECT USING (is_shared = true);
+  FOR SELECT USING (is_shared = true AND moderation_status = 'ok');
 
 -- 前端直接寫入（不再依賴後端 service_role）
 CREATE POLICY "gratitude_entries: 本人可建立" ON gratitude_entries
@@ -146,6 +154,10 @@ CREATE TABLE IF NOT EXISTS comments (
 
 -- 巢狀回覆用（冪等補欄位；正式庫已有此欄，schema 檔同步記載）
 ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES comments(id) ON DELETE CASCADE;
+-- 內容審核狀態（見 community_safety.sql）。
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS moderation_status text NOT NULL DEFAULT 'ok';
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS moderated_at      timestamptz;
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS moderation_note   text;
 
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
@@ -154,8 +166,11 @@ DROP POLICY IF EXISTS "comments: 已登入可讀" ON comments;
 DROP POLICY IF EXISTS "comments: 本人可建立" ON comments;
 DROP POLICY IF EXISTS "comments: 本人可刪除" ON comments;
 
--- 只開放給已登入者讀取（anon key 撈不到留言內容）。
-CREATE POLICY "comments: 已登入可讀" ON comments FOR SELECT USING (auth.uid() IS NOT NULL);
+-- 只開放給已登入者讀取（anon key 撈不到留言內容），且排除被下架的留言；
+-- 作者自己仍讀得到自己的，免得他以為留言憑空消失。
+-- ⚠️ 這條政策在 community_safety.sql 也有一份完全相同的定義，改一處要同步另一處。
+CREATE POLICY "comments: 已登入可讀" ON comments
+  FOR SELECT USING (auth.uid() IS NOT NULL AND (moderation_status = 'ok' OR user_id = auth.uid()));
 CREATE POLICY "comments: 本人可建立" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "comments: 本人可刪除" ON comments FOR DELETE USING (auth.uid() = user_id);
 
