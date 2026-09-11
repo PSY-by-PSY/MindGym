@@ -82,6 +82,35 @@ function warnIfBlockedByDb(
  *    所以這裡遇到 23503 時自己把 profiles 列補起來再重試一次。這比「每次留言前
  *    都先 upsert 一次」省一次來回，正常情況完全不會多花成本。
  */
+/**
+ * 送出留言前的守門。回傳 false 代表不要送。
+ *
+ * ⚠️ 這裡「不可以」靜默 return。原本三處送出函式的第一行都是
+ *      if (!content || !userId || submitting) return
+ *    userId 是空的時候按下送出會完全沒有反應——沒有提示、沒有錯誤、
+ *    文字還留在框裡。2026-09-11 使用者回報的「按下送出按鈕沒反應」就是這個：
+ *    先前補的錯誤提示是在 API 回傳之後才跳，根本走不到。
+ *
+ *    userId 來自頁面載入時的 session 快照（loader 裡的 sessionRes），
+ *    載入當下沒有 session、或 session 後來過期，它就一直是 null。
+ */
+function canSubmitComment(
+  content: string,
+  userId: string | null,
+  submitting: boolean,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+  // 型別守衛：回 true 時呼叫端的 userId 會收窄成 string，省去每處再 assert 一次。
+): userId is string {
+  if (!content) return false          // 空白內容不必解釋，送出鍵本來就該是停用的
+  if (submitting) return false        // 連點兩次，忽略即可
+  if (!userId) {
+    alert(t('登入狀態已失效，請重新整理頁面後再試一次。'))
+    return false
+  }
+  return true
+}
+
+
 async function insertComment(
   payload: Record<string, unknown>,
   select: string,
@@ -832,23 +861,31 @@ function DailyModal({
 
   async function submitComment() {
     const content = commentText.trim()
-    if (!content || !userId || submitting) return
+    if (!canSubmitComment(content, userId, submitting, t)) return
     // 發佈前過濾（App Store 1.2）：留言一律公開，所以無條件檢查。
     // DB 端有同規則的 trigger，這裡只是提早給回饋、少跑一趟網路。
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await insertComment(
-      { entry_id: entryId, user_id: userId, anon_name: anonName, content },
-      'id, user_id, anon_name, content, created_at',
-      userId,
-    )
-    if (error) warnIfBlockedByDb(error, t)
-    if (!error && data) {
-      onCommentAdded(data as Comment)
-      setCommentText('')
-      setSentCount((c) => c + 1)
+    try {
+      const { data, error } = await insertComment(
+        { entry_id: entryId, user_id: userId, anon_name: anonName, content },
+        'id, user_id, anon_name, content, created_at',
+        userId,
+      )
+      if (error) warnIfBlockedByDb(error, t)
+      if (!error && data) {
+        onCommentAdded(data as Comment)
+        setCommentText('')
+        setSentCount((c) => c + 1)
+      }
+    } catch (err) {
+      // 例外（連線中斷等）不會走 error 分支，沒接住的話下面的 finally 也救不了體驗。
+      warnIfBlockedByDb({ message: String(err) }, t)
+    } finally {
+      // ⚠️ 一定要在 finally：少了它，只要上面拋一次例外，submitting 就永遠是 true，
+      //    送出鍵從此完全沒反應，而且使用者不會收到任何訊息。
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -2529,21 +2566,27 @@ function EntryCard({
 
   async function submitReply() {
     const content = replyText.trim()
-    if (!content || !userId || !replyingTo || submitting) return
+    if (!replyingTo) return
+    if (!canSubmitComment(content, userId, submitting, t)) return
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await insertComment(
-      { entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo },
-      'id, user_id, anon_name, content, created_at, parent_id',
-      userId,
-    )
-    if (error) warnIfBlockedByDb(error, t)
-    if (!error && data) {
-      onCommentAdded(data as Comment)
-      setReplyText('')
-      setReplyingTo(null)
+    try {
+      const { data, error } = await insertComment(
+        { entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo },
+        'id, user_id, anon_name, content, created_at, parent_id',
+        userId,
+      )
+      if (error) warnIfBlockedByDb(error, t)
+      if (!error && data) {
+        onCommentAdded(data as Comment)
+        setReplyText('')
+        setReplyingTo(null)
+      }
+    } catch (err) {
+      warnIfBlockedByDb({ message: String(err) }, t)
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   function handleReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -2583,20 +2626,25 @@ function EntryCard({
 
   async function submitComment() {
     const content = commentText.trim()
-    if (!content || !userId || submitting) return
+    if (!canSubmitComment(content, userId, submitting, t)) return
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await insertComment(
-      { entry_id: entry.id, user_id: userId, anon_name: anonName, content },
-      'id, user_id, anon_name, content, created_at',
-      userId,
-    )
-    if (error) warnIfBlockedByDb(error, t)
-    if (!error && data) {
-      onCommentAdded(data as Comment)
-      setCommentText('')
+    try {
+      const { data, error } = await insertComment(
+        { entry_id: entry.id, user_id: userId, anon_name: anonName, content },
+        'id, user_id, anon_name, content, created_at',
+        userId,
+      )
+      if (error) warnIfBlockedByDb(error, t)
+      if (!error && data) {
+        onCommentAdded(data as Comment)
+        setCommentText('')
+      }
+    } catch (err) {
+      warnIfBlockedByDb({ message: String(err) }, t)
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
