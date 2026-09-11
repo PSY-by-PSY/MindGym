@@ -69,6 +69,40 @@ function warnIfBlockedByDb(
 }
 
 
+/**
+ * 送出一則留言（或回覆）。
+ *
+ * ⚠️ 為什麼要自己補 profiles 列：
+ *    comments.user_id 的外鍵指向 **profiles**，不是 auth.users。而資料庫「沒有」
+ *    任何 trigger 會在註冊時自動建立 profiles 列——全靠各頁面的程式碼順手 upsert
+ *    （app.home 的 loader、完成練習時、同意條款時…）。只要使用者走過的路徑剛好
+ *    都沒補到，他就會卡在一個怎麼按都沒反應的留言框裡，因為每次 insert 都是
+ *    外鍵違規（Postgres 23503）。
+ *
+ *    所以這裡遇到 23503 時自己把 profiles 列補起來再重試一次。這比「每次留言前
+ *    都先 upsert 一次」省一次來回，正常情況完全不會多花成本。
+ */
+async function insertComment(
+  payload: Record<string, unknown>,
+  select: string,
+  userId: string,
+): Promise<{ data: Comment | null; error: { message?: string; code?: string } | null }> {
+  // select 是執行期字串，supabase-js 推不出資料形狀，這裡自己標註回傳型別。
+  const send = async () => {
+    const { data, error } = await supabase.from('comments').insert(payload).select(select).single()
+    return { data: (data as Comment | null) ?? null, error }
+  }
+
+  let result = await send()
+  // 23503 = foreign_key_violation。這裡唯一可能缺的外鍵目標就是 profiles。
+  if (result.error?.code === '23503') {
+    await supabase.from('profiles').upsert({ id: userId }, { onConflict: 'id' })
+    result = await send()
+  }
+  return result
+}
+
+
 type GratitudeEntry = {
   id: string
   user_id: string | null
@@ -803,11 +837,11 @@ function DailyModal({
     // DB 端有同規則的 trigger，這裡只是提早給回饋、少跑一趟網路。
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ entry_id: entryId, user_id: userId, anon_name: anonName, content })
-      .select('id, user_id, anon_name, content, created_at')
-      .single()
+    const { data, error } = await insertComment(
+      { entry_id: entryId, user_id: userId, anon_name: anonName, content },
+      'id, user_id, anon_name, content, created_at',
+      userId,
+    )
     if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -2498,11 +2532,11 @@ function EntryCard({
     if (!content || !userId || !replyingTo || submitting) return
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo })
-      .select('id, user_id, anon_name, content, created_at, parent_id')
-      .single()
+    const { data, error } = await insertComment(
+      { entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo },
+      'id, user_id, anon_name, content, created_at, parent_id',
+      userId,
+    )
     if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -2552,11 +2586,11 @@ function EntryCard({
     if (!content || !userId || submitting) return
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content })
-      .select('id, user_id, anon_name, content, created_at')
-      .single()
+    const { data, error } = await insertComment(
+      { entry_id: entry.id, user_id: userId, anon_name: anonName, content },
+      'id, user_id, anon_name, content, created_at',
+      userId,
+    )
     if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
