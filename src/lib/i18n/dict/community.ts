@@ -2,6 +2,11 @@ import type { Translation } from '../dictionary'
 
 // 社群動態頁：貼文、按讚、留言、檢舉/封鎖、工作坊貼文區塊。
 export const community: Record<string, Translation> = {
+  '登入狀態已失效，請重新整理頁面後再試一次。': {
+    'zh-CN': '登录状态已失效，请重新刷新页面后再试一次。',
+    en: 'Your session has expired. Please refresh the page and try again.',
+  },
+
   '留言沒有送出，請再試一次。如果一直失敗，請把這個代碼提供給我們：{code}': {
     'zh-CN': '留言没有送出，请再试一次。如果一直失败，请把这个代码提供给我们：{code}',
     en: 'Your comment was not sent. Please try again. If it keeps failing, send us this code: {code}',
