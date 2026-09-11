@@ -39,11 +39,33 @@ function screenAndWarn(content: string, t: (text: string) => string): boolean {
   return false
 }
 
-/** DB trigger 擋下時（規則比前端新）也要翻成同一句人話，不要吐原始 SQL 錯誤。 */
-function warnIfBlockedByDb(error: { message?: string } | null, t: (text: string) => string) {
+/**
+ * 留言／回覆送出失敗時給使用者的回饋。
+ *
+ * ⚠️ 每一種失敗都必須讓使用者看到訊息，不可以只寫 console。
+ *    2026-09-11 有使用者回報「無法留言別人的貼文」——原本這裡只有內容被
+ *    過濾器擋下時才 alert，其餘錯誤（RLS 拒絕、外鍵違規、推播 trigger 失敗、
+ *    連線中斷）一律只 console.error。使用者按下送出後畫面毫無反應、文字還留在
+ *    框裡，體感就是「壞掉了」，而且無從得知原因、也不知道該不該再按一次。
+ *
+ *    錯誤代碼一併顯示，是為了讓使用者回報時能直接把代碼給我們——沒有代碼就
+ *    只能靠猜，這次就是這樣卡住的。
+ */
+function warnIfBlockedByDb(
+  error: { message?: string; code?: string } | null,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+) {
+  // 內容被過濾器擋下：有專屬的人話訊息，照原本的講。
   const blocked = toContentBlockedError(error)
-  if (blocked) alert(t(blocked.message))
-  else console.error('[community comment]', error)
+  if (blocked) {
+    alert(t(blocked.message))
+    return
+  }
+  // 其餘一律當成「沒送出去」，並附上代碼方便回報。
+  console.error('[community comment]', error)
+  alert(t('留言沒有送出，請再試一次。如果一直失敗，請把這個代碼提供給我們：{code}', {
+    code: error?.code || 'unknown',
+  }))
 }
 
 
