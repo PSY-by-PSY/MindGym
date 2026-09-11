@@ -279,6 +279,9 @@ DECLARE
   v_text    text;
   v_action  text;
   v_category text;
+  -- 這則內容「原本」是不是已經公開的。只有 gratitude_entries 的 UPDATE 會用到，
+  -- 其餘情況維持 false（見下方取值處的說明）。
+  v_was_shared boolean := false;
 BEGIN
   IF TG_TABLE_NAME = 'gratitude_entries' THEN
     IF NEW.is_shared IS NOT TRUE THEN RETURN NEW; END IF;
@@ -296,8 +299,22 @@ BEGIN
   -- 除了新建，「把舊的私人貼文改成公開」也要擋（否則停權期間照樣能發文，
   -- 只要先存私人再切公開就行了）；但改回私人、改內容、刪除都放行，
   -- 讓他仍能收拾自己的東西。
+  --
+  -- ⚠️ OLD 只能在「gratitude_entries 的 UPDATE」這一種情況下碰，而且必須先取進
+  --    變數、不能直接寫在下面的 IF 條件裡。原本寫成
+  --      AND (TG_OP = 'INSERT' OR (TG_TABLE_NAME = 'gratitude_entries' AND OLD.is_shared IS NOT TRUE))
+  --    看起來有 TG_OP / TG_TABLE_NAME 擋著，實際上 PL/pgSQL 不保證布林運算短路，
+  --    OLD.is_shared 的欄位解析照樣會發生：
+  --      · INSERT 時 OLD 未賦值
+  --      · comments 表根本沒有 is_shared 這個欄位
+  --    兩者都會拋 42703 record "old" has no field "is_shared"。
+  --    結果是**每一次留言、每一篇公開貼文都寫不進去**（2026-09-11 線上事故）。
+  IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'gratitude_entries' THEN
+    v_was_shared := COALESCE(OLD.is_shared, false);
+  END IF;
+
   IF is_suspended(NEW.user_id)
-     AND (TG_OP = 'INSERT' OR (TG_TABLE_NAME = 'gratitude_entries' AND OLD.is_shared IS NOT TRUE))
+     AND (TG_OP = 'INSERT' OR (TG_TABLE_NAME = 'gratitude_entries' AND NOT v_was_shared))
   THEN
     RAISE EXCEPTION 'CONTENT_BLOCKED: suspended 帳號目前因違反社群守則被暫停發文';
   END IF;
