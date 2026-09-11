@@ -39,11 +39,67 @@ function screenAndWarn(content: string, t: (text: string) => string): boolean {
   return false
 }
 
-/** DB trigger 擋下時（規則比前端新）也要翻成同一句人話，不要吐原始 SQL 錯誤。 */
-function warnIfBlockedByDb(error: { message?: string } | null, t: (text: string) => string) {
+/**
+ * 留言／回覆送出失敗時給使用者的回饋。
+ *
+ * ⚠️ 每一種失敗都必須讓使用者看到訊息，不可以只寫 console。
+ *    2026-09-11 有使用者回報「無法留言別人的貼文」——原本這裡只有內容被
+ *    過濾器擋下時才 alert，其餘錯誤（RLS 拒絕、外鍵違規、推播 trigger 失敗、
+ *    連線中斷）一律只 console.error。使用者按下送出後畫面毫無反應、文字還留在
+ *    框裡，體感就是「壞掉了」，而且無從得知原因、也不知道該不該再按一次。
+ *
+ *    錯誤代碼一併顯示，是為了讓使用者回報時能直接把代碼給我們——沒有代碼就
+ *    只能靠猜，這次就是這樣卡住的。
+ */
+function warnIfBlockedByDb(
+  error: { message?: string; code?: string } | null,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+) {
+  // 內容被過濾器擋下：有專屬的人話訊息，照原本的講。
   const blocked = toContentBlockedError(error)
-  if (blocked) alert(t(blocked.message))
-  else console.error('[community comment]', error)
+  if (blocked) {
+    alert(t(blocked.message))
+    return
+  }
+  // 其餘一律當成「沒送出去」，並附上代碼方便回報。
+  console.error('[community comment]', error)
+  alert(t('留言沒有送出，請再試一次。如果一直失敗，請把這個代碼提供給我們：{code}', {
+    code: error?.code || 'unknown',
+  }))
+}
+
+
+/**
+ * 送出一則留言（或回覆）。
+ *
+ * ⚠️ 為什麼要自己補 profiles 列：
+ *    comments.user_id 的外鍵指向 **profiles**，不是 auth.users。而資料庫「沒有」
+ *    任何 trigger 會在註冊時自動建立 profiles 列——全靠各頁面的程式碼順手 upsert
+ *    （app.home 的 loader、完成練習時、同意條款時…）。只要使用者走過的路徑剛好
+ *    都沒補到，他就會卡在一個怎麼按都沒反應的留言框裡，因為每次 insert 都是
+ *    外鍵違規（Postgres 23503）。
+ *
+ *    所以這裡遇到 23503 時自己把 profiles 列補起來再重試一次。這比「每次留言前
+ *    都先 upsert 一次」省一次來回，正常情況完全不會多花成本。
+ */
+async function insertComment(
+  payload: Record<string, unknown>,
+  select: string,
+  userId: string,
+): Promise<{ data: Comment | null; error: { message?: string; code?: string } | null }> {
+  // select 是執行期字串，supabase-js 推不出資料形狀，這裡自己標註回傳型別。
+  const send = async () => {
+    const { data, error } = await supabase.from('comments').insert(payload).select(select).single()
+    return { data: (data as Comment | null) ?? null, error }
+  }
+
+  let result = await send()
+  // 23503 = foreign_key_violation。這裡唯一可能缺的外鍵目標就是 profiles。
+  if (result.error?.code === '23503') {
+    await supabase.from('profiles').upsert({ id: userId }, { onConflict: 'id' })
+    result = await send()
+  }
+  return result
 }
 
 
@@ -781,11 +837,11 @@ function DailyModal({
     // DB 端有同規則的 trigger，這裡只是提早給回饋、少跑一趟網路。
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ entry_id: entryId, user_id: userId, anon_name: anonName, content })
-      .select('id, user_id, anon_name, content, created_at')
-      .single()
+    const { data, error } = await insertComment(
+      { entry_id: entryId, user_id: userId, anon_name: anonName, content },
+      'id, user_id, anon_name, content, created_at',
+      userId,
+    )
     if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -2476,11 +2532,11 @@ function EntryCard({
     if (!content || !userId || !replyingTo || submitting) return
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo })
-      .select('id, user_id, anon_name, content, created_at, parent_id')
-      .single()
+    const { data, error } = await insertComment(
+      { entry_id: entry.id, user_id: userId, anon_name: anonName, content, parent_id: replyingTo },
+      'id, user_id, anon_name, content, created_at, parent_id',
+      userId,
+    )
     if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)
@@ -2530,11 +2586,11 @@ function EntryCard({
     if (!content || !userId || submitting) return
     if (!screenAndWarn(content, t)) return
     setSubmitting(true)
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ entry_id: entry.id, user_id: userId, anon_name: anonName, content })
-      .select('id, user_id, anon_name, content, created_at')
-      .single()
+    const { data, error } = await insertComment(
+      { entry_id: entry.id, user_id: userId, anon_name: anonName, content },
+      'id, user_id, anon_name, content, created_at',
+      userId,
+    )
     if (error) warnIfBlockedByDb(error, t)
     if (!error && data) {
       onCommentAdded(data as Comment)

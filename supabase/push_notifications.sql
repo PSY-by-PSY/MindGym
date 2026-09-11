@@ -39,18 +39,35 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  PERFORM net.http_post(
-    url     := '<FUNCTION_URL>',            -- 例：https://<project-ref>.supabase.co/functions/v1/push-notify
-    headers := jsonb_build_object(
-                 'Content-Type', 'application/json',
-                 'x-webhook-secret', '<WEBHOOK_SECRET>'  -- 與 Edge Function 的 WEBHOOK_SECRET 相同
-               ),
-    body    := jsonb_build_object(
-                 'type',  'INSERT',
-                 'table', TG_TABLE_NAME,
-                 'record', to_jsonb(NEW)
-               )
-  );
+  -- ⚠️ 整段包在 EXCEPTION 裡：推播失敗「絕對不可以」讓使用者的留言或按讚消失。
+  --
+  --    這是 AFTER INSERT trigger，在同一筆交易裡執行。只要這裡拋出例外，
+  --    Postgres 會把整筆交易回滾——使用者的留言就這樣被吞掉，而且前端收到的
+  --    是一個看起來與留言無關的錯誤。
+  --
+  --    最容易踩到的情況：下面的 <FUNCTION_URL> 佔位字串沒有換成真實網址就執行
+  --    這支檔案。那樣每一次留言與按讚都會失敗，症狀是「所有人都留不了言」，
+  --    但錯誤訊息完全不會提到推播。
+  --
+  --    推播送不出去只是少一則通知，可以容忍；留言寫不進去不行。
+  BEGIN
+    PERFORM net.http_post(
+      url     := '<FUNCTION_URL>',            -- 例：https://<project-ref>.supabase.co/functions/v1/push-notify
+      headers := jsonb_build_object(
+                   'Content-Type', 'application/json',
+                   'x-webhook-secret', '<WEBHOOK_SECRET>'  -- 與 Edge Function 的 WEBHOOK_SECRET 相同
+                 ),
+      body    := jsonb_build_object(
+                   'type',  'INSERT',
+                   'table', TG_TABLE_NAME,
+                   'record', to_jsonb(NEW)
+                 )
+    );
+  EXCEPTION WHEN OTHERS THEN
+    -- 留一筆 WARNING 到 Postgres log，方便事後查為什麼沒收到推播。
+    RAISE WARNING '[notify_push_on_interaction] 推播送出失敗，已略過：% (%)', SQLERRM, SQLSTATE;
+  END;
+
   RETURN NEW;
 END;
 $$;
