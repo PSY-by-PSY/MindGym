@@ -213,6 +213,7 @@ export const profile: Record<string, Translation> = {
     en: 'Write a few more entries to reveal your emotional trend',
   },
   '情緒文字雲': { 'zh-CN': '情绪文字云', en: 'Emotion word cloud' },
+  'AI 分析暫時無法載入，以下為簡易統計': { 'zh-CN': 'AI 分析暂时无法加载，以下为简易统计', en: 'AI analysis could not load; showing basic stats instead' },
   '再多寫幾篇，情緒文字雲就會出現': {
     'zh-CN': '再多写几篇，情绪文字云就会出现',
     en: 'Write a few more entries to reveal your emotion word cloud',

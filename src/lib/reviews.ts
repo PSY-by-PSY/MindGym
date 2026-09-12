@@ -128,19 +128,39 @@ export async function requestGratitudeWeekly(periodStart: string): Promise<Revie
   }
 }
 
+/**
+ * 最近一次 requestWeeklyDigest 回 null 的原因；成功時清成 null。
+ * 原本三條失敗路徑（沒 session／非 2xx／網路例外）都靜默回 null，前端只會默默改用
+ * 本機備援統計，連開發者都分不出是哪一種（TestFlight 殼版 App 看不到感恩深度與
+ * 四段統整回饋、手機 Safari 卻正常，就是查到這裡卡住）。409 是正常的「紀錄不足／還沒到週日」，
+ * 不算錯誤。
+ */
+export let lastWeeklyDigestError: string | null = null
+
 /** 一週回顧頁的 AI 情緒分析；periodStart：該週週一（YYYY-MM-DD）。該週紀錄 <2 筆時回 null（後端回 409，非錯誤）。 */
 export async function requestWeeklyDigest(periodStart: string): Promise<WeeklyDigestRow | null> {
+  lastWeeklyDigestError = null
+  const startedAt = Date.now()
   try {
     const headers = await authHeaders()
-    if (!headers) return null
+    if (!headers) {
+      lastWeeklyDigestError = 'no-session'
+      return null
+    }
     const resp = await fetch(`${API_URL}/api/reviews/weekly-digest`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ period_start: periodStart }),
     })
-    if (!resp.ok) return null
+    if (!resp.ok) {
+      if (resp.status !== 409) lastWeeklyDigestError = `http-${resp.status} ${Date.now() - startedAt}ms`
+      return null
+    }
     return (await resp.json()) as WeeklyDigestRow
   } catch (e) {
+    const name = e instanceof Error ? e.name : typeof e
+    const message = e instanceof Error ? e.message : String(e)
+    lastWeeklyDigestError = `network ${name}: ${message} ${Date.now() - startedAt}ms`
     console.error('[reviews] requestWeeklyDigest', e)
     return null
   }

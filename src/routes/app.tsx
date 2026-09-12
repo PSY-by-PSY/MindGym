@@ -15,7 +15,7 @@ import { registerForPush } from '../lib/pushNotifications'
 import { fetchBlockedList, unblockUser, type BlockedListItem } from '../lib/communityModeration'
 import { useGlobalKeyboard } from '../lib/keyboard'
 import { flushStaleGratitudeDraft } from '../lib/gratitudeEntry'
-import { hardRefresh } from '../lib/refresh'
+import { hardRefresh, registerAutoHardRefresh } from '../lib/refresh'
 import { useScrollDirection } from '../lib/useScrollDirection'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
@@ -34,6 +34,12 @@ function AppShell() {
   // 進到（已登入的）App 區域時，若已授權通知就（重新）註冊遠端推播，
   // 確保 device token 對應到目前登入的帳號（startup 時可能 session 還沒就緒）。
   useEffect(() => { void registerForPush() }, [])
+
+  // 殼版 App 背景太久切回前景時自動硬重整，避免 WebView 卡在舊版前端／舊資料
+  // （見 lib/refresh.ts 的 registerAutoHardRefresh 註解）。純網頁不需要。
+  useEffect(() => {
+    if (isNativeApp()) void registerAutoHardRefresh()
+  }, [])
 
   // 感恩日記寫到一半、分享圖片後 WebView 被系統回收的情況：兩小時內回來會直接
   // 接回原本的畫面（見 app.gratitude），太久沒回來的就在這裡自動存成「僅限本人」，
