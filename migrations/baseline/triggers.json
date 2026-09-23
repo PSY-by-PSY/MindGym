@@ -1,0 +1,14 @@
+[
+  "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user();",
+  "CREATE TRIGGER comments_push AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION notify_push_on_interaction();",
+  "ALTER TABLE \"public\".\"comments\" DISABLE TRIGGER \"comments_push\";",
+  "CREATE TRIGGER trg_autoflag_comments AFTER INSERT OR UPDATE OF content ON public.comments FOR EACH ROW EXECUTE FUNCTION autoflag_content();",
+  "CREATE TRIGGER trg_moderate_comments BEFORE INSERT OR UPDATE OF content ON public.comments FOR EACH ROW EXECUTE FUNCTION enforce_content_moderation();",
+  "CREATE TRIGGER trg_autoflag_entries AFTER INSERT OR UPDATE OF item_1, item_2, item_3, is_shared ON public.gratitude_entries FOR EACH ROW EXECUTE FUNCTION autoflag_content();",
+  "CREATE TRIGGER trg_moderate_entries BEFORE INSERT OR UPDATE OF item_1, item_2, item_3, is_shared ON public.gratitude_entries FOR EACH ROW EXECUTE FUNCTION enforce_content_moderation();",
+  "CREATE TRIGGER likes_push AFTER INSERT ON public.likes FOR EACH ROW WHEN ((new.is_bot IS NOT TRUE)) EXECUTE FUNCTION notify_push_on_interaction();",
+  "ALTER TABLE \"public\".\"likes\" DISABLE TRIGGER \"likes_push\";",
+  "CREATE TRIGGER trg_autohide_reported AFTER INSERT ON public.reports FOR EACH ROW EXECUTE FUNCTION autohide_reported_content();",
+  "CREATE TRIGGER subscriptions_founding_insert_push AFTER INSERT ON public.subscriptions FOR EACH ROW WHEN ((new.is_founding_member = true)) EXECUTE FUNCTION notify_push_on_interaction();",
+  "CREATE TRIGGER subscriptions_founding_update_push AFTER UPDATE OF is_founding_member ON public.subscriptions FOR EACH ROW WHEN (((new.is_founding_member = true) AND (old.is_founding_member IS DISTINCT FROM true))) EXECUTE FUNCTION notify_push_on_interaction();"
+]

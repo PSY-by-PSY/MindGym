@@ -39,3 +39,35 @@ jobs:
 
       - run: python -m unittest discover -s backend/tests -v
       - run: python -m compileall -q backend scripts
+
+  database:
+    name: Local Supabase baseline and ORM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # No hosted project token, DB password or application secrets are used.
+    env:
+      MINDGYM_LOCAL_TEST: "1"
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.117.0
+      - run: python -m pip install -r migrations/requirements.txt
+      - run: python -m unittest discover -s migrations/tests -p test_static.py -v
+      - name: Start isolated Supabase
+        run: |
+          mkdir -p .local-db/supabase-test
+          supabase init --workdir .local-db/supabase-test
+          supabase start --workdir .local-db/supabase-test -x studio,imgproxy,inbucket,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor
+      - run: python -m alembic upgrade head
+      - run: python -m alembic check
+      - run: python scripts/db/verify_baseline.py
+      - run: python -m unittest discover -s migrations/tests -v
+      - name: Stop isolated services
+        if: always()
+        run: supabase stop --workdir .local-db/supabase-test

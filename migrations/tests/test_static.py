@@ -1,0 +1,74 @@
+import copy
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+import unittest
+from unittest.mock import patch
+import tempfile
+
+ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT))
+from backend.database.models import Base
+from backend.database.scope import APPLICATION_TABLES, include_name, include_object
+from migrations.local_only import checked_url
+
+spec=importlib.util.spec_from_file_location('baseline', ROOT/'migrations/versions/mg_0001_baseline.py')
+baseline=importlib.util.module_from_spec(spec);spec.loader.exec_module(baseline)
+
+
+class StaticTests(unittest.TestCase):
+    def test_asset_integrity_and_scope(self):
+        assets=baseline.load_assets();s=assets['snapshot.json']
+        self.assertEqual((len(s['tables']),sum(len(t['columns']) for t in s['tables']),len(s['functions']),len(s['policies']),len(s['triggers'])),(35,315,49,98,10))
+        self.assertEqual(len(Base.registry.mappers),35)
+        self.assertEqual(APPLICATION_TABLES,{t['name'] for t in s['tables']})
+
+    def test_tampered_asset_fails_before_ddl(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)
+            for source in baseline.ASSETS.iterdir():shutil.copy(source,target/source.name)
+            (target/'tables.json').write_text('[]')
+            with patch.object(baseline,'ASSETS',target):
+                with self.assertRaisesRegex(RuntimeError,'asset changed'):baseline.load_assets()
+
+    def test_remote_and_connection_override_rejected(self):
+        for url in ['postgresql://postgres:secret@db.example.com/postgres','postgresql://postgres@localhost/postgres?host=remote','postgresql://postgres@localhost/postgres?hostaddr=1.2.3.4','postgresql://postgres@localhost/postgres?service=prod','sqlite:///local.db']:
+            with self.subTest(url=url),self.assertRaises(RuntimeError):checked_url(url)
+        self.assertEqual(checked_url('postgresql://postgres@127.0.0.1:54322/postgres').host,'127.0.0.1')
+
+    def test_auth_and_unmanaged_tables_excluded(self):
+        self.assertFalse(include_name('auth','schema',{}))
+        self.assertFalse(include_name('unmanaged','table',{}))
+        self.assertFalse(include_object(Base.metadata.tables['auth.users'],'users','table',False,None))
+        self.assertTrue(include_object(Base.metadata.tables['user_intake'],'user_intake','table',False,None))
+
+    def test_notifications_disabled_without_configuration(self):
+        s=baseline.load_assets()['snapshot.json']
+        adapted=[f for f in s['functions'] if f['environment_adapted']]
+        self.assertEqual([f['name'] for f in adapted],['notify_push_on_interaction'])
+        self.assertIn("IS DISTINCT FROM 'on'",adapted[0]['definition'])
+        for f in s['functions']:
+            self.assertNotIn('https://',f['definition'])
+            self.assertNotRegex(f['definition'],r'eyJ[A-Za-z0-9_-]{20,}')
+        for name in ('tables.json','functions.json','access.json','triggers.json'):
+            self.assertNotIn('cron.schedule(', '\n'.join(baseline.load_assets()[name]))
+
+    def test_offline_output_and_stamp_blocked(self):
+        proc=subprocess.run([sys.executable,'-m','alembic','upgrade','head','--sql'],cwd=ROOT,capture_output=True,text=True)
+        self.assertEqual(proc.returncode,0,proc.stderr)
+        self.assertIn('Local test marker required',proc.stdout)
+        self.assertIn('CREATE TABLE "public"."user_intake"',proc.stdout)
+        self.assertNotIn('CREATE TABLE auth.users',proc.stdout)
+        self.assertIn("'x-webhook-secret'",proc.stdout)
+        blocked=subprocess.run([sys.executable,'-m','alembic','stamp','head','--sql'],cwd=ROOT,capture_output=True,text=True)
+        self.assertNotEqual(blocked.returncode,0)
+        self.assertIn('Stamp is blocked',blocked.stderr)
+
+    def test_baseline_downgrade_refused(self):
+        with self.assertRaisesRegex(RuntimeError,'intentionally disabled'):baseline.downgrade()
+
+if __name__=='__main__':unittest.main()

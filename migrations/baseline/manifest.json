@@ -1,0 +1,32 @@
+{
+  "revision": "mg_0001_baseline",
+  "status": "draft_local_only",
+  "source_commit": "74cb947e8134b73d6a2e8931ff90fe88d105acda",
+  "catalog_sha256": "bc0cf82c6bdd2af1bf319fd004ef02bebe24d87ed66e86e356be185841a3f040",
+  "captured_at": "2026-09-23T02:29:55.750175+00:00",
+  "assets": {
+    "snapshot.json": "5e47c4f09a64e17041207986c1edeb5ede1e6c7f458e0515174f93b32cc858c9",
+    "tables.json": "648d9195c5e268fddf367da0995ebc93f630de07d8f049c60796dd567550fcbd",
+    "functions.json": "452c177315f3f9479640b5f2c14122af85881bb6ef52b2909553435fed582029",
+    "access.json": "3018057c91c1740d47b766e0a42071ce2aeb0f3ce49609119493ba71902d79af",
+    "triggers.json": "b865028f397464f1ca0dd913157893e9675131e01d6cc3d2b60707c44ff3f7a2"
+  },
+  "counts": {
+    "tables": 35,
+    "columns": 315,
+    "functions": 49,
+    "policies": 98,
+    "triggers": 10
+  },
+  "deviations": [
+    "notify_push_on_interaction: endpoint and secret replaced by environment GUCs, notifications disabled by default",
+    "Platform schema/default ACLs inventoried but not altered; owned-object ACLs restored explicitly",
+    "Cron jobs, platform services and config data not installed by baseline"
+  ],
+  "adoption_blockers": [
+    "Final fresh catalog required before adoption",
+    "Notification environment adaptation must be reviewed",
+    "Platform default ACL and schema prerequisite comparison required",
+    "No production write authorization"
+  ]
+}
