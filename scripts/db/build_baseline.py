@@ -112,7 +112,7 @@ def build(source):
                 args.append('    sa.'+('PrimaryKeyConstraint' if c['contype']=='p' else 'UniqueConstraint')+'('+', '.join(map(repr,keys))+', name='+repr(c['conname'])+'),')
             elif c['contype']=='c':
                 definition=c['definition'];assert definition.startswith('CHECK (') and definition.endswith(')')
-                args.append('    sa.CheckConstraint('+repr(definition[6:-1])+', name='+repr(c['conname'])+'),')
+                args.append('    sa.CheckConstraint('+repr(definition[7:-1])+', name='+repr(c['conname'])+'),')
             elif c['contype']=='f':
                 ref=relations[c['confrelid']];targets=[(('' if ref['nspname']=='public' else ref['nspname']+'.')+ref['relname']+'.')+columns[(c['confrelid'],n)]['attname'] for n in c['confkey']]
                 actions={'a':'NO ACTION','r':'RESTRICT','c':'CASCADE','n':'SET NULL','d':'SET DEFAULT'}

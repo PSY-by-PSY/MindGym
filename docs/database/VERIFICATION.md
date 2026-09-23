@@ -15,7 +15,7 @@
 - 35 表、315 欄、122 約束、32 額外索引、2 sequences、49 函式、98 政策、10 自訂 triggers。
 - ORM `alembic check` 無待產生的變更。
 - 自訂語義比對包含欄位、約束名称與定義、索引、owner／ACL、RLS、函式定義、trigger 狀態與 identity sequence 選項。
-- 16 項測試：7 靜態／防誤用，9 本機 Supabase 整合測試。
+- 17 項測試：8 靜態／防誤用，9 本機 Supabase 整合測試。
 - Auth 表插入合成使用者後，真實平台上的自訂 Trigger 建立 profile。
 - 本人讀寫、他人不可讀、匿名不可讀、跨使用者寫入被拒絕；同一连接切換使用者亦驗證。
 - ORM Session 可讀到本人 user_intake；identity 能產生值，check constraint 拒絕非法值。

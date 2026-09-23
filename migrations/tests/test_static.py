@@ -68,6 +68,25 @@ class StaticTests(unittest.TestCase):
         self.assertNotEqual(blocked.returncode,0)
         self.assertIn('Stamp is blocked',blocked.stderr)
 
+    def test_orm_check_constraints_render_balanced(self):
+        # Guards the build script slice: 'CHECK (' is 7 chars. An off-by-one
+        # leaves every CHECK unbalanced; upgrade() never notices because it
+        # executes tables.json, but create_all()/autogenerate would emit bad SQL.
+        from sqlalchemy.dialects import postgresql
+        from sqlalchemy.schema import CreateTable
+        from backend.database.models import Base
+        dialect = postgresql.dialect()
+        seen = 0
+        for table in Base.metadata.sorted_tables:
+            if table.schema == "auth":
+                continue
+            ddl = str(CreateTable(table).compile(dialect=dialect))
+            for line in ddl.splitlines():
+                if "CHECK" in line:
+                    seen += 1
+                    self.assertEqual(line.count("("), line.count(")"), (table.name, line.strip()))
+        self.assertEqual(seen, 26)
+
     def test_baseline_downgrade_refused(self):
         with self.assertRaisesRegex(RuntimeError,'intentionally disabled'):baseline.downgrade()
 
