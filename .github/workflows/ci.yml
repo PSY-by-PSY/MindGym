@@ -63,7 +63,17 @@ jobs:
         run: |
           mkdir -p .local-db/supabase-test
           supabase init --workdir .local-db/supabase-test
-          supabase start --workdir .local-db/supabase-test -x studio,imgproxy,inbucket,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor
+          # Tests use psycopg on 54322 only; kong/postgrest/postgres-meta are not needed.
+          # ghcr.io rate-limits image pulls on shared runners, so retry the start.
+          for attempt in 1 2 3; do
+            if supabase start --workdir .local-db/supabase-test -x studio,imgproxy,inbucket,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor,kong,postgrest,postgres-meta; then
+              exit 0
+            fi
+            echo "supabase start failed (attempt $attempt); cleaning up and retrying"
+            supabase stop --workdir .local-db/supabase-test --no-backup || true
+            sleep $((attempt * 45))
+          done
+          exit 1
       - run: python -m alembic upgrade head
       - run: python -m alembic check
       - run: python scripts/db/verify_baseline.py

@@ -36,7 +36,7 @@ python3 -m venv .venv-migrations
 
 mkdir -p .local-db/supabase-test
 supabase init --workdir .local-db/supabase-test
-supabase start --workdir .local-db/supabase-test -x studio,imgproxy,inbucket,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor
+supabase start --workdir .local-db/supabase-test -x studio,imgproxy,inbucket,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor,kong,postgrest,postgres-meta
 ```
 
 若該目錄已有 config，不重跑 init。資料庫需要 PostgreSQL 17+；本機 Supabase 的實際 port 以它的輸出為準。以下憑證是本機測試預設值，不是正式憑證：
