@@ -47,9 +47,6 @@ jobs:
     # No hosted project token, DB password or application secrets are used.
     env:
       MINDGYM_LOCAL_TEST: "1"
-      # ghcr.io rate-limited shared runners during a GitHub incident (2026-09-23); the
-      # same image tags are published to AWS's public mirror. Honoured by Supabase CLI.
-      SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
       MIGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
     steps:
@@ -67,9 +64,12 @@ jobs:
           mkdir -p .local-db/supabase-test
           supabase init --workdir .local-db/supabase-test
           # Tests use psycopg on 54322 only; kong/postgrest/postgres-meta are not needed.
+          # Pull from AWS's public mirror: ghcr.io rate-limited shared runners during the
+          # 2026-09-23 GitHub incident. setup-cli exports SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io
+          # via GITHUB_ENV, which overrides job-level env, so the override is inline here.
           # Registry hiccups are transient, so retry the start a few times.
           for attempt in 1 2 3; do
-            if supabase start --workdir .local-db/supabase-test -x studio,imgproxy,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor,kong,postgrest,postgres-meta; then
+            if SUPABASE_INTERNAL_IMAGE_REGISTRY=public.ecr.aws supabase start --workdir .local-db/supabase-test -x studio,imgproxy,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor,kong,postgrest,postgres-meta; then
               exit 0
             fi
             echo "supabase start failed (attempt $attempt); cleaning up and retrying"
