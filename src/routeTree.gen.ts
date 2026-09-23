@@ -20,6 +20,7 @@ import { Route as PrivacyImport } from './routes/privacy'
 import { Route as PaywallImport } from './routes/paywall'
 import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
+import { Route as IntakeImport } from './routes/intake'
 import { Route as AppImport } from './routes/app'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
@@ -91,6 +92,12 @@ const OnboardingRoute = OnboardingImport.update({
 const LoginRoute = LoginImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const IntakeRoute = IntakeImport.update({
+  id: '/intake',
+  path: '/intake',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -219,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppImport
+      parentRoute: typeof rootRoute
+    }
+    '/intake': {
+      id: '/intake'
+      path: '/intake'
+      fullPath: '/intake'
+      preLoaderRoute: typeof IntakeImport
       parentRoute: typeof rootRoute
     }
     '/login': {
@@ -427,6 +441,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRouteWithChildren
+  '/intake': typeof IntakeRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
@@ -456,6 +471,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRouteWithChildren
+  '/intake': typeof IntakeRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
@@ -486,6 +502,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRouteWithChildren
+  '/intake': typeof IntakeRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
@@ -517,6 +534,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/intake'
     | '/login'
     | '/onboarding'
     | '/paywall'
@@ -545,6 +563,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/intake'
     | '/login'
     | '/onboarding'
     | '/paywall'
@@ -573,6 +592,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/intake'
     | '/login'
     | '/onboarding'
     | '/paywall'
@@ -603,6 +623,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRouteWithChildren
+  IntakeRoute: typeof IntakeRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PaywallRoute: typeof PaywallRoute
@@ -618,6 +639,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AppRoute: AppRouteWithChildren,
+  IntakeRoute: IntakeRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PaywallRoute: PaywallRoute,
@@ -642,6 +664,7 @@ export const routeTree = rootRoute
         "/",
         "/admin",
         "/app",
+        "/intake",
         "/login",
         "/onboarding",
         "/paywall",
@@ -677,6 +700,9 @@ export const routeTree = rootRoute
         "/app/workshop/warmup",
         "/app/workshop/woop"
       ]
+    },
+    "/intake": {
+      "filePath": "intake.tsx"
     },
     "/login": {
       "filePath": "login.tsx"

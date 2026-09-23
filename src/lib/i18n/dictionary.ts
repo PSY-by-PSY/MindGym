@@ -21,6 +21,7 @@ import { paywall } from './dict/paywall'
 import { welcome } from './dict/welcome'
 import { legal } from './dict/legal'
 import { support } from './dict/support'
+import { intake } from './dict/intake'
 
 export type Translation = { 'zh-CN': string; en: string }
 export type Dictionary = Record<string, Translation>
@@ -47,4 +48,5 @@ export const DICTIONARY: Dictionary = {
   ...welcome,
   ...legal,
   ...support,
+  ...intake,
 }

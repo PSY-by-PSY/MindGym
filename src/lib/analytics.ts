@@ -39,6 +39,10 @@ export type AnalyticsEvent =
   | 'quiz_started'         // 開始心理測驗
   | 'quiz_completed'       // 完成心理測驗
   | 'quiz_skipped'         // 跳過心理測驗
+  | 'intake_started'       // 進入入門偏好問卷（/intake 第一題）
+  | 'intake_question_answered' // 回答入門偏好問卷的一題（含 question / value）
+  | 'intake_completed'     // 完成入門偏好問卷（含各題答案、跳過幾題、安排的第一個練習）
+  | 'intake_skipped'       // 整份跳過入門偏好問卷（含停在第幾題）
   | 'gratitude_started'    // 開始寫感恩日記
   | 'gratitude_completed'  // 完成感恩日記
   | 'module_opened'        // 點開訓練中心的某個模組

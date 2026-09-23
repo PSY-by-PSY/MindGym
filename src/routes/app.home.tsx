@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { recommendPractice, type Recommendation } from '../lib/recommend'
 import { hasSkippedOnboarding } from '../lib/onboardingSkip'
+import { hasIntakeDone, markIntakeDone } from '../lib/intakeDone'
 import { hasSeenWelcome } from '../lib/welcomeSeen'
 import { checkAndGenerateReviews } from '../lib/reviews'
 import { isoLocalDate } from '../lib/date'
@@ -59,6 +60,18 @@ export const Route = createFileRoute('/app/home')({
     }
 
     const userName = profile?.name || fallbackName
+
+    // 入門偏好問卷（6 題點選）：歡迎導覽之後、InMind 之前。做過或整份跳過都不再問。
+    // 先看本機 flag 省一次查詢；換裝置時再查 user_intake 補回 flag。
+    if (!hasIntakeDone()) {
+      const { data: intake } = await supabase
+        .from('user_intake')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (intake) markIntakeDone()
+      else throw redirect({ to: '/intake' })
+    }
 
     const { data: scores } = await supabase
       .from('perma_scores')
