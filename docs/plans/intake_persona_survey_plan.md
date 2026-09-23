@@ -2,6 +2,7 @@
 
 > 狀態：**提案草稿 v1（2026-09-23）**，待產品／臨床端過目後開工。
 > 參考對象：Nüli 女力、BetterMe（Fitness／Mental Health）、LUCIDBOOK 路晰書。
+> 三家的逐題清單見 `reference_apps_onboarding_questions.md`。§4 的六題已於 2026-09-23 實作為 `/intake`（見 `src/lib/intake.ts`）。
 > 全文案受晤談前計畫書 §1-1 用語法遵規範約束（禁「心理諮商／心理治療」）。UI 不使用 emoji。
 
 ---
