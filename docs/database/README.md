@@ -4,13 +4,15 @@
 
 ## 本次交付
 
-- 一個 Alembic revision：`mg_0001_baseline`。
+- 不可變的基準 revision：`mg_0001_baseline`；金流功能分支另新增
+  `mg_0002_billing_recurring`，不回寫 baseline 資產。
 - 35 張表、315 欄、122 個表級約束、32 個額外索引、2 個 identity sequences。
 - 49 支 public 函式（包含 overload）、98 條 RLS 政策、9 個 public triggers 及 1 個 auth.users 自訂 trigger。
 - 應用物件的 owner、ACL、RLS enabled／force 狀態，以及 sequence 選項。
 - 35 個可查詢的 SQLAlchemy ORM classes；auth.users 僅為外鍵參照，不由此系統建立。
 - 版本資產固定；models 可隨未來 migration 演進，baseline 不 import models。
-- 現有 FastAPI 與前端資料存取未改，沒有接金流或改會員權益。
+- 現有 FastAPI 與前端資料存取未改；0002 只建立私有 billing ledger／outbox，
+  尚未接 PAYUNI 或改會員權益。
 
 ## 明確的邊界與差異
 
@@ -47,6 +49,7 @@ export MINDGYM_LOCAL_TEST=1
 .venv-migrations/bin/alembic upgrade head
 .venv-migrations/bin/alembic check
 .venv-migrations/bin/python scripts/db/verify_baseline.py
+.venv-migrations/bin/python scripts/db/verify_billing_head.py
 export MIGRATION_TEST_DATABASE_URL="$MIGRATION_DATABASE_URL"
 .venv-migrations/bin/python -m unittest discover -s migrations/tests -v
 ```

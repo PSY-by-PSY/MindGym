@@ -40,3 +40,23 @@
 - 新增 CI job 已寫入，尚未推送到 GitHub，沒有宣稱遠端 Actions 已跑過。
 
 詳見 README.md；通過本機驗證不會把 baseline 狀態改成 production-ready。
+
+## 2026-09-24：`mg_0002_billing_recurring`
+
+本次新增 10 張 `billing` 表、私有 schema 權限、RLS、outbox claim RPC、ORM metadata
+與 head verifier。已完成 9 項靜態測試、Python compile、offline `upgrade head` SQL 生成
+及 whitespace 檢查。offline SQL 已確認包含 billing schema、orders 與 claim RPC。
+
+本機環境當下沒有 Supabase CLI，因此尚未實際執行 PostgreSQL upgrade、`alembic check`
+與新增的 billing 整合測試；不得把本段解讀成資料庫整合測試已通過。完整驗證時應再執行：
+
+```bash
+export MIGRATION_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+export MIGRATION_TEST_DATABASE_URL="$MIGRATION_DATABASE_URL"
+export MINDGYM_LOCAL_TEST=1
+.venv-migrations/bin/alembic upgrade head
+.venv-migrations/bin/alembic check
+.venv-migrations/bin/python scripts/db/verify_baseline.py
+.venv-migrations/bin/python scripts/db/verify_billing_head.py
+.venv-migrations/bin/python -m unittest discover -s migrations/tests -v
+```

@@ -687,3 +687,283 @@ user_suspensions_table = sa.Table('user_suspensions', Base.metadata,
 )
 class UserSuspensions(Base):
     __table__ = user_suspensions_table
+
+
+# Recurring billing is intentionally isolated from browser-facing public data.
+# These models describe the post-baseline head; mg_0001 never imports them.
+billing_plans_table = sa.Table(
+    "plans", Base.metadata,
+    sa.Column("code", sa.Text(), primary_key=True),
+    sa.Column("display_name", sa.Text(), nullable=False),
+    sa.Column("period", sa.Text(), nullable=False),
+    sa.Column("period_count", sa.Integer(), nullable=False, server_default=sa.text("1")),
+    sa.Column("amount_cents", sa.Integer(), nullable=False),
+    sa.Column("currency", sa.Text(), nullable=False, server_default=sa.text("'TWD'::text")),
+    sa.Column("terms_version", sa.Text(), nullable=False),
+    sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.CheckConstraint("period IN ('month', 'quarter', 'year')", name="plans_period_check"),
+    sa.CheckConstraint("period_count > 0", name="plans_period_count_check"),
+    sa.CheckConstraint("amount_cents > 0", name="plans_amount_check"),
+    schema="billing",
+)
+
+
+class BillingPlan(Base):
+    __table__ = billing_plans_table
+
+
+billing_subscriptions_table = sa.Table(
+    "subscriptions", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("user_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("plan_code", sa.Text(), nullable=False),
+    sa.Column("provider", sa.Text(), nullable=False, server_default=sa.text("'payuni'::text")),
+    sa.Column("provider_subscription_ref", sa.Text()),
+    sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'pending'::text")),
+    sa.Column("current_period_starts_at", sa.DateTime(timezone=True)),
+    sa.Column("current_period_ends_at", sa.DateTime(timezone=True)),
+    sa.Column("next_charge_at", sa.DateTime(timezone=True)),
+    sa.Column("cancel_at", sa.DateTime(timezone=True)),
+    sa.Column("canceled_at", sa.DateTime(timezone=True)),
+    sa.Column("grace_ends_at", sa.DateTime(timezone=True)),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.ForeignKeyConstraint(["user_id"], ["profiles.id"], ondelete="RESTRICT"),
+    sa.ForeignKeyConstraint(["plan_code"], ["billing.plans.code"], ondelete="RESTRICT"),
+    sa.UniqueConstraint("provider", "provider_subscription_ref", name="subscriptions_provider_ref_key"),
+    sa.CheckConstraint(
+        "status IN ('pending', 'active', 'grace', 'cancel_scheduled', 'canceled', 'expired')",
+        name="subscriptions_status_check",
+    ),
+    schema="billing",
+)
+sa.Index(
+    "subscriptions_one_live_per_user", billing_subscriptions_table.c.user_id, unique=True,
+    postgresql_where=sa.text("status IN ('pending', 'active', 'grace', 'cancel_scheduled')"),
+)
+sa.Index("subscriptions_due_idx", billing_subscriptions_table.c.next_charge_at)
+
+
+class BillingSubscription(Base):
+    __table__ = billing_subscriptions_table
+
+
+billing_orders_table = sa.Table(
+    "orders", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("subscription_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("merchant_order_no", sa.Text(), nullable=False),
+    sa.Column("idempotency_key", sa.Text(), nullable=False),
+    sa.Column("kind", sa.Text(), nullable=False),
+    sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'pending'::text")),
+    sa.Column("plan_code_snapshot", sa.Text(), nullable=False),
+    sa.Column("plan_name_snapshot", sa.Text(), nullable=False),
+    sa.Column("amount_cents", sa.Integer(), nullable=False),
+    sa.Column("currency", sa.Text(), nullable=False),
+    sa.Column("terms_version", sa.Text(), nullable=False),
+    sa.Column("terms_accepted_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("paid_at", sa.DateTime(timezone=True)),
+    sa.Column("failed_at", sa.DateTime(timezone=True)),
+    sa.Column("anomaly_code", sa.Text()),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.ForeignKeyConstraint(["subscription_id"], ["billing.subscriptions.id"], ondelete="RESTRICT"),
+    sa.UniqueConstraint("merchant_order_no", name="orders_merchant_order_no_key"),
+    sa.UniqueConstraint("subscription_id", "idempotency_key", name="orders_idempotency_key"),
+    sa.CheckConstraint("kind IN ('initial', 'renewal')", name="orders_kind_check"),
+    sa.CheckConstraint(
+        "status IN ('pending', 'processing', 'paid', 'failed', 'expired', 'canceled', 'refunded', 'partially_refunded')",
+        name="orders_status_check",
+    ),
+    sa.CheckConstraint("amount_cents > 0", name="orders_amount_check"),
+    schema="billing",
+)
+sa.Index(
+    "orders_one_pending_initial", billing_orders_table.c.subscription_id, unique=True,
+    postgresql_where=sa.text("kind = 'initial' AND status IN ('pending', 'processing')"),
+)
+sa.Index("orders_subscription_created_idx", billing_orders_table.c.subscription_id, billing_orders_table.c.created_at)
+
+
+class BillingOrder(Base):
+    __table__ = billing_orders_table
+
+
+billing_payment_attempts_table = sa.Table(
+    "payment_attempts", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("order_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("attempt_no", sa.Integer(), nullable=False),
+    sa.Column("provider_transaction_ref", sa.Text()),
+    sa.Column("status", sa.Text(), nullable=False),
+    sa.Column("failure_code", sa.Text()),
+    sa.Column("failure_message", sa.Text()),
+    sa.Column("attempted_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("resolved_at", sa.DateTime(timezone=True)),
+    sa.ForeignKeyConstraint(["order_id"], ["billing.orders.id"], ondelete="RESTRICT"),
+    sa.UniqueConstraint("order_id", "attempt_no", name="payment_attempts_order_attempt_key"),
+    sa.UniqueConstraint("provider_transaction_ref", name="payment_attempts_provider_ref_key"),
+    sa.CheckConstraint("attempt_no > 0", name="payment_attempts_number_check"),
+    sa.CheckConstraint(
+        "status IN ('created', 'processing', 'succeeded', 'failed', 'unknown')",
+        name="payment_attempts_status_check",
+    ),
+    schema="billing",
+)
+
+
+class BillingPaymentAttempt(Base):
+    __table__ = billing_payment_attempts_table
+
+
+billing_payment_methods_table = sa.Table(
+    "payment_methods", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("subscription_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("provider", sa.Text(), nullable=False, server_default=sa.text("'payuni'::text")),
+    sa.Column("provider_token_ref", sa.Text()),
+    sa.Column("token_ciphertext", sa.Text()),
+    sa.Column("card_masked", sa.Text()),
+    sa.Column("card_brand", sa.Text()),
+    sa.Column("token_expires_at", sa.DateTime(timezone=True)),
+    sa.Column("revoked_at", sa.DateTime(timezone=True)),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.ForeignKeyConstraint(["subscription_id"], ["billing.subscriptions.id"], ondelete="RESTRICT"),
+    sa.UniqueConstraint("subscription_id", name="payment_methods_subscription_key"),
+    schema="billing",
+)
+
+
+class BillingPaymentMethod(Base):
+    __table__ = billing_payment_methods_table
+
+
+billing_provider_events_table = sa.Table(
+    "provider_events", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("provider", sa.Text(), nullable=False, server_default=sa.text("'payuni'::text")),
+    sa.Column("provider_event_ref", sa.Text(), nullable=False),
+    sa.Column("order_id", pg.UUID(as_uuid=True)),
+    sa.Column("event_type", sa.Text()),
+    sa.Column("signature_valid", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+    sa.Column("payload_redacted", pg.JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.Column("received_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("processed_at", sa.DateTime(timezone=True)),
+    sa.Column("process_error", sa.Text()),
+    sa.ForeignKeyConstraint(["order_id"], ["billing.orders.id"], ondelete="SET NULL"),
+    sa.UniqueConstraint("provider", "provider_event_ref", name="provider_events_ref_key"),
+    schema="billing",
+)
+
+
+class BillingProviderEvent(Base):
+    __table__ = billing_provider_events_table
+
+
+billing_refunds_table = sa.Table(
+    "refunds", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("order_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("idempotency_key", sa.Text(), nullable=False),
+    sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'pending'::text")),
+    sa.Column("amount_cents", sa.Integer(), nullable=False),
+    sa.Column("reason", sa.Text(), nullable=False),
+    sa.Column("provider_refund_ref", sa.Text()),
+    sa.Column("requested_by", pg.UUID(as_uuid=True)),
+    sa.Column("succeeded_at", sa.DateTime(timezone=True)),
+    sa.Column("failed_at", sa.DateTime(timezone=True)),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.ForeignKeyConstraint(["order_id"], ["billing.orders.id"], ondelete="RESTRICT"),
+    sa.ForeignKeyConstraint(["requested_by"], ["profiles.id"], ondelete="SET NULL"),
+    sa.UniqueConstraint("order_id", "idempotency_key", name="refunds_idempotency_key"),
+    sa.UniqueConstraint("provider_refund_ref", name="refunds_provider_ref_key"),
+    sa.CheckConstraint("status IN ('pending', 'processing', 'succeeded', 'failed')", name="refunds_status_check"),
+    sa.CheckConstraint("amount_cents > 0", name="refunds_amount_check"),
+    schema="billing",
+)
+
+
+class BillingRefund(Base):
+    __table__ = billing_refunds_table
+
+
+billing_invoices_table = sa.Table(
+    "invoices", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("order_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'pending'::text")),
+    sa.Column("external_invoice_ref", sa.Text()),
+    sa.Column("issued_at", sa.DateTime(timezone=True)),
+    sa.Column("voided_at", sa.DateTime(timezone=True)),
+    sa.Column("last_error", sa.Text()),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.ForeignKeyConstraint(["order_id"], ["billing.orders.id"], ondelete="RESTRICT"),
+    sa.UniqueConstraint("order_id", name="invoices_order_key"),
+    sa.UniqueConstraint("external_invoice_ref", name="invoices_external_ref_key"),
+    sa.CheckConstraint("status IN ('pending', 'issued', 'void_pending', 'voided', 'failed')", name="invoices_status_check"),
+    schema="billing",
+)
+
+
+class BillingInvoice(Base):
+    __table__ = billing_invoices_table
+
+
+billing_outbox_events_table = sa.Table(
+    "outbox_events", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("topic", sa.Text(), nullable=False),
+    sa.Column("aggregate_type", sa.Text(), nullable=False),
+    sa.Column("aggregate_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("dedupe_key", sa.Text(), nullable=False),
+    sa.Column("payload", pg.JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'pending'::text")),
+    sa.Column("available_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("lease_until", sa.DateTime(timezone=True)),
+    sa.Column("attempt_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+    sa.Column("last_error", sa.Text()),
+    sa.Column("processed_at", sa.DateTime(timezone=True)),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.UniqueConstraint("dedupe_key", name="outbox_events_dedupe_key"),
+    sa.CheckConstraint("status IN ('pending', 'processing', 'processed', 'dead')", name="outbox_events_status_check"),
+    sa.CheckConstraint("attempt_count >= 0", name="outbox_events_attempt_count_check"),
+    schema="billing",
+)
+sa.Index(
+    "outbox_events_claim_idx", billing_outbox_events_table.c.available_at,
+    billing_outbox_events_table.c.created_at,
+    postgresql_where=sa.text("status IN ('pending', 'processing')"),
+)
+
+
+class BillingOutboxEvent(Base):
+    __table__ = billing_outbox_events_table
+
+
+billing_entitlement_changes_table = sa.Table(
+    "entitlement_changes", Base.metadata,
+    sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+    sa.Column("subscription_id", pg.UUID(as_uuid=True), nullable=False),
+    sa.Column("order_id", pg.UUID(as_uuid=True)),
+    sa.Column("reason", sa.Text(), nullable=False),
+    sa.Column("tier", sa.Text(), nullable=False),
+    sa.Column("status", sa.Text(), nullable=False),
+    sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("effective_until", sa.DateTime(timezone=True)),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+    sa.ForeignKeyConstraint(["subscription_id"], ["billing.subscriptions.id"], ondelete="RESTRICT"),
+    sa.ForeignKeyConstraint(["order_id"], ["billing.orders.id"], ondelete="SET NULL"),
+    sa.CheckConstraint("tier IN ('free', 'pro', 'pass')", name="entitlement_changes_tier_check"),
+    schema="billing",
+)
+
+
+class BillingEntitlementChange(Base):
+    __table__ = billing_entitlement_changes_table

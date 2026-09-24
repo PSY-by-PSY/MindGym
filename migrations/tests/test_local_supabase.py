@@ -27,8 +27,8 @@ class LocalSupabaseTests(unittest.TestCase):
     def setUpClass(cls):
         cls.engine=sa.create_engine(checked_url(URL),poolclass=sa.pool.NullPool)
         with cls.engine.connect() as c:
-            if c.exec_driver_sql('SELECT version_num FROM mindgym_migrations.alembic_version').scalar()!='mg_0001_baseline':
-                raise RuntimeError('Expected baseline revision; do not test arbitrary databases')
+            if c.exec_driver_sql('SELECT version_num FROM mindgym_migrations.alembic_version').scalar()!='mg_0002_billing_recurring':
+                raise RuntimeError('Expected recurring-billing head; do not test arbitrary databases')
         cls.snapshot=json.loads((ROOT/'migrations/baseline/snapshot.json').read_text())
 
     @classmethod
@@ -94,6 +94,31 @@ class LocalSupabaseTests(unittest.TestCase):
         self.assertEqual(data['tier'],'free');self.assertTrue(data['is_pro'])
         with self.assertRaises(sa.exc.DBAPIError):
             self.conn.execute(sa.text("SELECT public.set_user_subscription(:id,'pro','active',false)"),{'id':self.a})
+
+    def test_billing_is_private_and_outbox_claim_is_atomic(self):
+        self.user(self.a)
+        self.conn.exec_driver_sql("""
+          INSERT INTO billing.plans(code,display_name,period,amount_cents,terms_version)
+          VALUES ('test-monthly','Test monthly','month',100,'test-v1')
+        """)
+        subscription_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.subscriptions(user_id,plan_code)
+          VALUES (:user_id,'test-monthly') RETURNING id
+        """),{'user_id':self.a}).scalar_one()
+        event_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.outbox_events(topic,aggregate_type,aggregate_id,dedupe_key)
+          VALUES ('billing.test','subscription',:subscription_id,:dedupe_key) RETURNING id
+        """),{'subscription_id':subscription_id,'dedupe_key':'test-'+str(self.a)}).scalar_one()
+
+        self.assertFalse(self.conn.exec_driver_sql("SELECT has_schema_privilege('anon','billing','USAGE')").scalar_one())
+        self.assertFalse(self.conn.exec_driver_sql("SELECT has_table_privilege('authenticated','billing.orders','SELECT')").scalar_one())
+        self.assertFalse(self.conn.exec_driver_sql(
+            "SELECT has_function_privilege('authenticated','billing.claim_outbox_events(integer,integer)','EXECUTE')"
+        ).scalar_one())
+
+        self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
+        claimed=self.conn.exec_driver_sql('SELECT id,status,attempt_count FROM billing.claim_outbox_events(10,60)').one()
+        self.assertEqual(claimed,(event_id,'processing',1))
 
     def test_push_triggers_stay_disabled_and_no_cron_installed(self):
         rows=self.conn.exec_driver_sql("SELECT tgname,tgenabled FROM pg_trigger WHERE tgname IN ('comments_push','likes_push') ORDER BY tgname").all()
