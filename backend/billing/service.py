@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from backend.billing.providers import CheckoutRequest, CheckoutSession, PaymentProvider
-from backend.billing.repository import BillingRepository, PendingCheckout
+from backend.billing.repository import BillingRepository, PendingCheckout, ResumableCheckout
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,12 @@ class CreateCheckoutCommand:
 @dataclass(frozen=True)
 class CreatedCheckout:
     checkout: PendingCheckout
+    provider_session: CheckoutSession
+
+
+@dataclass(frozen=True)
+class ResumedCheckout:
+    checkout: ResumableCheckout
     provider_session: CheckoutSession
 
 
@@ -64,3 +70,22 @@ class BillingService:
 
     async def get_order(self, user_id: str, order_id: str):
         return await self._repository.get_order_for_user(user_id=user_id, order_id=order_id)
+
+    async def resume_checkout(self, user_id: str, order_id: str) -> ResumedCheckout | None:
+        """Create a fresh provider form for the same pending order, never a new order."""
+        await self._provider.assert_ready()
+        checkout = await self._repository.get_resumable_checkout_for_user(
+            user_id=user_id, order_id=order_id,
+        )
+        if checkout is None:
+            return None
+        session = await self._provider.create_initial_checkout(
+            CheckoutRequest(
+                merchant_order_no=checkout.merchant_order_no,
+                amount_cents=checkout.amount_cents,
+                currency=checkout.currency,
+                description=checkout.plan_name,
+                callback_url=self._callback_url,
+            )
+        )
+        return ResumedCheckout(checkout=checkout, provider_session=session)

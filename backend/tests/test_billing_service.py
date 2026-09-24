@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT))
 
 from backend.billing.errors import ProviderNotConfigured
 from backend.billing.providers import CheckoutSession, DisabledPayUniProvider
-from backend.billing.repository import PendingCheckout
+from backend.billing.repository import PendingCheckout, ResumableCheckout
 from backend.billing.service import BillingService, CreateCheckoutCommand
 
 
@@ -23,6 +23,14 @@ class FakeRepository:
             merchant_order_no=kwargs["merchant_order_no"], status="pending",
             amount_cents=9900, currency="TWD",
             expires_at=kwargs["expires_at"], reused=False,
+        )
+
+    async def get_resumable_checkout_for_user(self, **kwargs):
+        self.calls.append(kwargs)
+        return ResumableCheckout(
+            order_id=kwargs["order_id"], merchant_order_no="MG-EXISTING",
+            status="pending", amount_cents=9900, currency="TWD",
+            plan_name="月繳方案", expires_at=datetime.now(timezone.utc),
         )
 
 
@@ -63,6 +71,19 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(provider.requests[0].amount_cents, 9900)
         self.assertEqual(provider.requests[0].callback_url, "https://api.example.invalid/callback")
         self.assertLess(abs((repository.calls[0]["terms_accepted_at"] - datetime.now(timezone.utc)).total_seconds()), 5)
+
+    async def test_resume_reuses_existing_order_and_merchant_number(self):
+        repository = FakeRepository()
+        provider = ReadyProvider()
+        service = BillingService(repository, provider, "https://api.example.invalid/callback")
+
+        resumed = await service.resume_checkout("user-1", "order-existing")
+
+        self.assertIsNotNone(resumed)
+        self.assertEqual(repository.calls, [{"user_id": "user-1", "order_id": "order-existing"}])
+        self.assertEqual(resumed.checkout.order_id, "order-existing")
+        self.assertEqual(provider.requests[0].merchant_order_no, "MG-EXISTING")
+        self.assertEqual(provider.requests[0].description, "月繳方案")
 
 
 if __name__ == "__main__":

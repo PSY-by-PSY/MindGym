@@ -113,6 +113,36 @@ async def get_order(order_id: str, request: Request, authorization: str | None =
     return OrderStatusResponse(id=order.id,status=order.status,paid_at=order.paid_at.isoformat() if order.paid_at else None,expires_at=order.expires_at.isoformat(),can_resume=order.can_resume)
 
 
+@router.post("/orders/{order_id}/resume", response_model=CheckoutResponse)
+async def resume_checkout_session(
+    order_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    repository = getattr(request.app.state, "billing_repository", None)
+    if repository is None:
+        raise HTTPException(status_code=503, detail="Billing is unavailable")
+    try:
+        user_id = await repository.authenticated_user_id(_bearer_token(authorization))
+        resumed = await _service(request).resume_checkout(user_id, order_id)
+    except ProviderNotConfigured:
+        raise HTTPException(status_code=503, detail="Checkout is not enabled") from None
+    except RepositoryError as exc:
+        if str(exc) == "invalid authentication token":
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        raise HTTPException(status_code=503, detail="Checkout unavailable") from None
+    if resumed is None:
+        raise HTTPException(status_code=404, detail="Order is not resumable")
+    return CheckoutResponse(
+        order_id=resumed.checkout.order_id,
+        status=resumed.checkout.status,
+        expires_at=resumed.checkout.expires_at.isoformat(),
+        redirect_url=resumed.provider_session.redirect_url,
+        form_action=resumed.provider_session.form_action,
+        form_fields=resumed.provider_session.form_fields,
+    )
+
+
 @router.post("/payuni/callback")
 async def payuni_callback(request: Request):
     fields = {key: value for key, value in (await request.form()).items() if isinstance(value, str)}

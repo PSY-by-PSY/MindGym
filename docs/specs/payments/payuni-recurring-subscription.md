@@ -1,6 +1,6 @@
 # PAYUNI 定期扣款訂閱：過渡期功能規格
 
-> 狀態：**Draft — P1 schema 已實作，尚未可對外收款**
+> 狀態：**Draft — 初始 checkout、驗簽 callback 留存、訂單查詢與 resume 骨架已實作；尚未可對外收款**
 > Owner：待指定
 > 基線：`feat/alembic-orm-baseline` 的 `mg_0001_baseline`
 > 最後更新：2026-09-24
@@ -296,7 +296,7 @@ body 不得帶 `user_id`。`Idempotency-Key` 為建立 checkout、取消與退�
 | `GET /v1/billing/plans` | public web | 可販售方案 | code、展示名稱、價格、幣別、period、條款版本 |
 | `POST /v1/billing/checkout-sessions` | 已登入 Web | 建立初始訂單與 PAYUNI 導轉資料 | order id、status、provider redirect/form、expires_at |
 | `GET /v1/billing/orders/{id}` | 本人 | 輪詢付款狀態 | order status、paid_at、可否 resume |
-| `POST /v1/billing/orders/{id}/resume` | 本人 | 查舊單後續用或新建單 | checkout session 或已付款狀態 |
+| `POST /v1/billing/orders/{id}/resume` | 本人 | 為未過期的 pending／processing 舊單重建 PAYUNI 導轉資料，沿用原 merchant order no；不新建訂單 | checkout session |
 | `POST /v1/billing/subscription/cancel` | 本人 | 關閉未來自動續扣 | status、current_period_ends_at、cancel_at |
 | `GET /v1/billing/me` | 本人／iOS | 訂閱、權益、付款歷史的安全視圖 | tier、status、effective_until、next_charge_at、masked card、orders |
 | `POST /v1/billing/payuni/callback` | PAYUNI | server-to-server 付款通知 | 僅 ACK；不回傳帳務細節 |
