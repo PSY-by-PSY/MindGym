@@ -41,7 +41,7 @@
 
 詳見 README.md；通過本機驗證不會把 baseline 狀態改成 production-ready。
 
-## 2026-09-24：`mg_0002_billing_recurring`
+## 2026-09-24：billing migrations（收斂後）
 
 本次新增 10 張 `billing` 表、私有 schema 權限、RLS、outbox claim RPC、ORM metadata
 與 head verifier。已完成 9 項靜態測試、Python compile、offline `upgrade head` SQL 生成
@@ -61,8 +61,11 @@ export MINDGYM_LOCAL_TEST=1
 .venv-migrations/bin/python -m unittest discover -s migrations/tests -v
 ```
 
-同日另新增 `mg_0003_billing_checkout_rpc`：以 SECURITY DEFINER RPC 將 pending
-subscription、不可變 order snapshot 與 checkout outbox event 寫在同一 DB transaction。
+`mg_0002_billing_foundation` 建立 billing schema；
+`mg_0003_billing_workflow` 以 SECURITY DEFINER RPC 將 pending
+subscription、不可變 order snapshot 與 checkout outbox event 寫在同一 DB transaction，
+並包含 callback receipt/outbox 與 owner-scoped read RPC。原本尚未套用至共享環境的
+`mg_0002`～`mg_0008` 已收斂，禁止對已套用環境使用此收斂方式。
 FastAPI 的 billing router／service／repository 已有單元測試；PAYUNI provider 預設停用，
 不會建立可對外付款的 checkout。
 

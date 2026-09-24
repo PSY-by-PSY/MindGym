@@ -1,7 +1,7 @@
 """Read-only verification for the recurring-billing migration head.
 
 This complements verify_baseline.py: the baseline snapshot remains immutable,
-while this verifier owns only the objects introduced by mg_0002.
+while this verifier owns only the objects introduced by the billing migrations.
 """
 
 import json
@@ -64,6 +64,10 @@ def verify(connection) -> list[str]:
     for signature, label in (
         ("billing.claim_outbox_events(integer,integer)", "billing claim function"),
         ("billing.create_pending_checkout(uuid,text,text,text,timestamptz,timestamptz,text)", "billing checkout function"),
+        ("billing.record_provider_event(text,text,text,boolean,jsonb)", "billing callback receipt function"),
+        ("billing.get_order_for_user(uuid,uuid)", "billing order read function"),
+        ("billing.get_resumable_checkout_for_user(uuid,uuid)", "billing resume read function"),
+        ("billing.get_overview_for_user(uuid)", "billing overview function"),
     ):
         if connection.exec_driver_sql("SELECT to_regprocedure(%s)::text", (signature,)).scalar() is None:
             differences.append(label)

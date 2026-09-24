@@ -18,20 +18,10 @@ from migrations.local_only import checked_url
 spec=importlib.util.spec_from_file_location('baseline', ROOT/'migrations/versions/mg_0001_baseline.py')
 baseline=importlib.util.module_from_spec(spec);spec.loader.exec_module(baseline)
 
-billing_spec=importlib.util.spec_from_file_location('billing_revision', ROOT/'migrations/versions/mg_0002_billing_recurring.py')
+billing_spec=importlib.util.spec_from_file_location('billing_revision', ROOT/'migrations/versions/mg_0002_billing_foundation.py')
 billing_revision=importlib.util.module_from_spec(billing_spec);billing_spec.loader.exec_module(billing_revision)
-checkout_spec=importlib.util.spec_from_file_location('checkout_revision', ROOT/'migrations/versions/mg_0003_billing_checkout_rpc.py')
-checkout_revision=importlib.util.module_from_spec(checkout_spec);checkout_spec.loader.exec_module(checkout_revision)
-callback_spec=importlib.util.spec_from_file_location('callback_revision', ROOT/'migrations/versions/mg_0004_billing_provider_event_rpc.py')
-callback_revision=importlib.util.module_from_spec(callback_spec);callback_spec.loader.exec_module(callback_revision)
-order_status_spec=importlib.util.spec_from_file_location('order_status_revision', ROOT/'migrations/versions/mg_0005_billing_order_status_rpc.py')
-order_status_revision=importlib.util.module_from_spec(order_status_spec);order_status_spec.loader.exec_module(order_status_revision)
-resume_spec=importlib.util.spec_from_file_location('resume_revision', ROOT/'migrations/versions/mg_0006_billing_resume_checkout_rpc.py')
-resume_revision=importlib.util.module_from_spec(resume_spec);resume_spec.loader.exec_module(resume_revision)
-overview_spec=importlib.util.spec_from_file_location('overview_revision', ROOT/'migrations/versions/mg_0007_billing_overview_rpc.py')
-overview_revision=importlib.util.module_from_spec(overview_spec);overview_spec.loader.exec_module(overview_revision)
-callback_outbox_spec=importlib.util.spec_from_file_location('callback_outbox_revision', ROOT/'migrations/versions/mg_0008_billing_callback_outbox.py')
-callback_outbox_revision=importlib.util.module_from_spec(callback_outbox_spec);callback_outbox_spec.loader.exec_module(callback_outbox_revision)
+workflow_spec=importlib.util.spec_from_file_location('workflow_revision', ROOT/'migrations/versions/mg_0003_billing_workflow.py')
+workflow_revision=importlib.util.module_from_spec(workflow_spec);workflow_spec.loader.exec_module(workflow_revision)
 
 
 class StaticTests(unittest.TestCase):
@@ -43,13 +33,10 @@ class StaticTests(unittest.TestCase):
         self.assertEqual(APPLICATION_TABLES,{t['name'] for t in s['tables']})
 
     def test_billing_revision_and_orm_scope(self):
+        self.assertEqual(billing_revision.revision, 'mg_0002_billing_foundation')
         self.assertEqual(billing_revision.down_revision, 'mg_0001_baseline')
-        self.assertEqual(checkout_revision.down_revision, 'mg_0002_billing_recurring')
-        self.assertEqual(callback_revision.down_revision, 'mg_0003_billing_checkout_rpc')
-        self.assertEqual(order_status_revision.down_revision, 'mg_0004_billing_provider_event_rpc')
-        self.assertEqual(resume_revision.down_revision, 'mg_0005_billing_order_status_rpc')
-        self.assertEqual(overview_revision.down_revision, 'mg_0006_billing_resume_checkout_rpc')
-        self.assertEqual(callback_outbox_revision.down_revision, 'mg_0007_billing_overview_rpc')
+        self.assertEqual(workflow_revision.revision, 'mg_0003_billing_workflow')
+        self.assertEqual(workflow_revision.down_revision, 'mg_0002_billing_foundation')
         expected={
             'plans','subscriptions','orders','payment_attempts','payment_methods',
             'provider_events','refunds','invoices','outbox_events','entitlement_changes',

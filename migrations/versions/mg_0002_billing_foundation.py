@@ -1,4 +1,4 @@
-"""Add the private recurring-billing ledger and durable outbox.
+"""Add the private recurring-billing ledger and durable outbox foundation.
 
 This revision deliberately contains no PAYUNi wire fields or credentials.  It
 creates the provider-neutral persistence boundary needed before sandbox work.
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 
 
-revision = "mg_0002_billing_recurring"
+revision = "mg_0002_billing_foundation"
 down_revision = "mg_0001_baseline"
 branch_labels = None
 depends_on = None

@@ -27,8 +27,8 @@ class LocalSupabaseTests(unittest.TestCase):
     def setUpClass(cls):
         cls.engine=sa.create_engine(checked_url(URL),poolclass=sa.pool.NullPool)
         with cls.engine.connect() as c:
-            if c.exec_driver_sql('SELECT version_num FROM mindgym_migrations.alembic_version').scalar()!='mg_0003_billing_checkout_rpc':
-                raise RuntimeError('Expected recurring-billing checkout head; do not test arbitrary databases')
+            if c.exec_driver_sql('SELECT version_num FROM mindgym_migrations.alembic_version').scalar()!='mg_0003_billing_workflow':
+                raise RuntimeError('Expected recurring-billing workflow head; do not test arbitrary databases')
         cls.snapshot=json.loads((ROOT/'migrations/baseline/snapshot.json').read_text())
 
     @classmethod

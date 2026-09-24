@@ -82,7 +82,7 @@ flowchart LR
 
 ## 4. 建議資料模型
 
-下列是 `mg_0002_billing_recurring` 的設計目標，欄位名稱可在實作前與 PAYUNI
+下列是 `mg_0002_billing_foundation` 的設計目標，欄位名稱可在實作前與 PAYUNI
 實際 contract 對齊，但狀態、唯一鍵與不可變快照不可省略。
 
 ```mermaid
@@ -311,7 +311,7 @@ PAYUNI callback 的實際參數、驗簽欄位、ACK body、IP allowlist、timeo
 
 ```mermaid
 flowchart LR
-  A[完成 baseline review\n與正式採用授權] --> B[mg_0002: billing schema\nmodels / grants / RLS / RPC]
+  A[完成 baseline review\n與正式採用授權] --> B[mg_0002: billing foundation\nschema / models / grants / RLS]
   B --> C[FastAPI skeleton\nrouter/service/repository]
   C --> D[PAYUNI sandbox\ncheckout + callback]
   D --> E[entitlement cutover\nSQL + backend 一致]
@@ -321,8 +321,9 @@ flowchart LR
 
 1. 將 baseline 正式採用視為獨立 change；它目前會阻止 non-loopback URL 與 `stamp`，
    這些保護不可為了付款而移除。
-2. 新增 `mg_0002_billing_recurring`，建立 `billing` schema、表、索引、最小權限、
-   RLS／受控 RPC、資料 migration（如需要）與 `billing.outbox_events`；不得修改
+2. 新增 `mg_0002_billing_foundation`，建立 `billing` schema、表、索引、最小權限、
+   RLS、資料 migration（如需要）與 `billing.outbox_events`；`mg_0003_billing_workflow`
+   放置 checkout、callback/outbox 與受控 read RPC；不得修改
    baseline assets 或 `mg_0001_baseline.py`。
 3. 擴充 `backend/database/models.py` 與 `backend/database/scope.py`，讓 Alembic 明確
    對 `billing` schema 有 ownership；同時新增 head-level catalog verifier，不能改寫
@@ -362,7 +363,7 @@ flowchart LR
 | 階段 | 交付物 | 開始門檻 |
 | --- | --- | --- |
 | P0 | baseline 正式採用方案、PAYUNI contract 與商務決策 | §9 已確認 |
-| P1 | `mg_0002`、ORM metadata、RLS/RPC、資料庫整合測試 | P0 完成 |
+| P1 | `mg_0002` foundation、`mg_0003` workflow、ORM metadata、RLS/RPC、資料庫整合測試 | P0 完成 |
 | P2 | router/service/repository 骨架與 sandbox initial checkout/callback | P1 完成 |
 | P3 | entitlement cutover、取消、付款歷史、管理退款 | P2 驗收通過 |
 | P4 | token 續扣 worker、7 天寬限、對帳、監控與 runbook | PAYUNI 與營運前置到位 |
@@ -370,24 +371,37 @@ flowchart LR
 
 ### 10.1 目前實作狀態（最後更新：2026-09-24）
 
+#### 階段進度總覽
+
+| 階段 | 狀態 | 已完成 | 完成前仍需 |
+| --- | --- | --- | --- |
+| P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
+| P1：資料基礎 | 技術完成，尚未驗收 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox | 新建本機 Supabase integration 驗收；之後才可正式採用 |
+| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs | PAYUNi 結果語義確認、worker 消費 callback、payment result transaction 測試 |
+| P3：權益與帳務操作 | 未開始 | — | canonical entitlement cutover、取消、退款、歷史／管理 read model |
+| P4：自動續扣營運 | 未開始 | outbox schema 與 callback job 已備妥 | token contract、renewal worker、7 天寬限、對帳、監控／runbook |
+| P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
+
+**目前位置：P2 中段。** 下一個程式工作是 callback worker 的 outcome adapter 與結果
+套用 transaction；在 PAYUNi 提供核准 contract 前，此工作只能建立安全邊界，不能把
+任一 generic UPP callback 轉為 paid／active。
+
 #### 實作台帳（新 agent／新對話從這裡續接）
 
 | Revision / commit | 已交付 | 尚未代表 |
 | --- | --- | --- |
-| `mg_0002_billing_recurring` / `20a0e4b` | 10 張 billing ledger 表、RLS、service-role grants、outbox claim RPC | 正式 Supabase baseline 接管或任何 PAYUNI 交易 |
-| `mg_0003`～`mg_0005` / `eb7cc4f`、`adcae33`、`dcd7ef1` | checkout intent、已驗簽 callback receipt、本人訂單狀態 read RPC | callback 已套用付款結果或 entitlement 已開通 |
-| `mg_0006` / `cf40e1d` | 本人恢復未過期 pending／processing 訂單；沿用原 merchant order no | 新建付款、重複扣款防護以外的 PAYUNI 正式行為 |
-| `mg_0007` / `92345ae` | 本人 billing overview：最新訂閱摘要及所有歷史訂單 | canonical entitlement、付費牆或 iOS 可據此解鎖 |
-| `mg_0008` / （本次提交） | 已驗簽 callback receipt 與 `billing.provider_callback.received` outbox event 同交易寫入、依 provider event 去重 | worker 已消費事件、付款結果已套用或權益已開通 |
+| `mg_0002_billing_foundation` / （本次收斂提交） | 10 張 billing ledger 表、RLS、service-role grants、outbox claim RPC | 正式 Supabase baseline 接管或任何 PAYUNI 交易 |
+| `mg_0003_billing_workflow` / （本次收斂提交） | checkout intent、已驗簽 callback receipt + outbox、本人訂單／resume／overview RPC | worker 已消費事件、付款結果已套用或 entitlement 已開通 |
 
 本次已驗證：billing service unit tests、migration static tests、Alembic offline SQL
 內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。目前沒有本機 Supabase
 CLI／實際 PostgreSQL integration run；不可把 static/offline 驗證誤認為正式資料庫驗收。
 
-- `mg_0002_billing_recurring` 已建立 provider-neutral 的 `billing` schema、10 張表、
+- `mg_0002_billing_foundation` 已建立 provider-neutral 的 `billing` schema、10 張表、
   私有權限邊界、RLS 與可 lease／重試的 outbox claim RPC。
-- `mg_0003_billing_checkout_rpc` 已提供 service-role 專用的交易式 checkout intent RPC；
-  同一 subscription／`Idempotency-Key` 只會得到同一筆 order。
+- `mg_0003_billing_workflow` 已提供 service-role 專用的交易式 checkout intent RPC、
+  callback receipt/outbox 與 owner-scoped read RPC；同一 subscription／`Idempotency-Key`
+  只會得到同一筆 order。
 - SQLAlchemy metadata 與 Alembic ownership 已納入 `billing`；0001 baseline 資產未修改。
 - 已加入 head verifier、靜態測試與本機 Supabase 整合測試案例；FastAPI 的
   router／service／repository／provider port 也已建立並掛入 `app.py`。
