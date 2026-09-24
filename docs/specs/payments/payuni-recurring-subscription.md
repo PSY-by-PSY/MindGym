@@ -1,8 +1,8 @@
 # PAYUNI 定期扣款訂閱：過渡期功能規格
 
 > 狀態：**Draft — P1 schema 已實作，尚未可對外收款**
-> Owner：待指定  
-> 基線：`feat/alembic-orm-baseline` 的 `mg_0001_baseline`  
+> Owner：待指定
+> 基線：`feat/alembic-orm-baseline` 的 `mg_0001_baseline`
 > 最後更新：2026-09-24
 
 ## 1. 目的與邊界
@@ -372,10 +372,13 @@ flowchart LR
 
 - `mg_0002_billing_recurring` 已建立 provider-neutral 的 `billing` schema、10 張表、
   私有權限邊界、RLS 與可 lease／重試的 outbox claim RPC。
+- `mg_0003_billing_checkout_rpc` 已提供 service-role 專用的交易式 checkout intent RPC；
+  同一 subscription／`Idempotency-Key` 只會得到同一筆 order。
 - SQLAlchemy metadata 與 Alembic ownership 已納入 `billing`；0001 baseline 資產未修改。
-- 已加入 head verifier、靜態測試與本機 Supabase 整合測試案例。
-- 尚未實作 router／service／repository、PAYUNI API 欄位、callback、權益切換或 worker；
-  這些屬於 P2 以後，不能因 schema 已存在而視為可收款。
+- 已加入 head verifier、靜態測試與本機 Supabase 整合測試案例；FastAPI 的
+  router／service／repository／provider port 也已建立並掛入 `app.py`。
+- PAYUNI API 欄位、驗簽、callback 處理、權益切換與 worker 尚未實作。checkout endpoint
+  在 provider contract 未啟用時固定回 503，不能因路由存在而視為可收款。
 
 ---
 

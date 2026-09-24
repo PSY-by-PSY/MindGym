@@ -61,11 +61,12 @@ def verify(connection) -> list[str]:
     if not EXPECTED_INDEXES.issubset(indexes):
         differences.append("billing indexes")
 
-    routine = connection.exec_driver_sql(
-        "SELECT to_regprocedure('billing.claim_outbox_events(integer,integer)')::text"
-    ).scalar()
-    if routine is None:
-        differences.append("billing claim function")
+    for signature, label in (
+        ("billing.claim_outbox_events(integer,integer)", "billing claim function"),
+        ("billing.create_pending_checkout(uuid,text,text,text,timestamptz,timestamptz,text)", "billing checkout function"),
+    ):
+        if connection.exec_driver_sql("SELECT to_regprocedure(%s)::text", (signature,)).scalar() is None:
+            differences.append(label)
 
     for role in ("anon", "authenticated"):
         if connection.exec_driver_sql(

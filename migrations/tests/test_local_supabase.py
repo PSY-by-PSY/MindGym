@@ -27,8 +27,8 @@ class LocalSupabaseTests(unittest.TestCase):
     def setUpClass(cls):
         cls.engine=sa.create_engine(checked_url(URL),poolclass=sa.pool.NullPool)
         with cls.engine.connect() as c:
-            if c.exec_driver_sql('SELECT version_num FROM mindgym_migrations.alembic_version').scalar()!='mg_0002_billing_recurring':
-                raise RuntimeError('Expected recurring-billing head; do not test arbitrary databases')
+            if c.exec_driver_sql('SELECT version_num FROM mindgym_migrations.alembic_version').scalar()!='mg_0003_billing_checkout_rpc':
+                raise RuntimeError('Expected recurring-billing checkout head; do not test arbitrary databases')
         cls.snapshot=json.loads((ROOT/'migrations/baseline/snapshot.json').read_text())
 
     @classmethod
@@ -119,6 +119,31 @@ class LocalSupabaseTests(unittest.TestCase):
         self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
         claimed=self.conn.exec_driver_sql('SELECT id,status,attempt_count FROM billing.claim_outbox_events(10,60)').one()
         self.assertEqual(claimed,(event_id,'processing',1))
+
+    def test_checkout_rpc_is_idempotent_for_service_role(self):
+        self.user(self.a)
+        self.conn.exec_driver_sql("""
+          INSERT INTO billing.plans(code,display_name,period,amount_cents,terms_version)
+          VALUES ('rpc-monthly','RPC monthly','month',100,'test-v1')
+        """)
+        self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
+        params={
+            'user_id':self.a, 'plan_code':'rpc-monthly', 'idempotency_key':'test-idempotency',
+            'terms_version':'test-v1', 'merchant_order_no':'MG-TEST-RPC',
+        }
+        first=self.conn.execute(sa.text("""
+          SELECT * FROM billing.create_pending_checkout(
+            :user_id,:plan_code,:idempotency_key,:terms_version,now(),now()+interval '24 hours',:merchant_order_no
+          )
+        """),params).mappings().one()
+        second=self.conn.execute(sa.text("""
+          SELECT * FROM billing.create_pending_checkout(
+            :user_id,:plan_code,:idempotency_key,:terms_version,now(),now()+interval '24 hours',:merchant_order_no
+          )
+        """),params).mappings().one()
+        self.assertFalse(first['reused'])
+        self.assertTrue(second['reused'])
+        self.assertEqual(first['order_id'],second['order_id'])
 
     def test_push_triggers_stay_disabled_and_no_cron_installed(self):
         rows=self.conn.exec_driver_sql("SELECT tgname,tgenabled FROM pg_trigger WHERE tgname IN ('comments_push','likes_push') ORDER BY tgname").all()

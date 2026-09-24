@@ -60,3 +60,11 @@ export MINDGYM_LOCAL_TEST=1
 .venv-migrations/bin/python scripts/db/verify_billing_head.py
 .venv-migrations/bin/python -m unittest discover -s migrations/tests -v
 ```
+
+同日另新增 `mg_0003_billing_checkout_rpc`：以 SECURITY DEFINER RPC 將 pending
+subscription、不可變 order snapshot 與 checkout outbox event 寫在同一 DB transaction。
+FastAPI 的 billing router／service／repository 已有單元測試；PAYUNI provider 預設停用，
+不會建立可對外付款的 checkout。
+
+另以假設定驗證 `backend.app` 可載入且 OpenAPI 包含 billing plans、checkout 與 callback
+三條路由；此驗證不帶真實 credential、沒有呼叫 Supabase 或 PAYUNI。

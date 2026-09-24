@@ -5,7 +5,7 @@
 ## 本次交付
 
 - 不可變的基準 revision：`mg_0001_baseline`；金流功能分支另新增
-  `mg_0002_billing_recurring`，不回寫 baseline 資產。
+  `mg_0002_billing_recurring` 與 `mg_0003_billing_checkout_rpc`，不回寫 baseline 資產。
 - 35 張表、315 欄、122 個表級約束、32 個額外索引、2 個 identity sequences。
 - 49 支 public 函式（包含 overload）、98 條 RLS 政策、9 個 public triggers 及 1 個 auth.users 自訂 trigger。
 - 應用物件的 owner、ACL、RLS enabled／force 狀態，以及 sequence 選項。

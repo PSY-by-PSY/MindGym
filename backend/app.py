@@ -14,6 +14,10 @@ import openai
 from dotenv import load_dotenv
 
 import usage_metering
+from backend.billing.providers import DisabledPayUniProvider
+from backend.billing.repository import BillingRepository
+from backend.billing.router import router as billing_router
+from backend.billing.service import BillingService
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -50,12 +54,21 @@ async def lifespan(app: FastAPI):
     global _http, _claude
     _http = httpx.AsyncClient(timeout=30)
     _claude = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    # The billing slice is isolated from legacy endpoints. PAYUNi remains disabled
+    # until its approved sandbox contract is implemented in a provider adapter.
+    app.state.billing_repository = BillingRepository(_http, SUPABASE_URL, SUPABASE_KEY)
+    app.state.billing_service = BillingService(
+        app.state.billing_repository,
+        DisabledPayUniProvider(),
+        os.environ.get("BILLING_PAYUNI_CALLBACK_URL", ""),
+    )
     yield
     await _http.aclose()
     await _claude.close()
 
 
 app = FastAPI(title="MindGym API", lifespan=lifespan)
+app.include_router(billing_router)
 
 app.add_middleware(
     CORSMiddleware,
