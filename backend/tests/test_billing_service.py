@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT))
 
 from backend.billing.errors import ProviderNotConfigured
 from backend.billing.providers import CheckoutSession, DisabledPayUniProvider
-from backend.billing.repository import PendingCheckout, ResumableCheckout
+from backend.billing.repository import BillingOverview, PendingCheckout, ResumableCheckout
 from backend.billing.service import BillingService, CreateCheckoutCommand
 
 
@@ -31,6 +31,13 @@ class FakeRepository:
             order_id=kwargs["order_id"], merchant_order_no="MG-EXISTING",
             status="pending", amount_cents=9900, currency="TWD",
             plan_name="月繳方案", expires_at=datetime.now(timezone.utc),
+        )
+
+    async def get_overview_for_user(self, **kwargs):
+        self.calls.append(kwargs)
+        return BillingOverview(
+            subscription_id="subscription-1", plan_code="monthly", subscription_status="pending",
+            current_period_ends_at=None, next_charge_at=None, cancel_at=None, orders=[],
         )
 
 
@@ -84,6 +91,15 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumed.checkout.order_id, "order-existing")
         self.assertEqual(provider.requests[0].merchant_order_no, "MG-EXISTING")
         self.assertEqual(provider.requests[0].description, "月繳方案")
+
+    async def test_overview_is_delegated_to_owner_scoped_repository_query(self):
+        repository = FakeRepository()
+        service = BillingService(repository, ReadyProvider(), "https://api.example.invalid/callback")
+
+        overview = await service.get_overview("user-1")
+
+        self.assertEqual(overview.subscription_id, "subscription-1")
+        self.assertEqual(repository.calls, [{"user_id": "user-1"}])
 
 
 if __name__ == "__main__":

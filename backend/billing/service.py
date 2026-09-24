@@ -89,3 +89,6 @@ class BillingService:
             )
         )
         return ResumedCheckout(checkout=checkout, provider_session=session)
+
+    async def get_overview(self, user_id: str):
+        return await self._repository.get_overview_for_user(user_id=user_id)

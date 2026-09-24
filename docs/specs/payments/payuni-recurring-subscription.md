@@ -298,7 +298,7 @@ body 不得帶 `user_id`。`Idempotency-Key` 為建立 checkout、取消與退�
 | `GET /v1/billing/orders/{id}` | 本人 | 輪詢付款狀態 | order status、paid_at、可否 resume |
 | `POST /v1/billing/orders/{id}/resume` | 本人 | 為未過期的 pending／processing 舊單重建 PAYUNI 導轉資料，沿用原 merchant order no；不新建訂單 | checkout session |
 | `POST /v1/billing/subscription/cancel` | 本人 | 關閉未來自動續扣 | status、current_period_ends_at、cancel_at |
-| `GET /v1/billing/me` | 本人／iOS | 訂閱、權益、付款歷史的安全視圖 | tier、status、effective_until、next_charge_at、masked card、orders |
+| `GET /v1/billing/me` | 本人／iOS | 訂閱與付款歷史的安全視圖 | subscription status、期間、next charge、orders；P3 前不是 canonical entitlement |
 | `POST /v1/billing/payuni/callback` | PAYUNI | server-to-server 付款通知 | 僅 ACK；不回傳帳務細節 |
 | `POST /v1/admin/billing/refunds` | admin | 發起退款 | refund id、processing／succeeded／failed |
 | `GET /v1/admin/billing/reconciliation` | finance admin | 對帳清單、異常與匯出 | read-only paginated result |
@@ -368,7 +368,20 @@ flowchart LR
 | P4 | token 續扣 worker、7 天寬限、對帳、監控與 runbook | PAYUNI 與營運前置到位 |
 | P5 | production readiness / rollout | P0–P4 全部驗收 |
 
-### 10.1 目前實作狀態
+### 10.1 目前實作狀態（最後更新：2026-09-24）
+
+#### 實作台帳（新 agent／新對話從這裡續接）
+
+| Revision / commit | 已交付 | 尚未代表 |
+| --- | --- | --- |
+| `mg_0002_billing_recurring` / `20a0e4b` | 10 張 billing ledger 表、RLS、service-role grants、outbox claim RPC | 正式 Supabase baseline 接管或任何 PAYUNI 交易 |
+| `mg_0003`～`mg_0005` / `eb7cc4f`、`adcae33`、`dcd7ef1` | checkout intent、已驗簽 callback receipt、本人訂單狀態 read RPC | callback 已套用付款結果或 entitlement 已開通 |
+| `mg_0006` / `cf40e1d` | 本人恢復未過期 pending／processing 訂單；沿用原 merchant order no | 新建付款、重複扣款防護以外的 PAYUNI 正式行為 |
+| `mg_0007` / （本次提交） | 本人 billing overview：最新訂閱摘要及所有歷史訂單 | canonical entitlement、付費牆或 iOS 可據此解鎖 |
+
+本次已驗證：billing service unit tests、migration static tests、Alembic offline SQL
+內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。目前沒有本機 Supabase
+CLI／實際 PostgreSQL integration run；不可把 static/offline 驗證誤認為正式資料庫驗收。
 
 - `mg_0002_billing_recurring` 已建立 provider-neutral 的 `billing` schema、10 張表、
   私有權限邊界、RLS 與可 lease／重試的 outbox claim RPC。
@@ -377,7 +390,11 @@ flowchart LR
 - SQLAlchemy metadata 與 Alembic ownership 已納入 `billing`；0001 baseline 資產未修改。
 - 已加入 head verifier、靜態測試與本機 Supabase 整合測試案例；FastAPI 的
   router／service／repository／provider port 也已建立並掛入 `app.py`。
-- PAYUNI API 欄位、驗簽、callback 處理、權益切換與 worker 尚未實作。checkout endpoint
+- 已提供 owner-scoped 的訂單狀態、resume 與 billing overview read model：
+  `GET /v1/billing/orders/{id}`、`POST /v1/billing/orders/{id}/resume`、`GET /v1/billing/me`。
+  resume 只會重建未過期 `pending`／`processing` 訂單的導轉資料，沿用既有 order 與
+  `merchant_order_no`；overview 在 P3 entitlement cutover 前只是 billing read model。
+- PAYUNI API 的定期扣款欄位、callback 結果套用、權益切換與 worker 尚未實作。checkout endpoint
   在 provider contract 未啟用時固定回 503，不能因路由存在而視為可收款。
 - 已依 PAYUNi 公開 SDK 實作**通用 sandbox UPP** 加密 envelope／HashInfo 與導轉 form，
   但僅在 `PAYUNI_GENERIC_UPP_SANDBOX_ENABLED=1` 且下列環境變數齊全時啟用：
@@ -387,6 +404,16 @@ flowchart LR
 - generic UPP callback 現可驗證 envelope 並以冪等事件收據保存；僅保留訂單號、交易號、
   狀態與金額等白名單欄位，**不**保存 `CreditHash` 或其他卡片／Token 資料，也不會改變
   order、subscription 或 entitlement。
+
+#### 下一個實作關卡與阻擋條件
+
+下一個寫入型 use case 是「已驗簽 callback 的結果套用」：同一個交易內建立／更新
+`payment_attempts`、更新 order／subscription、寫入 `entitlement_changes`、legacy projection
+與 outbox。這段**必須**先取得 PAYUNI 核准的成功／失敗狀態、重送語義與查單 contract；
+在此之前，不得把 generic UPP 的 `Status` 猜測成付款成功，也不得開通權益或保存 Token。
+
+此文件的 10.1 是後續 agent／新對話的進度來源；每一個 commit 應同步更新此段、列出
+migration revision、已驗證項目與下一個阻擋條件。
 
 ---
 

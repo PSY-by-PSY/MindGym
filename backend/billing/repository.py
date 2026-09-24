@@ -49,6 +49,29 @@ class ResumableCheckout:
     expires_at: datetime
 
 
+@dataclass(frozen=True)
+class OrderHistoryItem:
+    id: str
+    status: str
+    kind: str
+    amount_cents: int
+    currency: str
+    created_at: datetime
+    paid_at: datetime | None
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class BillingOverview:
+    subscription_id: str
+    plan_code: str
+    subscription_status: str
+    current_period_ends_at: datetime | None
+    next_charge_at: datetime | None
+    cancel_at: datetime | None
+    orders: list[OrderHistoryItem]
+
+
 class BillingRepository:
     """Uses the service-role REST path; browser clients never receive this access."""
 
@@ -155,6 +178,34 @@ class BillingRepository:
             status=row["status"], amount_cents=row["amount_cents"],
             currency=row["currency"], plan_name=row["plan_name"],
             expires_at=datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00")),
+        )
+
+    async def get_overview_for_user(self, *, user_id: str) -> BillingOverview | None:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/get_overview_for_user",
+            headers=self._headers,
+            json={"p_user_id": user_id},
+        )
+        self._raise_for_error(response, "read billing overview")
+        rows = response.json()
+        if not rows:
+            return None
+        row = rows[0]
+        def parse_timestamp(value: str | None) -> datetime | None:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+        return BillingOverview(
+            subscription_id=row["subscription_id"], plan_code=row["plan_code"],
+            subscription_status=row["subscription_status"],
+            current_period_ends_at=parse_timestamp(row["current_period_ends_at"]),
+            next_charge_at=parse_timestamp(row["next_charge_at"]),
+            cancel_at=parse_timestamp(row["cancel_at"]),
+            orders=[OrderHistoryItem(
+                id=item["id"], status=item["status"], kind=item["kind"],
+                amount_cents=item["amount_cents"], currency=item["currency"],
+                created_at=parse_timestamp(item["created_at"]),
+                paid_at=parse_timestamp(item["paid_at"]),
+                expires_at=parse_timestamp(item["expires_at"]),
+            ) for item in row["orders"]],
         )
 
     @staticmethod

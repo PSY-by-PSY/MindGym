@@ -39,6 +39,28 @@ class OrderStatusResponse(BaseModel):
     can_resume: bool
 
 
+class OrderHistoryResponse(BaseModel):
+    id: str
+    status: str
+    kind: str
+    amount_cents: int
+    currency: str
+    created_at: str
+    paid_at: str | None
+    expires_at: str
+
+
+class BillingOverviewResponse(BaseModel):
+    # This is a billing read model, not the canonical entitlement until P3 cutover.
+    subscription_id: str | None = None
+    plan_code: str | None = None
+    subscription_status: str | None = None
+    current_period_ends_at: str | None = None
+    next_charge_at: str | None = None
+    cancel_at: str | None = None
+    orders: list[OrderHistoryResponse]
+
+
 def _bearer_token(authorization: str | None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
@@ -111,6 +133,36 @@ async def get_order(order_id: str, request: Request, authorization: str | None =
         raise HTTPException(status_code=503, detail="Order status unavailable") from None
     if order is None: raise HTTPException(status_code=404, detail="Order not found")
     return OrderStatusResponse(id=order.id,status=order.status,paid_at=order.paid_at.isoformat() if order.paid_at else None,expires_at=order.expires_at.isoformat(),can_resume=order.can_resume)
+
+
+@router.get("/me", response_model=BillingOverviewResponse)
+async def get_billing_overview(request: Request, authorization: str | None = Header(default=None)):
+    repository = getattr(request.app.state, "billing_repository", None)
+    if repository is None:
+        raise HTTPException(status_code=503, detail="Billing is unavailable")
+    try:
+        user_id = await repository.authenticated_user_id(_bearer_token(authorization))
+        overview = await _service(request).get_overview(user_id)
+    except RepositoryError as exc:
+        if str(exc) == "invalid authentication token":
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        raise HTTPException(status_code=503, detail="Billing overview unavailable") from None
+    if overview is None:
+        return BillingOverviewResponse(orders=[])
+    return BillingOverviewResponse(
+        subscription_id=overview.subscription_id, plan_code=overview.plan_code,
+        subscription_status=overview.subscription_status,
+        current_period_ends_at=overview.current_period_ends_at.isoformat() if overview.current_period_ends_at else None,
+        next_charge_at=overview.next_charge_at.isoformat() if overview.next_charge_at else None,
+        cancel_at=overview.cancel_at.isoformat() if overview.cancel_at else None,
+        orders=[OrderHistoryResponse(
+            id=order.id, status=order.status, kind=order.kind,
+            amount_cents=order.amount_cents, currency=order.currency,
+            created_at=order.created_at.isoformat(),
+            paid_at=order.paid_at.isoformat() if order.paid_at else None,
+            expires_at=order.expires_at.isoformat(),
+        ) for order in overview.orders],
+    )
 
 
 @router.post("/orders/{order_id}/resume", response_model=CheckoutResponse)
