@@ -16,7 +16,8 @@
 ## 2. Xcode 開啟 Push 能力
 - `npx cap open ios` → 選 **App** target → **Signing & Capabilities**
 - **＋ Capability → Push Notifications**（會自動產生 `App.entitlements` 的 `aps-environment`）
-- （Capacitor 的 push 插件會自動接 AppDelegate 的 token 回呼，不用改原生碼。）
+- ⚠️ **這句話曾經是錯的，害推播壞了整整三個月**：插件**不會**自動接 AppDelegate 的
+  token 回呼，原生碼一定要改 —— 見下面步驟 2.5。
 
 > ⚠️ **entitlements 已拆成兩份**（2026-09-07）。Xcode 加 capability 時只會產生一份
 > `aps-environment = development` 的 `App.entitlements`，拿它 archive 上架，
@@ -30,6 +31,25 @@
 >
 > 兩份檔案除了這一行完全相同；**之後在 Xcode 加任何 capability，記得兩份都要加**
 > （Xcode 只會改當前 scheme 設定所指的那一份）。
+
+## 2.5 AppDelegate 必須轉發 APNs token（2026-09-22 修）
+
+`PushNotifications.register()` 只呼叫 `UIApplication.shared.registerForRemoteNotifications()`；
+device token 是 iOS 回呼到 **AppDelegate** 的，插件靠 NotificationCenter 接。
+`ios/App/App/AppDelegate.swift` 少了這兩個方法時，token 沒人轉發 →
+JS 的 `registration` / `registrationError` **都不會觸發**、`device_tokens` 永遠空的，
+而且完全不報錯，推播就是靜默地永遠不來（Debug、TestFlight、App Store 一律如此）。
+
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+}
+func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+}
+```
+
+⚠️ 重建殼或升級 Capacitor 時最容易弄丟這段——改完 AppDelegate 後務必回來確認還在。
 
 ## 3. 設定 Edge Function secrets
 ```bash
@@ -97,6 +117,9 @@ Debug build 拿到的是 sandbox token。上架前唯一算數的驗證是下面
   - `BadDeviceToken` → APNS_HOST 環境不對（見步驟 3）。
   - `403` → WEBHOOK_SECRET 對不上。
   - `no tokens` → `device_tokens` 沒存到（確認步驟 6-1、6-2）。
+  - **完全沒有 log、`device_tokens` 一筆都沒有** → 八成是 AppDelegate 少了 token
+    轉發（見步驟 2.5）。判準：授權後 `device_tokens` 依然是空表，且 Safari Web
+    Inspector 的 console 連 `[push] registrationError` 都沒印出來。
 - **想先本機假測**（不經 APNs，僅驗證 UI）：實機/模擬器
   `xcrun simctl push booted com.psybypsy.app payload.json`（payload 內含 `aps.alert`）。
 
