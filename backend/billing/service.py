@@ -61,3 +61,6 @@ class BillingService:
             event_ref=verified.event_ref, merchant_order_no=verified.merchant_order_no,
             payload_redacted=verified.payload_redacted,
         )
+
+    async def get_order(self, user_id: str, order_id: str):
+        return await self._repository.get_order_for_user(user_id=user_id, order_id=order_id)

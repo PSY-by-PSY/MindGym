@@ -29,6 +29,14 @@ class PendingCheckout:
     expires_at: datetime
     reused: bool
 
+@dataclass(frozen=True)
+class OrderStatus:
+    id: str
+    status: str
+    paid_at: datetime | None
+    expires_at: datetime
+    can_resume: bool
+
 
 class BillingRepository:
     """Uses the service-role REST path; browser clients never receive this access."""
@@ -110,6 +118,15 @@ class BillingRepository:
         })
         self._raise_for_error(response, "record provider callback")
         return response.json()
+
+    async def get_order_for_user(self, *, user_id: str, order_id: str) -> OrderStatus | None:
+        response = await self._client.post(f"{self._base_url}/rpc/get_order_for_user", headers=self._headers, json={"p_user_id":user_id,"p_order_id":order_id})
+        self._raise_for_error(response, "read order")
+        rows = response.json()
+        if not rows: return None
+        row = rows[0]
+        paid_at = row["paid_at"]
+        return OrderStatus(row["id"],row["status"],datetime.fromisoformat(paid_at.replace("Z","+00:00")) if paid_at else None,datetime.fromisoformat(row["expires_at"].replace("Z","+00:00")),row["can_resume"])
 
     @staticmethod
     def _raise_for_error(response: httpx.Response, operation: str) -> None:

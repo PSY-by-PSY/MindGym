@@ -31,6 +31,13 @@ class CheckoutResponse(BaseModel):
     form_action: str | None = None
     form_fields: dict[str, str] | None = None
 
+class OrderStatusResponse(BaseModel):
+    id: str
+    status: str
+    paid_at: str | None
+    expires_at: str
+    can_resume: bool
+
 
 def _bearer_token(authorization: str | None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
@@ -91,6 +98,19 @@ async def create_checkout_session(
         form_action=created.provider_session.form_action,
         form_fields=created.provider_session.form_fields,
     )
+
+@router.get("/orders/{order_id}", response_model=OrderStatusResponse)
+async def get_order(order_id: str, request: Request, authorization: str | None = Header(default=None)):
+    repository = getattr(request.app.state, "billing_repository", None)
+    if repository is None: raise HTTPException(status_code=503, detail="Billing is unavailable")
+    try:
+        user_id = await repository.authenticated_user_id(_bearer_token(authorization))
+        order = await _service(request).get_order(user_id, order_id)
+    except RepositoryError as exc:
+        if str(exc) == "invalid authentication token": raise HTTPException(status_code=401, detail="Invalid token") from None
+        raise HTTPException(status_code=503, detail="Order status unavailable") from None
+    if order is None: raise HTTPException(status_code=404, detail="Order not found")
+    return OrderStatusResponse(id=order.id,status=order.status,paid_at=order.paid_at.isoformat() if order.paid_at else None,expires_at=order.expires_at.isoformat(),can_resume=order.can_resume)
 
 
 @router.post("/payuni/callback")
