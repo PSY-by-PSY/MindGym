@@ -30,6 +30,8 @@ resume_spec=importlib.util.spec_from_file_location('resume_revision', ROOT/'migr
 resume_revision=importlib.util.module_from_spec(resume_spec);resume_spec.loader.exec_module(resume_revision)
 overview_spec=importlib.util.spec_from_file_location('overview_revision', ROOT/'migrations/versions/mg_0007_billing_overview_rpc.py')
 overview_revision=importlib.util.module_from_spec(overview_spec);overview_spec.loader.exec_module(overview_revision)
+callback_outbox_spec=importlib.util.spec_from_file_location('callback_outbox_revision', ROOT/'migrations/versions/mg_0008_billing_callback_outbox.py')
+callback_outbox_revision=importlib.util.module_from_spec(callback_outbox_spec);callback_outbox_spec.loader.exec_module(callback_outbox_revision)
 
 
 class StaticTests(unittest.TestCase):
@@ -47,6 +49,7 @@ class StaticTests(unittest.TestCase):
         self.assertEqual(order_status_revision.down_revision, 'mg_0004_billing_provider_event_rpc')
         self.assertEqual(resume_revision.down_revision, 'mg_0005_billing_order_status_rpc')
         self.assertEqual(overview_revision.down_revision, 'mg_0006_billing_resume_checkout_rpc')
+        self.assertEqual(callback_outbox_revision.down_revision, 'mg_0007_billing_overview_rpc')
         expected={
             'plans','subscriptions','orders','payment_attempts','payment_methods',
             'provider_events','refunds','invoices','outbox_events','entitlement_changes',
@@ -100,6 +103,7 @@ class StaticTests(unittest.TestCase):
         self.assertIn('record_provider_event',proc.stdout)
         self.assertIn('get_resumable_checkout_for_user',proc.stdout)
         self.assertIn('get_overview_for_user',proc.stdout)
+        self.assertIn('billing.provider_callback.received',proc.stdout)
         self.assertNotIn('CREATE TABLE auth.users',proc.stdout)
         self.assertIn("'x-webhook-secret'",proc.stdout)
         blocked=subprocess.run([sys.executable,'-m','alembic','stamp','head','--sql'],cwd=ROOT,capture_output=True,text=True)

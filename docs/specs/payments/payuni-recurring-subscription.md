@@ -377,7 +377,8 @@ flowchart LR
 | `mg_0002_billing_recurring` / `20a0e4b` | 10 張 billing ledger 表、RLS、service-role grants、outbox claim RPC | 正式 Supabase baseline 接管或任何 PAYUNI 交易 |
 | `mg_0003`～`mg_0005` / `eb7cc4f`、`adcae33`、`dcd7ef1` | checkout intent、已驗簽 callback receipt、本人訂單狀態 read RPC | callback 已套用付款結果或 entitlement 已開通 |
 | `mg_0006` / `cf40e1d` | 本人恢復未過期 pending／processing 訂單；沿用原 merchant order no | 新建付款、重複扣款防護以外的 PAYUNI 正式行為 |
-| `mg_0007` / （本次提交） | 本人 billing overview：最新訂閱摘要及所有歷史訂單 | canonical entitlement、付費牆或 iOS 可據此解鎖 |
+| `mg_0007` / `92345ae` | 本人 billing overview：最新訂閱摘要及所有歷史訂單 | canonical entitlement、付費牆或 iOS 可據此解鎖 |
+| `mg_0008` / （本次提交） | 已驗簽 callback receipt 與 `billing.provider_callback.received` outbox event 同交易寫入、依 provider event 去重 | worker 已消費事件、付款結果已套用或權益已開通 |
 
 本次已驗證：billing service unit tests、migration static tests、Alembic offline SQL
 內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。目前沒有本機 Supabase
@@ -403,11 +404,12 @@ CLI／實際 PostgreSQL integration run；不可把 static/offline 驗證誤認�
   取得 PAYUNi 核准的 Token／幕後授權 contract 前不得用於正式收款。
 - generic UPP callback 現可驗證 envelope 並以冪等事件收據保存；僅保留訂單號、交易號、
   狀態與金額等白名單欄位，**不**保存 `CreditHash` 或其他卡片／Token 資料，也不會改變
-  order、subscription 或 entitlement。
+  order、subscription 或 entitlement。receipt 寫入同時會產生 `billing.provider_callback.received`
+  outbox event；同一 provider event 只會有一筆 job，讓之後的 worker 可安全重試處理。
 
 #### 下一個實作關卡與阻擋條件
 
-下一個寫入型 use case 是「已驗簽 callback 的結果套用」：同一個交易內建立／更新
+下一個寫入型 use case 是「worker 消費已驗簽 callback 並套用結果」：同一個交易內建立／更新
 `payment_attempts`、更新 order／subscription、寫入 `entitlement_changes`、legacy projection
 與 outbox。這段**必須**先取得 PAYUNI 核准的成功／失敗狀態、重送語義與查單 contract；
 在此之前，不得把 generic UPP 的 `Status` 猜測成付款成功，也不得開通權益或保存 Token。
