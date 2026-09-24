@@ -377,7 +377,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
 | P1：資料基礎 | 技術完成，尚未驗收 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox | 新建本機 Supabase integration 驗收；之後才可正式採用 |
-| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs | PAYUNi 結果語義確認、worker 消費 callback、payment result transaction 測試 |
+| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs、provider-neutral outcome transaction | PAYUNi 結果語義確認、worker 消費 callback、payment result integration 測試 |
 | P3：權益與帳務操作 | 未開始 | — | canonical entitlement cutover、取消、退款、歷史／管理 read model |
 | P4：自動續扣營運 | 未開始 | outbox schema 與 callback job 已備妥 | token contract、renewal worker、7 天寬限、對帳、監控／runbook |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
@@ -391,7 +391,7 @@ flowchart LR
 | Revision / commit | 已交付 | 尚未代表 |
 | --- | --- | --- |
 | `mg_0002_billing_foundation` / （本次收斂提交） | 10 張 billing ledger 表、RLS、service-role grants、outbox claim RPC | 正式 Supabase baseline 接管或任何 PAYUNI 交易 |
-| `mg_0003_billing_workflow` / （本次收斂提交） | checkout intent、已驗簽 callback receipt + outbox、本人訂單／resume／overview RPC | worker 已消費事件、付款結果已套用或 entitlement 已開通 |
+| `mg_0003_billing_workflow` / `ab1cbe2` + 本次 | checkout intent、已驗簽 callback receipt + outbox、本人訂單／resume／overview RPC、可信 outcome 的單一交易寫入入口 | worker 已消費事件；generic UPP callback 已被映射為可信 outcome；正式付款結果已驗收 |
 
 本次已驗證：billing service unit tests、migration static tests、Alembic offline SQL
 內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。目前沒有本機 Supabase
@@ -427,6 +427,12 @@ CLI／實際 PostgreSQL integration run；不可把 static/offline 驗證誤認�
 `payment_attempts`、更新 order／subscription、寫入 `entitlement_changes`、legacy projection
 與 outbox。這段**必須**先取得 PAYUNI 核准的成功／失敗狀態、重送語義與查單 contract；
 在此之前，不得把 generic UPP 的 `Status` 猜測成付款成功，也不得開通權益或保存 Token。
+
+`billing.apply_initial_payment_outcome(...)` 已建立上述單一 transaction 的資料庫邊界：
+它只接受 `succeeded`／`failed` 與已驗簽、未處理、能對應訂單的 provider event；成功時才
+建立 payment attempt、啟用 subscription、寫入 entitlement／legacy projection 與 outbox。
+**現階段沒有 adapter 或 route 會呼叫它。** 只有在 PAYUNi contract 明確定義 outcome 映射後，
+worker 才能取得 service-role 權限呼叫；generic UPP 的 callback 仍只會產生 receipt/outbox。
 
 此文件的 10.1 是後續 agent／新對話的進度來源；每一個 commit 應同步更新此段、列出
 migration revision、已驗證項目與下一個阻擋條件。

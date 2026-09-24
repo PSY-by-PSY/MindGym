@@ -68,6 +68,7 @@ def verify(connection) -> list[str]:
         ("billing.get_order_for_user(uuid,uuid)", "billing order read function"),
         ("billing.get_resumable_checkout_for_user(uuid,uuid)", "billing resume read function"),
         ("billing.get_overview_for_user(uuid)", "billing overview function"),
+        ("billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)", "billing payment outcome function"),
     ):
         if connection.exec_driver_sql("SELECT to_regprocedure(%s)::text", (signature,)).scalar() is None:
             differences.append(label)

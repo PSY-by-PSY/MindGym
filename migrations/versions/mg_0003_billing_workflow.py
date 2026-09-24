@@ -197,8 +197,112 @@ def upgrade() -> None:
     op.execute("REVOKE ALL ON FUNCTION billing.get_overview_for_user(uuid) FROM PUBLIC, anon, authenticated")
     op.execute("GRANT EXECUTE ON FUNCTION billing.get_overview_for_user(uuid) TO service_role")
 
+    # Only a provider adapter with an approved, verified outcome contract may call
+    # this function. Generic UPP callbacks are intentionally not mapped to it.
+    op.execute("""
+      CREATE FUNCTION billing.apply_initial_payment_outcome(
+        p_provider_event_id uuid,
+        p_outcome text,
+        p_provider_transaction_ref text,
+        p_failure_code text DEFAULT NULL,
+        p_effective_at timestamptz DEFAULT now()
+      ) RETURNS TABLE(order_id uuid, order_status text, subscription_id uuid, already_processed boolean)
+      LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, public, pg_catalog AS $function$
+      DECLARE
+        v_event billing.provider_events%ROWTYPE;
+        v_order billing.orders%ROWTYPE;
+        v_subscription billing.subscriptions%ROWTYPE;
+        v_plan billing.plans%ROWTYPE;
+        v_period_end timestamptz;
+        v_attempt_no integer;
+      BEGIN
+        IF p_outcome NOT IN ('succeeded', 'failed') THEN
+          RAISE EXCEPTION 'unsupported payment outcome';
+        END IF;
+        IF p_outcome = 'succeeded' AND COALESCE(p_provider_transaction_ref, '') = '' THEN
+          RAISE EXCEPTION 'successful payment requires provider transaction reference';
+        END IF;
+
+        SELECT * INTO v_event FROM billing.provider_events
+        WHERE id = p_provider_event_id FOR UPDATE;
+        IF NOT FOUND OR NOT v_event.signature_valid OR v_event.order_id IS NULL THEN
+          RAISE EXCEPTION 'verified provider event with known order is required';
+        END IF;
+
+        SELECT * INTO v_order FROM billing.orders WHERE id = v_event.order_id FOR UPDATE;
+        SELECT * INTO v_subscription FROM billing.subscriptions WHERE id = v_order.subscription_id FOR UPDATE;
+        IF v_event.processed_at IS NOT NULL THEN
+          RETURN QUERY SELECT v_order.id, v_order.status, v_subscription.id, true;
+          RETURN;
+        END IF;
+        IF v_order.kind <> 'initial' OR v_order.status NOT IN ('pending', 'processing') THEN
+          RAISE EXCEPTION 'order is not an unapplied initial payment';
+        END IF;
+
+        SELECT * INTO v_plan FROM billing.plans WHERE code = v_order.plan_code_snapshot;
+        SELECT COALESCE(max(attempt_no), 0) + 1 INTO v_attempt_no
+        FROM billing.payment_attempts WHERE order_id = v_order.id;
+
+        INSERT INTO billing.payment_attempts(
+          order_id, attempt_no, provider_transaction_ref, status,
+          failure_code, attempted_at, resolved_at
+        ) VALUES (
+          v_order.id, v_attempt_no, NULLIF(p_provider_transaction_ref, ''), p_outcome,
+          CASE WHEN p_outcome = 'failed' THEN NULLIF(p_failure_code, '') END,
+          p_effective_at, p_effective_at
+        );
+
+        IF p_outcome = 'succeeded' THEN
+          v_period_end := p_effective_at + make_interval(months => CASE v_plan.period
+            WHEN 'month' THEN v_plan.period_count
+            WHEN 'quarter' THEN v_plan.period_count * 3
+            WHEN 'year' THEN v_plan.period_count * 12
+          END);
+          UPDATE billing.orders SET status = 'paid', paid_at = p_effective_at, updated_at = now()
+          WHERE id = v_order.id;
+          UPDATE billing.subscriptions
+          SET status = 'active', current_period_starts_at = p_effective_at,
+              current_period_ends_at = v_period_end, next_charge_at = v_period_end,
+              updated_at = now()
+          WHERE id = v_subscription.id;
+          INSERT INTO billing.entitlement_changes(
+            subscription_id, order_id, reason, tier, status, effective_at, effective_until
+          ) VALUES (v_subscription.id, v_order.id, 'initial_payment', 'pro', 'active', p_effective_at, v_period_end);
+          INSERT INTO public.subscriptions(
+            user_id, tier, status, price_plan_code, started_at, expires_at
+          ) VALUES (v_subscription.user_id, 'pro', 'active', v_order.plan_code_snapshot, p_effective_at, v_period_end)
+          ON CONFLICT (user_id) DO UPDATE SET
+            tier = 'pro', status = 'active', price_plan_code = EXCLUDED.price_plan_code,
+            started_at = EXCLUDED.started_at, expires_at = EXCLUDED.expires_at, updated_at = now();
+          INSERT INTO billing.outbox_events(topic, aggregate_type, aggregate_id, dedupe_key, payload)
+          VALUES (
+            'billing.payment.succeeded', 'order', v_order.id,
+            'payment-succeeded:' || v_order.id::text,
+            jsonb_build_object('order_id', v_order.id, 'subscription_id', v_subscription.id)
+          ) ON CONFLICT (dedupe_key) DO NOTHING;
+        ELSE
+          UPDATE billing.orders SET status = 'failed', failed_at = p_effective_at, updated_at = now()
+          WHERE id = v_order.id;
+          UPDATE billing.subscriptions SET status = 'expired', updated_at = now()
+          WHERE id = v_subscription.id;
+          INSERT INTO billing.outbox_events(topic, aggregate_type, aggregate_id, dedupe_key, payload)
+          VALUES (
+            'billing.payment.failed', 'order', v_order.id,
+            'payment-failed:' || v_order.id::text,
+            jsonb_build_object('order_id', v_order.id, 'subscription_id', v_subscription.id)
+          ) ON CONFLICT (dedupe_key) DO NOTHING;
+        END IF;
+
+        UPDATE billing.provider_events SET processed_at = now(), process_error = NULL WHERE id = v_event.id;
+        RETURN QUERY SELECT v_order.id, p_outcome, v_subscription.id, false;
+      END; $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) TO service_role")
+
 
 def downgrade() -> None:
+    op.execute("DROP FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)")
     op.execute("DROP FUNCTION billing.get_overview_for_user(uuid)")
     op.execute("DROP FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid)")
     op.execute("DROP FUNCTION billing.get_order_for_user(uuid,uuid)")

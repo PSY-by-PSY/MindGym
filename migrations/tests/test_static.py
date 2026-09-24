@@ -91,6 +91,7 @@ class StaticTests(unittest.TestCase):
         self.assertIn('get_resumable_checkout_for_user',proc.stdout)
         self.assertIn('get_overview_for_user',proc.stdout)
         self.assertIn('billing.provider_callback.received',proc.stdout)
+        self.assertIn('apply_initial_payment_outcome',proc.stdout)
         self.assertNotIn('CREATE TABLE auth.users',proc.stdout)
         self.assertIn("'x-webhook-secret'",proc.stdout)
         blocked=subprocess.run([sys.executable,'-m','alembic','stamp','head','--sql'],cwd=ROOT,capture_output=True,text=True)
