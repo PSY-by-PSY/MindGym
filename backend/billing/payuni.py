@@ -6,6 +6,7 @@ are not inferred here and require the merchant's approved recurring contract.
 
 from dataclasses import dataclass
 from hashlib import sha256
+from hmac import compare_digest
 import base64
 import os
 from time import time
@@ -15,6 +16,12 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from backend.billing.errors import ProviderNotConfigured
 from backend.billing.providers import CheckoutRequest, CheckoutSession
+
+@dataclass(frozen=True)
+class VerifiedCallback:
+    event_ref: str
+    merchant_order_no: str
+    payload_redacted: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -74,7 +81,21 @@ class PayUniUppProvider:
         return sha256((self._settings.hash_key + encrypted_info + self._settings.hash_iv).encode()).hexdigest().upper()
 
     def verify_hash(self, encrypted_info: str, hash_info: str) -> bool:
-        return self.hash_info(encrypted_info) == hash_info.upper()
+        return compare_digest(self.hash_info(encrypted_info), hash_info.upper())
+
+    def verify_callback(self, fields: dict[str, str]) -> VerifiedCallback:
+        encrypted = fields.get("EncryptInfo", "")
+        if not encrypted or not self.verify_hash(encrypted, fields.get("HashInfo", "")):
+            raise ValueError("PAYUNi callback hash verification failed")
+        payload = self.decrypt_info(encrypted)
+        order_no = payload.get("MerTradeNo", "")
+        if not order_no:
+            raise ValueError("PAYUNi callback has no merchant order number")
+        safe = {key: payload[key] for key in (
+            "MerTradeNo", "TradeNo", "Status", "StatusDesc", "TradeAmt", "PayTime", "RespondCode",
+        ) if key in payload}
+        event_ref = payload.get("TradeNo") or sha256(encrypted.encode()).hexdigest()
+        return VerifiedCallback(event_ref=event_ref, merchant_order_no=order_no, payload_redacted=safe)
 
     async def create_initial_checkout(self, request: CheckoutRequest) -> CheckoutSession:
         await self.assert_ready()

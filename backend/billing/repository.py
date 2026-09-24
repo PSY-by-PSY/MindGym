@@ -103,6 +103,14 @@ class BillingRepository:
             reused=row["reused"],
         )
 
+    async def record_provider_event(self, *, event_ref: str, merchant_order_no: str, payload_redacted: dict[str, str]) -> str:
+        response = await self._client.post(f"{self._base_url}/rpc/record_provider_event", headers=self._headers, json={
+            "p_provider": "payuni", "p_event_ref": event_ref, "p_merchant_order_no": merchant_order_no,
+            "p_signature_valid": True, "p_payload_redacted": payload_redacted,
+        })
+        self._raise_for_error(response, "record provider callback")
+        return response.json()
+
     @staticmethod
     def _raise_for_error(response: httpx.Response, operation: str) -> None:
         if response.is_success:

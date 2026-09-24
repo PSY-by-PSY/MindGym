@@ -32,6 +32,16 @@ class PayUniUppTests(unittest.TestCase):
         self.assertEqual(set(session.form_fields), {"MerID", "Version", "EncryptInfo", "HashInfo"})
         self.assertNotIn("CardNo", session.form_fields)
 
+    def test_callback_verifies_and_redacts_token_fields(self):
+        encrypted = self.provider.encrypt_info({
+            "MerTradeNo":"MG-TEST", "TradeNo":"PU-1", "Status":"SUCCESS",
+            "TradeAmt":"99", "CreditHash":"must-not-persist",
+        })
+        callback = self.provider.verify_callback({"EncryptInfo": encrypted, "HashInfo": self.provider.hash_info(encrypted)})
+        self.assertEqual(callback.event_ref, "PU-1")
+        self.assertEqual(callback.payload_redacted["MerTradeNo"], "MG-TEST")
+        self.assertNotIn("CreditHash", callback.payload_redacted)
+
 
 if __name__ == "__main__":
     unittest.main()

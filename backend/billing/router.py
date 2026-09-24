@@ -93,7 +93,13 @@ async def create_checkout_session(
     )
 
 
-@router.post("/payuni/callback", status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-async def payuni_callback():
-    """Never ACK a callback until the approved signature contract is implemented."""
-    return {"status": "billing_callback_not_enabled"}
+@router.post("/payuni/callback")
+async def payuni_callback(request: Request):
+    fields = {key: value for key, value in (await request.form()).items() if isinstance(value, str)}
+    try:
+        await _service(request).record_callback(fields)
+    except (ProviderNotConfigured, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payment callback") from None
+    except RepositoryError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Callback persistence unavailable") from None
+    return {"status": "accepted"}

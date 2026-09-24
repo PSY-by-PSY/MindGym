@@ -384,6 +384,9 @@ flowchart LR
   `PAYUNI_MERCHANT_ID`、`PAYUNI_HASH_KEY`、`PAYUNI_HASH_IV`、`PAYUNI_RETURN_URL`。
   這是首次付款導轉測試，不包含約定綁卡欄位、Token 保存、callback 開通或自動續扣；
   取得 PAYUNi 核准的 Token／幕後授權 contract 前不得用於正式收款。
+- generic UPP callback 現可驗證 envelope 並以冪等事件收據保存；僅保留訂單號、交易號、
+  狀態與金額等白名單欄位，**不**保存 `CreditHash` 或其他卡片／Token 資料，也不會改變
+  order、subscription 或 entitlement。
 
 ---
 

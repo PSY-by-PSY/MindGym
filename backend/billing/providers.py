@@ -25,6 +25,7 @@ class CheckoutSession:
 class PaymentProvider(Protocol):
     async def assert_ready(self) -> None: ...
     async def create_initial_checkout(self, request: CheckoutRequest) -> CheckoutSession: ...
+    def verify_callback(self, fields: dict[str, str]): ...
 
 
 class DisabledPayUniProvider:
@@ -38,3 +39,6 @@ class DisabledPayUniProvider:
     async def create_initial_checkout(self, request: CheckoutRequest) -> CheckoutSession:
         await self.assert_ready()
         raise AssertionError("unreachable")
+
+    def verify_callback(self, fields: dict[str, str]):
+        raise ProviderNotConfigured("PAYUNi callback is not configured")

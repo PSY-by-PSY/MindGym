@@ -22,6 +22,8 @@ billing_spec=importlib.util.spec_from_file_location('billing_revision', ROOT/'mi
 billing_revision=importlib.util.module_from_spec(billing_spec);billing_spec.loader.exec_module(billing_revision)
 checkout_spec=importlib.util.spec_from_file_location('checkout_revision', ROOT/'migrations/versions/mg_0003_billing_checkout_rpc.py')
 checkout_revision=importlib.util.module_from_spec(checkout_spec);checkout_spec.loader.exec_module(checkout_revision)
+callback_spec=importlib.util.spec_from_file_location('callback_revision', ROOT/'migrations/versions/mg_0004_billing_provider_event_rpc.py')
+callback_revision=importlib.util.module_from_spec(callback_spec);callback_spec.loader.exec_module(callback_revision)
 
 
 class StaticTests(unittest.TestCase):
@@ -35,6 +37,7 @@ class StaticTests(unittest.TestCase):
     def test_billing_revision_and_orm_scope(self):
         self.assertEqual(billing_revision.down_revision, 'mg_0001_baseline')
         self.assertEqual(checkout_revision.down_revision, 'mg_0002_billing_recurring')
+        self.assertEqual(callback_revision.down_revision, 'mg_0003_billing_checkout_rpc')
         expected={
             'plans','subscriptions','orders','payment_attempts','payment_methods',
             'provider_events','refunds','invoices','outbox_events','entitlement_changes',
@@ -85,6 +88,7 @@ class StaticTests(unittest.TestCase):
         self.assertIn('CREATE TABLE billing.orders',proc.stdout)
         self.assertIn('claim_outbox_events',proc.stdout)
         self.assertIn('create_pending_checkout',proc.stdout)
+        self.assertIn('record_provider_event',proc.stdout)
         self.assertNotIn('CREATE TABLE auth.users',proc.stdout)
         self.assertIn("'x-webhook-secret'",proc.stdout)
         blocked=subprocess.run([sys.executable,'-m','alembic','stamp','head','--sql'],cwd=ROOT,capture_output=True,text=True)

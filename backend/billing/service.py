@@ -54,3 +54,10 @@ class BillingService:
             )
         )
         return CreatedCheckout(checkout=checkout, provider_session=session)
+
+    async def record_callback(self, fields: dict[str, str]) -> str:
+        verified = self._provider.verify_callback(fields)
+        return await self._repository.record_provider_event(
+            event_ref=verified.event_ref, merchant_order_no=verified.merchant_order_no,
+            payload_redacted=verified.payload_redacted,
+        )
