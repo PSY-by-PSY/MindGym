@@ -379,6 +379,11 @@ flowchart LR
   router／service／repository／provider port 也已建立並掛入 `app.py`。
 - PAYUNI API 欄位、驗簽、callback 處理、權益切換與 worker 尚未實作。checkout endpoint
   在 provider contract 未啟用時固定回 503，不能因路由存在而視為可收款。
+- 已依 PAYUNi 公開 SDK 實作**通用 sandbox UPP** 加密 envelope／HashInfo 與導轉 form，
+  但僅在 `PAYUNI_GENERIC_UPP_SANDBOX_ENABLED=1` 且下列環境變數齊全時啟用：
+  `PAYUNI_MERCHANT_ID`、`PAYUNI_HASH_KEY`、`PAYUNI_HASH_IV`、`PAYUNI_RETURN_URL`。
+  這是首次付款導轉測試，不包含約定綁卡欄位、Token 保存、callback 開通或自動續扣；
+  取得 PAYUNi 核准的 Token／幕後授權 contract 前不得用於正式收款。
 
 ---
 

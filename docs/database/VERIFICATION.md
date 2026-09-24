@@ -68,3 +68,6 @@ FastAPI 的 billing router／service／repository 已有單元測試；PAYUNI pr
 
 另以假設定驗證 `backend.app` 可載入且 OpenAPI 包含 billing plans、checkout 與 callback
 三條路由；此驗證不帶真實 credential、沒有呼叫 Supabase 或 PAYUNI。
+
+PAYUNi 公開 SDK 所描述的 generic sandbox UPP envelope 已有 AES-256-GCM round-trip、
+HashInfo 與 form field 測試；沒有使用真實商店資料、沒有送出 Sandbox 交易。

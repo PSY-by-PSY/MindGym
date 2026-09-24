@@ -14,6 +14,7 @@ import openai
 from dotenv import load_dotenv
 
 import usage_metering
+from backend.billing.payuni import sandbox_provider_from_environment
 from backend.billing.providers import DisabledPayUniProvider
 from backend.billing.repository import BillingRepository
 from backend.billing.router import router as billing_router
@@ -57,9 +58,10 @@ async def lifespan(app: FastAPI):
     # The billing slice is isolated from legacy endpoints. PAYUNi remains disabled
     # until its approved sandbox contract is implemented in a provider adapter.
     app.state.billing_repository = BillingRepository(_http, SUPABASE_URL, SUPABASE_KEY)
+    provider = sandbox_provider_from_environment() or DisabledPayUniProvider()
     app.state.billing_service = BillingService(
         app.state.billing_repository,
-        DisabledPayUniProvider(),
+        provider,
         os.environ.get("BILLING_PAYUNI_CALLBACK_URL", ""),
     )
     yield
