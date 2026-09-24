@@ -300,8 +300,54 @@ def upgrade() -> None:
     op.execute("REVOKE ALL ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) FROM PUBLIC, anon, authenticated")
     op.execute("GRANT EXECUTE ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) TO service_role")
 
+    op.execute("""
+      CREATE FUNCTION billing.get_provider_event_for_processing(p_event_id uuid)
+      RETURNS TABLE(event_id uuid, provider text, order_id uuid, payload_redacted jsonb)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+        SELECT e.id, e.provider, e.order_id, e.payload_redacted
+        FROM billing.provider_events e
+        WHERE e.id = p_event_id AND e.signature_valid AND e.processed_at IS NULL
+      $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.get_provider_event_for_processing(uuid) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.get_provider_event_for_processing(uuid) TO service_role")
+
+    op.execute("""
+      CREATE FUNCTION billing.complete_outbox_event(p_event_id uuid)
+      RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+      BEGIN
+        UPDATE billing.outbox_events
+        SET status = 'processed', processed_at = now(), lease_until = NULL, updated_at = now()
+        WHERE id = p_event_id AND status = 'processing';
+        RETURN FOUND;
+      END; $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.complete_outbox_event(uuid) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.complete_outbox_event(uuid) TO service_role")
+
+    op.execute("""
+      CREATE FUNCTION billing.reschedule_outbox_event(
+        p_event_id uuid, p_error text, p_delay_seconds integer DEFAULT 900
+      ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+      BEGIN
+        IF p_delay_seconds < 60 OR p_delay_seconds > 86400 THEN
+          RAISE EXCEPTION 'invalid outbox retry delay';
+        END IF;
+        UPDATE billing.outbox_events
+        SET status = 'pending', available_at = now() + make_interval(secs => p_delay_seconds),
+            lease_until = NULL, last_error = left(COALESCE(p_error, ''), 500), updated_at = now()
+        WHERE id = p_event_id AND status = 'processing';
+        RETURN FOUND;
+      END; $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer) TO service_role")
+
 
 def downgrade() -> None:
+    op.execute("DROP FUNCTION billing.reschedule_outbox_event(uuid,text,integer)")
+    op.execute("DROP FUNCTION billing.complete_outbox_event(uuid)")
+    op.execute("DROP FUNCTION billing.get_provider_event_for_processing(uuid)")
     op.execute("DROP FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)")
     op.execute("DROP FUNCTION billing.get_overview_for_user(uuid)")
     op.execute("DROP FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid)")

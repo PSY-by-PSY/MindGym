@@ -72,6 +72,21 @@ class BillingOverview:
     orders: list[OrderHistoryItem]
 
 
+@dataclass(frozen=True)
+class OutboxEvent:
+    id: str
+    topic: str
+    payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ProviderEventForProcessing:
+    id: str
+    provider: str
+    order_id: str
+    payload_redacted: dict[str, str]
+
+
 class BillingRepository:
     """Uses the service-role REST path; browser clients never receive this access."""
 
@@ -207,6 +222,57 @@ class BillingRepository:
                 expires_at=parse_timestamp(item["expires_at"]),
             ) for item in row["orders"]],
         )
+
+    async def claim_outbox_events(self, *, limit: int = 20) -> list[OutboxEvent]:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/claim_outbox_events", headers=self._headers,
+            json={"p_limit": limit, "p_lease_seconds": 60},
+        )
+        self._raise_for_error(response, "claim billing outbox events")
+        return [OutboxEvent(id=row["id"], topic=row["topic"], payload=row["payload"]) for row in response.json()]
+
+    async def get_provider_event_for_processing(self, *, event_id: str) -> ProviderEventForProcessing | None:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/get_provider_event_for_processing", headers=self._headers,
+            json={"p_event_id": event_id},
+        )
+        self._raise_for_error(response, "read provider event")
+        rows = response.json()
+        if not rows:
+            return None
+        row = rows[0]
+        return ProviderEventForProcessing(
+            id=row["event_id"], provider=row["provider"], order_id=row["order_id"],
+            payload_redacted=row["payload_redacted"],
+        )
+
+    async def apply_initial_payment_outcome(
+        self, *, provider_event_id: str, outcome: str, provider_transaction_ref: str,
+        failure_code: str | None = None,
+    ) -> None:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/apply_initial_payment_outcome", headers=self._headers,
+            json={
+                "p_provider_event_id": provider_event_id, "p_outcome": outcome,
+                "p_provider_transaction_ref": provider_transaction_ref,
+                "p_failure_code": failure_code,
+            },
+        )
+        self._raise_for_error(response, "apply payment outcome")
+
+    async def complete_outbox_event(self, *, event_id: str) -> None:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/complete_outbox_event", headers=self._headers,
+            json={"p_event_id": event_id},
+        )
+        self._raise_for_error(response, "complete billing outbox event")
+
+    async def reschedule_outbox_event(self, *, event_id: str, error: str, delay_seconds: int = 900) -> None:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/reschedule_outbox_event", headers=self._headers,
+            json={"p_event_id": event_id, "p_error": error, "p_delay_seconds": delay_seconds},
+        )
+        self._raise_for_error(response, "reschedule billing outbox event")
 
     @staticmethod
     def _raise_for_error(response: httpx.Response, operation: str) -> None:
