@@ -223,10 +223,10 @@ class BillingRepository:
             ) for item in row["orders"]],
         )
 
-    async def claim_outbox_events(self, *, limit: int = 20) -> list[OutboxEvent]:
+    async def claim_callback_outbox_events(self, *, limit: int = 20) -> list[OutboxEvent]:
         response = await self._client.post(
-            f"{self._base_url}/rpc/claim_outbox_events", headers=self._headers,
-            json={"p_limit": limit, "p_lease_seconds": 60},
+            f"{self._base_url}/rpc/claim_outbox_events_by_topic", headers=self._headers,
+            json={"p_topic": "billing.provider_callback.received", "p_limit": limit, "p_lease_seconds": 60},
         )
         self._raise_for_error(response, "claim billing outbox events")
         return [OutboxEvent(id=row["id"], topic=row["topic"], payload=row["payload"]) for row in response.json()]
@@ -273,6 +273,13 @@ class BillingRepository:
             json={"p_event_id": event_id, "p_error": error, "p_delay_seconds": delay_seconds},
         )
         self._raise_for_error(response, "reschedule billing outbox event")
+
+    async def dead_letter_outbox_event(self, *, event_id: str, error: str) -> None:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/dead_letter_outbox_event", headers=self._headers,
+            json={"p_event_id": event_id, "p_error": error},
+        )
+        self._raise_for_error(response, "dead-letter billing outbox event")
 
     @staticmethod
     def _raise_for_error(response: httpx.Response, operation: str) -> None:

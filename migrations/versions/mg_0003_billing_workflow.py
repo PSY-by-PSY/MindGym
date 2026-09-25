@@ -343,8 +343,50 @@ def upgrade() -> None:
     op.execute("REVOKE ALL ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer) FROM PUBLIC, anon, authenticated")
     op.execute("GRANT EXECUTE ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer) TO service_role")
 
+    op.execute("""
+      CREATE FUNCTION billing.claim_outbox_events_by_topic(
+        p_topic text, p_limit integer DEFAULT 20, p_lease_seconds integer DEFAULT 60
+      ) RETURNS SETOF billing.outbox_events
+      LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+      BEGIN
+        IF p_topic = '' OR p_limit < 1 OR p_limit > 100 OR p_lease_seconds < 1 OR p_lease_seconds > 3600 THEN
+          RAISE EXCEPTION 'invalid outbox claim bounds';
+        END IF;
+        RETURN QUERY
+        WITH candidates AS (
+          SELECT id FROM billing.outbox_events
+          WHERE topic = p_topic AND available_at <= now()
+            AND (status = 'pending' OR (status = 'processing' AND lease_until < now()))
+          ORDER BY available_at, created_at
+          FOR UPDATE SKIP LOCKED LIMIT p_limit
+        )
+        UPDATE billing.outbox_events e
+        SET status = 'processing', lease_until = now() + make_interval(secs => p_lease_seconds),
+            attempt_count = e.attempt_count + 1, updated_at = now()
+        FROM candidates c WHERE e.id = c.id
+        RETURNING e.*;
+      END; $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.claim_outbox_events_by_topic(text,integer,integer) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.claim_outbox_events_by_topic(text,integer,integer) TO service_role")
+
+    op.execute("""
+      CREATE FUNCTION billing.dead_letter_outbox_event(p_event_id uuid, p_error text)
+      RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+      BEGIN
+        UPDATE billing.outbox_events
+        SET status = 'dead', lease_until = NULL, last_error = left(COALESCE(p_error, ''), 500), updated_at = now()
+        WHERE id = p_event_id AND status = 'processing';
+        RETURN FOUND;
+      END; $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.dead_letter_outbox_event(uuid,text) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.dead_letter_outbox_event(uuid,text) TO service_role")
+
 
 def downgrade() -> None:
+    op.execute("DROP FUNCTION billing.dead_letter_outbox_event(uuid,text)")
+    op.execute("DROP FUNCTION billing.claim_outbox_events_by_topic(text,integer,integer)")
     op.execute("DROP FUNCTION billing.reschedule_outbox_event(uuid,text,integer)")
     op.execute("DROP FUNCTION billing.complete_outbox_event(uuid)")
     op.execute("DROP FUNCTION billing.get_provider_event_for_processing(uuid)")

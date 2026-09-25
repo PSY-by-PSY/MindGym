@@ -15,7 +15,7 @@ class FakeRepository:
         self.calls = []
         self.events = [OutboxEvent("outbox-1", "billing.provider_callback.received", {"provider_event_id": "provider-1"})]
 
-    async def claim_outbox_events(self, *, limit):
+    async def claim_callback_outbox_events(self, *, limit):
         self.calls.append(("claim", limit))
         return self.events
 
@@ -24,6 +24,7 @@ class FakeRepository:
         return ProviderEventForProcessing(event_id, "payuni", "order-1", {"TradeNo": "trade-1"})
 
     async def reschedule_outbox_event(self, **kwargs): self.calls.append(("reschedule", kwargs))
+    async def dead_letter_outbox_event(self, **kwargs): self.calls.append(("dead", kwargs))
     async def complete_outbox_event(self, **kwargs): self.calls.append(("complete", kwargs))
     async def apply_initial_payment_outcome(self, **kwargs): self.calls.append(("apply", kwargs))
 
@@ -46,6 +47,7 @@ class BillingCallbackWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.claimed, 1)
         self.assertEqual(result.completed, 0)
         self.assertEqual(result.deferred, 1)
+        self.assertEqual(result.dead_lettered, 0)
         self.assertFalse(any(name == "apply" for name, _ in repository.calls))
         self.assertEqual(repository.calls[-1], ("reschedule", {
             "event_id": "outbox-1", "error": "provider callback outcome contract is unavailable", "delay_seconds": 900,
@@ -55,9 +57,20 @@ class BillingCallbackWorkerTests(unittest.IsolatedAsyncioTestCase):
         repository = FakeRepository()
         result = await BillingCallbackWorker(repository, SuccessResolver()).run_once()
 
-        self.assertEqual((result.claimed, result.completed, result.deferred), (1, 1, 0))
+        self.assertEqual((result.claimed, result.completed, result.deferred, result.dead_lettered), (1, 1, 0, 0))
         self.assertEqual(repository.calls[-2], ("apply", {
             "provider_event_id": "provider-1", "outcome": "succeeded",
             "provider_transaction_ref": "trade-1", "failure_code": None,
         }))
         self.assertEqual(repository.calls[-1], ("complete", {"event_id": "outbox-1"}))
+
+    async def test_malformed_callback_job_is_dead_lettered(self):
+        repository = FakeRepository()
+        repository.events = [OutboxEvent("outbox-bad", "billing.provider_callback.received", {})]
+
+        result = await BillingCallbackWorker(repository, SuccessResolver()).run_once()
+
+        self.assertEqual((result.claimed, result.completed, result.deferred, result.dead_lettered), (1, 0, 0, 1))
+        self.assertEqual(repository.calls[-1], ("dead", {
+            "event_id": "outbox-bad", "error": "callback job has no provider event id",
+        }))

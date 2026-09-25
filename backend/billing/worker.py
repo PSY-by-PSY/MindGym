@@ -33,6 +33,7 @@ class WorkerRun:
     claimed: int
     completed: int
     deferred: int
+    dead_lettered: int
 
 
 class BillingCallbackWorker:
@@ -41,18 +42,23 @@ class BillingCallbackWorker:
         self._resolver = resolver
 
     async def run_once(self, *, limit: int = 20) -> WorkerRun:
-        claimed = await self._repository.claim_outbox_events(limit=limit)
+        claimed = await self._repository.claim_callback_outbox_events(limit=limit)
         completed = 0
         deferred = 0
+        dead_lettered = 0
         for outbox_event in claimed:
             if outbox_event.topic != CALLBACK_TOPIC:
+                await self._repository.dead_letter_outbox_event(
+                    event_id=outbox_event.id, error="callback worker received an unexpected outbox topic",
+                )
+                dead_lettered += 1
                 continue
             event_id = outbox_event.payload.get("provider_event_id")
             if not isinstance(event_id, str):
-                await self._repository.reschedule_outbox_event(
-                    event_id=outbox_event.id, error="callback job has no provider event id", delay_seconds=3600,
+                await self._repository.dead_letter_outbox_event(
+                    event_id=outbox_event.id, error="callback job has no provider event id",
                 )
-                deferred += 1
+                dead_lettered += 1
                 continue
             provider_event = await self._repository.get_provider_event_for_processing(event_id=event_id)
             if provider_event is None:
@@ -68,10 +74,10 @@ class BillingCallbackWorker:
                 deferred += 1
                 continue
             if outcome.status not in {"succeeded", "failed"}:
-                await self._repository.reschedule_outbox_event(
-                    event_id=outbox_event.id, error="provider returned an unsupported payment outcome", delay_seconds=3600,
+                await self._repository.dead_letter_outbox_event(
+                    event_id=outbox_event.id, error="provider returned an unsupported payment outcome",
                 )
-                deferred += 1
+                dead_lettered += 1
                 continue
             await self._repository.apply_initial_payment_outcome(
                 provider_event_id=provider_event.id, outcome=outcome.status,
@@ -80,4 +86,4 @@ class BillingCallbackWorker:
             )
             await self._repository.complete_outbox_event(event_id=outbox_event.id)
             completed += 1
-        return WorkerRun(claimed=len(claimed), completed=completed, deferred=deferred)
+        return WorkerRun(claimed=len(claimed), completed=completed, deferred=deferred, dead_lettered=dead_lettered)

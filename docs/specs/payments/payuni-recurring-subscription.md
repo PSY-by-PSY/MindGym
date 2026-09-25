@@ -377,7 +377,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
 | P1：資料基礎 | 技術完成，尚未驗收 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox | 新建本機 Supabase integration 驗收；之後才可正式採用 |
-| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs、outcome transaction、可安全 defer 的 worker boundary | PAYUNi 結果語義確認、部署／排程 worker、payment result integration 測試 |
+| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs、outcome transaction、topic-specific claim／defer／dead-letter worker boundary | PAYUNi 結果語義確認、部署／排程 worker、payment result integration 測試 |
 | P3：權益與帳務操作 | 未開始 | — | canonical entitlement cutover、取消、退款、歷史／管理 read model |
 | P4：自動續扣營運 | 未開始 | outbox schema 與 callback job 已備妥 | token contract、renewal worker、7 天寬限、對帳、監控／runbook |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
@@ -434,8 +434,10 @@ CLI／實際 PostgreSQL integration run；不可把 static/offline 驗證誤認�
 **現階段沒有 adapter 或 route 會呼叫它。** 只有在 PAYUNi contract 明確定義 outcome 映射後，
 worker 才能取得 service-role 權限呼叫；generic UPP 的 callback 仍只會產生 receipt/outbox。
 
-`backend/billing/worker.py` 的 `BillingCallbackWorker` 已可 claim callback job，讀取已驗簽
-event，並在 resolver 尚未設定時以 15 分鐘延遲安全 reschedule；不會呼叫 outcome transaction。
+`backend/billing/worker.py` 的 `BillingCallbackWorker` 只會 claim callback topic，避免占用其他
+billing worker 的 lease；它讀取已驗簽 event，並在 resolver 尚未設定時以 15 分鐘延遲安全
+reschedule，不會呼叫 outcome transaction。缺少 provider event id 或 resolver 回傳不支援 outcome
+的 job 會進 dead-letter，供人工處理，不會無限重試。
 當未來的 PAYUNi resolver 回傳已核准的 `succeeded`／`failed` outcome 時，worker 才會先套用
 transaction、再 complete outbox job。**此 worker 尚未掛入 FastAPI lifespan、Cron 或任何部署排程。**
 
