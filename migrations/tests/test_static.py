@@ -96,6 +96,7 @@ class StaticTests(unittest.TestCase):
         self.assertIn('reschedule_outbox_event',proc.stdout)
         self.assertIn('claim_outbox_events_by_topic',proc.stdout)
         self.assertIn('dead_letter_outbox_event',proc.stdout)
+        self.assertIn('p_max_attempts integer DEFAULT 20',proc.stdout)
         self.assertNotIn('CREATE TABLE auth.users',proc.stdout)
         self.assertIn("'x-webhook-secret'",proc.stdout)
         blocked=subprocess.run([sys.executable,'-m','alembic','stamp','head','--sql'],cwd=ROOT,capture_output=True,text=True)

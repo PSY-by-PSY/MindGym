@@ -71,7 +71,7 @@ def verify(connection) -> list[str]:
         ("billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)", "billing payment outcome function"),
         ("billing.get_provider_event_for_processing(uuid)", "billing worker event function"),
         ("billing.complete_outbox_event(uuid)", "billing outbox completion function"),
-        ("billing.reschedule_outbox_event(uuid,text,integer)", "billing outbox retry function"),
+        ("billing.reschedule_outbox_event(uuid,text,integer,integer)", "billing outbox retry function"),
         ("billing.claim_outbox_events_by_topic(text,integer,integer)", "billing topic claim function"),
         ("billing.dead_letter_outbox_event(uuid,text)", "billing outbox dead-letter function"),
     ):

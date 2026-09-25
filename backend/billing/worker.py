@@ -37,9 +37,12 @@ class WorkerRun:
 
 
 class BillingCallbackWorker:
-    def __init__(self, repository, resolver: CallbackOutcomeResolver):
+    def __init__(self, repository, resolver: CallbackOutcomeResolver, *, max_attempts: int = 20):
+        if not 1 <= max_attempts <= 100:
+            raise ValueError("max_attempts must be between 1 and 100")
         self._repository = repository
         self._resolver = resolver
+        self._max_attempts = max_attempts
 
     async def run_once(self, *, limit: int = 20) -> WorkerRun:
         claimed = await self._repository.claim_callback_outbox_events(limit=limit)
@@ -68,10 +71,14 @@ class BillingCallbackWorker:
             try:
                 outcome = await self._resolver.resolve(provider_event)
             except ProviderNotConfigured:
-                await self._repository.reschedule_outbox_event(
+                retry_result = await self._repository.reschedule_outbox_event(
                     event_id=outbox_event.id, error="provider callback outcome contract is unavailable", delay_seconds=900,
+                    max_attempts=self._max_attempts,
                 )
-                deferred += 1
+                if retry_result == "dead":
+                    dead_lettered += 1
+                elif retry_result == "rescheduled":
+                    deferred += 1
                 continue
             if outcome.status not in {"succeeded", "failed"}:
                 await self._repository.dead_letter_outbox_event(

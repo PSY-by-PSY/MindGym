@@ -438,6 +438,10 @@ worker 才能取得 service-role 權限呼叫；generic UPP 的 callback 仍只�
 billing worker 的 lease；它讀取已驗簽 event，並在 resolver 尚未設定時以 15 分鐘延遲安全
 reschedule，不會呼叫 outcome transaction。缺少 provider event id 或 resolver 回傳不支援 outcome
 的 job 會進 dead-letter，供人工處理，不會無限重試。
+
+每個 callback job 的 retry 上限由 worker 建構時注入（目前預設 20，允許 1～100）；
+`reschedule_outbox_event` 會以 DB 內已 claim 的 `attempt_count` 判斷，達上限時直接轉為
+dead-letter，而不是再次排程。部署 worker 時必須將此值設定為營運設定並建立 dead-letter 告警。
 當未來的 PAYUNi resolver 回傳已核准的 `succeeded`／`failed` outcome 時，worker 才會先套用
 transaction、再 complete outbox job。**此 worker 尚未掛入 FastAPI lifespan、Cron 或任何部署排程。**
 

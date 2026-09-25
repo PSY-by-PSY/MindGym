@@ -13,6 +13,7 @@ from backend.billing.worker import BillingCallbackWorker, VerifiedPaymentOutcome
 class FakeRepository:
     def __init__(self):
         self.calls = []
+        self.retry_result = "rescheduled"
         self.events = [OutboxEvent("outbox-1", "billing.provider_callback.received", {"provider_event_id": "provider-1"})]
 
     async def claim_callback_outbox_events(self, *, limit):
@@ -23,7 +24,9 @@ class FakeRepository:
         self.calls.append(("get", event_id))
         return ProviderEventForProcessing(event_id, "payuni", "order-1", {"TradeNo": "trade-1"})
 
-    async def reschedule_outbox_event(self, **kwargs): self.calls.append(("reschedule", kwargs))
+    async def reschedule_outbox_event(self, **kwargs):
+        self.calls.append(("reschedule", kwargs))
+        return self.retry_result
     async def dead_letter_outbox_event(self, **kwargs): self.calls.append(("dead", kwargs))
     async def complete_outbox_event(self, **kwargs): self.calls.append(("complete", kwargs))
     async def apply_initial_payment_outcome(self, **kwargs): self.calls.append(("apply", kwargs))
@@ -51,7 +54,17 @@ class BillingCallbackWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(name == "apply" for name, _ in repository.calls))
         self.assertEqual(repository.calls[-1], ("reschedule", {
             "event_id": "outbox-1", "error": "provider callback outcome contract is unavailable", "delay_seconds": 900,
+            "max_attempts": 20,
         }))
+
+    async def test_retry_limit_reports_dead_letter_after_reschedule_call(self):
+        repository = FakeRepository()
+        repository.retry_result = "dead"
+
+        result = await BillingCallbackWorker(repository, DeferredResolver(), max_attempts=3).run_once()
+
+        self.assertEqual((result.claimed, result.completed, result.deferred, result.dead_lettered), (1, 0, 0, 1))
+        self.assertEqual(repository.calls[-1][1]["max_attempts"], 3)
 
     async def test_resolved_outcome_uses_transaction_then_completes_job(self):
         repository = FakeRepository()

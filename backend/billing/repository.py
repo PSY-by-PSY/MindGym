@@ -267,12 +267,21 @@ class BillingRepository:
         )
         self._raise_for_error(response, "complete billing outbox event")
 
-    async def reschedule_outbox_event(self, *, event_id: str, error: str, delay_seconds: int = 900) -> None:
+    async def reschedule_outbox_event(
+        self, *, event_id: str, error: str, delay_seconds: int = 900, max_attempts: int = 20,
+    ) -> str:
         response = await self._client.post(
             f"{self._base_url}/rpc/reschedule_outbox_event", headers=self._headers,
-            json={"p_event_id": event_id, "p_error": error, "p_delay_seconds": delay_seconds},
+            json={
+                "p_event_id": event_id, "p_error": error, "p_delay_seconds": delay_seconds,
+                "p_max_attempts": max_attempts,
+            },
         )
         self._raise_for_error(response, "reschedule billing outbox event")
+        result = response.json()
+        if result not in {"rescheduled", "dead", "not_claimed"}:
+            raise RepositoryError("outbox retry returned an unexpected result")
+        return result
 
     async def dead_letter_outbox_event(self, *, event_id: str, error: str) -> None:
         response = await self._client.post(

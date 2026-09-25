@@ -327,21 +327,34 @@ def upgrade() -> None:
 
     op.execute("""
       CREATE FUNCTION billing.reschedule_outbox_event(
-        p_event_id uuid, p_error text, p_delay_seconds integer DEFAULT 900
-      ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+        p_event_id uuid, p_error text, p_delay_seconds integer DEFAULT 900,
+        p_max_attempts integer DEFAULT 20
+      ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+      DECLARE v_attempt_count integer;
       BEGIN
-        IF p_delay_seconds < 60 OR p_delay_seconds > 86400 THEN
+        IF p_delay_seconds < 60 OR p_delay_seconds > 86400 OR p_max_attempts < 1 OR p_max_attempts > 100 THEN
           RAISE EXCEPTION 'invalid outbox retry delay';
+        END IF;
+        SELECT attempt_count INTO v_attempt_count FROM billing.outbox_events
+        WHERE id = p_event_id AND status = 'processing' FOR UPDATE;
+        IF NOT FOUND THEN
+          RETURN 'not_claimed';
+        END IF;
+        IF v_attempt_count >= p_max_attempts THEN
+          UPDATE billing.outbox_events
+          SET status = 'dead', lease_until = NULL, last_error = left(COALESCE(p_error, ''), 500), updated_at = now()
+          WHERE id = p_event_id;
+          RETURN 'dead';
         END IF;
         UPDATE billing.outbox_events
         SET status = 'pending', available_at = now() + make_interval(secs => p_delay_seconds),
             lease_until = NULL, last_error = left(COALESCE(p_error, ''), 500), updated_at = now()
-        WHERE id = p_event_id AND status = 'processing';
-        RETURN FOUND;
+        WHERE id = p_event_id;
+        RETURN 'rescheduled';
       END; $function$;
     """)
-    op.execute("REVOKE ALL ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer) FROM PUBLIC, anon, authenticated")
-    op.execute("GRANT EXECUTE ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer) TO service_role")
+    op.execute("REVOKE ALL ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer,integer) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.reschedule_outbox_event(uuid,text,integer,integer) TO service_role")
 
     op.execute("""
       CREATE FUNCTION billing.claim_outbox_events_by_topic(
@@ -387,7 +400,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP FUNCTION billing.dead_letter_outbox_event(uuid,text)")
     op.execute("DROP FUNCTION billing.claim_outbox_events_by_topic(text,integer,integer)")
-    op.execute("DROP FUNCTION billing.reschedule_outbox_event(uuid,text,integer)")
+    op.execute("DROP FUNCTION billing.reschedule_outbox_event(uuid,text,integer,integer)")
     op.execute("DROP FUNCTION billing.complete_outbox_event(uuid)")
     op.execute("DROP FUNCTION billing.get_provider_event_for_processing(uuid)")
     op.execute("DROP FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)")
