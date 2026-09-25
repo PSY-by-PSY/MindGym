@@ -87,6 +87,27 @@ class ProviderEventForProcessing:
     payload_redacted: dict[str, str]
 
 
+@dataclass(frozen=True)
+class OutboxHealth:
+    topic: str
+    status: str
+    event_count: int
+    oldest_created_at: datetime
+
+
+@dataclass(frozen=True)
+class DeadOutboxEvent:
+    id: str
+    topic: str
+    aggregate_type: str
+    aggregate_id: str
+    attempt_count: int
+    last_error: str | None
+    created_at: datetime
+    updated_at: datetime
+    payload: dict[str, Any]
+
+
 class BillingRepository:
     """Uses the service-role REST path; browser clients never receive this access."""
 
@@ -289,6 +310,32 @@ class BillingRepository:
             json={"p_event_id": event_id, "p_error": error},
         )
         self._raise_for_error(response, "dead-letter billing outbox event")
+
+    async def get_outbox_health(self, *, topic: str | None = None) -> list[OutboxHealth]:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/get_outbox_health", headers=self._headers,
+            json={"p_topic": topic},
+        )
+        self._raise_for_error(response, "read billing outbox health")
+        return [OutboxHealth(
+            topic=row["topic"], status=row["status"], event_count=row["event_count"],
+            oldest_created_at=datetime.fromisoformat(row["oldest_created_at"].replace("Z", "+00:00")),
+        ) for row in response.json()]
+
+    async def list_dead_outbox_events(self, *, topic: str | None = None, limit: int = 50) -> list[DeadOutboxEvent]:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/list_dead_outbox_events", headers=self._headers,
+            json={"p_topic": topic, "p_limit": limit},
+        )
+        self._raise_for_error(response, "list dead billing outbox events")
+        return [DeadOutboxEvent(
+            id=row["id"], topic=row["topic"], aggregate_type=row["aggregate_type"],
+            aggregate_id=row["aggregate_id"], attempt_count=row["attempt_count"],
+            last_error=row["last_error"],
+            created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")),
+            updated_at=datetime.fromisoformat(row["updated_at"].replace("Z", "+00:00")),
+            payload=row["payload"],
+        ) for row in response.json()]
 
     @staticmethod
     def _raise_for_error(response: httpx.Response, operation: str) -> None:

@@ -379,7 +379,7 @@ flowchart LR
 | P1：資料基礎 | 技術完成，尚未驗收 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox | 新建本機 Supabase integration 驗收；之後才可正式採用 |
 | P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs、outcome transaction、topic-specific claim／defer／dead-letter worker boundary | PAYUNi 結果語義確認、部署／排程 worker、payment result integration 測試 |
 | P3：權益與帳務操作 | 未開始 | — | canonical entitlement cutover、取消、退款、歷史／管理 read model |
-| P4：自動續扣營運 | 未開始 | outbox schema 與 callback job 已備妥 | token contract、renewal worker、7 天寬限、對帳、監控／runbook |
+| P4：自動續扣營運 | 未開始 | outbox schema、callback job、service-role health／dead-letter read model 已備妥 | token contract、renewal worker、7 天寬限、對帳、告警／runbook |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
 
 **目前位置：P2 中段。** 下一個程式工作是 callback worker 的 outcome adapter 與結果
@@ -442,6 +442,10 @@ reschedule，不會呼叫 outcome transaction。缺少 provider event id 或 res
 每個 callback job 的 retry 上限由 worker 建構時注入（目前預設 20，允許 1～100）；
 `reschedule_outbox_event` 會以 DB 內已 claim 的 `attempt_count` 判斷，達上限時直接轉為
 dead-letter，而不是再次排程。部署 worker 時必須將此值設定為營運設定並建立 dead-letter 告警。
+
+`BillingOutboxMonitor` 與其 service-role RPC 可讀取 callback topic 的各狀態數量、最早待處理
+時間及 dead-letter 清單，供 deployment health check／告警整合使用；不提供 browser client
+或一般使用者 API，也尚未建立管理後台 UI。
 當未來的 PAYUNi resolver 回傳已核准的 `succeeded`／`failed` outcome 時，worker 才會先套用
 transaction、再 complete outbox job。**此 worker 尚未掛入 FastAPI lifespan、Cron 或任何部署排程。**
 

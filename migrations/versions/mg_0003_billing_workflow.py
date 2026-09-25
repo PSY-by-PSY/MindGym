@@ -396,8 +396,42 @@ def upgrade() -> None:
     op.execute("REVOKE ALL ON FUNCTION billing.dead_letter_outbox_event(uuid,text) FROM PUBLIC, anon, authenticated")
     op.execute("GRANT EXECUTE ON FUNCTION billing.dead_letter_outbox_event(uuid,text) TO service_role")
 
+    op.execute("""
+      CREATE FUNCTION billing.get_outbox_health(p_topic text DEFAULT NULL)
+      RETURNS TABLE(topic text, status text, event_count bigint, oldest_created_at timestamptz)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+        SELECT e.topic, e.status, count(*)::bigint, min(e.created_at)
+        FROM billing.outbox_events e
+        WHERE p_topic IS NULL OR e.topic = p_topic
+        GROUP BY e.topic, e.status
+        ORDER BY e.topic, e.status
+      $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.get_outbox_health(text) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.get_outbox_health(text) TO service_role")
+
+    op.execute("""
+      CREATE FUNCTION billing.list_dead_outbox_events(p_topic text DEFAULT NULL, p_limit integer DEFAULT 50)
+      RETURNS TABLE(
+        id uuid, topic text, aggregate_type text, aggregate_id uuid, attempt_count integer,
+        last_error text, created_at timestamptz, updated_at timestamptz, payload jsonb
+      )
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+        SELECT e.id, e.topic, e.aggregate_type, e.aggregate_id, e.attempt_count,
+               e.last_error, e.created_at, e.updated_at, e.payload
+        FROM billing.outbox_events e
+        WHERE e.status = 'dead' AND (p_topic IS NULL OR e.topic = p_topic)
+        ORDER BY e.updated_at DESC
+        LIMIT LEAST(GREATEST(p_limit, 1), 100)
+      $function$;
+    """)
+    op.execute("REVOKE ALL ON FUNCTION billing.list_dead_outbox_events(text,integer) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.list_dead_outbox_events(text,integer) TO service_role")
+
 
 def downgrade() -> None:
+    op.execute("DROP FUNCTION billing.list_dead_outbox_events(text,integer)")
+    op.execute("DROP FUNCTION billing.get_outbox_health(text)")
     op.execute("DROP FUNCTION billing.dead_letter_outbox_event(uuid,text)")
     op.execute("DROP FUNCTION billing.claim_outbox_events_by_topic(text,integer,integer)")
     op.execute("DROP FUNCTION billing.reschedule_outbox_event(uuid,text,integer,integer)")
