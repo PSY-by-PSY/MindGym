@@ -446,6 +446,18 @@ dead-letter，而不是再次排程。部署 worker 時必須將此值設定為�
 `BillingOutboxMonitor` 與其 service-role RPC 可讀取 callback topic 的各狀態數量、最早待處理
 時間及 dead-letter 清單，供 deployment health check／告警整合使用；不提供 browser client
 或一般使用者 API，也尚未建立管理後台 UI。
+
+本機／受控 runner 可使用唯讀 CLI 產出 JSON report：
+
+```bash
+BILLING_OPERATIONS_ENABLED=1 \
+SUPABASE_URL='https://your-project.supabase.co' \
+BILLING_SERVICE_ROLE_KEY='由秘密管理系統注入' \
+python scripts/billing_outbox_report.py
+```
+
+CLI 不接受 browser key，且未明確設定 `BILLING_OPERATIONS_ENABLED=1` 會拒絕執行；輸出只含
+queue health 與 dead-letter 的安全欄位，不能用來建立 checkout、處理 callback 或變更帳務。
 當未來的 PAYUNi resolver 回傳已核准的 `succeeded`／`failed` outcome 時，worker 才會先套用
 transaction、再 complete outbox job。**此 worker 尚未掛入 FastAPI lifespan、Cron 或任何部署排程。**
 
