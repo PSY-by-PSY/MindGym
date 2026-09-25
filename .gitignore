@@ -15,6 +15,9 @@ dist-ssr
 # Environment variables — never commit
 .env
 .env.*
+!.env.example
+.wrangler/
+.dev.vars*
 
 # Python
 __pycache__/
