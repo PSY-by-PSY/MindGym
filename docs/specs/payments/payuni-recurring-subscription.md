@@ -334,7 +334,7 @@ flowchart LR
 
 ## 8. 驗收條件
 
-- [ ] 新 migration 可在新的本機 Supabase 從 `mg_0001` 升到 head，重跑無副作用。
+- [x] 新 migration 可在新的本機 Supabase 從 `mg_0001` 升到 head，重跑無副作用。
 - [ ] 無 JWT、他人 JWT 與 browser Supabase client 都無法讀寫付款 token、callback、
       訂單或退款資料。
 - [ ] 同一 `Idempotency-Key` 反覆建立 checkout 只產生一張有效訂單；同一 PAYUNI
@@ -369,15 +369,15 @@ flowchart LR
 | P4 | token 續扣 worker、7 天寬限、對帳、監控與 runbook | PAYUNI 與營運前置到位 |
 | P5 | production readiness / rollout | P0–P4 全部驗收 |
 
-### 10.1 目前實作狀態（最後更新：2026-09-24）
+### 10.1 目前實作狀態（最後更新：2026-09-26）
 
 #### 階段進度總覽
 
 | 階段 | 狀態 | 已完成 | 完成前仍需 |
 | --- | --- | --- | --- |
 | P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
-| P1：資料基礎 | 技術完成，尚未驗收 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox | 新建本機 Supabase integration 驗收；之後才可正式採用 |
-| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs、outcome transaction、topic-specific claim／defer／dead-letter worker boundary | PAYUNi 結果語義確認、部署／排程 worker、payment result integration 測試 |
+| P1：資料基礎 | 本機驗收通過，尚未正式採用 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox；全新本機 Supabase migration／verifier／integration suite | 正式採用授權與正式環境接管流程 |
+| P2：初始付款流程 | 進行中 | checkout、generic sandbox UPP form、驗簽 receipt、callback outbox、owner read APIs、outcome transaction、topic-specific claim／defer／dead-letter worker boundary；付款成功／失敗 integration cases | PAYUNi 結果語義確認、部署／排程 worker、PAYUNi sandbox end-to-end 測試 |
 | P3：權益與帳務操作 | 未開始 | — | canonical entitlement cutover、取消、退款、歷史／管理 read model |
 | P4：自動續扣營運 | 未開始 | outbox schema、callback job、service-role health／dead-letter read model 已備妥 | token contract、renewal worker、7 天寬限、對帳、告警／runbook |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
@@ -385,6 +385,22 @@ flowchart LR
 **目前位置：P2 中段。** 下一個程式工作是 callback worker 的 outcome adapter 與結果
 套用 transaction；在 PAYUNi 提供核准 contract 前，此工作只能建立安全邊界，不能把
 任一 generic UPP callback 轉為 paid／active。
+
+#### 已完成交付 checklist
+
+- [x] `mg_0002_billing_foundation`：billing ledger、RLS／grants、outbox 基礎。
+- [x] `mg_0003_billing_workflow`：checkout、callback receipt/outbox、owner read RPC。
+- [x] FastAPI router／service／repository：plans、checkout、order、resume、overview、callback。
+- [x] callback queue：topic claim、lease、retry 上限、dead-letter、service-role monitor 與唯讀 CLI。
+- [x] provider-neutral outcome transaction：付款 attempt、order、subscription、entitlement、legacy projection 一起更新。
+- [x] unit／static／repository transport tests，以及本機 Supabase callback receipt／outbox 重送、payment outcome 成功／失敗、未驗簽／未知訂單拒絕 integration cases。
+- [x] 在新建隔離本機 Supabase 實際執行完整 migration integration suite（2026-09-25）。
+- [ ] PAYUNi outcome resolver、查單與 callback retry contract。
+- [ ] worker 的受控部署／排程、告警與 dead-letter 人工處理 runbook。
+- [ ] P3 entitlement cutover、取消、退款；P4 自動續扣、寬限與對帳。
+
+> §8 是「上線驗收」而非程式工作清單；其中條件尚未以實際 Supabase／PAYUNi 流程驗收，
+> 因此維持未勾。上列 checklist 才表示目前已完成的程式交付。
 
 #### 實作台帳（新 agent／新對話從這裡續接）
 
@@ -394,8 +410,16 @@ flowchart LR
 | `mg_0003_billing_workflow` / `ab1cbe2` + 後續 commits | checkout intent、已驗簽 callback receipt + outbox、本人訂單／resume／overview RPC、可信 outcome transaction、claim／complete／retry worker RPC | PAYUNi generic callback 已被映射為可信 outcome；worker 已部署排程；正式付款結果已驗收 |
 
 本次已驗證：billing service unit tests、migration static tests、Alembic offline SQL
-內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。目前沒有本機 Supabase
-CLI／實際 PostgreSQL integration run；不可把 static/offline 驗證誤認為正式資料庫驗收。
+內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。2026-09-26 已在新建、
+隔離的本機 Supabase PostgreSQL 17.6 執行 `alembic upgrade head`、`alembic check`、baseline／
+billing head verifier 與 15 項 migration integration tests（另有 9 項 static tests），全數通過；
+其中 callback receipt／outbox 與 payment outcome 的重送、成功、失敗不授權、未驗簽／未知訂單拒絕情境皆已執行。
+這仍不代表正式 Supabase 採用、
+PAYUNi sandbox 交易或 production 驗收。
+
+另有 repository HTTP contract tests，以 mock transport 固定驗證 Supabase/PostgREST 的
+service-role schema headers、callback topic claim、retry 回傳值與使用者 JWT 驗證邊界；
+這些測試不連線 Supabase，不能取代本機 PostgreSQL integration tests。
 
 - `mg_0002_billing_foundation` 已建立 provider-neutral 的 `billing` schema、10 張表、
   私有權限邊界、RLS 與可 lease／重試的 outbox claim RPC。

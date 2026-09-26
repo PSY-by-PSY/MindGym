@@ -47,8 +47,12 @@
 與 head verifier。已完成 9 項靜態測試、Python compile、offline `upgrade head` SQL 生成
 及 whitespace 檢查。offline SQL 已確認包含 billing schema、orders 與 claim RPC。
 
-本機環境當下沒有 Supabase CLI，因此尚未實際執行 PostgreSQL upgrade、`alembic check`
-與新增的 billing 整合測試；不得把本段解讀成資料庫整合測試已通過。完整驗證時應再執行：
+2026-09-25 已以 Supabase CLI 2.117.0、Docker 與隔離本機 Supabase PostgreSQL 17.6
+實際執行 PostgreSQL upgrade、`alembic check`、兩個 verifier 與 migration integration suite。
+從空白本機 DB 升至 `mg_0003_billing_workflow` 成功，後續於 2026-09-26 重跑後共 22 項
+migration tests 全數通過；其中 `apply_initial_payment_outcome` integration cases 驗證 initial
+payment 成功、冪等，以及失敗時不建立 entitlement 的 transaction 邊界。
+這不代表正式 Supabase 採用或 PAYUNi sandbox／production 交易已驗收。重現步驟如下：
 
 ```bash
 export MIGRATION_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres'

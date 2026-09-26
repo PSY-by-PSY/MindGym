@@ -241,7 +241,7 @@ def upgrade() -> None:
 
         SELECT * INTO v_plan FROM billing.plans WHERE code = v_order.plan_code_snapshot;
         SELECT COALESCE(max(attempt_no), 0) + 1 INTO v_attempt_no
-        FROM billing.payment_attempts WHERE order_id = v_order.id;
+        FROM billing.payment_attempts pa WHERE pa.order_id = v_order.id;
 
         INSERT INTO billing.payment_attempts(
           order_id, attempt_no, provider_transaction_ref, status,
@@ -294,7 +294,9 @@ def upgrade() -> None:
         END IF;
 
         UPDATE billing.provider_events SET processed_at = now(), process_error = NULL WHERE id = v_event.id;
-        RETURN QUERY SELECT v_order.id, p_outcome, v_subscription.id, false;
+        RETURN QUERY SELECT v_order.id,
+          CASE WHEN p_outcome = 'succeeded' THEN 'paid' ELSE 'failed' END,
+          v_subscription.id, false;
       END; $function$;
     """)
     op.execute("REVOKE ALL ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) FROM PUBLIC, anon, authenticated")

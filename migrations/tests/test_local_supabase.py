@@ -145,6 +145,193 @@ class LocalSupabaseTests(unittest.TestCase):
         self.assertTrue(second['reused'])
         self.assertEqual(first['order_id'],second['order_id'])
 
+    def test_provider_callback_receipt_and_outbox_are_idempotent(self):
+        self.user(self.a)
+        self.conn.exec_driver_sql("""
+          INSERT INTO billing.plans(code,display_name,period,amount_cents,terms_version)
+          VALUES ('callback-monthly','Callback monthly','month',100,'test-v1')
+        """)
+        subscription_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.subscriptions(user_id,plan_code,status)
+          VALUES (:user_id,'callback-monthly','pending') RETURNING id
+        """),{'user_id':self.a}).scalar_one()
+        self.conn.execute(sa.text("""
+          INSERT INTO billing.orders(
+            subscription_id,merchant_order_no,idempotency_key,kind,status,
+            plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
+            terms_version,terms_accepted_at,expires_at
+          ) VALUES (
+            :subscription_id,'MG-CALLBACK','callback-key','initial','pending',
+            'callback-monthly','Callback monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+          )
+        """),{'subscription_id':subscription_id})
+        self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
+        params={
+            'provider':'payuni', 'event_ref':'callback-replay', 'merchant_order_no':'MG-CALLBACK',
+            'signature_valid':True, 'payload_redacted':'{"status":"opaque"}',
+        }
+        first=self.conn.execute(sa.text("""
+          SELECT billing.record_provider_event(
+            :provider,:event_ref,:merchant_order_no,:signature_valid,CAST(:payload_redacted AS jsonb)
+          )
+        """),params).scalar_one()
+        second=self.conn.execute(sa.text("""
+          SELECT billing.record_provider_event(
+            :provider,:event_ref,:merchant_order_no,:signature_valid,CAST(:payload_redacted AS jsonb)
+          )
+        """),params).scalar_one()
+
+        self.assertEqual(first,second)
+        self.assertEqual(self.conn.execute(sa.text("""
+          SELECT count(*) FROM billing.provider_events
+          WHERE provider='payuni' AND provider_event_ref='callback-replay'
+        """)).scalar_one(),1)
+        self.assertEqual(self.conn.execute(sa.text("""
+          SELECT count(*) FROM billing.outbox_events
+          WHERE topic='billing.provider_callback.received'
+            AND dedupe_key='provider-event:' || CAST(:event_id AS text)
+        """),{'event_id':first}).scalar_one(),1)
+
+    def test_initial_payment_outcome_is_atomic_and_idempotent(self):
+        self.user(self.a)
+        self.conn.exec_driver_sql("""
+          INSERT INTO billing.plans(code,display_name,period,amount_cents,terms_version)
+          VALUES ('outcome-monthly','Outcome monthly','month',100,'test-v1')
+        """)
+        subscription_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.subscriptions(user_id,plan_code,status)
+          VALUES (:user_id,'outcome-monthly','pending') RETURNING id
+        """),{'user_id':self.a}).scalar_one()
+        order_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.orders(
+            subscription_id,merchant_order_no,idempotency_key,kind,status,
+            plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
+            terms_version,terms_accepted_at,expires_at
+          ) VALUES (
+            :subscription_id,'MG-OUTCOME','outcome-key','initial','pending',
+            'outcome-monthly','Outcome monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+          ) RETURNING id
+        """),{'subscription_id':subscription_id}).scalar_one()
+        event_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.provider_events(
+            provider,provider_event_ref,order_id,event_type,signature_valid,payload_redacted
+          ) VALUES ('payuni','trade-outcome',:order_id,'payment_callback',true,'{}'::jsonb)
+          RETURNING id
+        """),{'order_id':order_id}).scalar_one()
+        self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
+        first=self.conn.execute(sa.text("""
+          SELECT * FROM billing.apply_initial_payment_outcome(
+            :event_id,'succeeded','trade-outcome',NULL,now()
+          )
+        """),{'event_id':event_id}).mappings().one()
+        second=self.conn.execute(sa.text("""
+          SELECT * FROM billing.apply_initial_payment_outcome(
+            :event_id,'succeeded','trade-outcome',NULL,now()
+          )
+        """),{'event_id':event_id}).mappings().one()
+
+        self.assertEqual((first['order_status'],first['already_processed']),('paid',False))
+        self.assertTrue(second['already_processed'])
+        self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.orders WHERE id=:id'),{'id':order_id}).scalar_one(),'paid')
+        self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.subscriptions WHERE id=:id'),{'id':subscription_id}).scalar_one(),'active')
+        self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.payment_attempts WHERE order_id=:id'),{'id':order_id}).scalar_one(),1)
+        self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.entitlement_changes WHERE order_id=:id'),{'id':order_id}).scalar_one(),1)
+        self.assertEqual(self.conn.execute(sa.text('SELECT tier FROM public.subscriptions WHERE user_id=:id'),{'id':self.a}).scalar_one(),'pro')
+
+    def test_initial_payment_failure_expires_without_granting_entitlement(self):
+        self.user(self.a)
+        self.conn.exec_driver_sql("""
+          INSERT INTO billing.plans(code,display_name,period,amount_cents,terms_version)
+          VALUES ('failure-monthly','Failure monthly','month',100,'test-v1')
+        """)
+        subscription_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.subscriptions(user_id,plan_code,status)
+          VALUES (:user_id,'failure-monthly','pending') RETURNING id
+        """),{'user_id':self.a}).scalar_one()
+        order_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.orders(
+            subscription_id,merchant_order_no,idempotency_key,kind,status,
+            plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
+            terms_version,terms_accepted_at,expires_at
+          ) VALUES (
+            :subscription_id,'MG-FAILURE','failure-key','initial','pending',
+            'failure-monthly','Failure monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+          ) RETURNING id
+        """),{'subscription_id':subscription_id}).scalar_one()
+        event_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.provider_events(
+            provider,provider_event_ref,order_id,event_type,signature_valid,payload_redacted
+          ) VALUES ('payuni','trade-failure',:order_id,'payment_callback',true,'{}'::jsonb)
+          RETURNING id
+        """),{'order_id':order_id}).scalar_one()
+        self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
+        result=self.conn.execute(sa.text("""
+          SELECT * FROM billing.apply_initial_payment_outcome(
+            :event_id,'failed','trade-failure','declined',now()
+          )
+        """),{'event_id':event_id}).mappings().one()
+
+        self.assertEqual((result['order_status'],result['already_processed']),('failed',False))
+        self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.orders WHERE id=:id'),{'id':order_id}).scalar_one(),'failed')
+        self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.subscriptions WHERE id=:id'),{'id':subscription_id}).scalar_one(),'expired')
+        self.assertEqual(self.conn.execute(sa.text("SELECT status,failure_code FROM billing.payment_attempts WHERE order_id=:id"),{'id':order_id}).one(),('failed','declined'))
+        self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.entitlement_changes WHERE order_id=:id'),{'id':order_id}).scalar_one(),0)
+        self.assertEqual(self.conn.execute(sa.text("SELECT count(*) FROM billing.outbox_events WHERE dedupe_key='payment-failed:' || CAST(:id AS text)"),{'id':order_id}).scalar_one(),1)
+
+    def test_unverified_or_unknown_callback_cannot_apply_payment_outcome(self):
+        self.user(self.a)
+        self.conn.exec_driver_sql("""
+          INSERT INTO billing.plans(code,display_name,period,amount_cents,terms_version)
+          VALUES ('rejected-callback-monthly','Rejected callback monthly','month',100,'test-v1')
+        """)
+        subscription_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.subscriptions(user_id,plan_code,status)
+          VALUES (:user_id,'rejected-callback-monthly','pending') RETURNING id
+        """),{'user_id':self.a}).scalar_one()
+        order_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.orders(
+            subscription_id,merchant_order_no,idempotency_key,kind,status,
+            plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
+            terms_version,terms_accepted_at,expires_at
+          ) VALUES (
+            :subscription_id,'MG-REJECTED','rejected-key','initial','pending',
+            'rejected-callback-monthly','Rejected callback monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+          ) RETURNING id
+        """),{'subscription_id':subscription_id}).scalar_one()
+        unverified_event_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.provider_events(
+            provider,provider_event_ref,order_id,event_type,signature_valid,payload_redacted
+          ) VALUES ('payuni','unverified-callback',:order_id,'payment_callback',false,'{}'::jsonb)
+          RETURNING id
+        """),{'order_id':order_id}).scalar_one()
+        unknown_event_id=self.conn.execute(sa.text("""
+          INSERT INTO billing.provider_events(
+            provider,provider_event_ref,event_type,signature_valid,payload_redacted
+          ) VALUES ('payuni','unknown-order-callback','payment_callback',true,'{}'::jsonb)
+          RETURNING id
+        """)).scalar_one()
+        self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
+        for event_id, transaction_ref in ((unverified_event_id,'trade-unverified'),(unknown_event_id,'trade-unknown')):
+            # PostgreSQL marks a transaction failed after an expected exception;
+            # use a savepoint so the second hostile callback is independently tested.
+            savepoint=self.conn.begin_nested()
+            try:
+                with self.assertRaisesRegex(sa.exc.DBAPIError,'verified provider event with known order is required'):
+                    self.conn.execute(sa.text("""
+                      SELECT * FROM billing.apply_initial_payment_outcome(
+                        :event_id,'succeeded',:transaction_ref,NULL,now()
+                      )
+                    """),{'event_id':event_id,'transaction_ref':transaction_ref})
+            finally:
+                savepoint.rollback()
+
+        self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.orders WHERE id=:id'),{'id':order_id}).scalar_one(),'pending')
+        self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.subscriptions WHERE id=:id'),{'id':subscription_id}).scalar_one(),'pending')
+        self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.payment_attempts WHERE order_id=:id'),{'id':order_id}).scalar_one(),0)
+        self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.entitlement_changes WHERE order_id=:id'),{'id':order_id}).scalar_one(),0)
+        self.assertIsNone(self.conn.execute(sa.text('SELECT processed_at FROM billing.provider_events WHERE id=:id'),{'id':unverified_event_id}).scalar_one())
+        self.assertIsNone(self.conn.execute(sa.text('SELECT processed_at FROM billing.provider_events WHERE id=:id'),{'id':unknown_event_id}).scalar_one())
+
     def test_push_triggers_stay_disabled_and_no_cron_installed(self):
         rows=self.conn.exec_driver_sql("SELECT tgname,tgenabled FROM pg_trigger WHERE tgname IN ('comments_push','likes_push') ORDER BY tgname").all()
         self.assertEqual(rows,[('comments_push','D'),('likes_push','D')])
