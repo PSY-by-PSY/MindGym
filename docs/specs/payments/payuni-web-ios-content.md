@@ -185,6 +185,7 @@ Playwright 是 Web 迴歸工具，不取代 iOS Simulator 的手動驗收。專�
 - [x] C1.5 更新 `/privacy` 的 PAYUNi、付款資料與 Token 段落；同步登入同意閘門。
 - [x] C1.6 更新 `/support`、Footer 的商家／客服資訊與付款 FAQ。
 - [x] C1.7 Web 手動驗收公開路由、RWD、法律連結及無付款 CTA。
+- [x] C1.8 無 `.env` 的本機公開頁預覽不再白畫面；價格區明確提示未連接 Supabase。
 
 ### C2：iOS 與 Web 回歸
 

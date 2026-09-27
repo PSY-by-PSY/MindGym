@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import { PublicFooter } from '../components/legal/PublicFooter'
 import { fetchPricing, formatAmount, type PricingPlan } from '../lib/pricing'
+import { isSupabaseConfigured } from '../lib/supabase'
 
 export const Route = createFileRoute('/pricing')({
   component: PricingPage,
@@ -18,6 +19,10 @@ function PricingPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false)
+      return
+    }
     let cancelled = false
     const timeout = window.setTimeout(() => {
       if (!cancelled) setLoading(false)
@@ -77,7 +82,11 @@ function PricingPage() {
           {loading ? (
             <p className="mt-4 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">正在載入方案資料…</p>
           ) : plans === null ? (
-            <p className="mt-4 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">目前無法載入方案資料，請稍後再試。</p>
+            <p className="mt-4 rounded-2xl border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground">
+              {isSupabaseConfigured
+                ? '目前無法載入方案資料，請稍後再試。'
+                : '目前是本機公開頁預覽，尚未設定 Supabase，因此不顯示真實方案價格。設定 VITE_SUPABASE_URL 與 VITE_SUPABASE_ANON_KEY 後重新啟動即可載入。'}
+            </p>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {plans.map((plan) => (

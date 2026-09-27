@@ -82,7 +82,7 @@ export function TermsBody() {
       </Section>
 
       <Section title={t('七、AI 功能說明')}>
-        <P>{t('本服務使用第三方 AI 服務（Anthropic Claude 與 OpenAI Whisper）來生成練習回饋、週分析報告與語音轉文字。相關資料處理方式詳見隱私政策。')}</P>
+        <P>{t('本服務使用第三方 AI 與語音處理服務來生成練習回饋、週分析報告與語音轉文字。相關資料處理方式詳見隱私政策。')}</P>
         <P>{t('AI 生成的內容僅供自我覺察參考，不構成醫療、心理或法律建議，也可能不準確，請斟酌後再採用。')}</P>
       </Section>
 
