@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '../components/legal/PrivacyBody'
+import { PublicFooter } from '../components/legal/PublicFooter'
 
 export const Route = createFileRoute('/support')({
   component: SupportPage,
@@ -48,6 +49,18 @@ function SupportPage() {
     [
       t('報告或分數代表我有心理疾病嗎？'),
       t('不代表。App 內的檢測與週報是自我覺察的參考工具，不是醫療診斷，也不能取代專業的心理諮商或精神醫療。'),
+    ],
+    [
+      t('什麼時候可以訂閱 Pro？'),
+      t('目前收費功能仍在準備中，尚未開放線上付款。方案與價格頁會在正式開放前公告方案、價格與自動續訂規則。'),
+    ],
+    [
+      t('取消訂閱和退款有什麼不同？'),
+      t('正式收費後，取消自動續訂會停止下一期扣款，但可使用至本期結束；退款則是退還已付費用並終止該期權益。完整規則以退款政策的正式公告版本為準。'),
+    ],
+    [
+      t('iOS App 可以使用 PAYUNi 付款嗎？'),
+      t('iOS App 內不會提供 PAYUNi 網頁付款入口。未來若提供 Apple 購買，其訂閱、取消與退款會依 Apple 的流程處理；Web 購買的權益可依同一帳號使用。'),
     ],
   ]
 
@@ -118,14 +131,7 @@ function SupportPage() {
           </ul>
         </section>
 
-        <div className="mt-8 flex gap-5 border-t border-border pt-6">
-          <Link to="/terms" className="text-sm font-bold text-primary underline">
-            {t('使用者條款')}
-          </Link>
-          <Link to="/privacy" className="text-sm font-bold text-primary underline">
-            {t('隱私政策')}
-          </Link>
-        </div>
+        <PublicFooter />
       </div>
     </div>
   )

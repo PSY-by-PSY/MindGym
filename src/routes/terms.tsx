@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import { TermsBody, TERMS_LAST_UPDATED } from '../components/legal/TermsBody'
+import { PublicFooter } from '../components/legal/PublicFooter'
 
 export const Route = createFileRoute('/terms')({
   component: TermsPage,
@@ -48,11 +49,7 @@ function TermsPage() {
           <TermsBody />
         </div>
 
-        <div className="mt-7 border-t border-border pt-6">
-          <Link to="/privacy" className="text-sm font-bold text-primary underline">
-            {t('隱私政策')}
-          </Link>
-        </div>
+        <PublicFooter />
       </div>
     </div>
   )

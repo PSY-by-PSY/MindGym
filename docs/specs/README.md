@@ -6,6 +6,7 @@
 | 規格 | 狀態 | 說明 |
 | --- | --- | --- |
 | [PAYUNI 定期扣款訂閱](payments/payuni-recurring-subscription.md) | Draft／P1 schema implemented | 保留 Supabase 的過渡期金流垂直切片；尚未串 PAYUNI sandbox |
+| [PAYUNI 官網與付款資訊呈現](payments/payuni-web-ios-content.md) | Draft | PAYUNI 申請所需的公開資訊、Web／iOS 顯示邊界與前端驗收；不包含實際收款或 API 權益限制 |
 
 與此目錄的關係：
 

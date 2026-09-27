@@ -16,7 +16,9 @@ import { Route as TherapistImport } from './routes/therapist'
 import { Route as TermsImport } from './routes/terms'
 import { Route as SupportImport } from './routes/support'
 import { Route as StaffImport } from './routes/staff'
+import { Route as RefundImport } from './routes/refund'
 import { Route as PrivacyImport } from './routes/privacy'
+import { Route as PricingImport } from './routes/pricing'
 import { Route as PaywallImport } from './routes/paywall'
 import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
@@ -70,9 +72,21 @@ const StaffRoute = StaffImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const RefundRoute = RefundImport.update({
+  id: '/refund',
+  path: '/refund',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const PrivacyRoute = PrivacyImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const PricingRoute = PricingImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -242,11 +256,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaywallImport
       parentRoute: typeof rootRoute
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingImport
+      parentRoute: typeof rootRoute
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyImport
+      parentRoute: typeof rootRoute
+    }
+    '/refund': {
+      id: '/refund'
+      path: '/refund'
+      fullPath: '/refund'
+      preLoaderRoute: typeof RefundImport
       parentRoute: typeof rootRoute
     }
     '/staff': {
@@ -430,7 +458,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -459,7 +489,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -489,7 +521,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -520,7 +554,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/paywall'
+    | '/pricing'
     | '/privacy'
+    | '/refund'
     | '/staff'
     | '/support'
     | '/terms'
@@ -548,7 +584,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/paywall'
+    | '/pricing'
     | '/privacy'
+    | '/refund'
     | '/staff'
     | '/support'
     | '/terms'
@@ -576,7 +614,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/paywall'
+    | '/pricing'
     | '/privacy'
+    | '/refund'
     | '/staff'
     | '/support'
     | '/terms'
@@ -606,7 +646,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PaywallRoute: typeof PaywallRoute
+  PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  RefundRoute: typeof RefundRoute
   StaffRoute: typeof StaffRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
@@ -621,7 +663,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PaywallRoute: PaywallRoute,
+  PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  RefundRoute: RefundRoute,
   StaffRoute: StaffRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
@@ -645,7 +689,9 @@ export const routeTree = rootRoute
         "/login",
         "/onboarding",
         "/paywall",
+        "/pricing",
         "/privacy",
+        "/refund",
         "/staff",
         "/support",
         "/terms",
@@ -687,8 +733,14 @@ export const routeTree = rootRoute
     "/paywall": {
       "filePath": "paywall.tsx"
     },
+    "/pricing": {
+      "filePath": "pricing.tsx"
+    },
     "/privacy": {
       "filePath": "privacy.tsx"
+    },
+    "/refund": {
+      "filePath": "refund.tsx"
     },
     "/staff": {
       "filePath": "staff.tsx"

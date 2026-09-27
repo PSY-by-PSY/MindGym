@@ -1,0 +1,103 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
+import { PublicFooter } from '../components/legal/PublicFooter'
+import { fetchPricing, formatAmount, type PricingPlan } from '../lib/pricing'
+
+export const Route = createFileRoute('/pricing')({
+  component: PricingPage,
+})
+
+const PERIOD_LABEL: Record<PricingPlan['period'], string> = {
+  month: '月',
+  year: '年',
+}
+
+function PricingPage() {
+  const [plans, setPlans] = useState<PricingPlan[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) setLoading(false)
+    }, 5_000)
+    void fetchPricing().then((bundle) => {
+      if (cancelled) return
+      setPlans(bundle?.plans ?? null)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="mx-auto max-w-3xl px-6 py-10 pt-[calc(env(safe-area-inset-top)+2.5rem)] pb-[calc(env(safe-area-inset-bottom)+3rem)]">
+        <div className="flex items-center justify-between">
+          <Link to="/login" className="text-sm font-bold text-muted-foreground transition hover:text-foreground">← 返回</Link>
+          <LanguageSwitcherCompact />
+        </div>
+
+        <header className="mt-10 text-center">
+          <p className="text-sm font-bold text-primary">PSY by PSY 心理健身房</p>
+          <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">讓心理健康，像上健身房一樣日常</h1>
+          <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-foreground/75">
+            以正向心理學為基礎的自我照顧練習工具。核心練習永遠免費；Pro 方案預計提供進階練習、完整社群與個人化 AI 週報。
+          </p>
+        </header>
+
+        <section className="mt-10 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950">
+          <p className="font-extrabold">收費功能準備中</p>
+          <p className="mt-1">本頁顯示目前系統已啟用的方案資料，僅供資訊查閱；目前尚未開放線上付款，也不會在此頁向你收款。</p>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-xl font-extrabold text-foreground">MindGym 提供什麼</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              ['每日練習', '感恩日記、過程目標覺察、自我慈悲、WOOP 目標實踐等。'],
+              ['心理健康追蹤', '透過 PERMA 幸福感檢測，看見正向情緒、投入、關係、意義與成就的變化。'],
+              ['AI 週報', '依一週練習紀錄產生個人化回顧與建議。'],
+              ['社群', '分享打卡與心得，可選擇實名、匿名或僅自己可見。'],
+            ].map(([title, body]) => (
+              <article key={title} className="rounded-2xl border border-border bg-card p-5">
+                <h3 className="font-extrabold text-foreground">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-foreground/75">{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-xl font-extrabold text-foreground">方案與價格</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">價格由系統的公開方案設定提供。實際開始收費、付款與自動續訂前，會於本頁更新完整條件。</p>
+          {loading ? (
+            <p className="mt-4 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">正在載入方案資料…</p>
+          ) : plans === null ? (
+            <p className="mt-4 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">目前無法載入方案資料，請稍後再試。</p>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {plans.map((plan) => (
+                <article key={plan.planCode} className="rounded-2xl border border-border bg-card p-5">
+                  <h3 className="font-extrabold text-foreground">Pro {PERIOD_LABEL[plan.period]}繳</h3>
+                  <p className="mt-3 text-3xl font-extrabold text-foreground">{formatAmount(plan.amountCents, plan.currency)}<span className="text-base font-semibold text-muted-foreground">／{PERIOD_LABEL[plan.period]}</span></p>
+                  <p className="mt-3 text-sm leading-relaxed text-foreground/75">收費啟用後將適用自動續訂與取消規則；目前不提供購買。</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-10 rounded-2xl border border-border bg-muted/50 p-5">
+          <h2 className="font-extrabold text-foreground">這不是醫療服務</h2>
+          <p className="mt-2 text-sm leading-relaxed text-foreground/75">本服務是自我照顧練習工具，不能取代心理諮商或精神醫療。若你正處於危急狀況，請立即撥打 1925 安心專線或 119。</p>
+        </section>
+
+        <PublicFooter />
+      </main>
+    </div>
+  )
+}
