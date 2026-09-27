@@ -1,7 +1,7 @@
 # PAYUNI 官網與付款資訊呈現：功能規格
 
 > 狀態：Draft  
-> 最後更新：2026-09-26  
+> 最後更新：2026-09-27
 > 來源：[PAYUNi 申請用｜官網與付款流程內容初稿](../../../../PAYUNi申請_官網內容初稿.docx.pdf)  
 > 相依規格：[PAYUNI 定期扣款訂閱](payuni-recurring-subscription.md)
 
@@ -142,8 +142,26 @@ Footer。付款成功、失敗、繼續付款、通知信與付款紀錄文案�
 | iOS 真機感受 | Xcode iOS Simulator 手動驗收 | safe area、WebView 捲動、iOS 不出現 PAYUNi 導購入口 |
 | 上線前人工審核 | 商務／法務／PAYUNi | 商家資料、價格、退款、定期扣款與發票文字 |
 
-Playwright 是 Web 迴歸工具，不取代 iOS Simulator 的手動驗收。專案目前尚未安裝 Playwright；只有當公開頁
-完成並需要避免後續改版破壞時，才引入它及對應的 CI。
+Playwright 是 Web 迴歸工具，不取代 iOS Simulator 的手動驗收。公開頁已加入 Playwright 回歸，執行
+`npm run test:e2e:public`；它使用本機 Chrome 的 iPhone 14 viewport 驗證公開路由、Footer 與沒有尚未
+實作的付款導購入口。
+
+### 6.3 本機 iOS 預覽（不影響發布設定）
+
+正式 `capacitor.config.ts` 預設固定載入 `https://app.psybypsy.com`。若要以 iOS Simulator
+查看尚未部署的 React 畫面：
+
+1. 執行 `npm run dev -- --host 127.0.0.1`。
+2. 在專案根目錄建立**不提交**的 `.capacitor-preview.local`：
+   ```json
+   { "serverUrl": "http://127.0.0.1:5173" }
+   ```
+3. 執行 `npm run ios:sync:local-preview`，再用 Xcode 開啟 `ios/App/App.xcworkspace` 並執行
+   Simulator。
+4. 驗收後以一般 `npx cap sync ios` 重新同步，或刪除 iOS 產生的本機 config；不要提交產物。
+
+同步腳本只接受 `http://127.0.0.1` 或 `http://localhost`，拒絕任意遠端 HTTP URL；即使誤設，也不會
+把 staging／production endpoint 寫進本機預覽流程。iOS 的 ATS 僅允許 local networking，正式網址仍是 HTTPS。
 
 ## 7. 待確認事項與交付順序
 
@@ -189,9 +207,11 @@ Playwright 是 Web 迴歸工具，不取代 iOS Simulator 的手動驗收。專�
 
 ### C2：iOS 與 Web 回歸
 
-- [ ] C2.1 建立不提交的 Capacitor 本機預覽設定，讓 iOS Simulator 可載入本機 Vite。
+- [x] C2.1 建立不提交的 Capacitor 本機預覽設定，讓 iOS Simulator 可載入本機 Vite。
 - [ ] C2.2 iOS Simulator 驗收 safe area、捲動與「不出現 PAYUNi 導購入口」。
-- [ ] C2.3 視公開頁穩定度加入 Playwright，覆蓋公開路由與 Footer 連結。
+  - 目前阻礙：開發機未安裝 Xcode／`simctl`，故尚未以原生 WebView 實測；Playwright 的
+    iPhone viewport 只覆蓋 Web RWD，不可替代此項。
+- [x] C2.3 加入 Playwright，覆蓋公開路由、手機 viewport、Footer 連結與無付款 CTA。
 
 ### C3：付款前 UI（依賴金流 contract）
 

@@ -26,6 +26,12 @@
 	     設為 NO 可免去每次上傳 TestFlight/App Store 時的出口加密合規問答。 -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- 僅允許 Simulator 的 localhost 開發伺服器；正式 server.url 仍強制 HTTPS。 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
