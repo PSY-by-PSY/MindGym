@@ -1,21 +1,31 @@
 import asyncio
+import os
 import sys
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+
+from cryptography.fernet import Fernet
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from backend.billing.payuni import PayUniSettings, PayUniUppProvider
-from backend.billing.providers import CheckoutRequest
+from backend.billing.errors import ProviderNotConfigured
+from backend.billing.credentials import FernetCredentialVault
+from backend.billing.payuni import (
+    PayUniCapabilities, PayUniSandboxInitialOutcomeResolver, PayUniSettings, PayUniUppProvider,
+)
+from backend.billing.providers import CheckoutRequest, RecurringConsent
+from backend.billing.repository import ProviderEventForProcessing
 
 
 class PayUniUppTests(unittest.TestCase):
     def setUp(self):
-        self.provider = PayUniUppProvider(PayUniSettings(
+        self.settings = PayUniSettings(
             merchant_id="sandbox-shop", hash_key="K" * 32, hash_iv="I" * 16,
             return_url="https://web.example.invalid/return",
-        ))
+        )
+        self.provider = PayUniUppProvider(self.settings)
 
     def test_envelope_round_trip_and_hash(self):
         encrypted = self.provider.encrypt_info({"MerID":"sandbox-shop", "TradeAmt":"99", "ProdDesc":"Mind Gym"})
@@ -24,7 +34,11 @@ class PayUniUppTests(unittest.TestCase):
         self.assertFalse(self.provider.verify_hash(encrypted, "0" * 64))
 
     def test_sandbox_upp_returns_post_form_not_card_data(self):
-        session = asyncio.run(self.provider.create_initial_checkout(CheckoutRequest(
+        provider = PayUniUppProvider(
+            self.settings, PayUniCapabilities(initial_card_agreement=True),
+            FernetCredentialVault(Fernet.generate_key().decode()),
+        )
+        session = asyncio.run(provider.create_initial_checkout(CheckoutRequest(
             merchant_order_no="MG-TEST", amount_cents=9900, currency="TWD",
             description="MindGym subscription", callback_url="https://api.example.invalid/v1/billing/payuni/callback",
         )))
@@ -41,6 +55,89 @@ class PayUniUppTests(unittest.TestCase):
         self.assertEqual(callback.event_ref, "PU-1")
         self.assertEqual(callback.payload_redacted["MerTradeNo"], "MG-TEST")
         self.assertNotIn("CreditHash", callback.payload_redacted)
+
+    def test_card_agreement_requires_explicit_merchant_capability(self):
+        request = CheckoutRequest(
+            merchant_order_no="MG-TEST", amount_cents=9900, currency="TWD",
+            description="MindGym subscription", callback_url="https://api.example.invalid/callback",
+            recurring_consent=RecurringConsent("member-123", "recurring-v1"),
+        )
+
+        with self.assertRaisesRegex(ProviderNotConfigured, "card-agreement capability"):
+            asyncio.run(self.provider.create_initial_checkout(request))
+
+    def test_card_agreement_fields_remain_inside_the_encrypted_upp_envelope(self):
+        provider = PayUniUppProvider(
+            self.settings, PayUniCapabilities(initial_card_agreement=True),
+            FernetCredentialVault(Fernet.generate_key().decode()),
+        )
+        session = asyncio.run(provider.create_initial_checkout(CheckoutRequest(
+            merchant_order_no="MG-TEST", amount_cents=9900, currency="TWD",
+            description="MindGym subscription", callback_url="https://api.example.invalid/callback",
+            recurring_consent=RecurringConsent("member-123", "recurring-v1"),
+        )))
+
+        self.assertEqual(set(session.form_fields), {"MerID", "Version", "EncryptInfo", "HashInfo"})
+        payload = provider.decrypt_info(session.form_fields["EncryptInfo"])
+        self.assertEqual(payload["CreditToken"], "member-123")
+        self.assertEqual(payload["UseTokenType"], "1")
+        self.assertEqual(payload["CreditTokenType"], "1")
+        self.assertNotIn("CreditHash", payload)
+
+    def test_environment_requires_both_contract_approval_and_operation_flag(self):
+        names = {
+            "PAYUNI_TOKEN_CONTRACT_APPROVED",
+            "PAYUNI_INITIAL_CARD_AGREEMENT_SANDBOX_ENABLED",
+            "PAYUNI_BACKEND_TOKEN_CHARGE_SANDBOX_ENABLED",
+        }
+        environment = {key: value for key, value in os.environ.items() if key not in names}
+
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertFalse(PayUniCapabilities.from_environment().initial_card_agreement)
+            with patch.dict(os.environ, {"PAYUNI_INITIAL_CARD_AGREEMENT_SANDBOX_ENABLED": "1"}):
+                self.assertFalse(PayUniCapabilities.from_environment().initial_card_agreement)
+            with patch.dict(os.environ, {
+                "PAYUNI_TOKEN_CONTRACT_APPROVED": "1",
+                "PAYUNI_INITIAL_CARD_AGREEMENT_SANDBOX_ENABLED": "1",
+            }):
+                capabilities = PayUniCapabilities.from_environment()
+                self.assertTrue(capabilities.initial_card_agreement)
+                self.assertFalse(capabilities.backend_token_charge)
+
+    def test_verified_card_token_is_sealed_not_added_to_redacted_callback(self):
+        vault = FernetCredentialVault(Fernet.generate_key().decode())
+        provider = PayUniUppProvider(
+            self.settings, PayUniCapabilities(initial_card_agreement=True), vault,
+        )
+        encrypted = provider.encrypt_info({
+            "MerTradeNo": "MG-TEST", "TradeNo": "PU-1", "Status": "SUCCESS",
+            "TradeAmt": "99", "CreditHash": "provider-secret-token",
+        })
+        callback = provider.verify_callback({"EncryptInfo": encrypted, "HashInfo": provider.hash_info(encrypted)})
+
+        self.assertNotIn("CreditHash", callback.payload_redacted)
+        self.assertIsNotNone(callback.payment_credential)
+        self.assertNotIn("provider-secret-token", callback.payment_credential.ciphertext)
+        self.assertEqual(vault.unseal(callback.payment_credential.ciphertext), "provider-secret-token")
+
+    def test_outcome_resolver_requires_matching_amount_and_sealed_credential(self):
+        resolver = PayUniSandboxInitialOutcomeResolver(
+            PayUniCapabilities(initial_payment_outcome=True),
+        )
+        event = ProviderEventForProcessing(
+            "event-1", "payuni", "order-1", {"Status": "SUCCESS", "TradeNo": "PU-1", "TradeAmt": "99"},
+            9900, "TWD", "payuni:token-ref", "ciphertext",
+        )
+        outcome = asyncio.run(resolver.resolve(event))
+        self.assertEqual(outcome.status, "succeeded")
+        self.assertEqual(outcome.provider_token_ref, "payuni:token-ref")
+
+        mismatched = ProviderEventForProcessing(
+            "event-2", "payuni", "order-2", {"Status": "SUCCESS", "TradeNo": "PU-2", "TradeAmt": "98"},
+            9900, "TWD", "payuni:token-ref", "ciphertext",
+        )
+        with self.assertRaisesRegex(ValueError, "amount"):
+            asyncio.run(resolver.resolve(mismatched))
 
 
 if __name__ == "__main__":

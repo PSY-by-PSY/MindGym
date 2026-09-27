@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from backend.billing.providers import CheckoutRequest, CheckoutSession, PaymentProvider
+from backend.billing.providers import CheckoutRequest, CheckoutSession, PaymentProvider, RecurringConsent
 from backend.billing.repository import BillingRepository, PendingCheckout, ResumableCheckout
 
 
@@ -13,6 +13,7 @@ class CreateCheckoutCommand:
     user_id: str
     plan_code: str
     terms_version: str
+    recurring_consent_version: str
     idempotency_key: str
 
 
@@ -47,6 +48,9 @@ class BillingService:
             idempotency_key=command.idempotency_key,
             terms_version=command.terms_version,
             terms_accepted_at=now,
+            recurring_consent_version=command.recurring_consent_version,
+            recurring_consented_at=now,
+            recurring_consent_source="web",
             expires_at=now + timedelta(hours=24),
             merchant_order_no=f"MG-{uuid4().hex.upper()}",
         )
@@ -57,6 +61,10 @@ class BillingService:
                 currency=checkout.currency,
                 description="MindGym subscription",
                 callback_url=self._callback_url,
+                recurring_consent=RecurringConsent(
+                    customer_reference=f"mg:{command.user_id}",
+                    terms_version=command.recurring_consent_version,
+                ),
             )
         )
         return CreatedCheckout(checkout=checkout, provider_session=session)
@@ -66,6 +74,8 @@ class BillingService:
         return await self._repository.record_provider_event(
             event_ref=verified.event_ref, merchant_order_no=verified.merchant_order_no,
             payload_redacted=verified.payload_redacted,
+            provider_token_ref=(verified.payment_credential.provider_token_ref if verified.payment_credential else None),
+            token_ciphertext=(verified.payment_credential.ciphertext if verified.payment_credential else None),
         )
 
     async def get_order(self, user_id: str, order_id: str):
@@ -86,6 +96,10 @@ class BillingService:
                 currency=checkout.currency,
                 description=checkout.plan_name,
                 callback_url=self._callback_url,
+                recurring_consent=RecurringConsent(
+                    customer_reference=f"mg:{user_id}",
+                    terms_version=checkout.recurring_consent_version,
+                ),
             )
         )
         return ResumedCheckout(checkout=checkout, provider_session=session)

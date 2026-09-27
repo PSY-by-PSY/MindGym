@@ -22,7 +22,10 @@ class FakeRepository:
 
     async def get_provider_event_for_processing(self, *, event_id):
         self.calls.append(("get", event_id))
-        return ProviderEventForProcessing(event_id, "payuni", "order-1", {"TradeNo": "trade-1"})
+        return ProviderEventForProcessing(
+            event_id, "payuni", "order-1", {"TradeNo": "trade-1"},
+            9900, "TWD", "payuni:token-ref", "ciphertext",
+        )
 
     async def reschedule_outbox_event(self, **kwargs):
         self.calls.append(("reschedule", kwargs))
@@ -74,6 +77,7 @@ class BillingCallbackWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repository.calls[-2], ("apply", {
             "provider_event_id": "provider-1", "outcome": "succeeded",
             "provider_transaction_ref": "trade-1", "failure_code": None,
+            "provider_token_ref": None, "token_ciphertext": None,
         }))
         self.assertEqual(repository.calls[-1], ("complete", {"event_id": "outbox-1"}))
 

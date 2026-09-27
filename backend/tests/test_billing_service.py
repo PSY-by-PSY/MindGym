@@ -31,6 +31,7 @@ class FakeRepository:
             order_id=kwargs["order_id"], merchant_order_no="MG-EXISTING",
             status="pending", amount_cents=9900, currency="TWD",
             plan_name="月繳方案", expires_at=datetime.now(timezone.utc),
+            recurring_consent_version="recurring-v1",
         )
 
     async def get_overview_for_user(self, **kwargs):
@@ -59,7 +60,7 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         service = BillingService(repository, DisabledPayUniProvider(), "https://api.example.invalid/callback")
 
         with self.assertRaises(ProviderNotConfigured):
-            await service.create_checkout(CreateCheckoutCommand("user-1", "monthly", "v1", "idem-1"))
+            await service.create_checkout(CreateCheckoutCommand("user-1", "monthly", "v1", "recurring-v1", "idem-1"))
 
         self.assertEqual(repository.calls, [])
 
@@ -68,7 +69,7 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         provider = ReadyProvider()
         service = BillingService(repository, provider, "https://api.example.invalid/callback")
 
-        created = await service.create_checkout(CreateCheckoutCommand("user-1", "monthly", "v1", "idem-1"))
+        created = await service.create_checkout(CreateCheckoutCommand("user-1", "monthly", "v1", "recurring-v1", "idem-1"))
 
         self.assertEqual(len(repository.calls), 1)
         self.assertEqual(repository.calls[0]["user_id"], "user-1")
@@ -78,6 +79,8 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(provider.requests[0].amount_cents, 9900)
         self.assertEqual(provider.requests[0].callback_url, "https://api.example.invalid/callback")
         self.assertLess(abs((repository.calls[0]["terms_accepted_at"] - datetime.now(timezone.utc)).total_seconds()), 5)
+        self.assertEqual(repository.calls[0]["recurring_consent_version"], "recurring-v1")
+        self.assertEqual(provider.requests[0].recurring_consent.customer_reference, "mg:user-1")
 
     async def test_resume_reuses_existing_order_and_merchant_number(self):
         repository = FakeRepository()
@@ -91,6 +94,7 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumed.checkout.order_id, "order-existing")
         self.assertEqual(provider.requests[0].merchant_order_no, "MG-EXISTING")
         self.assertEqual(provider.requests[0].description, "月繳方案")
+        self.assertEqual(provider.requests[0].recurring_consent.terms_version, "recurring-v1")
 
     async def test_overview_is_delegated_to_owner_scoped_repository_query(self):
         repository = FakeRepository()

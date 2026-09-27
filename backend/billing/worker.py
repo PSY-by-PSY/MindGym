@@ -15,6 +15,8 @@ class VerifiedPaymentOutcome:
     status: str
     provider_transaction_ref: str
     failure_code: str | None = None
+    provider_token_ref: str | None = None
+    token_ciphertext: str | None = None
 
 
 class CallbackOutcomeResolver(Protocol):
@@ -80,6 +82,12 @@ class BillingCallbackWorker:
                 elif retry_result == "rescheduled":
                     deferred += 1
                 continue
+            except ValueError as exc:
+                await self._repository.dead_letter_outbox_event(
+                    event_id=outbox_event.id, error=f"provider outcome rejected: {exc}",
+                )
+                dead_lettered += 1
+                continue
             if outcome.status not in {"succeeded", "failed"}:
                 await self._repository.dead_letter_outbox_event(
                     event_id=outbox_event.id, error="provider returned an unsupported payment outcome",
@@ -90,6 +98,8 @@ class BillingCallbackWorker:
                 provider_event_id=provider_event.id, outcome=outcome.status,
                 provider_transaction_ref=outcome.provider_transaction_ref,
                 failure_code=outcome.failure_code,
+                provider_token_ref=outcome.provider_token_ref,
+                token_ciphertext=outcome.token_ciphertext,
             )
             await self._repository.complete_outbox_event(event_id=outbox_event.id)
             completed += 1

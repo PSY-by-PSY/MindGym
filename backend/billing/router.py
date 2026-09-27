@@ -21,6 +21,8 @@ class PlanResponse(BaseModel):
 class CreateCheckoutRequest(BaseModel):
     plan_code: str = Field(min_length=1, max_length=100)
     terms_version: str = Field(min_length=1, max_length=100)
+    recurring_consent: bool
+    recurring_consent_version: str = Field(min_length=1, max_length=100)
 
 
 class CheckoutResponse(BaseModel):
@@ -94,6 +96,8 @@ async def create_checkout_session(
 ):
     if not idempotency_key or len(idempotency_key) > 255:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key is required")
+    if not body.recurring_consent:
+        raise HTTPException(status_code=422, detail="Recurring consent is required")
     repository = getattr(request.app.state, "billing_repository", None)
     if repository is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing is unavailable")
@@ -104,6 +108,7 @@ async def create_checkout_session(
                 user_id=user_id,
                 plan_code=body.plan_code,
                 terms_version=body.terms_version,
+                recurring_consent_version=body.recurring_consent_version,
                 idempotency_key=idempotency_key,
             )
         )

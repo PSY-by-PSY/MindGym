@@ -78,3 +78,19 @@ FastAPI 的 billing router／service／repository 已有單元測試；PAYUNI pr
 
 PAYUNi 公開 SDK 所描述的 generic sandbox UPP envelope 已有 AES-256-GCM round-trip、
 HashInfo 與 form field 測試；沒有使用真實商店資料、沒有送出 Sandbox 交易。
+
+## 2026-09-27：P2 初始約定卡流程
+
+P2 將 `mg_0002`／`mg_0003`（尚未套用至共享環境）擴充為：訂單保存 recurring consent
+版本／時間／來源；驗簽 callback 的 `CreditHash` 只經 server-side Fernet vault 加密後傳入
+private billing RPC；成功 outcome 在同一 transaction 建立 payment method 並清除 provider
+event 的暫存 ciphertext。資料庫不保存完整卡號、CVV 或明文 `CreditHash`。
+
+本次已驗證：21 項 billing unit/router tests、9 項 migration static tests、Python compile、
+offline `alembic upgrade head --sql` 與 whitespace 檢查。另以假設定驗證 FastAPI OpenAPI
+仍可載入 billing checkout contract。
+
+**尚未重跑**含本次欄位變動的全新 Local Supabase integration suite：目前開發環境沒有可用的
+Supabase CLI／本機 PostgreSQL service。下一次取得隔離 Local Supabase 後，必須依上節命令
+完整重跑 migration、`alembic check`、兩個 verifier 與 integration suite，才可更新此驗證紀錄。
+這也不取代 PAYUNi Token/IP 核准後的實際 sandbox E2E。

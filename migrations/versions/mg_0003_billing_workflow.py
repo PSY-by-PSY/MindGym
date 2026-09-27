@@ -18,6 +18,9 @@ def upgrade() -> None:
           p_idempotency_key text,
           p_terms_version text,
           p_terms_accepted_at timestamptz,
+          p_recurring_consent_version text,
+          p_recurring_consented_at timestamptz,
+          p_recurring_consent_source text,
           p_order_expires_at timestamptz,
           p_merchant_order_no text
         ) RETURNS TABLE (
@@ -39,10 +42,12 @@ def upgrade() -> None:
           v_subscription billing.subscriptions%ROWTYPE;
           v_order billing.orders%ROWTYPE;
         BEGIN
-          IF p_user_id IS NULL OR p_plan_code = '' OR p_idempotency_key = '' OR p_merchant_order_no = '' THEN
+          IF p_user_id IS NULL OR p_plan_code = '' OR p_idempotency_key = '' OR p_merchant_order_no = ''
+             OR p_recurring_consent_version = '' OR p_recurring_consent_source = '' THEN
             RAISE EXCEPTION 'checkout identity fields are required';
           END IF;
-          IF p_order_expires_at <= now() OR p_terms_accepted_at > now() + interval '5 minutes' THEN
+          IF p_order_expires_at <= now() OR p_terms_accepted_at > now() + interval '5 minutes'
+             OR p_recurring_consented_at > now() + interval '5 minutes' THEN
             RAISE EXCEPTION 'invalid checkout timestamps';
           END IF;
 
@@ -85,11 +90,13 @@ def upgrade() -> None:
           INSERT INTO billing.orders(
             subscription_id, merchant_order_no, idempotency_key, kind, status,
             plan_code_snapshot, plan_name_snapshot, amount_cents, currency,
-            terms_version, terms_accepted_at, expires_at
+            terms_version, terms_accepted_at, recurring_consent_version,
+            recurring_consented_at, recurring_consent_source, expires_at
           ) VALUES (
             v_subscription.id, p_merchant_order_no, p_idempotency_key, 'initial', 'pending',
             v_plan.code, v_plan.display_name, v_plan.amount_cents, v_plan.currency,
-            p_terms_version, p_terms_accepted_at, p_order_expires_at
+            p_terms_version, p_terms_accepted_at, p_recurring_consent_version,
+            p_recurring_consented_at, p_recurring_consent_source, p_order_expires_at
           ) RETURNING * INTO v_order;
 
           INSERT INTO billing.outbox_events(topic, aggregate_type, aggregate_id, dedupe_key, payload)
@@ -104,13 +111,14 @@ def upgrade() -> None:
         $function$
         """
     )
-    op.execute("REVOKE ALL ON FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,timestamptz,text) FROM PUBLIC, anon, authenticated")
-    op.execute("GRANT EXECUTE ON FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,timestamptz,text) TO service_role")
+    op.execute("REVOKE ALL ON FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,text,timestamptz,text,timestamptz,text) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,text,timestamptz,text,timestamptz,text) TO service_role")
 
     op.execute("""
       CREATE FUNCTION billing.record_provider_event(
         p_provider text, p_event_ref text, p_merchant_order_no text,
-        p_signature_valid boolean, p_payload_redacted jsonb
+        p_signature_valid boolean, p_payload_redacted jsonb,
+        p_provider_token_ref text DEFAULT NULL, p_token_ciphertext text DEFAULT NULL
       ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
       SET search_path = billing, pg_catalog AS $function$
       DECLARE v_order_id uuid; v_event_id uuid;
@@ -118,10 +126,10 @@ def upgrade() -> None:
         SELECT id INTO v_order_id FROM billing.orders WHERE merchant_order_no = p_merchant_order_no;
         INSERT INTO billing.provider_events(
           provider, provider_event_ref, order_id, event_type,
-          signature_valid, payload_redacted, processed_at
+          signature_valid, payload_redacted, provider_token_ref, token_ciphertext, processed_at
         ) VALUES (
           p_provider, p_event_ref, v_order_id, 'payment_callback',
-          p_signature_valid, p_payload_redacted, NULL
+          p_signature_valid, p_payload_redacted, p_provider_token_ref, p_token_ciphertext, NULL
         ) ON CONFLICT (provider, provider_event_ref) DO UPDATE
           SET received_at = now(), signature_valid = EXCLUDED.signature_valid
         RETURNING id INTO v_event_id;
@@ -134,8 +142,8 @@ def upgrade() -> None:
         RETURN v_event_id;
       END; $function$;
     """)
-    op.execute("REVOKE ALL ON FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb) FROM PUBLIC, anon, authenticated")
-    op.execute("GRANT EXECUTE ON FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb) TO service_role")
+    op.execute("REVOKE ALL ON FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb,text,text) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb,text,text) TO service_role")
 
     op.execute("""
       CREATE FUNCTION billing.get_order_for_user(p_user_id uuid, p_order_id uuid)
@@ -154,11 +162,11 @@ def upgrade() -> None:
       CREATE FUNCTION billing.get_resumable_checkout_for_user(p_user_id uuid, p_order_id uuid)
       RETURNS TABLE(
         order_id uuid, merchant_order_no text, status text, amount_cents integer,
-        currency text, plan_name text, expires_at timestamptz
+        currency text, plan_name text, expires_at timestamptz, recurring_consent_version text
       )
       LANGUAGE sql STABLE SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
         SELECT o.id, o.merchant_order_no, o.status, o.amount_cents, o.currency,
-               o.plan_name_snapshot, o.expires_at
+               o.plan_name_snapshot, o.expires_at, o.recurring_consent_version
         FROM billing.orders o JOIN billing.subscriptions s ON s.id = o.subscription_id
         WHERE o.id = p_order_id AND s.user_id = p_user_id
           AND o.status IN ('pending', 'processing') AND o.expires_at > now()
@@ -205,6 +213,8 @@ def upgrade() -> None:
         p_outcome text,
         p_provider_transaction_ref text,
         p_failure_code text DEFAULT NULL,
+        p_provider_token_ref text DEFAULT NULL,
+        p_token_ciphertext text DEFAULT NULL,
         p_effective_at timestamptz DEFAULT now()
       ) RETURNS TABLE(order_id uuid, order_status text, subscription_id uuid, already_processed boolean)
       LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, public, pg_catalog AS $function$
@@ -221,6 +231,9 @@ def upgrade() -> None:
         END IF;
         IF p_outcome = 'succeeded' AND COALESCE(p_provider_transaction_ref, '') = '' THEN
           RAISE EXCEPTION 'successful payment requires provider transaction reference';
+        END IF;
+        IF p_outcome = 'succeeded' AND (COALESCE(p_provider_token_ref, '') = '' OR COALESCE(p_token_ciphertext, '') = '') THEN
+          RAISE EXCEPTION 'successful recurring payment requires an encrypted provider token';
         END IF;
 
         SELECT * INTO v_event FROM billing.provider_events
@@ -265,6 +278,16 @@ def upgrade() -> None:
               current_period_ends_at = v_period_end, next_charge_at = v_period_end,
               updated_at = now()
           WHERE id = v_subscription.id;
+          INSERT INTO billing.payment_methods(
+            subscription_id, provider, provider_token_ref, token_ciphertext
+          ) VALUES (
+            v_subscription.id, v_event.provider, p_provider_token_ref, p_token_ciphertext
+          ) ON CONFLICT (subscription_id) DO UPDATE SET
+            provider = EXCLUDED.provider,
+            provider_token_ref = EXCLUDED.provider_token_ref,
+            token_ciphertext = EXCLUDED.token_ciphertext,
+            revoked_at = NULL,
+            updated_at = now();
           INSERT INTO billing.entitlement_changes(
             subscription_id, order_id, reason, tier, status, effective_at, effective_until
           ) VALUES (v_subscription.id, v_order.id, 'initial_payment', 'pro', 'active', p_effective_at, v_period_end);
@@ -293,21 +316,27 @@ def upgrade() -> None:
           ) ON CONFLICT (dedupe_key) DO NOTHING;
         END IF;
 
-        UPDATE billing.provider_events SET processed_at = now(), process_error = NULL WHERE id = v_event.id;
+        UPDATE billing.provider_events
+        SET processed_at = now(), process_error = NULL, token_ciphertext = NULL
+        WHERE id = v_event.id;
         RETURN QUERY SELECT v_order.id,
           CASE WHEN p_outcome = 'succeeded' THEN 'paid' ELSE 'failed' END,
           v_subscription.id, false;
       END; $function$;
     """)
-    op.execute("REVOKE ALL ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) FROM PUBLIC, anon, authenticated")
-    op.execute("GRANT EXECUTE ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz) TO service_role")
+    op.execute("REVOKE ALL ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,text,text,timestamptz) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,text,text,timestamptz) TO service_role")
 
     op.execute("""
       CREATE FUNCTION billing.get_provider_event_for_processing(p_event_id uuid)
-      RETURNS TABLE(event_id uuid, provider text, order_id uuid, payload_redacted jsonb)
+      RETURNS TABLE(
+        event_id uuid, provider text, order_id uuid, payload_redacted jsonb,
+        amount_cents integer, currency text, provider_token_ref text, token_ciphertext text
+      )
       LANGUAGE sql STABLE SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
-        SELECT e.id, e.provider, e.order_id, e.payload_redacted
-        FROM billing.provider_events e
+        SELECT e.id, e.provider, e.order_id, e.payload_redacted,
+               o.amount_cents, o.currency, e.provider_token_ref, e.token_ciphertext
+        FROM billing.provider_events e JOIN billing.orders o ON o.id = e.order_id
         WHERE e.id = p_event_id AND e.signature_valid AND e.processed_at IS NULL
       $function$;
     """)
@@ -439,7 +468,7 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION billing.reschedule_outbox_event(uuid,text,integer,integer)")
     op.execute("DROP FUNCTION billing.complete_outbox_event(uuid)")
     op.execute("DROP FUNCTION billing.get_provider_event_for_processing(uuid)")
-    op.execute("DROP FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)")
+    op.execute("DROP FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,text,text,timestamptz)")
     op.execute("DROP FUNCTION billing.get_overview_for_user(uuid)")
     op.execute("DROP FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid)")
     op.execute("DROP FUNCTION billing.get_order_for_user(uuid,uuid)")

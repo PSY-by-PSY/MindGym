@@ -133,12 +133,14 @@ class LocalSupabaseTests(unittest.TestCase):
         }
         first=self.conn.execute(sa.text("""
           SELECT * FROM billing.create_pending_checkout(
-            :user_id,:plan_code,:idempotency_key,:terms_version,now(),now()+interval '24 hours',:merchant_order_no
+            :user_id,:plan_code,:idempotency_key,:terms_version,now(),
+            'recurring-v1',now(),'web',now()+interval '24 hours',:merchant_order_no
           )
         """),params).mappings().one()
         second=self.conn.execute(sa.text("""
           SELECT * FROM billing.create_pending_checkout(
-            :user_id,:plan_code,:idempotency_key,:terms_version,now(),now()+interval '24 hours',:merchant_order_no
+            :user_id,:plan_code,:idempotency_key,:terms_version,now(),
+            'recurring-v1',now(),'web',now()+interval '24 hours',:merchant_order_no
           )
         """),params).mappings().one()
         self.assertFalse(first['reused'])
@@ -159,10 +161,11 @@ class LocalSupabaseTests(unittest.TestCase):
           INSERT INTO billing.orders(
             subscription_id,merchant_order_no,idempotency_key,kind,status,
             plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
-            terms_version,terms_accepted_at,expires_at
+            terms_version,terms_accepted_at,recurring_consent_version,
+            recurring_consented_at,recurring_consent_source,expires_at
           ) VALUES (
             :subscription_id,'MG-CALLBACK','callback-key','initial','pending',
-            'callback-monthly','Callback monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+            'callback-monthly','Callback monthly',100,'TWD','test-v1',now(),'recurring-v1',now(),'web',now()+interval '24 hours'
           )
         """),{'subscription_id':subscription_id})
         self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
@@ -206,10 +209,11 @@ class LocalSupabaseTests(unittest.TestCase):
           INSERT INTO billing.orders(
             subscription_id,merchant_order_no,idempotency_key,kind,status,
             plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
-            terms_version,terms_accepted_at,expires_at
+            terms_version,terms_accepted_at,recurring_consent_version,
+            recurring_consented_at,recurring_consent_source,expires_at
           ) VALUES (
             :subscription_id,'MG-OUTCOME','outcome-key','initial','pending',
-            'outcome-monthly','Outcome monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+            'outcome-monthly','Outcome monthly',100,'TWD','test-v1',now(),'recurring-v1',now(),'web',now()+interval '24 hours'
           ) RETURNING id
         """),{'subscription_id':subscription_id}).scalar_one()
         event_id=self.conn.execute(sa.text("""
@@ -221,12 +225,12 @@ class LocalSupabaseTests(unittest.TestCase):
         self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
         first=self.conn.execute(sa.text("""
           SELECT * FROM billing.apply_initial_payment_outcome(
-            :event_id,'succeeded','trade-outcome',NULL,now()
+            :event_id,'succeeded','trade-outcome',NULL,'payuni:test','ciphertext',now()
           )
         """),{'event_id':event_id}).mappings().one()
         second=self.conn.execute(sa.text("""
           SELECT * FROM billing.apply_initial_payment_outcome(
-            :event_id,'succeeded','trade-outcome',NULL,now()
+            :event_id,'succeeded','trade-outcome',NULL,'payuni:test','ciphertext',now()
           )
         """),{'event_id':event_id}).mappings().one()
 
@@ -235,6 +239,8 @@ class LocalSupabaseTests(unittest.TestCase):
         self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.orders WHERE id=:id'),{'id':order_id}).scalar_one(),'paid')
         self.assertEqual(self.conn.execute(sa.text('SELECT status FROM billing.subscriptions WHERE id=:id'),{'id':subscription_id}).scalar_one(),'active')
         self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.payment_attempts WHERE order_id=:id'),{'id':order_id}).scalar_one(),1)
+        self.assertEqual(self.conn.execute(sa.text('SELECT provider_token_ref,token_ciphertext FROM billing.payment_methods WHERE subscription_id=:id'),{'id':subscription_id}).one(),('payuni:test','ciphertext'))
+        self.assertIsNone(self.conn.execute(sa.text('SELECT token_ciphertext FROM billing.provider_events WHERE id=:id'),{'id':event_id}).scalar_one())
         self.assertEqual(self.conn.execute(sa.text('SELECT count(*) FROM billing.entitlement_changes WHERE order_id=:id'),{'id':order_id}).scalar_one(),1)
         self.assertEqual(self.conn.execute(sa.text('SELECT tier FROM public.subscriptions WHERE user_id=:id'),{'id':self.a}).scalar_one(),'pro')
 
@@ -252,10 +258,11 @@ class LocalSupabaseTests(unittest.TestCase):
           INSERT INTO billing.orders(
             subscription_id,merchant_order_no,idempotency_key,kind,status,
             plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
-            terms_version,terms_accepted_at,expires_at
+            terms_version,terms_accepted_at,recurring_consent_version,
+            recurring_consented_at,recurring_consent_source,expires_at
           ) VALUES (
             :subscription_id,'MG-FAILURE','failure-key','initial','pending',
-            'failure-monthly','Failure monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+            'failure-monthly','Failure monthly',100,'TWD','test-v1',now(),'recurring-v1',now(),'web',now()+interval '24 hours'
           ) RETURNING id
         """),{'subscription_id':subscription_id}).scalar_one()
         event_id=self.conn.execute(sa.text("""
@@ -267,7 +274,7 @@ class LocalSupabaseTests(unittest.TestCase):
         self.conn.exec_driver_sql('SET LOCAL ROLE service_role')
         result=self.conn.execute(sa.text("""
           SELECT * FROM billing.apply_initial_payment_outcome(
-            :event_id,'failed','trade-failure','declined',now()
+            :event_id,'failed','trade-failure','declined',NULL,NULL,now()
           )
         """),{'event_id':event_id}).mappings().one()
 
@@ -292,10 +299,11 @@ class LocalSupabaseTests(unittest.TestCase):
           INSERT INTO billing.orders(
             subscription_id,merchant_order_no,idempotency_key,kind,status,
             plan_code_snapshot,plan_name_snapshot,amount_cents,currency,
-            terms_version,terms_accepted_at,expires_at
+            terms_version,terms_accepted_at,recurring_consent_version,
+            recurring_consented_at,recurring_consent_source,expires_at
           ) VALUES (
             :subscription_id,'MG-REJECTED','rejected-key','initial','pending',
-            'rejected-callback-monthly','Rejected callback monthly',100,'TWD','test-v1',now(),now()+interval '24 hours'
+            'rejected-callback-monthly','Rejected callback monthly',100,'TWD','test-v1',now(),'recurring-v1',now(),'web',now()+interval '24 hours'
           ) RETURNING id
         """),{'subscription_id':subscription_id}).scalar_one()
         unverified_event_id=self.conn.execute(sa.text("""
@@ -319,7 +327,7 @@ class LocalSupabaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(sa.exc.DBAPIError,'verified provider event with known order is required'):
                     self.conn.execute(sa.text("""
                       SELECT * FROM billing.apply_initial_payment_outcome(
-                        :event_id,'succeeded',:transaction_ref,NULL,now()
+                        :event_id,'succeeded',:transaction_ref,NULL,'payuni:test','ciphertext',now()
                       )
                     """),{'event_id':event_id,'transaction_ref':transaction_ref})
             finally:

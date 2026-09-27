@@ -47,6 +47,7 @@ class ResumableCheckout:
     currency: str
     plan_name: str
     expires_at: datetime
+    recurring_consent_version: str
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,10 @@ class ProviderEventForProcessing:
     provider: str
     order_id: str
     payload_redacted: dict[str, str]
+    amount_cents: int
+    currency: str
+    provider_token_ref: str | None
+    token_ciphertext: str | None
 
 
 @dataclass(frozen=True)
@@ -152,6 +157,9 @@ class BillingRepository:
         idempotency_key: str,
         terms_version: str,
         terms_accepted_at: datetime,
+        recurring_consent_version: str,
+        recurring_consented_at: datetime,
+        recurring_consent_source: str,
         expires_at: datetime,
         merchant_order_no: str,
     ) -> PendingCheckout:
@@ -164,6 +172,9 @@ class BillingRepository:
                 "p_idempotency_key": idempotency_key,
                 "p_terms_version": terms_version,
                 "p_terms_accepted_at": terms_accepted_at.isoformat(),
+                "p_recurring_consent_version": recurring_consent_version,
+                "p_recurring_consented_at": recurring_consented_at.isoformat(),
+                "p_recurring_consent_source": recurring_consent_source,
                 "p_order_expires_at": expires_at.isoformat(),
                 "p_merchant_order_no": merchant_order_no,
             },
@@ -181,10 +192,14 @@ class BillingRepository:
             reused=row["reused"],
         )
 
-    async def record_provider_event(self, *, event_ref: str, merchant_order_no: str, payload_redacted: dict[str, str]) -> str:
+    async def record_provider_event(
+        self, *, event_ref: str, merchant_order_no: str, payload_redacted: dict[str, str],
+        provider_token_ref: str | None, token_ciphertext: str | None,
+    ) -> str:
         response = await self._client.post(f"{self._base_url}/rpc/record_provider_event", headers=self._headers, json={
             "p_provider": "payuni", "p_event_ref": event_ref, "p_merchant_order_no": merchant_order_no,
             "p_signature_valid": True, "p_payload_redacted": payload_redacted,
+            "p_provider_token_ref": provider_token_ref, "p_token_ciphertext": token_ciphertext,
         })
         self._raise_for_error(response, "record provider callback")
         return response.json()
@@ -214,6 +229,7 @@ class BillingRepository:
             status=row["status"], amount_cents=row["amount_cents"],
             currency=row["currency"], plan_name=row["plan_name"],
             expires_at=datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00")),
+            recurring_consent_version=row["recurring_consent_version"],
         )
 
     async def get_overview_for_user(self, *, user_id: str) -> BillingOverview | None:
@@ -265,11 +281,14 @@ class BillingRepository:
         return ProviderEventForProcessing(
             id=row["event_id"], provider=row["provider"], order_id=row["order_id"],
             payload_redacted=row["payload_redacted"],
+            amount_cents=row["amount_cents"], currency=row["currency"],
+            provider_token_ref=row.get("provider_token_ref"), token_ciphertext=row.get("token_ciphertext"),
         )
 
     async def apply_initial_payment_outcome(
         self, *, provider_event_id: str, outcome: str, provider_transaction_ref: str,
-        failure_code: str | None = None,
+        failure_code: str | None = None, provider_token_ref: str | None = None,
+        token_ciphertext: str | None = None,
     ) -> None:
         response = await self._client.post(
             f"{self._base_url}/rpc/apply_initial_payment_outcome", headers=self._headers,
@@ -277,6 +296,8 @@ class BillingRepository:
                 "p_provider_event_id": provider_event_id, "p_outcome": outcome,
                 "p_provider_transaction_ref": provider_transaction_ref,
                 "p_failure_code": failure_code,
+                "p_provider_token_ref": provider_token_ref,
+                "p_token_ciphertext": token_ciphertext,
             },
         )
         self._raise_for_error(response, "apply payment outcome")
