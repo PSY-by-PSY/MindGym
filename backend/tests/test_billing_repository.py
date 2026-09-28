@@ -88,3 +88,46 @@ class BillingRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.status, "cancel_scheduled")
         self.assertEqual(res.token_ciphertext, "enc-token-xyz")
 
+    async def test_get_canonical_entitlement_for_user_active_billing_returns_pro(self):
+        async def handler(request: httpx.Request) -> httpx.Response:
+            if "get_overview_for_user" in request.url.path:
+                return httpx.Response(200, json=[{
+                    "subscription_id": "sub-1", "plan_code": "monthly",
+                    "subscription_status": "active",
+                    "current_period_ends_at": "2099-01-01T00:00:00+00:00",
+                    "next_charge_at": "2099-01-01T00:00:00+00:00",
+                    "cancel_at": None, "orders": [],
+                }])
+            return httpx.Response(200, json=[])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            tier = await repository.get_canonical_entitlement_for_user(user_id="user-pro")
+
+        self.assertEqual(tier, "pro")
+
+    async def test_get_canonical_entitlement_for_user_free_returns_free(self):
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=[])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            tier = await repository.get_canonical_entitlement_for_user(user_id="user-free")
+
+        self.assertEqual(tier, "free")
+
+    async def test_get_canonical_entitlement_for_user_founding_member_returns_pro(self):
+        async def handler(request: httpx.Request) -> httpx.Response:
+            if "get_overview_for_user" in request.url.path:
+                return httpx.Response(200, json=[])
+            if "/subscriptions" in request.url.path:
+                return httpx.Response(200, json=[{"is_founding_member": True, "tier": "free"}])
+            return httpx.Response(200, json=[])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            tier = await repository.get_canonical_entitlement_for_user(user_id="user-founding")
+
+        self.assertEqual(tier, "pro")
+
+

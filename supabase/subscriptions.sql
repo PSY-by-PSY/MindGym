@@ -164,9 +164,25 @@ CREATE POLICY "paywall_intents: admin 可讀" ON paywall_intents
 --                              AND status IN ('trialing','active','grace')
 --                              AND (expires_at IS NULL OR expires_at > now()))))
 CREATE OR REPLACE FUNCTION is_pro(uid uuid) RETURNS boolean
-LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
-  SELECT uid IS NOT NULL
+LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, billing AS $$
+  SELECT uid IS NOT NULL AND (
+    EXISTS (
+      SELECT 1 FROM billing.subscriptions
+      WHERE user_id = uid
+        AND status IN ('active', 'grace', 'cancel_scheduled')
+        AND (current_period_ends_at IS NULL OR current_period_ends_at > clock_timestamp())
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.subscriptions
+      WHERE user_id = uid
+        AND (
+          is_founding_member = true
+          OR (tier IN ('pro', 'pass') AND status IN ('trialing', 'active', 'grace') AND (expires_at IS NULL OR expires_at > clock_timestamp()))
+        )
+    )
+  );
 $$;
+
 
 -- 社群是否已解鎖：付費會員恆真；免費會員本週發過 ≥1 則分享紀錄即解鎖當週。
 -- 週界用 date_trunc('week')（Postgres 的週一），與前端 reviews.ts 的 mondayOf 一致。

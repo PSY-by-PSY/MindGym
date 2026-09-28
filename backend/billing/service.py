@@ -112,7 +112,13 @@ class BillingService:
     async def get_overview(self, user_id: str):
         return await self._repository.get_overview_for_user(user_id=user_id)
 
+    async def get_canonical_entitlement(self, user_id: str) -> str:
+        if hasattr(self._repository, "get_canonical_entitlement_for_user"):
+            return await self._repository.get_canonical_entitlement_for_user(user_id=user_id)
+        return "free"
+
     async def cancel_subscription(
+
         self, *, user_id: str, reason: str = "user_canceled_renewal"
     ) -> CancelSubscriptionResult:
         result = await self._repository.cancel_subscription_for_user(user_id=user_id, reason=reason)

@@ -41,7 +41,12 @@ class FakeRepository:
             current_period_ends_at=None, next_charge_at=None, cancel_at=None, orders=[],
         )
 
+    async def get_canonical_entitlement_for_user(self, **kwargs):
+        self.calls.append(kwargs)
+        return getattr(self, "canonical_entitlement", "pro")
+
     async def cancel_subscription_for_user(self, **kwargs):
+
         self.calls.append(kwargs)
         from backend.billing.repository import CancelSubscriptionResult
         now = datetime.now(timezone.utc)
@@ -128,7 +133,18 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(overview.subscription_id, "subscription-1")
         self.assertEqual(repository.calls, [{"user_id": "user-1"}])
 
+    async def test_get_canonical_entitlement_delegates_to_repository(self):
+        repository = FakeRepository()
+        repository.canonical_entitlement = "pro"
+        service = BillingService(repository, ReadyProvider(), "https://api.example.invalid/callback")
+
+        tier = await service.get_canonical_entitlement("user-1")
+
+        self.assertEqual(tier, "pro")
+        self.assertEqual(repository.calls, [{"user_id": "user-1"}])
+
     async def test_cancel_subscription_invokes_repository_and_unseals_provider_token(self):
+
         repository = FakeRepository()
         repository.token_ciphertext = "sealed-hash-123"
         provider = ReadyProvider()

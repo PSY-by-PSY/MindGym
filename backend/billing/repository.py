@@ -1,7 +1,8 @@
 """Supabase/PostgREST persistence adapter for the billing schema."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+
 from typing import Any
 
 import httpx
@@ -270,7 +271,38 @@ class BillingRepository:
             ) for item in row["orders"]],
         )
 
+    async def get_canonical_entitlement_for_user(self, *, user_id: str) -> str:
+        try:
+            overview = await self.get_overview_for_user(user_id=user_id)
+            if overview and overview.subscription_status in ("active", "grace", "cancel_scheduled"):
+                now = datetime.now(timezone.utc)
+                if overview.current_period_ends_at is None or overview.current_period_ends_at > now:
+                    return "pro"
+            response = await self._client.get(
+                f"{self._base_url}/subscriptions?user_id=eq.{user_id}",
+                headers=self._headers,
+            )
+            if response.status_code == 200:
+                rows = response.json()
+                if rows:
+                    row = rows[0]
+                    if row.get("is_founding_member"):
+                        return "pro"
+                    tier = row.get("tier", "free")
+                    status = row.get("status", "active")
+                    exp = row.get("expires_at")
+                    exp_dt = datetime.fromisoformat(exp.replace("Z", "+00:00")) if exp else None
+                    now = datetime.now(timezone.utc)
+                    if tier in ("pro", "pass") and status in ("trialing", "active", "grace") and (exp_dt is None or exp_dt > now):
+                        return "pro"
+        except Exception:
+            pass
+        return "free"
+
+
+
     async def cancel_subscription_for_user(
+
         self, *, user_id: str, reason: str = "user_canceled_renewal"
     ) -> CancelSubscriptionResult:
         response = await self._client.post(
