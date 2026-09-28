@@ -608,10 +608,10 @@ flowchart LR
 | P1：資料基礎 | 本機驗收通過，尚未正式採用 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox；全新本機 Supabase migration／verifier／integration suite | 正式採用授權與正式環境接管流程 |
 | P2：初始付款流程 | P2.1 & P2.2 本機驗收通過；P2.3 sandbox 外部驗收阻擋中 | checkout 明確續扣同意、約定卡 UPP v2 adapter、Fernet vault、驗簽 receipt／callback outbox、成功結果的金額／交易型別檢查、原子 Token 保存與 outcome transaction、受控 one-shot worker、owner read APIs、topic-specific claim／defer／dead-letter；單元、router、callback simulator 與 migration static tests；隔離 Local Supabase DB migration suite（24 項通過）；FastAPI 本機端到端閉環測試（8 項全過，含 plans、checkout、order、signed callback、worker、DB outcome 斷言、/v1/billing/me 與冪等重送） | PAYUNi Token／IP 核准、真實 sandbox E2E、正式環境部署 scheduler 與告警 |
 | P3：權益與帳務操作 | 本機驗收通過 | P3.1 取消自動續扣、P3.2 Canonical entitlement cutover、P3.3 管理員退款、P3.4 整合測試與 E2E 矩陣（`backend/tests/test_p3_matrix.py` 54/54 全過，`scripts/verify_p3_e2e.py` 6/6 全過） | PAYUNi Sandbox / Production 外部驗收 |
-| P4：自動續扣營運 | 未開始 | outbox schema、callback job、service-role health／dead-letter read model 已備妥 | token contract、renewal worker、7 天寬限、對帳、告警／runbook |
+| P4：自動續扣營運 | 本機驗收通過 | P4.1 續約排程與結果套用 RPC (`mg_0007_billing_renewal`)、P4.2 PAYUNi `/api/credit` 幕後 Token 扣款 adapter、P4.3 續約 Worker 與 7 天寬限期狀態機 (`BillingRenewalWorker`)、P4.4 每日對帳 API 與 CLI 腳本 (`scripts/billing_reconciliation.py`, `scripts/verify_p4_e2e.py` 6/6 全過) | PAYUNi 定期扣款正式授權與固定 IP 部署 |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
 
-**目前位置：P2 與 P3 本機驗收切片全數通過；P4 待進行。**
+**目前位置：P2、P3、P4 本機驗收切片全數通過；P5 待進行。**
 只有 UPP v2 文件明確定義的「信用卡成功」組合會被 sandbox resolver 映射為
 `succeeded`；其他 callback 會安全 defer，等待 P4 的交易查詢 adapter 與商戶 contract。
 
@@ -632,12 +632,12 @@ flowchart LR
 - [x] P3.2 Canonical Entitlement Cutover：`mg_0005_entitlement_cutover` migration (`is_pro`, `get_my_entitlements`)、`backend/app.py` `_subscription_tier` 讀取權益與 Cutover 測試（2026-09-28）。
 - [x] P3.3 管理員退款機制：`mg_0006_billing_refunds` migration (`process_admin_refund` RPC, 原子撤銷權益與 outbox 佇列)、`POST /v1/admin/billing/refunds` API 端點與完整單元/repository/router 測試（2026-09-28）。
 - [x] P3.4 端到端整合與狀態轉換測試矩陣：新增 `backend/tests/test_p3_matrix.py` (54/54 全過) 與 `scripts/verify_p3_e2e.py` 端到端驗證腳本 (6/6 步驟全過：免費會員 -> 訂購成功 -> 使用者取消 -> 到期前保留權益 -> 管理員退款 -> 原子撤銷權益與即時降級) (2026-09-28)。
+- [x] P4.1 續約排程與結果套用 RPC：`mg_0007_billing_renewal` migration (`schedule_renewals`, `apply_renewal_outcome`)、BillingRepository 與 BillingService 擴充（2026-09-28）。
+- [x] P4.2 PAYUNi `/api/credit` 幕後 Token 扣款 adapter：`PayUniUppProvider.charge_token`、雙旗標保護與單元測試（2026-09-28）。
+- [x] P4.3 自動續約 Worker 與 7 天寬限期狀態機：`BillingRenewalWorker`、記憶體 Token 短暫解密、退避重試、`scripts/run_billing_renewal_worker.py`（2026-09-28）。
+- [x] P4.4 每日對帳與 E2E 驗證：`GET /v1/admin/billing/reconciliation` API、`scripts/billing_reconciliation.py` CLI 報表工具與 `scripts/verify_p4_e2e.py` (6/6 步驟全過)（2026-09-28）。
 - [ ] P2.3 PAYUNi 核准後的真實 sandbox E2E：首次授權、成功／失敗 callback、Token 保存、重送、查單與取消。
 - [ ] worker 的正式部署／排程、告警與 dead-letter 人工處理 runbook。
-- [ ] P4 自動續扣、寬限與對帳。
-
-
-
 
 > §8 是「上線驗收」而非程式工作清單；其中條件尚未以實際 Supabase／PAYUNi 流程驗收，
 > 因此維持未勾。上列 checklist 才表示目前已完成的程式交付。
@@ -651,7 +651,7 @@ flowchart LR
 | `mg_0004_billing_lifecycle` / `18ce522` | P3.1 用戶取消訂閱 RPC (`cancel_subscription_for_user`)、PAYUNi token cancel adapter 與 `POST /v1/billing/subscription/cancel` API | 正式環境已連線 PAYUNi token 取消 API |
 | `mg_0005_entitlement_cutover` / `8d87c9e` | P3.2 Canonical Entitlement Cutover (`public.is_pro`, `public.get_my_entitlements` 與 FastApi `_subscription_tier`) | 影響非 billing 表歷史資料 |
 | `mg_0006_billing_refunds` / `7697b01` | P3.3 管理員退款 RPC (`process_admin_refund`)、原子撤銷權益與 `POST /v1/admin/billing/refunds` API | 正式環境已連線 PAYUNi 全額/部分退款 API |
-| P3.4 E2E Matrix Verification / （本次提交） | Billing Overview (`tier`, `is_pro`) 擴充、P3 完整測試矩陣 (`test_p3_matrix.py`) 與 E2E 自動驗證腳本 (`verify_p3_e2e.py`) | 線上正式環境黑箱 E2E 測試 |
+| `mg_0007_billing_renewal` / （本次提交） | P4.1 續約排程與結果套用 RPC (`schedule_renewals`, `apply_renewal_outcome`)、P4.2 PAYUNi `/api/credit` adapter、P4.3 `BillingRenewalWorker` (7天寬限期)、P4.4 對帳 API / CLI 與 E2E 驗證 (`verify_p4_e2e.py`) | 線上正式環境固定 IP 扣款部署 |
 
 本次已驗證：billing service unit tests、migration static tests、Alembic offline SQL
 內容、Python compile、FastAPI OpenAPI route 與 `git diff --check`。2026-09-26 已在新建、

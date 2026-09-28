@@ -188,3 +188,6 @@ class BillingService:
             grace_days=grace_days,
         )
 
+    async def get_reconciliation_summary(self):
+        return await self._repository.get_reconciliation_summary()
+

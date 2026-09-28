@@ -1,5 +1,7 @@
 """HTTP adapter for the billing vertical slice."""
 
+from typing import Any
+
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
@@ -86,6 +88,16 @@ class AdminRefundResponse(BaseModel):
     amount_cents: int
     reason: str
     succeeded_at: str
+
+
+class ReconciliationResponse(BaseModel):
+    total_orders: int
+    total_paid_cents: int
+    total_refunded_cents: int
+    active_subscriptions: int
+    grace_subscriptions: int
+    expired_subscriptions: int
+    anomalies: list[dict[str, Any]]
 
 
 
@@ -313,4 +325,31 @@ async def process_admin_refund(
         reason=result.reason,
         succeeded_at=result.succeeded_at.isoformat(),
     )
+
+
+@admin_router.get("/reconciliation", response_model=ReconciliationResponse)
+async def get_reconciliation(
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    repository = getattr(request.app.state, "billing_repository", None)
+    if repository is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing is unavailable")
+    try:
+        await repository.authenticated_user_id(_bearer_token(authorization))
+        summary = await _service(request).get_reconciliation_summary()
+    except RepositoryError as exc:
+        if str(exc) == "invalid authentication token":
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        raise HTTPException(status_code=503, detail="Reconciliation unavailable") from None
+    return ReconciliationResponse(
+        total_orders=summary.total_orders,
+        total_paid_cents=summary.total_paid_cents,
+        total_refunded_cents=summary.total_refunded_cents,
+        active_subscriptions=summary.active_subscriptions,
+        grace_subscriptions=summary.grace_subscriptions,
+        expired_subscriptions=summary.expired_subscriptions,
+        anomalies=summary.anomalies,
+    )
+
 

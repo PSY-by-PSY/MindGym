@@ -131,6 +131,17 @@ class RenewalOutcomeResult:
 
 
 @dataclass(frozen=True)
+class ReconciliationSummary:
+    total_orders: int
+    total_paid_cents: int
+    total_refunded_cents: int
+    active_subscriptions: int
+    grace_subscriptions: int
+    expired_subscriptions: int
+    anomalies: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
 class OutboxEvent:
     id: str
     topic: str
@@ -607,6 +618,63 @@ class BillingRepository:
             subscription_status=row["subscription_status"],
             already_processed=row.get("already_processed", False),
             grace_ends_at=grace_ends,
+        )
+
+    async def get_reconciliation_summary(self) -> ReconciliationSummary:
+        orders_resp = await self._client.get(
+            f"{self._base_url}/orders?select=id,status,kind,amount_cents,created_at,expires_at",
+            headers=self._headers,
+        )
+        self._raise_for_error(orders_resp, "read orders for reconciliation")
+        orders = orders_resp.json()
+
+        refunds_resp = await self._client.get(
+            f"{self._base_url}/refunds?select=id,order_id,status,amount_cents,created_at",
+            headers=self._headers,
+        )
+        self._raise_for_error(refunds_resp, "read refunds for reconciliation")
+        refunds = refunds_resp.json()
+
+        subs_resp = await self._client.get(
+            f"{self._base_url}/subscriptions?select=id,status,grace_ends_at,next_charge_at",
+            headers=self._headers,
+        )
+        self._raise_for_error(subs_resp, "read subscriptions for reconciliation")
+        subs = subs_resp.json()
+
+        total_orders = len(orders)
+        total_paid_cents = sum(o["amount_cents"] for o in orders if o.get("status") == "paid")
+        total_refunded_cents = sum(r["amount_cents"] for r in refunds if r.get("status") == "succeeded")
+        active_subscriptions = sum(1 for s in subs if s.get("status") in ("active", "cancel_scheduled"))
+        grace_subscriptions = sum(1 for s in subs if s.get("status") == "grace")
+        expired_subscriptions = sum(1 for s in subs if s.get("status") in ("expired", "canceled"))
+
+        now_str = datetime.now(timezone.utc).isoformat()
+        anomalies = []
+        for o in orders:
+            if o.get("status") in ("pending", "processing") and o.get("expires_at") and o.get("expires_at") < now_str:
+                anomalies.append({
+                    "type": "expired_pending_order",
+                    "order_id": o["id"],
+                    "kind": o.get("kind"),
+                    "amount_cents": o.get("amount_cents"),
+                })
+        for s in subs:
+            if s.get("status") == "grace" and s.get("grace_ends_at") and s.get("grace_ends_at") < now_str:
+                anomalies.append({
+                    "type": "expired_grace_period_unresolved",
+                    "subscription_id": s["id"],
+                    "grace_ends_at": s.get("grace_ends_at"),
+                })
+
+        return ReconciliationSummary(
+            total_orders=total_orders,
+            total_paid_cents=total_paid_cents,
+            total_refunded_cents=total_refunded_cents,
+            active_subscriptions=active_subscriptions,
+            grace_subscriptions=grace_subscriptions,
+            expired_subscriptions=expired_subscriptions,
+            anomalies=anomalies,
         )
 
     @staticmethod
