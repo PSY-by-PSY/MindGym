@@ -264,6 +264,85 @@ class PayUniUppProvider:
                 return dec.get("Status") == "SUCCESS"
         return False
 
+    @property
+    def credit_endpoint(self) -> str:
+        host = "sandbox-api.payuni.com.tw" if self._settings.sandbox else "api.payuni.com.tw"
+        return f"https://{host}/api/credit"
+
+    async def charge_token(
+        self,
+        *,
+        merchant_order_no: str,
+        amount_cents: int,
+        credit_hash: str,
+        prod_name: str = "MindGym subscription renewal",
+    ) -> "TokenChargeResult":
+        if not self._capabilities.backend_token_charge:
+            raise ProviderNotConfigured("PAYUNi backend token charge capability is not enabled")
+        if amount_cents <= 0 or amount_cents % 100:
+            raise ValueError("amount must be a positive integer in TWD dollars")
+
+        payload = {
+            "MerID": self._settings.merchant_id,
+            "MerTradeNo": merchant_order_no,
+            "TradeAmt": str(amount_cents // 100),
+            "CreditHash": credit_hash,
+            "ProdName": prod_name,
+            "Timestamp": str(int(time())),
+        }
+        encrypted_info = self.encrypt_info(payload)
+        fields = {
+            "MerID": self._settings.merchant_id,
+            "Version": "1.0",
+            "EncryptInfo": encrypted_info,
+            "HashInfo": self.hash_info(encrypted_info),
+        }
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                self.credit_endpoint,
+                data=fields,
+                headers={"User-Agent": "payuni", "Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if resp.status_code != 200:
+                return TokenChargeResult(
+                    succeeded=False,
+                    failure_code=f"HTTP_{resp.status_code}",
+                    message=f"PAYUNi credit charge HTTP error {resp.status_code}",
+                )
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else dict(parse_qsl(resp.text))
+            if "EncryptInfo" in data:
+                data = self.decrypt_info(data["EncryptInfo"])
+
+            status = data.get("Status", "").upper()
+            trade_status = str(data.get("TradeStatus", ""))
+            trade_no = data.get("TradeNo")
+            msg = data.get("Message") or data.get("Status")
+
+            if status == "SUCCESS" and trade_status in ("1", "SUCCESS"):
+                return TokenChargeResult(
+                    succeeded=True,
+                    trade_no=trade_no,
+                    message=msg,
+                    raw_payload={k: str(v) for k, v in data.items() if not k.lower().startswith("credit")},
+                )
+            return TokenChargeResult(
+                succeeded=False,
+                trade_no=trade_no,
+                failure_code=data.get("ErrCode") or data.get("Status") or "CHARGE_FAILED",
+                message=msg,
+                raw_payload={k: str(v) for k, v in data.items() if not k.lower().startswith("credit")},
+            )
+
+
+@dataclass(frozen=True)
+class TokenChargeResult:
+    succeeded: bool
+    trade_no: str | None = None
+    failure_code: str | None = None
+    message: str | None = None
+    raw_payload: dict[str, str] | None = None
+
 
 class PayUniSandboxInitialOutcomeResolver:
     """Map only documented, verified UPP outcomes; defer all other states."""

@@ -52,6 +52,9 @@ class PaymentProvider(Protocol):
     async def create_initial_checkout(self, request: CheckoutRequest) -> CheckoutSession: ...
     def verify_callback(self, fields: dict[str, str]): ...
     async def cancel_token(self, token_plaintext: str) -> bool: ...
+    async def charge_token(
+        self, *, merchant_order_no: str, amount_cents: int, credit_hash: str, prod_name: str = "MindGym subscription renewal"
+    ): ...
 
 
 class DisabledPayUniProvider:
@@ -71,3 +74,8 @@ class DisabledPayUniProvider:
 
     async def cancel_token(self, token_plaintext: str) -> bool:
         return False
+
+    async def charge_token(
+        self, *, merchant_order_no: str, amount_cents: int, credit_hash: str, prod_name: str = "MindGym subscription renewal"
+    ):
+        raise ProviderNotConfigured("PAYUNi token charge is not configured")

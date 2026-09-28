@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 import unittest
 from unittest.mock import patch
+from urllib.parse import parse_qsl
 
 from cryptography.fernet import Fernet
 
@@ -143,21 +144,75 @@ class PayUniUppTests(unittest.TestCase):
         self.assertEqual(outcome.status, "succeeded")
         self.assertEqual(outcome.provider_token_ref, "payuni:token-ref")
 
-        mismatched = ProviderEventForProcessing(
-            "event-2", "payuni", "order-2", {"Status": "SUCCESS", "TradeNo": "PU-2", "TradeAmt": "98", "TradeStatus":"1", "PaymentType":"1"},
-            9900, "TWD", "payuni:token-ref", "ciphertext",
-        )
-        with self.assertRaisesRegex(ValueError, "amount"):
-            asyncio.run(resolver.resolve(mismatched))
+    def test_charge_token_requires_backend_token_charge_capability(self):
+        with self.assertRaisesRegex(ProviderNotConfigured, "backend token charge capability"):
+            asyncio.run(self.provider.charge_token(
+                merchant_order_no="RNW-123",
+                amount_cents=9900,
+                credit_hash="some-token",
+            ))
 
-    def test_ambiguous_or_error_callback_defers_to_transaction_query(self):
-        resolver = PayUniSandboxInitialOutcomeResolver(PayUniCapabilities(initial_payment_outcome=True))
-        event = ProviderEventForProcessing(
-            "event-3", "payuni", "order-3", {"Status":"UNKNOWN", "TradeAmt":"99", "TradeStatus":"8", "PaymentType":"1"},
-            9900, "TWD", None, None,
+    def test_charge_token_sends_payload_and_returns_success(self):
+        import httpx
+        provider = PayUniUppProvider(
+            self.settings,
+            PayUniCapabilities(backend_token_charge=True),
         )
-        with self.assertRaisesRegex(ProviderNotConfigured, "transaction-query"):
-            asyncio.run(resolver.resolve(event))
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.url.path, "/api/credit")
+            body = dict(parse_qsl(request.content.decode()))
+            self.assertEqual(body["MerID"], "sandbox-shop")
+            self.assertEqual(body["Version"], "1.0")
+            decrypted = provider.decrypt_info(body["EncryptInfo"])
+            self.assertEqual(decrypted["MerTradeNo"], "RNW-123")
+            self.assertEqual(decrypted["TradeAmt"], "99")
+            self.assertEqual(decrypted["CreditHash"], "token-xyz")
+            resp_enc = provider.encrypt_info({
+                "Status": "SUCCESS",
+                "TradeStatus": "1",
+                "TradeNo": "PU-TX-999",
+                "Message": "Charge OK",
+            })
+            return httpx.Response(200, json={"EncryptInfo": resp_enc})
+
+        with patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler))):
+            res = asyncio.run(provider.charge_token(
+                merchant_order_no="RNW-123",
+                amount_cents=9900,
+                credit_hash="token-xyz",
+            ))
+
+        self.assertTrue(res.succeeded)
+        self.assertEqual(res.trade_no, "PU-TX-999")
+        self.assertEqual(res.message, "Charge OK")
+
+    def test_charge_token_handles_failure_response(self):
+        import httpx
+        provider = PayUniUppProvider(
+            self.settings,
+            PayUniCapabilities(backend_token_charge=True),
+        )
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            resp_enc = provider.encrypt_info({
+                "Status": "FAIL",
+                "TradeStatus": "0",
+                "ErrCode": "CARD_EXPIRED",
+                "Message": "Card has expired",
+            })
+            return httpx.Response(200, json={"EncryptInfo": resp_enc})
+
+        with patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler))):
+            res = asyncio.run(provider.charge_token(
+                merchant_order_no="RNW-123",
+                amount_cents=9900,
+                credit_hash="token-expired",
+            ))
+
+        self.assertFalse(res.succeeded)
+        self.assertEqual(res.failure_code, "CARD_EXPIRED")
+        self.assertEqual(res.message, "Card has expired")
 
 
 if __name__ == "__main__":
