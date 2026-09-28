@@ -40,7 +40,7 @@ except ImportError:
 
 logger = logging.getLogger("mindgym")
 
-load_dotenv()
+load_dotenv(override=True)
 
 SUPABASE_URL: str = os.environ.get("SUPABASE_URL", "https://supabase.example.invalid")
 SUPABASE_KEY: str = os.environ.get("SUPABASE_KEY", "dummy-key")

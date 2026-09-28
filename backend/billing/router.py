@@ -151,11 +151,13 @@ async def create_checkout_session(
                 idempotency_key=idempotency_key,
             )
         )
-    except ProviderNotConfigured:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Checkout is not enabled") from None
+    except ProviderNotConfigured as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Checkout is not enabled: {exc}") from None
     except RepositoryError as exc:
         code = status.HTTP_401_UNAUTHORIZED if str(exc) == "invalid authentication token" else status.HTTP_409_CONFLICT
-        raise HTTPException(status_code=code, detail="Checkout could not be created") from None
+        raise HTTPException(status_code=code, detail=f"Checkout could not be created: {exc}") from None
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Checkout error: {exc}") from None
     return CheckoutResponse(
         order_id=created.checkout.order_id,
         status=created.checkout.status,
