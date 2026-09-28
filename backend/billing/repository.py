@@ -415,6 +415,14 @@ class BillingRepository:
         self._raise_for_error(response, "claim billing outbox events")
         return [OutboxEvent(id=row["id"], topic=row["topic"], payload=row["payload"]) for row in response.json()]
 
+    async def claim_renewal_outbox_events(self, *, limit: int = 20) -> list[OutboxEvent]:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/claim_outbox_events_by_topic", headers=self._headers,
+            json={"p_topic": "billing.subscription.renewal_due", "p_limit": limit, "p_lease_seconds": 120},
+        )
+        self._raise_for_error(response, "claim renewal outbox events")
+        return [OutboxEvent(id=row["id"], topic=row["topic"], payload=row["payload"]) for row in response.json()]
+
     async def get_provider_event_for_processing(self, *, event_id: str) -> ProviderEventForProcessing | None:
         response = await self._client.post(
             f"{self._base_url}/rpc/get_provider_event_for_processing", headers=self._headers,

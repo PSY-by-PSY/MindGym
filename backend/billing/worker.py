@@ -104,3 +104,146 @@ class BillingCallbackWorker:
             await self._repository.complete_outbox_event(event_id=outbox_event.id)
             completed += 1
         return WorkerRun(claimed=len(claimed), completed=completed, deferred=deferred, dead_lettered=dead_lettered)
+
+
+RENEWAL_TOPIC = "billing.subscription.renewal_due"
+
+
+class BillingRenewalWorker:
+    def __init__(
+        self,
+        repository,
+        provider,
+        credential_vault=None,
+        *,
+        max_attempts: int = 20,
+        grace_days: int = 7,
+    ):
+        if not 1 <= max_attempts <= 100:
+            raise ValueError("max_attempts must be between 1 and 100")
+        self._repository = repository
+        self._provider = provider
+        self._vault = credential_vault
+        self._max_attempts = max_attempts
+        self._grace_days = grace_days
+
+    async def schedule_and_run(self, *, lookahead_hours: int = 24, limit: int = 20) -> WorkerRun:
+        await self._repository.schedule_renewals(
+            lookahead_interval_hours=lookahead_hours, limit=limit
+        )
+        return await self.run_once(limit=limit)
+
+    async def run_once(self, *, limit: int = 20) -> WorkerRun:
+        claimed = await self._repository.claim_renewal_outbox_events(limit=limit)
+        completed = 0
+        deferred = 0
+        dead_lettered = 0
+
+        for outbox_event in claimed:
+            if outbox_event.topic != RENEWAL_TOPIC:
+                await self._repository.dead_letter_outbox_event(
+                    event_id=outbox_event.id,
+                    error="renewal worker received an unexpected outbox topic",
+                )
+                dead_lettered += 1
+                continue
+
+            order_id = outbox_event.payload.get("order_id")
+            if not isinstance(order_id, str):
+                await self._repository.dead_letter_outbox_event(
+                    event_id=outbox_event.id, error="renewal job has no order id",
+                )
+                dead_lettered += 1
+                continue
+
+            try:
+                renewal_data = await self._repository.get_renewal_order_for_processing(order_id=order_id)
+            except Exception:
+                # Order might have already been processed or canceled
+                await self._repository.complete_outbox_event(event_id=outbox_event.id)
+                completed += 1
+                continue
+
+            # Token validation & in-memory decryption
+            if not renewal_data.token_ciphertext or self._vault is None:
+                # No token available to charge -> record failure & start grace period
+                await self._repository.apply_renewal_outcome(
+                    order_id=renewal_data.order_id,
+                    outcome="failed",
+                    failure_code="MISSING_TOKEN",
+                    grace_days=self._grace_days,
+                )
+                await self._repository.complete_outbox_event(event_id=outbox_event.id)
+                completed += 1
+                continue
+
+            try:
+                credit_hash = self._vault.unseal(renewal_data.token_ciphertext)
+            except Exception:
+                await self._repository.apply_renewal_outcome(
+                    order_id=renewal_data.order_id,
+                    outcome="failed",
+                    failure_code="TOKEN_DECRYPTION_FAILED",
+                    grace_days=self._grace_days,
+                )
+                await self._repository.complete_outbox_event(event_id=outbox_event.id)
+                completed += 1
+                continue
+
+            # Call PAYUNi /api/credit
+            try:
+                charge_result = await self._provider.charge_token(
+                    merchant_order_no=renewal_data.merchant_order_no,
+                    amount_cents=renewal_data.amount_cents,
+                    credit_hash=credit_hash,
+                )
+            except ProviderNotConfigured:
+                retry_result = await self._repository.reschedule_outbox_event(
+                    event_id=outbox_event.id,
+                    error="PAYUNi token charge provider is not configured",
+                    delay_seconds=900,
+                    max_attempts=self._max_attempts,
+                )
+                if retry_result == "dead":
+                    dead_lettered += 1
+                elif retry_result == "rescheduled":
+                    deferred += 1
+                continue
+            except Exception as exc:
+                retry_result = await self._repository.reschedule_outbox_event(
+                    event_id=outbox_event.id,
+                    error=f"charge exception: {exc}",
+                    delay_seconds=300,
+                    max_attempts=self._max_attempts,
+                )
+                if retry_result == "dead":
+                    dead_lettered += 1
+                elif retry_result == "rescheduled":
+                    deferred += 1
+                continue
+
+            # Apply outcome atomically
+            if charge_result.succeeded:
+                await self._repository.apply_renewal_outcome(
+                    order_id=renewal_data.order_id,
+                    outcome="succeeded",
+                    provider_transaction_ref=charge_result.trade_no,
+                    grace_days=self._grace_days,
+                )
+            else:
+                await self._repository.apply_renewal_outcome(
+                    order_id=renewal_data.order_id,
+                    outcome="failed",
+                    failure_code=charge_result.failure_code,
+                    grace_days=self._grace_days,
+                )
+
+            await self._repository.complete_outbox_event(event_id=outbox_event.id)
+            completed += 1
+
+        return WorkerRun(
+            claimed=len(claimed),
+            completed=completed,
+            deferred=deferred,
+            dead_lettered=dead_lettered,
+        )
