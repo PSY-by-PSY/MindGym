@@ -5,7 +5,12 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from backend.billing.providers import CheckoutRequest, CheckoutSession, PaymentProvider, RecurringConsent
-from backend.billing.repository import BillingRepository, PendingCheckout, ResumableCheckout
+from backend.billing.repository import (
+    BillingRepository,
+    CancelSubscriptionResult,
+    PendingCheckout,
+    ResumableCheckout,
+)
 
 
 @dataclass(frozen=True)
@@ -106,3 +111,17 @@ class BillingService:
 
     async def get_overview(self, user_id: str):
         return await self._repository.get_overview_for_user(user_id=user_id)
+
+    async def cancel_subscription(
+        self, *, user_id: str, reason: str = "user_canceled_renewal"
+    ) -> CancelSubscriptionResult:
+        result = await self._repository.cancel_subscription_for_user(user_id=user_id, reason=reason)
+        if result.token_ciphertext and hasattr(self._provider, "cancel_token"):
+            try:
+                vault = getattr(self._provider, "_credential_vault", None)
+                if vault is not None:
+                    unsealed = vault.unseal(result.token_ciphertext)
+                    await self._provider.cancel_token(unsealed)
+            except Exception:
+                pass
+        return result

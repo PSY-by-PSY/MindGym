@@ -60,3 +60,31 @@ class BillingRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(user_id, "user-1")
         self.assertEqual(captured["headers"]["authorization"], "Bearer user-jwt")
         self.assertEqual(captured["headers"]["apikey"], "service-key")
+
+    async def test_cancel_subscription_calls_rpc_with_user_id_and_reason(self):
+        captured = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured["path"] = request.url.path
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json=[{
+                "subscription_id": "sub-123",
+                "status": "cancel_scheduled",
+                "current_period_ends_at": "2026-10-28T15:00:00+00:00",
+                "cancel_at": "2026-10-28T15:00:00+00:00",
+                "provider_token_ref": "ref-123",
+                "token_ciphertext": "enc-token-xyz",
+            }])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            res = await repository.cancel_subscription_for_user(user_id="user-1", reason="user_canceled_renewal")
+
+        self.assertEqual(captured["path"], "/rest/v1/rpc/cancel_subscription_for_user")
+        self.assertEqual(captured["headers"]["accept-profile"], "billing")
+        self.assertEqual(captured["body"], {"p_user_id": "user-1", "p_reason": "user_canceled_renewal"})
+        self.assertEqual(res.subscription_id, "sub-123")
+        self.assertEqual(res.status, "cancel_scheduled")
+        self.assertEqual(res.token_ciphertext, "enc-token-xyz")
+

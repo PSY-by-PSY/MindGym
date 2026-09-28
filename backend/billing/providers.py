@@ -51,6 +51,7 @@ class PaymentProvider(Protocol):
     async def assert_ready(self) -> None: ...
     async def create_initial_checkout(self, request: CheckoutRequest) -> CheckoutSession: ...
     def verify_callback(self, fields: dict[str, str]): ...
+    async def cancel_token(self, token_plaintext: str) -> bool: ...
 
 
 class DisabledPayUniProvider:
@@ -67,3 +68,6 @@ class DisabledPayUniProvider:
 
     def verify_callback(self, fields: dict[str, str]):
         raise ProviderNotConfigured("PAYUNi callback is not configured")
+
+    async def cancel_token(self, token_plaintext: str) -> bool:
+        return False

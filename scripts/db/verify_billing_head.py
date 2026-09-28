@@ -76,6 +76,7 @@ def verify(connection) -> list[str]:
         ("billing.dead_letter_outbox_event(uuid,text)", "billing outbox dead-letter function"),
         ("billing.get_outbox_health(text)", "billing outbox health function"),
         ("billing.list_dead_outbox_events(text,integer)", "billing dead-letter list function"),
+        ("billing.cancel_subscription_for_user(uuid,text)", "billing cancel subscription function"),
     ):
         if connection.exec_driver_sql("SELECT to_regprocedure(%s)::text", (signature,)).scalar() is None:
             differences.append(label)

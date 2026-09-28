@@ -41,10 +41,24 @@ class FakeRepository:
             current_period_ends_at=None, next_charge_at=None, cancel_at=None, orders=[],
         )
 
+    async def cancel_subscription_for_user(self, **kwargs):
+        self.calls.append(kwargs)
+        from backend.billing.repository import CancelSubscriptionResult
+        now = datetime.now(timezone.utc)
+        return CancelSubscriptionResult(
+            subscription_id="sub-1",
+            status="cancel_scheduled",
+            current_period_ends_at=now,
+            cancel_at=now,
+            provider_token_ref="ref-1",
+            token_ciphertext=getattr(self, "token_ciphertext", None),
+        )
+
 
 class ReadyProvider:
     def __init__(self):
         self.requests = []
+        self.canceled_tokens = []
 
     async def assert_ready(self):
         return None
@@ -52,6 +66,15 @@ class ReadyProvider:
     async def create_initial_checkout(self, request):
         self.requests.append(request)
         return CheckoutSession(redirect_url="https://sandbox.example.invalid/checkout")
+
+    async def cancel_token(self, credit_hash: str) -> bool:
+        self.canceled_tokens.append(credit_hash)
+        return True
+
+
+class FakeVault:
+    def unseal(self, ciphertext: str) -> str:
+        return f"unsealed:{ciphertext}"
 
 
 class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -105,6 +128,21 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(overview.subscription_id, "subscription-1")
         self.assertEqual(repository.calls, [{"user_id": "user-1"}])
 
+    async def test_cancel_subscription_invokes_repository_and_unseals_provider_token(self):
+        repository = FakeRepository()
+        repository.token_ciphertext = "sealed-hash-123"
+        provider = ReadyProvider()
+        provider._credential_vault = FakeVault()
+        service = BillingService(repository, provider, "https://api.example.invalid/callback")
+
+        result = await service.cancel_subscription(user_id="user-1", reason="user_canceled_renewal")
+
+        self.assertEqual(result.subscription_id, "sub-1")
+        self.assertEqual(result.status, "cancel_scheduled")
+        self.assertEqual(repository.calls, [{"user_id": "user-1", "reason": "user_canceled_renewal"}])
+        self.assertEqual(provider.canceled_tokens, ["unsealed:sealed-hash-123"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

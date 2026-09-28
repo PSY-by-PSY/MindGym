@@ -225,6 +225,45 @@ class PayUniUppProvider:
             },
         )
 
+    @property
+    def cancel_endpoint(self) -> str:
+        host = "sandbox-api.payuni.com.tw" if self._settings.sandbox else "api.payuni.com.tw"
+        return f"https://{host}/api/credit_bind/cancel"
+
+    async def cancel_token(self, credit_hash: str) -> bool:
+        if not self._capabilities.token_cancel:
+            return False
+        payload = {
+            "MerID": self._settings.merchant_id,
+            "UseTokenType": "1",
+            "BindVal": credit_hash,
+            "CreditTokenType": "2",
+            "Timestamp": str(int(time())),
+        }
+        encrypted_info = self.encrypt_info(payload)
+        fields = {
+            "MerID": self._settings.merchant_id,
+            "Version": "1.0",
+            "EncryptInfo": encrypted_info,
+            "HashInfo": self.hash_info(encrypted_info),
+        }
+        import httpx
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                self.cancel_endpoint,
+                data=fields,
+                headers={"User-Agent": "payuni", "Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if resp.status_code != 200:
+                return False
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else dict(parse_qsl(resp.text))
+            if data.get("Status") == "SUCCESS":
+                return True
+            if "EncryptInfo" in data:
+                dec = self.decrypt_info(data["EncryptInfo"])
+                return dec.get("Status") == "SUCCESS"
+        return False
+
 
 class PayUniSandboxInitialOutcomeResolver:
     """Map only documented, verified UPP outcomes; defer all other states."""

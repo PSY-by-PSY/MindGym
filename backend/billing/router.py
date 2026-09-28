@@ -63,6 +63,14 @@ class BillingOverviewResponse(BaseModel):
     orders: list[OrderHistoryResponse]
 
 
+class CancelSubscriptionResponse(BaseModel):
+    subscription_id: str
+    status: str
+    current_period_ends_at: str
+    cancel_at: str
+
+
+
 def _bearer_token(authorization: str | None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
@@ -200,8 +208,34 @@ async def resume_checkout_session(
     )
 
 
+@router.post("/subscription/cancel", response_model=CancelSubscriptionResponse)
+async def cancel_subscription(
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    repository = getattr(request.app.state, "billing_repository", None)
+    if repository is None:
+        raise HTTPException(status_code=503, detail="Billing is unavailable")
+    try:
+        user_id = await repository.authenticated_user_id(_bearer_token(authorization))
+        result = await _service(request).cancel_subscription(user_id=user_id)
+    except RepositoryError as exc:
+        if str(exc) == "invalid authentication token":
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        if "no active subscription" in str(exc).lower():
+            raise HTTPException(status_code=404, detail="No active subscription found") from None
+        raise HTTPException(status_code=503, detail="Cancellation unavailable") from None
+    return CancelSubscriptionResponse(
+        subscription_id=result.subscription_id,
+        status=result.status,
+        current_period_ends_at=result.current_period_ends_at.isoformat(),
+        cancel_at=result.cancel_at.isoformat(),
+    )
+
+
 @router.post("/payuni/callback")
 async def payuni_callback(request: Request):
+
     fields = {key: value for key, value in (await request.form()).items() if isinstance(value, str)}
     try:
         await _service(request).record_callback(fields)

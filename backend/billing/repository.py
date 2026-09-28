@@ -74,6 +74,16 @@ class BillingOverview:
 
 
 @dataclass(frozen=True)
+class CancelSubscriptionResult:
+    subscription_id: str
+    status: str
+    current_period_ends_at: datetime
+    cancel_at: datetime
+    provider_token_ref: str | None
+    token_ciphertext: str | None
+
+
+@dataclass(frozen=True)
 class OutboxEvent:
     id: str
     topic: str
@@ -258,6 +268,28 @@ class BillingRepository:
                 paid_at=parse_timestamp(item["paid_at"]),
                 expires_at=parse_timestamp(item["expires_at"]),
             ) for item in row["orders"]],
+        )
+
+    async def cancel_subscription_for_user(
+        self, *, user_id: str, reason: str = "user_canceled_renewal"
+    ) -> CancelSubscriptionResult:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/cancel_subscription_for_user",
+            headers=self._headers,
+            json={"p_user_id": user_id, "p_reason": reason},
+        )
+        self._raise_for_error(response, "cancel subscription for user")
+        rows = response.json()
+        if not rows:
+            raise RepositoryError("cancel subscription returned empty")
+        row = rows[0]
+        return CancelSubscriptionResult(
+            subscription_id=row["subscription_id"],
+            status=row["status"],
+            current_period_ends_at=datetime.fromisoformat(row["current_period_ends_at"].replace("Z", "+00:00")),
+            cancel_at=datetime.fromisoformat(row["cancel_at"].replace("Z", "+00:00")),
+            provider_token_ref=row.get("provider_token_ref"),
+            token_ciphertext=row.get("token_ciphertext"),
         )
 
     async def claim_callback_outbox_events(self, *, limit: int = 20) -> list[OutboxEvent]:
