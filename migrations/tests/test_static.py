@@ -22,6 +22,14 @@ billing_spec=importlib.util.spec_from_file_location('billing_revision', ROOT/'mi
 billing_revision=importlib.util.module_from_spec(billing_spec);billing_spec.loader.exec_module(billing_revision)
 workflow_spec=importlib.util.spec_from_file_location('workflow_revision', ROOT/'migrations/versions/mg_0003_billing_workflow.py')
 workflow_revision=importlib.util.module_from_spec(workflow_spec);workflow_spec.loader.exec_module(workflow_revision)
+lifecycle_spec=importlib.util.spec_from_file_location('lifecycle_revision', ROOT/'migrations/versions/mg_0004_billing_lifecycle.py')
+lifecycle_revision=importlib.util.module_from_spec(lifecycle_spec);lifecycle_spec.loader.exec_module(lifecycle_revision)
+cutover_spec=importlib.util.spec_from_file_location('cutover_revision', ROOT/'migrations/versions/mg_0005_entitlement_cutover.py')
+cutover_revision=importlib.util.module_from_spec(cutover_spec);cutover_spec.loader.exec_module(cutover_revision)
+refund_spec=importlib.util.spec_from_file_location('refund_revision', ROOT/'migrations/versions/mg_0006_billing_refunds.py')
+refund_revision=importlib.util.module_from_spec(refund_spec);refund_spec.loader.exec_module(refund_revision)
+renewal_spec=importlib.util.spec_from_file_location('renewal_revision', ROOT/'migrations/versions/mg_0007_billing_renewal.py')
+renewal_revision=importlib.util.module_from_spec(renewal_spec);renewal_spec.loader.exec_module(renewal_revision)
 
 
 class StaticTests(unittest.TestCase):
@@ -37,6 +45,14 @@ class StaticTests(unittest.TestCase):
         self.assertEqual(billing_revision.down_revision, 'mg_0001_baseline')
         self.assertEqual(workflow_revision.revision, 'mg_0003_billing_workflow')
         self.assertEqual(workflow_revision.down_revision, 'mg_0002_billing_foundation')
+        self.assertEqual(lifecycle_revision.revision, 'mg_0004_billing_lifecycle')
+        self.assertEqual(lifecycle_revision.down_revision, 'mg_0003_billing_workflow')
+        self.assertEqual(cutover_revision.revision, 'mg_0005_entitlement_cutover')
+        self.assertEqual(cutover_revision.down_revision, 'mg_0004_billing_lifecycle')
+        self.assertEqual(refund_revision.revision, 'mg_0006_billing_refunds')
+        self.assertEqual(refund_revision.down_revision, 'mg_0005_entitlement_cutover')
+        self.assertEqual(renewal_revision.revision, 'mg_0007_billing_renewal')
+        self.assertEqual(renewal_revision.down_revision, 'mg_0006_billing_refunds')
         expected={
             'plans','subscriptions','orders','payment_attempts','payment_methods',
             'provider_events','refunds','invoices','outbox_events','entitlement_changes',
@@ -99,6 +115,11 @@ class StaticTests(unittest.TestCase):
         self.assertIn('p_max_attempts integer DEFAULT 20',proc.stdout)
         self.assertIn('get_outbox_health',proc.stdout)
         self.assertIn('list_dead_outbox_events',proc.stdout)
+        self.assertIn('cancel_subscription_for_user',proc.stdout)
+        self.assertIn('process_admin_refund',proc.stdout)
+        self.assertIn('schedule_renewals',proc.stdout)
+        self.assertIn('apply_renewal_outcome',proc.stdout)
+        self.assertIn("version_num='mg_0007_billing_renewal'",proc.stdout)
         self.assertNotIn('CREATE TABLE auth.users',proc.stdout)
         self.assertIn("'x-webhook-secret'",proc.stdout)
         blocked=subprocess.run([sys.executable,'-m','alembic','stamp','head','--sql'],cwd=ROOT,capture_output=True,text=True)
