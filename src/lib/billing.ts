@@ -9,6 +9,7 @@ export interface CreateCheckoutParams {
   planCode: string
   termsVersion?: string
   recurringConsentVersion?: string
+  idempotencyKey?: string
 }
 
 export interface CheckoutSessionResult {
@@ -39,12 +40,18 @@ export async function createCheckoutSession(
 
   const termsVersion = params.termsVersion ?? '2026-09-28'
   const recurringConsentVersion = params.recurringConsentVersion ?? '2026-09-28'
+  const idempotencyKey =
+    params.idempotencyKey ??
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
   const res = await fetch(`${API_URL}/v1/billing/checkout-sessions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
+      'Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify({
       plan_code: params.planCode,
