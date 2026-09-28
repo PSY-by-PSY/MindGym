@@ -190,13 +190,17 @@ class PayUniUppProvider:
         await self.assert_ready()
         if request.currency != "TWD" or request.amount_cents <= 0 or request.amount_cents % 100:
             raise ProviderNotConfigured("generic UPP requires a whole-TWD amount")
+        return_url = self._settings.return_url
+        if "order_id" not in return_url and "orderId" not in return_url:
+            sep = "&" if "?" in return_url else "?"
+            return_url = f"{return_url}{sep}order_id={request.merchant_order_no}"
         payload = {
             "MerID": self._settings.merchant_id,
             "Timestamp": str(int(time())),
             "MerTradeNo": request.merchant_order_no,
             "TradeAmt": str(request.amount_cents // 100),
             "ProdDesc": request.description,
-            "ReturnURL": self._settings.return_url,
+            "ReturnURL": return_url,
             "NotifyURL": request.callback_url,
         }
         if request.recurring_consent is not None:

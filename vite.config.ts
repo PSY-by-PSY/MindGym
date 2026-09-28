@@ -5,12 +5,27 @@ import react from '@vitejs/plugin-react'
 import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 
+function payuniReturnPostPlugin() {
+  return {
+    name: 'payuni-return-post-plugin',
+    configureServer(server: any) {
+      server.middlewares.use((req: any, _res: any, next: any) => {
+        if (req.method === 'POST' && req.url && req.url.startsWith('/billing/result')) {
+          req.method = 'GET'
+        }
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
   server: {
     port: process.env.PORT ? parseInt(process.env.PORT) : 5173,
     strictPort: true,
   },
   plugins: [
+    payuniReturnPostPlugin(),
     TanStackRouterVite({
       routesDirectory: './src/routes',
       generatedRouteTree: './src/routeTree.gen.ts',
