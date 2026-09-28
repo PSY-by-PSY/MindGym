@@ -197,6 +197,8 @@ async def get_billing_overview(request: Request, authorization: str | None = Hea
         if str(exc) == "invalid authentication token":
             raise HTTPException(status_code=401, detail="Invalid token") from None
         raise HTTPException(status_code=503, detail="Billing overview unavailable") from None
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Billing overview error: {exc}") from None
     is_pro = (tier == "pro")
     if overview is None:
         return BillingOverviewResponse(tier=tier, is_pro=is_pro, orders=[])
