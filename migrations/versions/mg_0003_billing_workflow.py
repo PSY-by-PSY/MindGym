@@ -282,7 +282,7 @@ def upgrade() -> None:
             subscription_id, provider, provider_token_ref, token_ciphertext
           ) VALUES (
             v_subscription.id, v_event.provider, p_provider_token_ref, p_token_ciphertext
-          ) ON CONFLICT (subscription_id) DO UPDATE SET
+          ) ON CONFLICT ON CONSTRAINT payment_methods_subscription_key DO UPDATE SET
             provider = EXCLUDED.provider,
             provider_token_ref = EXCLUDED.provider_token_ref,
             token_ciphertext = EXCLUDED.token_ciphertext,
@@ -472,5 +472,5 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION billing.get_overview_for_user(uuid)")
     op.execute("DROP FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid)")
     op.execute("DROP FUNCTION billing.get_order_for_user(uuid,uuid)")
-    op.execute("DROP FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb)")
-    op.execute("DROP FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,timestamptz,text)")
+    op.execute("DROP FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb,text,text)")
+    op.execute("DROP FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,text,timestamptz,text,timestamptz,text)")

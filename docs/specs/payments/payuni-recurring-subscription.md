@@ -1,9 +1,9 @@
 # PAYUNI 定期扣款訂閱：過渡期功能規格
 
-> 狀態：**Draft — 初始 checkout、驗簽 callback 留存、訂單查詢與 resume 骨架已實作；尚未可對外收款**
+> 狀態：**P2 本機驗收切片（P2.1 & P2.2）全數通過；P2.3 尚待真實 PAYUNi sandbox 外部驗收，不能對外收款**
 > Owner：待指定
 > 基線：`feat/alembic-orm-baseline` 的 `mg_0001_baseline`
-> 最後更新：2026-09-27
+> 最後更新：2026-09-28
 
 ## 1. 目的與邊界
 
@@ -36,52 +36,206 @@ Supabase。
 
 ## 3. 目標架構（過渡期）
 
+MindGym 採用 **「自主排程 + Token 幕後交易（A 方案）」**，而非依賴金流商託管自動排程。
+整個過渡架構明確劃分為兩條閉環：(1) **首次結帳與約定卡授權**；(2) **MindGym 自主驅動的定期扣款與寬限循環**。
+
 ```mermaid
-flowchart LR
-  web[React Web] -->|Bearer JWT + JSON| api[FastAPI]
-  ios[iOS] -->|讀取 entitlement；不導向 Web 付款| api
-  api --> r[Router\nHTTP / DTO / Auth]
-  r --> s[Subscription Service\nuse case / 交易規則]
-  s --> repo[Repository\nSupabase REST/RPC]
-  repo --> sb[(Supabase PostgreSQL)]
-  s --> payuni[PAYUNI API]
-  payuni -->|server callback| cb[Webhook Router]
-  cb --> s
-  sb --> outbox[(billing.outbox_events)]
-  worker[Worker / Cron job] -->|claim + retry| outbox
-  worker --> payuni
-  worker --> mail[Email / invoice adapter]
-  s --> legacy[public.subscriptions\nlegacy entitlement projection]
-  repo --> legacy
+flowchart TD
+  subgraph Client ["使用者端"]
+    web["React Web"]
+    ios["iOS App - 僅讀權益 / 不導向 Web 付款"]
+  end
+
+  subgraph API_Layer ["FastAPI Web 服務 - 接收與收件"]
+    r["Billing Router - /v1/billing/*"]
+    cb["Webhook Router - /v1/billing/payuni/callback"]
+    s["Billing Service - 方案檢核 / 簽章 / 業務規則"]
+  end
+
+  subgraph Storage ["Supabase PostgreSQL - 真相來源"]
+    sb[("billing.subscriptions 及 billing.orders")]
+    vault[("billing.payment_methods - Fernet 加密 Token")]
+    outbox[("billing.outbox_events - Queue / Lease / Dedupe")]
+    legacy[("public.subscriptions - 相容投影")]
+  end
+
+  subgraph Background ["非同步 Worker 與排程器"]
+    cron["Scheduler / Cron Job - 獨立排程程序"]
+    w_cb["Callback Worker - 收件排隊與初次開通"]
+    w_ren["Renewal Worker - 定期扣款與 7 天寬限重試"]
+    mail["Email / invoice adapter"]
+  end
+
+  subgraph Provider ["PAYUNi 金流端"]
+    payuni_upp["PAYUNi UPP v2 付款頁 - 首次付款 + 約定卡授權"]
+    payuni_api["PAYUNi /api/credit - 幕後 Token 扣款 API"]
+  end
+
+  %% 管線 1: 首次結帳與授權 (Web Checkout & Callback)
+  web -->|1. POST checkout-sessions| r
+  r --> s
+  s --> sb
+  s -->|2. 回傳加密 UPP 表單| web
+  web -->|3. POST 導轉| payuni_upp
+  payuni_upp -->|4. Server-to-Server Callback| cb
+  cb -->|5. 驗簽、暫存密文 Token、排入| outbox
+  w_cb -->|6. Claim 回呼任務| outbox
+  w_cb -->|7. 存入加密 Token| vault
+  w_cb -->|7. 開通訂閱狀態| sb
+  w_cb -->|7. 更新權益投影| legacy
+
+  %% 管線 2: 定期續扣循環 (MindGym 自主發動)
+  cron -->|A. 依 current_period_ends_at 掃描到期訂閱| sb
+  cron -->|B. 產生 renewal outbox 任務| outbox
+  w_ren -->|C. FOR UPDATE SKIP LOCKED 領取| outbox
+  w_ren -->|D. 於記憶體解密封存 Token| vault
+  w_ren -->|E. 固定 Egress IP 呼叫幕後扣款| payuni_api
+  payuni_api -->|F. 回傳扣款結果| w_ren
+  w_ren -->|G. 成功展延週期或進入寬限| sb
+  w_ren -->|G. 投影同步| legacy
+  w_ren -->|H. 觸發收據開立| mail
+
+  %% 用戶讀取
+  web -.->|Bearer JWT 查詢 /me| r
+  ios -.->|Bearer JWT 查詢 /me| r
 ```
 
-### 3.1 三層責任
+### 3.1 核心流程序列圖（Sequence Diagrams）
 
-| 層 | 建議位置 | 只負責 | 不負責 |
+#### 3.1.1 流程一：首次結帳、約定卡授權與回呼開通時序
+
+首次付款時，使用者在前端明確同意方案與續約條款，透過 FastAPI 建立 `pending` 訂單後，導向 PAYUNi UPP 頁面完成授權。PAYUNi 異步通知 FastAPI，再由 Worker 在後台原子開通權益並持久化加密 Token。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User as 使用者 (React Web)
+  participant API as FastAPI Router / Service
+  participant DB as Supabase DB (billing)
+  participant UPP as PAYUNi UPP 付款閘道
+  participant Worker as Callback Worker
+
+  User->>API: 1. POST /v1/billing/checkout-sessions (方案, 同意條款, Idempotency-Key)
+  activate API
+  API->>DB: 2. 交易建立: pending 訂單 (merchant_order_no) & pending 訂閱
+  API->>API: 3. AES-GCM 加密 UPP envelope (帶 CreditToken, CreditTokenType=2)
+  API-->>User: 4. 回傳自動提交表單 (MerID, EncryptInfo, HashInfo)
+  deactivate API
+
+  User->>UPP: 5. 瀏覽器 POST 導轉進入 PAYUNi 付款頁
+  User->>UPP: 6. 輸入信用卡資訊並勾選約定綁卡同意
+  UPP-->>User: 7. 信用卡 3D 驗證完成，導回 MindGym 成功頁
+
+  UPP->>API: 8. POST /v1/billing/payuni/callback (Server-to-Server 異步回呼)
+  activate API
+  API->>API: 9. 驗證 MerID, Version=2.0, 驗簽 HashInfo, 解密 Payload
+  API->>API: 10. 檢核 SUCCESS/TradeStatus=1/PaymentType=1 -> Fernet 加密封裝 CreditHash
+  API->>DB: 11. 儲存 provider_event (暫存密文 Token) + 產生 callback outbox 任務
+  API-->>UPP: 12. HTTP 200 {"status": "accepted"} 快速 ACK (保證冪等，不阻塞金流)
+  deactivate API
+
+  Worker->>DB: 13. 定期輪詢 Claim Outbox 任務 (FOR UPDATE SKIP LOCKED)
+  activate Worker
+  Worker->>DB: 14. 執行原子 Outcome 交易:
+  Note over Worker,DB: - orders.status = 'paid'<br/>- subscriptions.status = 'active'<br/>- 寫入 payment_methods (持久化加密 Token)<br/>- provider_events.token_ciphertext 設為 NULL (清空暫存)<br/>- 投影更新 public.subscriptions (tier='pro')<br/>- 標記 outbox 任務已完成
+  deactivate Worker
+
+  User->>API: 15. GET /v1/billing/me (輪詢或頁面重新整理)
+  API-->>User: 16. 回傳 status='active', orders[0]='paid', 享有 Pro 權益
+```
+
+#### 3.1.2 流程二：MindGym 自主排程定期續扣時序
+
+週期到期前，由 MindGym 獨立 Scheduler 建立續扣意圖，由具備固定 Egress IP 的 Renewal Worker 呼叫 PAYUNi `/api/credit` 幕後交易，並實施 7 天寬限與退避重試狀態機。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Cron as Scheduler / Cron Job
+  participant Worker as Renewal Worker (固定 IP)
+  participant DB as Supabase DB (billing)
+  participant Vault as Fernet Vault (記憶體)
+  participant PAYUNi as PAYUNi /api/credit
+  actor User as 使用者 (Email 通知)
+
+  Cron->>DB: 1. 週期性排程: 掃描 current_period_ends_at <= now() + 24h 且未取消訂閱
+  DB-->>Cron: 回傳即將到期訂閱清單
+  Cron->>DB: 2. 建立續約意圖: 產生 renewal order (唯一 merchant_order_no) & outbox 任務
+
+  Worker->>DB: 3. Claim 續約 Outbox 任務 (租約鎖定)
+  activate Worker
+  Worker->>DB: 4. 讀取 billing.payment_methods (加密卡片 Token)
+  Worker->>Vault: 5. 於 Worker 記憶體內短暫解密 CreditHash (嚴禁留存硬碟或日誌)
+
+  Worker->>PAYUNi: 6. POST /api/credit 幕後扣款 (帶 Token, 訂單號, 金額 snapshot, 走固定 IP)
+  activate PAYUNi
+  PAYUNi-->>Worker: 7. 回傳幕後交易結果
+  deactivate PAYUNi
+
+  alt 扣款成功 (Status=SUCCESS, TradeStatus=1)
+    Worker->>DB: 8a. 原子交易套用成功結果:
+    Note over Worker,DB: - renewal order.status = 'paid'<br/>- 延長 current_period_ends_at (+1個月/季/年)<br/>- 記錄 payment_attempts (succeeded)<br/>- 更新 public.subscriptions 投影到期日<br/>- 排入發票與扣款收據 Outbox 任務
+    Worker->>User: 9a. 非同步發送付款成功通知與電子發票開立
+  else 扣款失敗 (餘額不足 / 卡片過期 / 銀行拒絕)
+    Worker->>DB: 8b. 原子交易記錄失敗狀態:
+    Note over Worker,DB: - 記錄 payment_attempts (failed, failure_code)<br/>- subscription.status 轉為 'grace_period' (7天寬限期)<br/>- 計算指數退避時間，更新 Outbox 延遲重試
+    Worker->>User: 9b. 非同步發送扣款失敗提醒 (提醒使用者更新信用卡)
+  else 超過 7 天寬限期仍未成功
+    Worker->>DB: 8c. 寬限期滿自動降級:
+    Note over Worker,DB: - subscription.status = 'expired'<br/>- 寫入 entitlement_changes (reason='grace_period_expired')<br/>- public.subscriptions 降級為 tier='free'<br/>- 撤銷 Pro 權益
+    Worker->>User: 9c. 發送訂閱到期降級通知
+  end
+  Worker->>DB: 10. 標記 Outbox 續扣任務已完成 (Complete)
+  deactivate Worker
+```
+
+### 3.2 四層責任
+
+| 層 | 實體位置 | 只負責 | 不負責 |
 | --- | --- | --- | --- |
-| Router | `backend/routers/billing.py` | JWT 驗證、request/response DTO、HTTP status、callback route | 付款狀態轉換、SQL／Supabase URL 拼接 |
-| Service | `backend/services/subscriptions.py` | 建單、啟用、續扣、取消、退款、冪等與權益規則 | FastAPI `Request`、HTTP transport 細節 |
-| Repository | `backend/repositories/billing.py` | 透過 Supabase REST/RPC 讀寫、交易型 RPC 呼叫 | PAYUNI 規則、回傳給前端的業務決策 |
+| **Router** | `backend/routers/billing.py` | JWT 驗證、Request/Response DTO、HTTP status、Callback 快速 ACK 簽收 | 付款狀態轉換、DB 交易、長耗時外呼 |
+| **Service** | `backend/billing/service.py` | 建單、檢核方案與同意版本、驗簽、建構 UPP 表單、權益與業務規則 | DB 實體連線管理、SQL/PostgREST 拼裝 |
+| **Repository** | `backend/billing/repository.py` | 透過 Supabase PostgREST/RPC 讀寫、Atomic Transaction RPC 呼叫 | PAYUNI 業務規則、回傳給前端的 DTO 決策 |
+| **Worker / Scheduler** | `backend/billing/worker.py`<br>`scripts/run_billing_*.py` | 任務領取 (Lease)、退避重試 (Backoff)、Token 解密、呼叫 `/api/credit`、處理 Dead-letter | 處理使用者 HTTP Request、前端介面邏輯 |
 
 `backend/app.py` 在此切片只保留 application factory、lifespan、middleware 與
-`include_router()`；既有 endpoint 不在本次搬遷範圍。PAYUNI SDK／HTTP 呼叫應封裝為
-`backend/integrations/payuni.py`，不可散落在 router 或 repository。
+`include_router()`；既有 endpoint 不在本次搬遷範圍。PAYUNI SDK／HTTP 呼叫統一封裝為
+`backend/billing/payuni.py`，不得散落在 router、service 或 repository。
 
-### 3.2 資料與權限原則
+### 3.3 資料與權限原則
 
 1. `billing` 是新 schema，Alembic 必須顯式納管它；不可只擴充 `public.subscriptions`
    就宣稱可稽核金流。
 2. `billing` 不在瀏覽器 Supabase API 的 exposed schemas；只有 FastAPI 的 service
-   role / 受限 runtime role 可存取。若技術上必須 expose 給 PostgREST，仍須 revoke
-   `anon`、`authenticated` 權限並驗證 RLS，且不得提供 client 寫入入口。
+   role / 受限 runtime role 可存取。PostgREST 雖將 `billing` 納入 exposed schemas 以供
+   FastAPI service-role 透過 REST/RPC 存取，但對 `anon` 與 `authenticated` 保持零授權 (Revoke)，
+   client 完全無法直接讀寫。
 3. 不儲存卡號、CVV 或完整卡片有效期限。只存 PAYUNI 回傳且營運必要的 token
-   reference、遮罩卡號／卡別等最小資料；token 若可用於扣款，必須加密、限制讀取
-   與列入秘密／輪替策略。
+   reference、遮罩卡號／卡別等最小資料；token 必須以伺服端專屬金鑰（如 Fernet Vault）
+   加密後儲存於私有表，嚴禁明文記錄或外洩至前端與日誌。
 4. PAYUNI 是「支付結果」的外部權威；本系統以驗簽、查單與冪等處理後的
    `billing` 記錄為內部稽核權威；`public.subscriptions` 只是相容投影。
 5. 定期扣款有兩個不可互相取代的門檻：(a) MindGym 結帳確認頁記錄的方案、
    金額、週期、取消規則與條款同意；(b) 使用者在 PAYUNi 付款頁完成的約定卡授權。
    前者不是卡片授權，後者也不能取代我方的條款同意紀錄。
+
+### 3.4 定期扣款運作核心原則（MindGym 自主排程）
+
+1. **MindGym 為扣款日曆權威**：
+   本系統不使用 PAYUNi 的定時自動扣款產品。訂閱續約日期由 `billing.subscriptions.current_period_ends_at`
+   決定，由 MindGym 的獨立 Scheduler 排程主動發動續約，掌握完整的計費生命週期。
+2. **扣款意圖先行與防重複扣款（Idempotent Renewal Intent）**：
+   每次發起續扣前，必須先在 `billing.orders` 建立一筆唯一的 renewal order (`kind='renewal'`) 與
+   Outbox 任務。Worker 執行時必定以該筆 order 的 `merchant_order_no` 呼叫 PAYUNi `/api/credit`，
+   確保網路逾時或重試時絕不發生二次扣款。
+3. **安全沙盒與網路邊界隔離**：
+   - 卡片 Token (`CreditHash`) 僅在 Worker 執行扣款的瞬間於記憶體內短暫解密，不可留存明文於暫存檔。
+   - 正式環境呼叫 PAYUNi `/api/credit` 的 Worker 必須部署在具備固定 Egress IP（如 AWS NAT Gateway / Elastic IP）
+     的受限專屬環境，並將 IP 加入 PAYUNi 白名單。Web API 容器不得直接持有幕後扣款權限。
+4. **失敗寬限與漸進降級狀態機**：
+   續扣失敗時不立即撤銷使用者權益，訂閱狀態轉入 `grace_period`（7 天寬限期），由 Outbox 實施指數退避重試；
+   若在 7 天後且達重試上限仍失敗，才於同一原子交易將訂閱轉為 `expired`，並撤銷 canonical entitlement 與
+   `public.subscriptions` 投影。
 
 ## 4. 建議資料模型
 
@@ -311,6 +465,38 @@ API key、HashKey／HashIV 本身**不**代表上述能力已核准。程式必�
 書面核准」的設定旗標與個別 operation 的 runtime feature flag；在任一旗標未開啟時，
 拒絕操作，不可靜默退回一般付款後宣稱已約定續扣。
 
+MindGym 不需要在同一 PAYUNi 會員帳號的多個商店間共用卡片 Token，因此首次 UPP 請求
+固定帶 `CreditTokenType=2`（商店限定）；`UseTokenType=1` 仍代表使用者可在 PAYUNi
+付款頁取消約定，不是強制綁卡。
+
+### 5.2.2 UPP v2 callback：可驗證的事實與安全映射
+
+PAYUNi 的 [UPP v2 公開文件](https://docs.payuni.com.tw/web/#/7/34) 已定義通知封包，
+所以可以對 MindGym 的 callback 邊界做**加密封包模擬**；它不能替代 PAYUNi sandbox
+實際授權或證明 `CreditHash` 可用。
+
+| 層次 | 文件定義／MindGym 驗證 |
+| --- | --- |
+| 外層 Form POST | `MerID`、`Version=2.0`、`EncryptInfo`、`HashInfo`。MindGym 先檢查商店代號、版本與 Hash。 |
+| 解密後共通欄位 | `Status`、`Message`、`MerTradeNo`、`TradeNo`、`TradeAmt`、`TradeStatus`、`PaymentType`、`Gateway`。只保存白名單的非敏感欄位。 |
+| 可安全視為首次約定卡成功 | `Status=SUCCESS`、`TradeStatus=1`、`PaymentType=1`，且有已核准 capability 時才接受 `CreditHash`；Token 只進 server-side Fernet vault。 |
+| 不能自行猜測的結果 | `UNKNOWN`、`UNAPPROVED` 及 PAYUNi 錯誤碼。它們先留在 outbox，待 P4 的交易查詢 adapter 依商戶 contract 確認，不能直接設成 paid 或 failed。 |
+
+`scripts/simulate_payuni_callback.py` 是本機開發工具：以 HashKey／HashIV 組出上述
+**假** callback 並 POST 到本機 FastAPI。成功情境的 `CreditHash` 是不可用的固定假值；
+它只驗證驗簽、redaction、vault、outbox 與冪等性，不呼叫 PAYUNi、也不會產生真交易。
+
+```bash
+# 先由本機 secret environment 注入 PAYUNI_*，不要把 key 寫進指令或 git。
+python scripts/simulate_payuni_callback.py \
+  --merchant-order-no '既有的本機 pending order 編號' \
+  --amount-twd 100 \
+  --outcome success
+```
+
+預設只允許 `127.0.0.1` callback；若是核准的 sandbox tunnel／staging endpoint，才可
+明確加上 `--allow-non-loopback`。它仍不是 PAYUNi 的真實 callback 驗收。
+
 ### 5.3 使用者取消、退款與對帳
 
 | 情境 | 系統行為 | 權益何時變更 |
@@ -412,7 +598,7 @@ flowchart LR
 | P4 | token 續扣 worker、7 天寬限、對帳、監控與 runbook | PAYUNI 與營運前置到位 |
 | P5 | production readiness / rollout | P0–P4 全部驗收 |
 
-### 10.1 目前實作狀態（最後更新：2026-09-26）
+### 10.1 目前實作狀態（最後更新：2026-09-28）
 
 #### 階段進度總覽
 
@@ -420,14 +606,14 @@ flowchart LR
 | --- | --- | --- | --- |
 | P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
 | P1：資料基礎 | 本機驗收通過，尚未正式採用 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox；全新本機 Supabase migration／verifier／integration suite | 正式採用授權與正式環境接管流程 |
-| P2：初始付款流程 | 程式範圍完成；sandbox 外部驗收阻擋中 | checkout 明確續扣同意、約定卡 UPP adapter、Fernet vault、驗簽 receipt／callback outbox、amount-checked outcome resolver、原子 Token 保存與 outcome transaction、受控 one-shot worker、owner read APIs、topic-specific claim／defer／dead-letter；單元、router 與 migration static tests | 隔離 Local Supabase migration suite 重跑、PAYUNi Token／IP 核准、真實 sandbox E2E、部署 scheduler 與告警 |
+| P2：初始付款流程 | P2.1 & P2.2 本機驗收通過；P2.3 sandbox 外部驗收阻擋中 | checkout 明確續扣同意、約定卡 UPP v2 adapter、Fernet vault、驗簽 receipt／callback outbox、成功結果的金額／交易型別檢查、原子 Token 保存與 outcome transaction、受控 one-shot worker、owner read APIs、topic-specific claim／defer／dead-letter；單元、router、callback simulator 與 migration static tests；隔離 Local Supabase DB migration suite（24 項通過）；FastAPI 本機端到端閉環測試（8 項全過，含 plans、checkout、order、signed callback、worker、DB outcome 斷言、/v1/billing/me 與冪等重送） | PAYUNi Token／IP 核准、真實 sandbox E2E、正式環境部署 scheduler 與告警 |
 | P3：權益與帳務操作 | 未開始 | — | canonical entitlement cutover、取消、退款、歷史／管理 read model |
 | P4：自動續扣營運 | 未開始 | outbox schema、callback job、service-role health／dead-letter read model 已備妥 | token contract、renewal worker、7 天寬限、對帳、告警／runbook |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
 
-**目前位置：P2 中段。** 下一個程式工作是 callback worker 的 outcome adapter 與結果
-套用 transaction；在 PAYUNi 提供核准 contract 前，此工作只能建立安全邊界，不能把
-任一 generic UPP callback 轉為 paid／active。
+**目前位置：P2 本機驗收切片（P2.1 & P2.2）全數通過，僅剩 P2.3 等待 PAYUNi 外部 sandbox 核准。**
+只有 UPP v2 文件明確定義的「信用卡成功」組合會被 sandbox resolver 映射為
+`succeeded`；其他 callback 會安全 defer，等待 P4 的交易查詢 adapter 與商戶 contract。
 
 #### 已完成交付 checklist
 
@@ -439,8 +625,10 @@ flowchart LR
 - [x] unit／static／repository transport tests，以及本機 Supabase callback receipt／outbox 重送、payment outcome 成功／失敗、未驗簽／未知訂單拒絕 integration cases。
 - [x] A1 約定卡 UPP adapter：明確 consent 與 PAYUNi merchant capability 的雙重開關；未核准時不得生成約定卡欄位。已以單元測試驗證 capability 的雙旗標、加密 envelope 與 Token 不外洩（2026-09-27）。
 - [x] P2 完整程式範圍：續扣同意寫入 order、callback 的 `CreditHash` server-side Fernet 加密、成功 outcome 原子寫入 payment method 並清除 callback 暫存、金額一致性驗證、受控 one-shot worker 與本機測試（2026-09-27）。
-- [x] 在新建隔離本機 Supabase 實際執行完整 migration integration suite（2026-09-25）。
-- [ ] PAYUNi 核准後的 sandbox E2E：首次授權、成功／失敗 callback、Token 保存、重送、查單與取消。
+- [x] UPP v2 的外層版本／商店代號與成功 callback 組合防護；本機 signed callback simulator（2026-09-28）。
+- [x] P2.1 以目前 `mg_0003_billing_workflow` 在隔離 Local Supabase 跑通完整 migration integration suite（15 項 integration + 9 項 static tests 全數通過；修正 `payment_methods` upsert constraint 名稱衝突）。
+- [x] P2.2 本機端到端閉環測試（8/8 全過：plans -> checkout -> orders query -> signed callback -> callback worker -> DB assertion [order=paid, sub=active, token sealed & decryptable in payment_methods, provider_events cleansed] -> /v1/billing/me -> 冪等重送；由 `scripts/verify_p2_e2e.py` 自動化）。
+- [ ] P2.3 PAYUNi 核准後的真實 sandbox E2E：首次授權、成功／失敗 callback、Token 保存、重送、查單與取消。
 - [ ] worker 的正式部署／排程、告警與 dead-letter 人工處理 runbook。
 - [ ] P3 entitlement cutover、取消、退款；P4 自動續扣、寬限與對帳。
 
@@ -478,17 +666,17 @@ service-role schema headers、callback topic claim、retry 回傳值與使用者
   `GET /v1/billing/orders/{id}`、`POST /v1/billing/orders/{id}/resume`、`GET /v1/billing/me`。
   resume 只會重建未過期 `pending`／`processing` 訂單的導轉資料，沿用既有 order 與
   `merchant_order_no`；overview 在 P3 entitlement cutover 前只是 billing read model。
-- PAYUNI API 的定期扣款欄位、callback 結果套用、權益切換與 worker 尚未實作。checkout endpoint
-  在 provider contract 未啟用時固定回 503，不能因路由存在而視為可收款。
-- 已依 PAYUNi 公開 SDK 實作**通用 sandbox UPP** 加密 envelope／HashInfo 與導轉 form，
+- P2 已封裝首次約定卡的 UPP v2 欄位與**文件明確的信用卡成功 callback** 結果套用；checkout
+  endpoint 在 provider contract 未啟用時固定回 503，不能因路由存在而視為可收款。
+- 已依 PAYUNi 公開 UPP v2 文件實作加密 envelope／HashInfo 與導轉 form，
   但僅在 `PAYUNI_GENERIC_UPP_SANDBOX_ENABLED=1` 且下列環境變數齊全時啟用：
   `PAYUNI_MERCHANT_ID`、`PAYUNI_HASH_KEY`、`PAYUNI_HASH_IV`、`PAYUNI_RETURN_URL`。
-  這是首次付款導轉測試，不包含約定綁卡欄位、Token 保存、callback 開通或自動續扣；
-  取得 PAYUNi 核准的 Token／幕後授權 contract 前不得用於正式收款。
-- generic UPP callback 現可驗證 envelope 並以冪等事件收據保存；僅保留訂單號、交易號、
-  狀態與金額等白名單欄位，**不**保存 `CreditHash` 或其他卡片／Token 資料，也不會改變
-  order、subscription 或 entitlement。receipt 寫入同時會產生 `billing.provider_callback.received`
-  outbox event；同一 provider event 只會有一筆 job，讓之後的 worker 可安全重試處理。
+  未取得 PAYUNi 核准的 Token／幕後授權 contract 前不得啟用約定卡欄位或用於正式收款。
+- callback 一律先驗證 UPP v2 envelope 並以冪等事件收據保存；只保存訂單號、交易號、
+  狀態、交易型別與金額等白名單欄位。只有「商戶能力已開啟」且「文件明確的信用卡成功」
+  組合，才將 `CreditHash` 以 server-side vault 密文暫存；其餘情況絕不保存。receipt 寫入
+  同時會產生 `billing.provider_callback.received` outbox event；同一 provider event 只會有一筆
+  job，讓 worker 可安全重試處理。
 - P2 已將 UPP 約定卡欄位封裝在 provider adapter，並以
   `PAYUNI_TOKEN_CONTRACT_APPROVED=1` 加上個別 sandbox capability flag 雙重保護。
   checkout API 需帶 recurring consent version；後端只使用 JWT 導出的 user id 建立
@@ -497,12 +685,12 @@ service-role schema headers、callback topic claim、retry 回傳值與使用者
   才會寫入 `payment_methods`，並清除 event 的暫存 ciphertext。任何 browser response、
   payload redaction、log 與 outbox 都不含 Token。
 
-#### 下一個實作關卡與阻擋條件
+#### P2 驗收與下一關卡的阻擋條件
 
-下一個寫入型 use case 是「worker 消費已驗簽 callback 並套用結果」：同一個交易內建立／更新
+P2 的 worker 已能消費文件明確的首次約定卡成功事件，同一交易內建立／更新
 `payment_attempts`、更新 order／subscription、寫入 `entitlement_changes`、legacy projection
-與 outbox。這段**必須**先取得 PAYUNI 核准的成功／失敗狀態、重送語義與查單 contract；
-在此之前，不得把 generic UPP 的 `Status` 猜測成付款成功，也不得開通權益或保存 Token。
+與 outbox。失敗、未知與重送的最終語義仍須 PAYUNi 的交易查詢 contract；在它核准前，
+不得把 generic callback 的錯誤碼猜成最終失敗。
 
 `billing.apply_initial_payment_outcome(...)` 已建立上述單一 transaction 的資料庫邊界：
 它只接受 `succeeded`／`failed` 與已驗簽、未處理、能對應訂單的 provider event；成功時才

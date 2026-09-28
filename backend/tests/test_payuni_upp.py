@@ -44,17 +44,28 @@ class PayUniUppTests(unittest.TestCase):
         )))
         self.assertEqual(session.form_action, "https://sandbox-api.payuni.com.tw/api/upp")
         self.assertEqual(set(session.form_fields), {"MerID", "Version", "EncryptInfo", "HashInfo"})
+        self.assertEqual(session.form_fields["Version"], "2.0")
         self.assertNotIn("CardNo", session.form_fields)
 
     def test_callback_verifies_and_redacts_token_fields(self):
         encrypted = self.provider.encrypt_info({
-            "MerTradeNo":"MG-TEST", "TradeNo":"PU-1", "Status":"SUCCESS",
-            "TradeAmt":"99", "CreditHash":"must-not-persist",
+            "MerID":"sandbox-shop", "MerTradeNo":"MG-TEST", "TradeNo":"PU-1", "Status":"SUCCESS",
+            "TradeAmt":"99", "TradeStatus":"1", "PaymentType":"1", "CreditHash":"must-not-persist",
         })
-        callback = self.provider.verify_callback({"EncryptInfo": encrypted, "HashInfo": self.provider.hash_info(encrypted)})
+        callback = self.provider.verify_callback({"MerID":"sandbox-shop", "Version":"2.0", "EncryptInfo": encrypted, "HashInfo": self.provider.hash_info(encrypted)})
         self.assertEqual(callback.event_ref, "PU-1")
         self.assertEqual(callback.payload_redacted["MerTradeNo"], "MG-TEST")
         self.assertNotIn("CreditHash", callback.payload_redacted)
+
+    def test_callback_rejects_wrong_outer_merchant_or_protocol_version(self):
+        encrypted = self.provider.encrypt_info({"MerID":"sandbox-shop", "MerTradeNo":"MG-TEST"})
+        fields = {"MerID":"other-shop", "Version":"2.0", "EncryptInfo": encrypted, "HashInfo": self.provider.hash_info(encrypted)}
+        with self.assertRaisesRegex(ValueError, "merchant"):
+            self.provider.verify_callback(fields)
+        fields["MerID"] = "sandbox-shop"
+        fields["Version"] = "1.0"
+        with self.assertRaisesRegex(ValueError, "version"):
+            self.provider.verify_callback(fields)
 
     def test_card_agreement_requires_explicit_merchant_capability(self):
         request = CheckoutRequest(
@@ -81,7 +92,7 @@ class PayUniUppTests(unittest.TestCase):
         payload = provider.decrypt_info(session.form_fields["EncryptInfo"])
         self.assertEqual(payload["CreditToken"], "member-123")
         self.assertEqual(payload["UseTokenType"], "1")
-        self.assertEqual(payload["CreditTokenType"], "1")
+        self.assertEqual(payload["CreditTokenType"], "2")
         self.assertNotIn("CreditHash", payload)
 
     def test_environment_requires_both_contract_approval_and_operation_flag(self):
@@ -110,10 +121,10 @@ class PayUniUppTests(unittest.TestCase):
             self.settings, PayUniCapabilities(initial_card_agreement=True), vault,
         )
         encrypted = provider.encrypt_info({
-            "MerTradeNo": "MG-TEST", "TradeNo": "PU-1", "Status": "SUCCESS",
-            "TradeAmt": "99", "CreditHash": "provider-secret-token",
+            "MerID":"sandbox-shop", "MerTradeNo": "MG-TEST", "TradeNo": "PU-1", "Status": "SUCCESS",
+            "TradeAmt": "99", "TradeStatus":"1", "PaymentType":"1", "CreditHash": "provider-secret-token",
         })
-        callback = provider.verify_callback({"EncryptInfo": encrypted, "HashInfo": provider.hash_info(encrypted)})
+        callback = provider.verify_callback({"MerID":"sandbox-shop", "Version":"2.0", "EncryptInfo": encrypted, "HashInfo": provider.hash_info(encrypted)})
 
         self.assertNotIn("CreditHash", callback.payload_redacted)
         self.assertIsNotNone(callback.payment_credential)
@@ -125,7 +136,7 @@ class PayUniUppTests(unittest.TestCase):
             PayUniCapabilities(initial_payment_outcome=True),
         )
         event = ProviderEventForProcessing(
-            "event-1", "payuni", "order-1", {"Status": "SUCCESS", "TradeNo": "PU-1", "TradeAmt": "99"},
+            "event-1", "payuni", "order-1", {"Status": "SUCCESS", "TradeNo": "PU-1", "TradeAmt": "99", "TradeStatus":"1", "PaymentType":"1"},
             9900, "TWD", "payuni:token-ref", "ciphertext",
         )
         outcome = asyncio.run(resolver.resolve(event))
@@ -133,11 +144,20 @@ class PayUniUppTests(unittest.TestCase):
         self.assertEqual(outcome.provider_token_ref, "payuni:token-ref")
 
         mismatched = ProviderEventForProcessing(
-            "event-2", "payuni", "order-2", {"Status": "SUCCESS", "TradeNo": "PU-2", "TradeAmt": "98"},
+            "event-2", "payuni", "order-2", {"Status": "SUCCESS", "TradeNo": "PU-2", "TradeAmt": "98", "TradeStatus":"1", "PaymentType":"1"},
             9900, "TWD", "payuni:token-ref", "ciphertext",
         )
         with self.assertRaisesRegex(ValueError, "amount"):
             asyncio.run(resolver.resolve(mismatched))
+
+    def test_ambiguous_or_error_callback_defers_to_transaction_query(self):
+        resolver = PayUniSandboxInitialOutcomeResolver(PayUniCapabilities(initial_payment_outcome=True))
+        event = ProviderEventForProcessing(
+            "event-3", "payuni", "order-3", {"Status":"UNKNOWN", "TradeAmt":"99", "TradeStatus":"8", "PaymentType":"1"},
+            9900, "TWD", None, None,
+        )
+        with self.assertRaisesRegex(ProviderNotConfigured, "transaction-query"):
+            asyncio.run(resolver.resolve(event))
 
 
 if __name__ == "__main__":

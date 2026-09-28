@@ -141,20 +141,39 @@ class PayUniUppProvider:
         return compare_digest(self.hash_info(encrypted_info), hash_info.upper())
 
     def verify_callback(self, fields: dict[str, str]) -> VerifiedCallback:
+        # UPP v2 sends the same outer envelope shape to NotifyURL.  Check the
+        # merchant and protocol version before attempting to trust its body.
+        # This also makes a simulated callback exercise the real boundary.
+        if fields.get("MerID") != self._settings.merchant_id:
+            raise ValueError("PAYUNi callback merchant does not match")
+        if fields.get("Version") != "2.0":
+            raise ValueError("PAYUNi callback version is not UPP 2.0")
         encrypted = fields.get("EncryptInfo", "")
         if not encrypted or not self.verify_hash(encrypted, fields.get("HashInfo", "")):
             raise ValueError("PAYUNi callback hash verification failed")
         payload = self.decrypt_info(encrypted)
+        if payload.get("MerID") != self._settings.merchant_id:
+            raise ValueError("PAYUNi callback payload merchant does not match")
         order_no = payload.get("MerTradeNo", "")
         if not order_no:
             raise ValueError("PAYUNi callback has no merchant order number")
         safe = {key: payload[key] for key in (
-            "MerTradeNo", "TradeNo", "Status", "StatusDesc", "TradeAmt", "PayTime", "RespondCode",
+            "MerTradeNo", "TradeNo", "Status", "Message", "TradeAmt", "TradeStatus",
+            "PaymentType", "Gateway", "PayTime", "RespondCode", "CreditLife",
         ) if key in payload}
         event_ref = payload.get("TradeNo") or sha256(encrypted.encode()).hexdigest()
         credential = None
         credit_hash = payload.get("CreditHash", "")
-        if credit_hash and self._capabilities.initial_card_agreement:
+        # The UPP contract documents CreditHash only after a successful card
+        # authorisation.  Never preserve a token attached to an ambiguous or
+        # failed response.
+        if (
+            credit_hash
+            and payload.get("Status", "").upper() == "SUCCESS"
+            and payload.get("TradeStatus") == "1"
+            and payload.get("PaymentType") == "1"
+            and self._capabilities.initial_card_agreement
+        ):
             if self._credential_vault is None:
                 raise ProviderNotConfigured("PAYUNi Token vault is not configured")
             # The reference lets us correlate a token without persisting the
@@ -185,20 +204,22 @@ class PayUniUppProvider:
                 raise ProviderNotConfigured(
                     "PAYUNi card-agreement capability is not approved and enabled"
                 )
-            # PAYUNi UPP: 1 = agreement card, 1 = member-scoped CreditToken.
+            # PAYUNi UPP: 1 = agreement card.  MindGym has one merchant store
+            # and must not share a card token with other stores in the PAYUNi
+            # member account, so scope the token to this store (2).
             # Do not expose these values in the browser form; they remain in
             # the encrypted provider envelope.
             payload.update({
                 "CreditToken": request.recurring_consent.customer_reference,
                 "UseTokenType": "1",
-                "CreditTokenType": "1",
+                "CreditTokenType": "2",
             })
         encrypted_info = self.encrypt_info(payload)
         return CheckoutSession(
             form_action=self.endpoint,
             form_fields={
                 "MerID": self._settings.merchant_id,
-                "Version": "1.0",
+                "Version": "2.0",
                 "EncryptInfo": encrypted_info,
                 "HashInfo": self.hash_info(encrypted_info),
             },
@@ -222,7 +243,11 @@ class PayUniSandboxInitialOutcomeResolver:
             raise ValueError("unsupported order currency or amount")
         if payload.get("TradeAmt") != str(event.amount_cents // 100):
             raise ValueError("callback amount does not match order")
-        if status == "SUCCESS":
+        # UPP v2 documents a paid card response as SUCCESS + TradeStatus 1 +
+        # PaymentType 1.  UNKNOWN, UNAPPROVED and error codes are not a safe
+        # final failure mapping: they must be reconciled by the documented
+        # transaction-query adapter once the merchant contract is approved.
+        if status == "SUCCESS" and payload.get("TradeStatus") == "1" and payload.get("PaymentType") == "1":
             transaction_ref = payload.get("TradeNo", "")
             if not transaction_ref:
                 raise ValueError("successful callback has no transaction reference")
@@ -233,11 +258,7 @@ class PayUniSandboxInitialOutcomeResolver:
                 provider_token_ref=event.provider_token_ref,
                 token_ciphertext=event.token_ciphertext,
             )
-        if status == "FAILED":
-            return VerifiedPaymentOutcome(
-                "failed", payload.get("TradeNo", ""), payload.get("RespondCode"),
-            )
-        raise ProviderNotConfigured("PAYUNi callback status requires query or contract mapping")
+        raise ProviderNotConfigured("PAYUNi callback requires transaction-query or contract outcome mapping")
 
 
 def sandbox_provider_from_environment() -> PayUniUppProvider | None:

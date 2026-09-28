@@ -63,12 +63,12 @@ def verify(connection) -> list[str]:
 
     for signature, label in (
         ("billing.claim_outbox_events(integer,integer)", "billing claim function"),
-        ("billing.create_pending_checkout(uuid,text,text,text,timestamptz,timestamptz,text)", "billing checkout function"),
-        ("billing.record_provider_event(text,text,text,boolean,jsonb)", "billing callback receipt function"),
+        ("billing.create_pending_checkout(uuid,text,text,text,timestamptz,text,timestamptz,text,timestamptz,text)", "billing checkout function"),
+        ("billing.record_provider_event(text,text,text,boolean,jsonb,text,text)", "billing callback receipt function"),
         ("billing.get_order_for_user(uuid,uuid)", "billing order read function"),
         ("billing.get_resumable_checkout_for_user(uuid,uuid)", "billing resume read function"),
         ("billing.get_overview_for_user(uuid)", "billing overview function"),
-        ("billing.apply_initial_payment_outcome(uuid,text,text,text,timestamptz)", "billing payment outcome function"),
+        ("billing.apply_initial_payment_outcome(uuid,text,text,text,text,text,timestamptz)", "billing payment outcome function"),
         ("billing.get_provider_event_for_processing(uuid)", "billing worker event function"),
         ("billing.complete_outbox_event(uuid)", "billing outbox completion function"),
         ("billing.reschedule_outbox_event(uuid,text,integer,integer)", "billing outbox retry function"),
