@@ -54,7 +54,8 @@ class OrderHistoryResponse(BaseModel):
 
 
 class BillingOverviewResponse(BaseModel):
-    # This is a billing read model, not the canonical entitlement until P3 cutover.
+    tier: str = "free"
+    is_pro: bool = False
     subscription_id: str | None = None
     plan_code: str | None = None
     subscription_status: str | None = None
@@ -62,6 +63,7 @@ class BillingOverviewResponse(BaseModel):
     next_charge_at: str | None = None
     cancel_at: str | None = None
     orders: list[OrderHistoryResponse]
+
 
 
 class CancelSubscriptionResponse(BaseModel):
@@ -172,14 +174,19 @@ async def get_billing_overview(request: Request, authorization: str | None = Hea
         raise HTTPException(status_code=503, detail="Billing is unavailable")
     try:
         user_id = await repository.authenticated_user_id(_bearer_token(authorization))
-        overview = await _service(request).get_overview(user_id)
+        service = _service(request)
+        tier = await service.get_canonical_entitlement(user_id)
+        overview = await service.get_overview(user_id)
     except RepositoryError as exc:
         if str(exc) == "invalid authentication token":
             raise HTTPException(status_code=401, detail="Invalid token") from None
         raise HTTPException(status_code=503, detail="Billing overview unavailable") from None
+    is_pro = (tier == "pro")
     if overview is None:
-        return BillingOverviewResponse(orders=[])
+        return BillingOverviewResponse(tier=tier, is_pro=is_pro, orders=[])
     return BillingOverviewResponse(
+        tier=tier,
+        is_pro=is_pro,
         subscription_id=overview.subscription_id, plan_code=overview.plan_code,
         subscription_status=overview.subscription_status,
         current_period_ends_at=overview.current_period_ends_at.isoformat() if overview.current_period_ends_at else None,
@@ -193,6 +200,7 @@ async def get_billing_overview(request: Request, authorization: str | None = Hea
             expires_at=order.expires_at.isoformat(),
         ) for order in overview.orders],
     )
+
 
 
 @router.post("/orders/{order_id}/resume", response_model=CheckoutResponse)
