@@ -230,10 +230,11 @@ flowchart TD
 
 ### C3：付款前 UI 與 PAYUNi 導轉（對接 P2 API）
 
-- [ ] C3.1 實作結帳確認頁與條款／隱私／退款同意 Checkbox（不可預勾）。
-- [ ] C3.2 實作獨立的自動續扣同意 Checkbox（不可預勾），並顯示方案金額、計費週期與取消方式說明。
-- [ ] C3.3 串接 `POST /v1/billing/checkout-sessions` API，帶入 `terms_version` 與 `recurring_consent` 參數。
-- [ ] C3.4 實作隱藏 DOM 表單自動 `.submit()` 導向 PAYUNi UPP 刷卡頁。
+- [x] C3.1 實作結帳確認頁 (`CheckoutModal.tsx`) 與條款／隱私／退款同意 Checkbox（不可預勾）(2026-09-28)。
+- [x] C3.2 實作獨立的自動續扣同意 Checkbox（不可預勾），並顯示方案金額、計費週期與取消方式說明 (2026-09-28)。
+- [x] C3.3 串接 `POST /v1/billing/checkout-sessions` API (`billing.ts` / `createCheckoutSession`)，帶入 `terms_version` 與 `recurring_consent` 參數 (2026-09-28)。
+- [x] C3.4 實作隱藏 DOM 表單自動 `.submit()` (`submitPayuniForm`) 導向 PAYUNi UPP 刷卡頁 (2026-09-28)。
+
 
 ### C4：付款後畫面與訂閱管理（對接 P3 API）
 

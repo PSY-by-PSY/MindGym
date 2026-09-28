@@ -1,4 +1,6 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
+
 import react from '@vitejs/plugin-react'
 import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -42,4 +44,8 @@ export default defineConfig({
       },
     }),
   ],
+  test: {
+    exclude: ['**/node_modules/**', '**/e2e/**'],
+  },
 })
+
