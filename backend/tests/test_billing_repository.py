@@ -130,4 +130,40 @@ class BillingRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(tier, "pro")
 
+    async def test_process_admin_refund_calls_rpc_with_expected_payload(self):
+        captured = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured["path"] = request.url.path
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json=[{
+                "refund_id": "ref-999",
+                "order_id": "ord-111",
+                "status": "succeeded",
+                "amount_cents": 9900,
+                "reason": "customer_request",
+                "succeeded_at": "2026-09-28T17:00:00+00:00",
+            }])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            res = await repository.process_admin_refund(
+                order_id="ord-111",
+                amount_cents=9900,
+                reason="customer_request",
+                requested_by="admin-1",
+                idempotency_key="refund-idem-1",
+                provider_refund_ref="PAYUNI-REFUND-1",
+            )
+
+        self.assertEqual(captured["path"], "/rest/v1/rpc/process_admin_refund")
+        self.assertEqual(captured["body"]["p_order_id"], "ord-111")
+        self.assertEqual(captured["body"]["p_amount_cents"], 9900)
+        self.assertEqual(captured["body"]["p_reason"], "customer_request")
+        self.assertEqual(captured["body"]["p_idempotency_key"], "refund-idem-1")
+        self.assertEqual(res.refund_id, "ref-999")
+        self.assertEqual(res.status, "succeeded")
+
+
 

@@ -607,11 +607,11 @@ flowchart LR
 | P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
 | P1：資料基礎 | 本機驗收通過，尚未正式採用 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox；全新本機 Supabase migration／verifier／integration suite | 正式採用授權與正式環境接管流程 |
 | P2：初始付款流程 | P2.1 & P2.2 本機驗收通過；P2.3 sandbox 外部驗收阻擋中 | checkout 明確續扣同意、約定卡 UPP v2 adapter、Fernet vault、驗簽 receipt／callback outbox、成功結果的金額／交易型別檢查、原子 Token 保存與 outcome transaction、受控 one-shot worker、owner read APIs、topic-specific claim／defer／dead-letter；單元、router、callback simulator 與 migration static tests；隔離 Local Supabase DB migration suite（24 項通過）；FastAPI 本機端到端閉環測試（8 項全過，含 plans、checkout、order、signed callback、worker、DB outcome 斷言、/v1/billing/me 與冪等重送） | PAYUNi Token／IP 核准、真實 sandbox E2E、正式環境部署 scheduler 與告警 |
-| P3：權益與帳務操作 | 進行中 (P3.1 & P3.2 已完成) | P3.1 取消自動續扣、P3.2 Canonical entitlement cutover（`mg_0005_entitlement_cutover` migration 改寫 `is_pro`／`get_my_entitlements`、`backend/app.py` `_subscription_tier` 讀取權益） | P3.3 管理員退款、P3.4 測試矩陣 |
+| P3：權益與帳務操作 | 進行中 (P3.1, P3.2 & P3.3 已完成) | P3.1 取消自動續扣、P3.2 Canonical entitlement cutover、P3.3 管理員退款（`mg_0006_billing_refunds` migration [process_admin_refund RPC、原子撤銷權益]、`POST /v1/admin/billing/refunds` API 與測試） | P3.4 測試矩陣 |
 | P4：自動續扣營運 | 未開始 | outbox schema、callback job、service-role health／dead-letter read model 已備妥 | token contract、renewal worker、7 天寬限、對帳、告警／runbook |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
 
-**目前位置：P2 本機驗收切片全數通過；P3 進行中（P3.1 取消自動續扣與 P3.2 權益切換 Cutover 已完成）。**
+**目前位置：P2 本機驗收切片全數通過；P3 進行中（P3.1 取消自動續扣、P3.2 權益切換與 P3.3 管理員退款已完成）。**
 只有 UPP v2 文件明確定義的「信用卡成功」組合會被 sandbox resolver 映射為
 `succeeded`；其他 callback 會安全 defer，等待 P4 的交易查詢 adapter 與商戶 contract。
 
@@ -630,9 +630,11 @@ flowchart LR
 - [x] P2.2 本機端到端閉環測試（8/8 全過：plans -> checkout -> orders query -> signed callback -> callback worker -> DB assertion [order=paid, sub=active, token sealed & decryptable in payment_methods, provider_events cleansed] -> /v1/billing/me -> 冪等重送；由 `scripts/verify_p2_e2e.py` 自動化）。
 - [x] P3.1 取消自動續扣：`mg_0004_billing_lifecycle` RPC (`cancel_subscription_for_user`)、PAYUNi `/api/credit_bind/cancel` token cancel adapter、`POST /v1/billing/subscription/cancel` endpoint 與完整單元/repository/router 測試（2026-09-28）。
 - [x] P3.2 Canonical Entitlement Cutover：`mg_0005_entitlement_cutover` migration (`is_pro`, `get_my_entitlements`)、`backend/app.py` `_subscription_tier` 讀取權益與 Cutover 測試（2026-09-28）。
+- [x] P3.3 管理員退款機制：`mg_0006_billing_refunds` migration (`process_admin_refund` RPC, 原子撤銷權益與 outbox 佇列)、`POST /v1/admin/billing/refunds` API 端點與完整單元/repository/router 測試（2026-09-28）。
 - [ ] P2.3 PAYUNi 核准後的真實 sandbox E2E：首次授權、成功／失敗 callback、Token 保存、重送、查單與取消。
 - [ ] worker 的正式部署／排程、告警與 dead-letter 人工處理 runbook。
-- [ ] P3.3 退款；P4 自動續扣、寬限與對帳。
+- [ ] P4 自動續扣、寬限與對帳。
+
 
 
 

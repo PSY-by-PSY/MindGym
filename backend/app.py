@@ -17,7 +17,8 @@ import usage_metering
 from backend.billing.payuni import sandbox_provider_from_environment
 from backend.billing.providers import DisabledPayUniProvider
 from backend.billing.repository import BillingRepository
-from backend.billing.router import router as billing_router
+from backend.billing.router import admin_router as admin_billing_router, router as billing_router
+
 from backend.billing.service import BillingService
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,6 +79,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MindGym API", lifespan=lifespan)
 app.include_router(billing_router)
+app.include_router(admin_billing_router)
+
 
 app.add_middleware(
     CORSMiddleware,

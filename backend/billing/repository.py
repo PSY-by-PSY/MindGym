@@ -85,6 +85,17 @@ class CancelSubscriptionResult:
 
 
 @dataclass(frozen=True)
+class RefundResult:
+    refund_id: str
+    order_id: str
+    status: str
+    amount_cents: int
+    reason: str
+    succeeded_at: datetime
+
+
+
+@dataclass(frozen=True)
 class OutboxEvent:
     id: str
     topic: str
@@ -323,6 +334,43 @@ class BillingRepository:
             provider_token_ref=row.get("provider_token_ref"),
             token_ciphertext=row.get("token_ciphertext"),
         )
+
+    async def process_admin_refund(
+        self,
+        *,
+        order_id: str,
+        amount_cents: int,
+        reason: str,
+        requested_by: str,
+        idempotency_key: str,
+        provider_refund_ref: str | None = None,
+    ) -> RefundResult:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/process_admin_refund",
+            headers=self._headers,
+            json={
+                "p_order_id": order_id,
+                "p_amount_cents": amount_cents,
+                "p_reason": reason,
+                "p_requested_by": requested_by,
+                "p_idempotency_key": idempotency_key,
+                "p_provider_refund_ref": provider_refund_ref,
+            },
+        )
+        self._raise_for_error(response, "process admin refund")
+        rows = response.json()
+        if not rows:
+            raise RepositoryError("process admin refund returned empty")
+        row = rows[0]
+        return RefundResult(
+            refund_id=row["refund_id"],
+            order_id=row["order_id"],
+            status=row["status"],
+            amount_cents=row["amount_cents"],
+            reason=row["reason"],
+            succeeded_at=datetime.fromisoformat(row["succeeded_at"].replace("Z", "+00:00")),
+        )
+
 
     async def claim_callback_outbox_events(self, *, limit: int = 20) -> list[OutboxEvent]:
         response = await self._client.post(

@@ -4,7 +4,8 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from backend.billing.errors import ProviderNotConfigured, RepositoryError
-from backend.billing.service import BillingService, CreateCheckoutCommand
+from backend.billing.service import BillingService, CreateCheckoutCommand, ProcessAdminRefundCommand
+
 
 
 router = APIRouter(prefix="/v1/billing", tags=["billing"])
@@ -68,6 +69,22 @@ class CancelSubscriptionResponse(BaseModel):
     status: str
     current_period_ends_at: str
     cancel_at: str
+
+
+class AdminRefundRequest(BaseModel):
+    order_id: str = Field(min_length=1, max_length=100)
+    amount_cents: int = Field(gt=0)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class AdminRefundResponse(BaseModel):
+    refund_id: str
+    order_id: str
+    status: str
+    amount_cents: int
+    reason: str
+    succeeded_at: str
+
 
 
 
@@ -244,3 +261,48 @@ async def payuni_callback(request: Request):
     except RepositoryError:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Callback persistence unavailable") from None
     return {"status": "accepted"}
+
+
+admin_router = APIRouter(prefix="/v1/admin/billing", tags=["admin_billing"])
+
+
+@admin_router.post("/refunds", response_model=AdminRefundResponse, status_code=status.HTTP_201_CREATED)
+async def process_admin_refund(
+    body: AdminRefundRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None),
+):
+    if not idempotency_key or len(idempotency_key) > 255:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Idempotency-Key is required")
+    repository = getattr(request.app.state, "billing_repository", None)
+    if repository is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing is unavailable")
+    try:
+        requested_by = await repository.authenticated_user_id(_bearer_token(authorization))
+        result = await _service(request).process_admin_refund(
+            ProcessAdminRefundCommand(
+                order_id=body.order_id,
+                amount_cents=body.amount_cents,
+                reason=body.reason,
+                requested_by=requested_by,
+                idempotency_key=idempotency_key,
+            )
+        )
+    except RepositoryError as exc:
+        if str(exc) == "invalid authentication token":
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        if "cannot refund non-paid order" in str(exc).lower():
+            raise HTTPException(status_code=409, detail="Order cannot be refunded") from None
+        if "order not found" in str(exc).lower():
+            raise HTTPException(status_code=404, detail="Order not found") from None
+        raise HTTPException(status_code=503, detail="Refund processing unavailable") from None
+    return AdminRefundResponse(
+        refund_id=result.refund_id,
+        order_id=result.order_id,
+        status=result.status,
+        amount_cents=result.amount_cents,
+        reason=result.reason,
+        succeeded_at=result.succeeded_at.isoformat(),
+    )
+

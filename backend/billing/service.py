@@ -9,8 +9,10 @@ from backend.billing.repository import (
     BillingRepository,
     CancelSubscriptionResult,
     PendingCheckout,
+    RefundResult,
     ResumableCheckout,
 )
+
 
 
 @dataclass(frozen=True)
@@ -34,7 +36,17 @@ class ResumedCheckout:
     provider_session: CheckoutSession
 
 
+@dataclass(frozen=True)
+class ProcessAdminRefundCommand:
+    order_id: str
+    amount_cents: int
+    reason: str
+    requested_by: str
+    idempotency_key: str
+
+
 class BillingService:
+
     def __init__(self, repository: BillingRepository, provider: PaymentProvider, callback_url: str):
         self._repository = repository
         self._provider = provider
@@ -131,3 +143,22 @@ class BillingService:
             except Exception:
                 pass
         return result
+
+    async def process_admin_refund(self, command: ProcessAdminRefundCommand) -> RefundResult:
+        provider_ref = None
+        if hasattr(self._provider, "refund_payment"):
+            try:
+                provider_ref = await self._provider.refund_payment(
+                    order_id=command.order_id, amount_cents=command.amount_cents
+                )
+            except Exception:
+                pass
+        return await self._repository.process_admin_refund(
+            order_id=command.order_id,
+            amount_cents=command.amount_cents,
+            reason=command.reason,
+            requested_by=command.requested_by,
+            idempotency_key=command.idempotency_key,
+            provider_refund_ref=provider_ref,
+        )
+

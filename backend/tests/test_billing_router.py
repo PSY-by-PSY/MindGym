@@ -8,7 +8,8 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from backend.billing.router import router
+from backend.billing.router import admin_router, router
+
 
 
 class BillingRouterTests(unittest.TestCase):
@@ -110,7 +111,89 @@ class BillingRouterTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["detail"], "No active subscription found")
 
+    def test_admin_refund_requires_bearer_token(self):
+        from unittest.mock import MagicMock
+        app = FastAPI()
+        app.include_router(admin_router)
+        app.state.billing_repository = MagicMock()
+        client = TestClient(app)
+        response = client.post("/v1/admin/billing/refunds", headers={"Idempotency-Key": "idem-1"}, json={"order_id": "ord-1", "amount_cents": 9900, "reason": "test"})
+        self.assertEqual(response.status_code, 401)
+
+
+    def test_admin_refund_requires_idempotency_key(self):
+        from unittest.mock import MagicMock
+        app = FastAPI()
+        app.include_router(admin_router)
+        app.state.billing_repository = MagicMock()
+        client = TestClient(app)
+        response = client.post("/v1/admin/billing/refunds", headers={"Authorization": "Bearer fake"}, json={"order_id": "ord-1", "amount_cents": 9900, "reason": "test"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Idempotency-Key is required")
+
+    def test_admin_refund_success(self):
+        from datetime import datetime, timezone
+        from unittest.mock import AsyncMock, MagicMock
+        from backend.billing.repository import RefundResult
+
+        app = FastAPI()
+        app.include_router(admin_router)
+
+        fake_repo = MagicMock()
+        fake_repo.authenticated_user_id = AsyncMock(return_value="admin-123")
+        fake_service = MagicMock()
+        now = datetime.now(timezone.utc)
+        fake_service.process_admin_refund = AsyncMock(return_value=RefundResult(
+            refund_id="ref-123",
+            order_id="ord-123",
+            status="succeeded",
+            amount_cents=9900,
+            reason="customer_request",
+            succeeded_at=now,
+        ))
+
+        app.state.billing_repository = fake_repo
+        app.state.billing_service = fake_service
+
+        client = TestClient(app)
+        response = client.post(
+            "/v1/admin/billing/refunds",
+            headers={"Authorization": "Bearer fake-jwt-token", "Idempotency-Key": "refund-idem-1"},
+            json={"order_id": "ord-123", "amount_cents": 9900, "reason": "customer_request"},
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["refund_id"], "ref-123")
+        self.assertEqual(data["order_id"], "ord-123")
+        self.assertEqual(data["status"], "succeeded")
+        self.assertEqual(data["amount_cents"], 9900)
+
+    def test_admin_refund_non_paid_order_returns_409(self):
+        from unittest.mock import AsyncMock, MagicMock
+        from backend.billing.errors import RepositoryError
+
+        app = FastAPI()
+        app.include_router(admin_router)
+
+        fake_repo = MagicMock()
+        fake_repo.authenticated_user_id = AsyncMock(return_value="admin-123")
+        fake_service = MagicMock()
+        fake_service.process_admin_refund = AsyncMock(side_effect=RepositoryError("cannot refund non-paid order"))
+
+        app.state.billing_repository = fake_repo
+        app.state.billing_service = fake_service
+
+        client = TestClient(app)
+        response = client.post(
+            "/v1/admin/billing/refunds",
+            headers={"Authorization": "Bearer fake-jwt-token", "Idempotency-Key": "refund-idem-1"},
+            json={"order_id": "ord-pending", "amount_cents": 9900, "reason": "test"},
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["detail"], "Order cannot be refunded")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

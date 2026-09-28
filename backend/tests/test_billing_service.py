@@ -46,7 +46,6 @@ class FakeRepository:
         return getattr(self, "canonical_entitlement", "pro")
 
     async def cancel_subscription_for_user(self, **kwargs):
-
         self.calls.append(kwargs)
         from backend.billing.repository import CancelSubscriptionResult
         now = datetime.now(timezone.utc)
@@ -58,6 +57,19 @@ class FakeRepository:
             provider_token_ref="ref-1",
             token_ciphertext=getattr(self, "token_ciphertext", None),
         )
+
+    async def process_admin_refund(self, **kwargs):
+        self.calls.append(kwargs)
+        from backend.billing.repository import RefundResult
+        return RefundResult(
+            refund_id="ref-1",
+            order_id=kwargs["order_id"],
+            status="succeeded",
+            amount_cents=kwargs["amount_cents"],
+            reason=kwargs["reason"],
+            succeeded_at=datetime.now(timezone.utc),
+        )
+
 
 
 class ReadyProvider:
@@ -158,7 +170,29 @@ class BillingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repository.calls, [{"user_id": "user-1", "reason": "user_canceled_renewal"}])
         self.assertEqual(provider.canceled_tokens, ["unsealed:sealed-hash-123"])
 
+    async def test_process_admin_refund_delegates_to_repository(self):
+        from backend.billing.service import ProcessAdminRefundCommand
+        repository = FakeRepository()
+        service = BillingService(repository, ReadyProvider(), "https://api.example.invalid/callback")
+
+        result = await service.process_admin_refund(
+            ProcessAdminRefundCommand(
+                order_id="ord-1",
+                amount_cents=9900,
+                reason="customer_request",
+                requested_by="admin-1",
+                idempotency_key="refund-idem-1",
+            )
+        )
+
+        self.assertEqual(result.refund_id, "ref-1")
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(repository.calls[0]["order_id"], "ord-1")
+        self.assertEqual(repository.calls[0]["amount_cents"], 9900)
+        self.assertEqual(repository.calls[0]["reason"], "customer_request")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
