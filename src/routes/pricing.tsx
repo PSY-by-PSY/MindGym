@@ -29,13 +29,6 @@ function PricingPage() {
       if (!cancelled) setIsLoggedIn(!!data.session)
     })
 
-    if (!isSupabaseConfigured) {
-      setLoading(false)
-      return
-    }
-    const timeout = window.setTimeout(() => {
-      if (!cancelled) setLoading(false)
-    }, 5_000)
     void fetchPricing().then((bundle) => {
       if (cancelled) return
       setPlans(bundle?.plans ?? null)
@@ -43,12 +36,11 @@ function PricingPage() {
     })
     return () => {
       cancelled = true
-      window.clearTimeout(timeout)
     }
   }, [])
 
   const handleSelectPlan = (plan: PricingPlan) => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn && !import.meta.env.DEV) {
       void navigate({ to: '/login', search: { redirect: '/pricing' } })
       return
     }
@@ -119,7 +111,7 @@ function PricingPage() {
                     onClick={() => handleSelectPlan(plan)}
                     className="mt-5 w-full rounded-xl bg-primary py-2.5 px-4 text-center text-sm font-extrabold text-primary-foreground transition hover:bg-primary/90"
                   >
-                    {isLoggedIn ? `選擇 ${PERIOD_LABEL[plan.period]}繳方案` : '登入以訂閱方案'}
+                    {isLoggedIn || import.meta.env.DEV ? `選擇 ${PERIOD_LABEL[plan.period]}繳方案` : '登入以訂閱方案'}
                   </button>
                 </article>
               ))}

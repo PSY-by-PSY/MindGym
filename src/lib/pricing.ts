@@ -71,47 +71,103 @@ export function savingsPercent(
   return Math.round((1 - yearlyCents / monthlyTimesTwelve) * 100)
 }
 
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+
+const DEFAULT_PLANS: PricingPlan[] = [
+  {
+    planCode: 'monthly',
+    period: 'month',
+    amountCents: 39900,
+    foundingAmountCents: null,
+    currency: 'TWD',
+    sortOrder: 1,
+  },
+  {
+    planCode: 'yearly',
+    period: 'year',
+    amountCents: 399000,
+    foundingAmountCents: null,
+    currency: 'TWD',
+    sortOrder: 2,
+  },
+]
+
 /** 一次取回付費牆需要的所有遠端資料。任何一項失敗都不會 throw。 */
 export async function fetchPricing(): Promise<PricingBundle | null> {
-  const [plansRes, configRes, seatsRes] = await Promise.all([
-    supabase
-      .from('pricing_config')
-      .select('plan_code, period, amount_cents, founding_amount_cents, currency, sort_order')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('paywall_config')
-      .select('founding_quota_total, founding_enabled, variant')
-      .eq('id', 1)
-      .maybeSingle(),
-    supabase.rpc('founding_seats_remaining'),
-  ])
+  const isConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 
-  // 價格拿不到就不能顯示付費牆——沒有價格的付費牆沒有意義，也不該用假價格湊。
-  if (plansRes.error || !plansRes.data || plansRes.data.length === 0) {
-    console.error('[pricing] 取得方案失敗', plansRes.error)
-    return null
+  if (isConfigured) {
+    try {
+      const [plansRes, configRes, seatsRes] = await Promise.all([
+        supabase
+          .from('pricing_config')
+          .select('plan_code, period, amount_cents, founding_amount_cents, currency, sort_order')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('paywall_config')
+          .select('founding_quota_total, founding_enabled, variant')
+          .eq('id', 1)
+          .maybeSingle(),
+        supabase.rpc('founding_seats_remaining'),
+      ])
+
+      if (!plansRes.error && plansRes.data && plansRes.data.length > 0) {
+        const plans: PricingPlan[] = plansRes.data.map((r) => ({
+          planCode: r.plan_code as string,
+          period: r.period as PlanPeriod,
+          amountCents: r.amount_cents as number,
+          foundingAmountCents: (r.founding_amount_cents ?? null) as number | null,
+          currency: (r.currency ?? 'TWD') as string,
+          sortOrder: (r.sort_order ?? 0) as number,
+        }))
+
+        const config: PaywallConfig = {
+          foundingQuotaTotal: (configRes.data?.founding_quota_total ?? 0) as number,
+          foundingEnabled: (configRes.data?.founding_enabled ?? false) as boolean,
+          variant: ((configRes.data?.variant ?? 'A') as 'A' | 'B'),
+        }
+
+        const foundingSeatsRemaining =
+          seatsRes.error || seatsRes.data == null ? null : (seatsRes.data as number)
+
+        return { plans, config, foundingSeatsRemaining }
+      }
+    } catch {
+      // Proceed to FastAPI fallback
+    }
   }
 
-  const plans: PricingPlan[] = plansRes.data.map((r) => ({
-    planCode: r.plan_code as string,
-    period: r.period as PlanPeriod,
-    amountCents: r.amount_cents as number,
-    foundingAmountCents: (r.founding_amount_cents ?? null) as number | null,
-    currency: (r.currency ?? 'TWD') as string,
-    sortOrder: (r.sort_order ?? 0) as number,
-  }))
-
-  const config: PaywallConfig = {
-    foundingQuotaTotal: (configRes.data?.founding_quota_total ?? 0) as number,
-    foundingEnabled: (configRes.data?.founding_enabled ?? false) as boolean,
-    variant: ((configRes.data?.variant ?? 'A') as 'A' | 'B'),
+  // Fallback: Fetch from FastAPI /v1/billing/plans or use local plans
+  try {
+    const res = await fetch(`${API_URL}/v1/billing/plans`)
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data) && data.length > 0) {
+        const plans: PricingPlan[] = data.map((r: any, idx: number) => ({
+          planCode: r.code || r.planCode,
+          period: (r.period || (r.code === 'yearly' ? 'year' : 'month')) as PlanPeriod,
+          amountCents: r.amount_cents ?? r.amountCents,
+          foundingAmountCents: null,
+          currency: r.currency || 'TWD',
+          sortOrder: idx + 1,
+        }))
+        return {
+          plans,
+          config: { foundingQuotaTotal: 0, foundingEnabled: false, variant: 'A' },
+          foundingSeatsRemaining: null,
+        }
+      }
+    }
+  } catch {
+    // Proceed to default plans
   }
 
-  const foundingSeatsRemaining =
-    seatsRes.error || seatsRes.data == null ? null : (seatsRes.data as number)
-
-  return { plans, config, foundingSeatsRemaining }
+  return {
+    plans: DEFAULT_PLANS,
+    config: { foundingQuotaTotal: 0, foundingEnabled: false, variant: 'A' },
+    foundingSeatsRemaining: null,
+  }
 }
 
 /** 創始會員價目前是否適用：後台開關開著、名額查得到且還有剩。 */
