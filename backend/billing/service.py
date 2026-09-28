@@ -162,3 +162,29 @@ class BillingService:
             provider_refund_ref=provider_ref,
         )
 
+    async def schedule_renewals(
+        self, *, lookahead_interval_hours: int = 24, limit: int = 50
+    ):
+        return await self._repository.schedule_renewals(
+            lookahead_interval_hours=lookahead_interval_hours, limit=limit
+        )
+
+    async def apply_renewal_outcome(
+        self,
+        *,
+        order_id: str,
+        outcome: str,
+        provider_transaction_ref: str | None = None,
+        failure_code: str | None = None,
+        effective_at: datetime | None = None,
+        grace_days: int = 7,
+    ):
+        return await self._repository.apply_renewal_outcome(
+            order_id=order_id,
+            outcome=outcome,
+            provider_transaction_ref=provider_transaction_ref,
+            failure_code=failure_code,
+            effective_at=effective_at,
+            grace_days=grace_days,
+        )
+

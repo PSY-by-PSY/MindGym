@@ -165,5 +165,94 @@ class BillingRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.refund_id, "ref-999")
         self.assertEqual(res.status, "succeeded")
 
+    async def test_schedule_renewals_calls_rpc_with_expected_payload(self):
+        captured = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured["path"] = request.url.path
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json=[{
+                "subscription_id": "sub-100",
+                "order_id": "ord-200",
+                "merchant_order_no": "RNW-sub-100-20260928",
+                "amount_cents": 9900,
+                "currency": "TWD",
+                "user_id": "user-300",
+                "next_charge_at": "2026-09-29T12:00:00+00:00",
+            }])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            res = await repository.schedule_renewals(lookahead_interval_hours=48, limit=10)
+
+        self.assertEqual(captured["path"], "/rest/v1/rpc/schedule_renewals")
+        self.assertEqual(captured["headers"]["accept-profile"], "billing")
+        self.assertEqual(captured["body"]["p_lookahead_interval"], "48 hours")
+        self.assertEqual(captured["body"]["p_limit"], 10)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0].subscription_id, "sub-100")
+        self.assertEqual(res[0].order_id, "ord-200")
+        self.assertEqual(res[0].amount_cents, 9900)
+
+    async def test_get_renewal_order_for_processing_returns_data(self):
+        captured = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured["path"] = request.url.path
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json=[{
+                "order_id": "ord-200",
+                "subscription_id": "sub-100",
+                "user_id": "user-300",
+                "merchant_order_no": "RNW-sub-100-20260928",
+                "amount_cents": 9900,
+                "currency": "TWD",
+                "plan_code": "monthly",
+                "token_ciphertext": "enc-token",
+                "provider_token_ref": "tok-ref",
+                "subscription_status": "active",
+                "grace_ends_at": None,
+            }])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            res = await repository.get_renewal_order_for_processing(order_id="ord-200")
+
+        self.assertEqual(captured["path"], "/rest/v1/rpc/get_renewal_order_for_processing")
+        self.assertEqual(res.order_id, "ord-200")
+        self.assertEqual(res.token_ciphertext, "enc-token")
+        self.assertEqual(res.subscription_status, "active")
+
+    async def test_apply_renewal_outcome_succeeded_calls_rpc(self):
+        captured = {}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured["path"] = request.url.path
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json=[{
+                "order_id": "ord-200",
+                "order_status": "paid",
+                "subscription_id": "sub-100",
+                "subscription_status": "active",
+                "already_processed": False,
+                "grace_ends_at": None,
+            }])
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            repository = BillingRepository(client, "https://supabase.example.invalid", "service-key")
+            res = await repository.apply_renewal_outcome(
+                order_id="ord-200",
+                outcome="succeeded",
+                provider_transaction_ref="tx-123",
+            )
+
+        self.assertEqual(captured["path"], "/rest/v1/rpc/apply_renewal_outcome")
+        self.assertEqual(captured["body"]["p_order_id"], "ord-200")
+        self.assertEqual(captured["body"]["p_outcome"], "succeeded")
+        self.assertEqual(captured["body"]["p_provider_transaction_ref"], "tx-123")
+        self.assertEqual(res.order_status, "paid")
+        self.assertEqual(res.subscription_status, "active")
+
 
 

@@ -94,6 +94,41 @@ class RefundResult:
     succeeded_at: datetime
 
 
+@dataclass(frozen=True)
+class ScheduledRenewal:
+    subscription_id: str
+    order_id: str
+    merchant_order_no: str
+    amount_cents: int
+    currency: str
+    user_id: str
+    next_charge_at: datetime
+
+
+@dataclass(frozen=True)
+class RenewalOrderProcessingData:
+    order_id: str
+    subscription_id: str
+    user_id: str
+    merchant_order_no: str
+    amount_cents: int
+    currency: str
+    plan_code: str
+    token_ciphertext: str | None
+    provider_token_ref: str | None
+    subscription_status: str
+    grace_ends_at: datetime | None
+
+
+@dataclass(frozen=True)
+class RenewalOutcomeResult:
+    order_id: str
+    order_status: str
+    subscription_id: str
+    subscription_status: str
+    already_processed: bool
+    grace_ends_at: datetime | None
+
 
 @dataclass(frozen=True)
 class OutboxEvent:
@@ -469,6 +504,102 @@ class BillingRepository:
             updated_at=datetime.fromisoformat(row["updated_at"].replace("Z", "+00:00")),
             payload=row["payload"],
         ) for row in response.json()]
+
+    async def schedule_renewals(
+        self, *, lookahead_interval_hours: int = 24, limit: int = 50
+    ) -> list[ScheduledRenewal]:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/schedule_renewals",
+            headers=self._headers,
+            json={
+                "p_lookahead_interval": f"{lookahead_interval_hours} hours",
+                "p_limit": limit,
+            },
+        )
+        self._raise_for_error(response, "schedule renewals")
+        return [
+            ScheduledRenewal(
+                subscription_id=row["subscription_id"],
+                order_id=row["order_id"],
+                merchant_order_no=row["merchant_order_no"],
+                amount_cents=row["amount_cents"],
+                currency=row["currency"],
+                user_id=row["user_id"],
+                next_charge_at=datetime.fromisoformat(row["next_charge_at"].replace("Z", "+00:00")),
+            )
+            for row in response.json()
+        ]
+
+    async def get_renewal_order_for_processing(
+        self, *, order_id: str
+    ) -> RenewalOrderProcessingData:
+        response = await self._client.post(
+            f"{self._base_url}/rpc/get_renewal_order_for_processing",
+            headers=self._headers,
+            json={"p_order_id": order_id},
+        )
+        self._raise_for_error(response, "get renewal order for processing")
+        rows = response.json()
+        if not rows:
+            raise RepositoryError("renewal order not found or not eligible for processing")
+        row = rows[0]
+        grace_ends = None
+        if row.get("grace_ends_at"):
+            grace_ends = datetime.fromisoformat(row["grace_ends_at"].replace("Z", "+00:00"))
+        return RenewalOrderProcessingData(
+            order_id=row["order_id"],
+            subscription_id=row["subscription_id"],
+            user_id=row["user_id"],
+            merchant_order_no=row["merchant_order_no"],
+            amount_cents=row["amount_cents"],
+            currency=row["currency"],
+            plan_code=row["plan_code"],
+            token_ciphertext=row.get("token_ciphertext"),
+            provider_token_ref=row.get("provider_token_ref"),
+            subscription_status=row["subscription_status"],
+            grace_ends_at=grace_ends,
+        )
+
+    async def apply_renewal_outcome(
+        self,
+        *,
+        order_id: str,
+        outcome: str,
+        provider_transaction_ref: str | None = None,
+        failure_code: str | None = None,
+        effective_at: datetime | None = None,
+        grace_days: int = 7,
+    ) -> RenewalOutcomeResult:
+        payload: dict[str, Any] = {
+            "p_order_id": order_id,
+            "p_outcome": outcome,
+            "p_provider_transaction_ref": provider_transaction_ref,
+            "p_failure_code": failure_code,
+            "p_grace_days": grace_days,
+        }
+        if effective_at is not None:
+            payload["p_effective_at"] = effective_at.isoformat()
+        response = await self._client.post(
+            f"{self._base_url}/rpc/apply_renewal_outcome",
+            headers=self._headers,
+            json=payload,
+        )
+        self._raise_for_error(response, "apply renewal outcome")
+        rows = response.json()
+        if not rows:
+            raise RepositoryError("apply renewal outcome returned empty result")
+        row = rows[0]
+        grace_ends = None
+        if row.get("grace_ends_at"):
+            grace_ends = datetime.fromisoformat(row["grace_ends_at"].replace("Z", "+00:00"))
+        return RenewalOutcomeResult(
+            order_id=row["order_id"],
+            order_status=row["order_status"],
+            subscription_id=row["subscription_id"],
+            subscription_status=row["subscription_status"],
+            already_processed=row.get("already_processed", False),
+            grace_ends_at=grace_ends,
+        )
 
     @staticmethod
     def _raise_for_error(response: httpx.Response, operation: str) -> None:
