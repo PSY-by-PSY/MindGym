@@ -25,6 +25,8 @@ import { Route as LoginImport } from './routes/login'
 import { Route as AppImport } from './routes/app'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
+import { Route as SettingsBillingImport } from './routes/settings.billing'
+import { Route as BillingResultImport } from './routes/billing.result'
 import { Route as AppWoopImport } from './routes/app.woop'
 import { Route as AppWeeklyReviewImport } from './routes/app.weekly-review'
 import { Route as AppSelfCompassionImport } from './routes/app.self-compassion'
@@ -123,6 +125,18 @@ const AdminRoute = AdminImport.update({
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const SettingsBillingRoute = SettingsBillingImport.update({
+  id: '/settings/billing',
+  path: '/settings/billing',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const BillingResultRoute = BillingResultImport.update({
+  id: '/billing/result',
+  path: '/billing/result',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -375,6 +389,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWoopImport
       parentRoute: typeof AppImport
     }
+    '/billing/result': {
+      id: '/billing/result'
+      path: '/billing/result'
+      fullPath: '/billing/result'
+      preLoaderRoute: typeof BillingResultImport
+      parentRoute: typeof rootRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/settings/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingImport
+      parentRoute: typeof rootRoute
+    }
     '/app/pro-module/$moduleId': {
       id: '/app/pro-module/$moduleId'
       path: '/pro-module/$moduleId'
@@ -475,6 +503,8 @@ export interface FileRoutesByFullPath {
   '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/woop': typeof AppWoopRoute
+  '/billing/result': typeof BillingResultRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -506,6 +536,8 @@ export interface FileRoutesByTo {
   '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/woop': typeof AppWoopRoute
+  '/billing/result': typeof BillingResultRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -538,6 +570,8 @@ export interface FileRoutesById {
   '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/woop': typeof AppWoopRoute
+  '/billing/result': typeof BillingResultRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -571,6 +605,8 @@ export interface FileRouteTypes {
     | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/woop'
+    | '/billing/result'
+    | '/settings/billing'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -601,6 +637,8 @@ export interface FileRouteTypes {
     | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/woop'
+    | '/billing/result'
+    | '/settings/billing'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -631,6 +669,8 @@ export interface FileRouteTypes {
     | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/woop'
+    | '/billing/result'
+    | '/settings/billing'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -654,6 +694,8 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   TherapistRoute: typeof TherapistRoute
   WelcomeRoute: typeof WelcomeRoute
+  BillingResultRoute: typeof BillingResultRoute
+  SettingsBillingRoute: typeof SettingsBillingRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -671,6 +713,8 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   TherapistRoute: TherapistRoute,
   WelcomeRoute: WelcomeRoute,
+  BillingResultRoute: BillingResultRoute,
+  SettingsBillingRoute: SettingsBillingRoute,
 }
 
 export const routeTree = rootRoute
@@ -696,7 +740,9 @@ export const routeTree = rootRoute
         "/support",
         "/terms",
         "/therapist",
-        "/welcome"
+        "/welcome",
+        "/billing/result",
+        "/settings/billing"
       ]
     },
     "/": {
@@ -792,6 +838,12 @@ export const routeTree = rootRoute
     "/app/woop": {
       "filePath": "app.woop.tsx",
       "parent": "/app"
+    },
+    "/billing/result": {
+      "filePath": "billing.result.tsx"
+    },
+    "/settings/billing": {
+      "filePath": "settings.billing.tsx"
     },
     "/app/pro-module/$moduleId": {
       "filePath": "app.pro-module.$moduleId.tsx",

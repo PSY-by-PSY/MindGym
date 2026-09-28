@@ -98,3 +98,157 @@ export function submitPayuniForm(formAction: string, formFields: Record<string, 
   document.body.appendChild(form)
   form.submit()
 }
+
+export interface OrderStatus {
+  id: string
+  status: string
+  paidAt: string | null
+  expiresAt: string
+  canResume: boolean
+}
+
+/**
+ * 呼叫 GET /v1/billing/orders/{id} 查詢訂單狀態
+ */
+export async function fetchOrderStatus(orderId: string): Promise<OrderStatus> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+
+  if (!token) {
+    throw new Error('未登入或 Session 已過期')
+  }
+
+  const res = await fetch(`${API_URL}/v1/billing/orders/${encodeURIComponent(orderId)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error(`無法查詢訂單狀態 (HTTP ${res.status})`)
+  }
+
+  const data = await res.json()
+  return {
+    id: data.id,
+    status: data.status,
+    paidAt: data.paid_at,
+    expiresAt: data.expires_at,
+    canResume: data.can_resume,
+  }
+}
+
+export interface OrderHistoryItem {
+  id: string
+  status: string
+  kind: string
+  amountCents: number
+  currency: string
+  createdAt: string
+  paidAt: string | null
+  expiresAt: string
+}
+
+export interface BillingOverview {
+  tier: string
+  isPro: boolean
+  subscriptionId: string | null
+  planCode: string | null
+  subscriptionStatus: string | null
+  currentPeriodEndsAt: string | null
+  nextChargeAt: string | null
+  cancelAt: string | null
+  orders: OrderHistoryItem[]
+}
+
+/**
+ * 呼叫 GET /v1/billing/me 取得帳務與訂閱總覽
+ */
+export async function fetchBillingOverview(): Promise<BillingOverview> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+
+  if (!token) {
+    throw new Error('未登入或 Session 已過期')
+  }
+
+  const res = await fetch(`${API_URL}/v1/billing/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error(`無法取得帳務資訊 (HTTP ${res.status})`)
+  }
+
+  const data = await res.json()
+  return {
+    tier: data.tier ?? 'free',
+    isPro: Boolean(data.is_pro),
+    subscriptionId: data.subscription_id,
+    planCode: data.plan_code,
+    subscriptionStatus: data.subscription_status,
+    currentPeriodEndsAt: data.current_period_ends_at,
+    nextChargeAt: data.next_charge_at,
+    cancelAt: data.cancel_at,
+    orders: (data.orders ?? []).map((o: any) => ({
+      id: o.id,
+      status: o.status,
+      kind: o.kind,
+      amountCents: o.amount_cents,
+      currency: o.currency,
+      createdAt: o.created_at,
+      paidAt: o.paid_at,
+      expiresAt: o.expires_at,
+    })),
+  }
+}
+
+export interface CancelSubscriptionResult {
+  subscriptionId: string
+  status: string
+  currentPeriodEndsAt: string
+  cancelAt: string
+}
+
+/**
+ * 呼叫 POST /v1/billing/subscription/cancel 取消自動續約
+ */
+export async function cancelSubscription(): Promise<CancelSubscriptionResult> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+
+  if (!token) {
+    throw new Error('未登入或 Session 已過期')
+  }
+
+  const res = await fetch(`${API_URL}/v1/billing/subscription/cancel`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!res.ok) {
+    let errorDetail = '取消自動續訂失敗'
+    try {
+      const errJson = await res.json()
+      if (errJson.detail) {
+        errorDetail = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail)
+      }
+    } catch {
+      // parse fallback
+    }
+    throw new Error(errorDetail)
+  }
+
+  const data = await res.json()
+  return {
+    subscriptionId: data.subscription_id,
+    status: data.status,
+    currentPeriodEndsAt: data.current_period_ends_at,
+    cancelAt: data.cancel_at,
+  }
+}
+

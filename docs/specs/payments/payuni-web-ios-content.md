@@ -238,9 +238,10 @@ flowchart TD
 
 ### C4：付款後畫面與訂閱管理（對接 P3 API）
 
-- [ ] C4.1 實作 `/billing/result` 付款結果著陸頁，呼叫 `GET /v1/billing/orders/{id}` 輪詢狀態並更新權益 Context。
-- [ ] C4.2 實作 `/settings/billing` 訂閱管理頁面，對接 `GET /v1/billing/me` 渲染當前 Pro/Free 權益、訂閱狀態與繳費紀錄。
-- [ ] C4.3 實作「取消自動續扣」二次確認 Modal 與 `POST /v1/billing/subscription/cancel` API 呼叫，即時更新訂閱狀態為 `cancel_scheduled`。
+- [x] C4.1 實作 `/billing/result` 付款結果著陸頁 (`src/routes/billing.result.tsx`)，呼叫 `GET /v1/billing/orders/{id}` 輪詢狀態並更新權益 Context (`invalidateEntitlements` / `fetchEntitlements(true)`) (2026-09-28)。
+- [x] C4.2 實作 `/settings/billing` 訂閱管理頁面 (`src/routes/settings.billing.tsx`)，對接 `GET /v1/billing/me` 渲染當前 Pro/Free 權益、訂閱狀態與繳費紀錄 (2026-09-28)。
+- [x] C4.3 實作「取消自動續扣」二次確認 Modal 與 `POST /v1/billing/subscription/cancel` API 呼叫，即時更新訂閱狀態為 `cancel_scheduled` (2026-09-28)。
+
 
 ### C5：前端全鏈路 E2E 測試
 

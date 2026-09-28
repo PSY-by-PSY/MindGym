@@ -1619,6 +1619,12 @@ function ProfilePage() {
           <h2 className="mb-3 text-lg font-extrabold text-foreground">{t('帳號設定')}</h2>
           <div className="flex flex-col gap-2">
             <Link
+              to="/settings/billing"
+              className="flex h-12 w-full items-center justify-center rounded-2xl bg-card border border-border text-sm font-bold text-foreground transition active:scale-[0.98] hover:bg-muted"
+            >
+              {t('訂閱與扣款管理')}
+            </Link>
+            <Link
               to="/paywall"
               className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-2xl bg-primary-soft px-3 py-3 text-center transition active:scale-[0.98]"
             >
@@ -1633,6 +1639,7 @@ function ProfilePage() {
             >
               {t('登出')}
             </button>
+
             <button
               onClick={() => { setDeleteError(null); setShowDeleteConfirm(true) }}
               className="flex h-12 w-full items-center justify-center rounded-2xl text-sm font-bold text-red-500 transition active:scale-[0.98]"

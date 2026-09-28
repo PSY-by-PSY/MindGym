@@ -14,7 +14,14 @@ vi.mock('../supabase', () => ({
   },
 }))
 
-import { createCheckoutSession, submitPayuniForm } from '../billing'
+import {
+  createCheckoutSession,
+  submitPayuniForm,
+  fetchOrderStatus,
+  fetchBillingOverview,
+  cancelSubscription,
+} from '../billing'
+
 
 describe('billing client library', () => {
   it('建立結帳 Session 並正確發送 JWT 與同意版本', async () => {
@@ -98,5 +105,103 @@ describe('billing client library', () => {
 
     vi.unstubAllGlobals()
   })
+
+  it('fetchOrderStatus 正確查詢特定訂單狀態', async () => {
+    const fakeFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'ord_123',
+        status: 'paid',
+        paid_at: '2026-09-28T16:00:00Z',
+        expires_at: '2026-09-29T16:00:00Z',
+        can_resume: false,
+      }),
+    })
+    vi.stubGlobal('fetch', fakeFetch)
+
+    const res = await fetchOrderStatus('ord_123')
+
+    expect(fakeFetch).toHaveBeenCalledTimes(1)
+    const [url, options] = fakeFetch.mock.calls[0]
+    expect(url).toContain('/v1/billing/orders/ord_123')
+    expect(options.headers.Authorization).toBe('Bearer fake-jwt-token-for-test')
+
+    expect(res.id).toBe('ord_123')
+    expect(res.status).toBe('paid')
+    expect(res.paidAt).toBe('2026-09-28T16:00:00Z')
+
+    vi.unstubAllGlobals()
+  })
+
+  it('fetchBillingOverview 正確獲取帳務總覽與訂單歷史', async () => {
+    const fakeFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tier: 'pro',
+        is_pro: true,
+        subscription_id: 'sub_999',
+        plan_code: 'pro_monthly',
+        subscription_status: 'active',
+        current_period_ends_at: '2026-10-28T16:00:00Z',
+        next_charge_at: '2026-10-28T16:00:00Z',
+        cancel_at: null,
+        orders: [
+          {
+            id: 'ord_init',
+            status: 'paid',
+            kind: 'initial_with_token',
+            amount_cents: 9900,
+            currency: 'TWD',
+            created_at: '2026-09-28T16:00:00Z',
+            paid_at: '2026-09-28T16:01:00Z',
+            expires_at: '2026-09-29T16:00:00Z',
+          },
+        ],
+      }),
+    })
+    vi.stubGlobal('fetch', fakeFetch)
+
+    const res = await fetchBillingOverview()
+
+    expect(fakeFetch).toHaveBeenCalledTimes(1)
+    const [url, options] = fakeFetch.mock.calls[0]
+    expect(url).toContain('/v1/billing/me')
+    expect(options.headers.Authorization).toBe('Bearer fake-jwt-token-for-test')
+
+    expect(res.isPro).toBe(true)
+    expect(res.tier).toBe('pro')
+    expect(res.subscriptionStatus).toBe('active')
+    expect(res.orders.length).toBe(1)
+    expect(res.orders[0].amountCents).toBe(9900)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('cancelSubscription 正確呼叫取消自動續訂 API', async () => {
+    const fakeFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        subscription_id: 'sub_999',
+        status: 'cancel_scheduled',
+        current_period_ends_at: '2026-10-28T16:00:00Z',
+        cancel_at: '2026-10-28T16:00:00Z',
+      }),
+    })
+    vi.stubGlobal('fetch', fakeFetch)
+
+    const res = await cancelSubscription()
+
+    expect(fakeFetch).toHaveBeenCalledTimes(1)
+    const [url, options] = fakeFetch.mock.calls[0]
+    expect(url).toContain('/v1/billing/subscription/cancel')
+    expect(options.method).toBe('POST')
+    expect(options.headers.Authorization).toBe('Bearer fake-jwt-token-for-test')
+
+    expect(res.status).toBe('cancel_scheduled')
+    expect(res.subscriptionId).toBe('sub_999')
+
+    vi.unstubAllGlobals()
+  })
 })
+
 
