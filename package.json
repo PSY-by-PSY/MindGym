@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test --config playwright.public.config.ts",
     "test:e2e:public": "playwright test --config playwright.public.config.ts",
     "ios:sync:local-preview": "node scripts/ios/sync-local-preview.mjs",
     "preview": "vite preview",

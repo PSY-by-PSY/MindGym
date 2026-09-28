@@ -25,11 +25,12 @@ test.describe('公開付款資訊頁', () => {
     })
   }
 
-  test('/pricing 沒有尚未實作的付款導購入口', async ({ page }) => {
+  test('/pricing 未登入時提供登入引導按鈕', async ({ page }) => {
     await page.goto('/pricing')
 
-    await expect(page.getByText('收費功能準備中')).toBeVisible()
-    await expect(page.getByRole('link', { name: /付款|購買|立即訂閱|開始訂閱/ })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /付款|購買|立即訂閱|開始訂閱/ })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: '方案與價格' })).toBeVisible()
+    await expect(page.getByText('MindGym 提供什麼')).toBeVisible()
+    await expect(page.getByText('這不是醫療服務')).toBeVisible()
   })
 })
+

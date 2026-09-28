@@ -41,13 +41,14 @@ function BillingResultPage() {
     const checkStatus = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
+        if (!session && !import.meta.env.DEV) {
           if (!cancelled) {
             setLoading(false)
             setError('請先登入帳號以查看付款結果。')
           }
           return
         }
+
 
         const res = await fetchOrderStatus(orderId)
         if (cancelled) return

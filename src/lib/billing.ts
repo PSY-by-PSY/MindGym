@@ -20,18 +20,22 @@ export interface CheckoutSessionResult {
   formFields?: Record<string, string> | null
 }
 
+async function getAuthToken(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token ?? (import.meta.env.DEV ? 'dev-preview-token' : '')
+  if (!token) {
+    throw new Error('未登入或 Session 已過期，請重新登入')
+  }
+  return token
+}
+
 /**
  * 呼叫 POST /v1/billing/checkout-sessions 建立初始結帳訂單
  */
 export async function createCheckoutSession(
   params: CreateCheckoutParams
 ): Promise<CheckoutSessionResult> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-
-  if (!token) {
-    throw new Error('未登入或 Session 已過期，請重新登入')
-  }
+  const token = await getAuthToken()
 
   const termsVersion = params.termsVersion ?? '2026-09-28'
   const recurringConsentVersion = params.recurringConsentVersion ?? '2026-09-28'
@@ -49,6 +53,7 @@ export async function createCheckoutSession(
       recurring_consent_version: recurringConsentVersion,
     }),
   })
+
 
   if (!res.ok) {
     let errorDetail = '建立結帳訂單失敗'
@@ -111,12 +116,7 @@ export interface OrderStatus {
  * 呼叫 GET /v1/billing/orders/{id} 查詢訂單狀態
  */
 export async function fetchOrderStatus(orderId: string): Promise<OrderStatus> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-
-  if (!token) {
-    throw new Error('未登入或 Session 已過期')
-  }
+  const token = await getAuthToken()
 
   const res = await fetch(`${API_URL}/v1/billing/orders/${encodeURIComponent(orderId)}`, {
     headers: {
@@ -165,12 +165,7 @@ export interface BillingOverview {
  * 呼叫 GET /v1/billing/me 取得帳務與訂閱總覽
  */
 export async function fetchBillingOverview(): Promise<BillingOverview> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-
-  if (!token) {
-    throw new Error('未登入或 Session 已過期')
-  }
+  const token = await getAuthToken()
 
   const res = await fetch(`${API_URL}/v1/billing/me`, {
     headers: {
@@ -216,12 +211,7 @@ export interface CancelSubscriptionResult {
  * 呼叫 POST /v1/billing/subscription/cancel 取消自動續約
  */
 export async function cancelSubscription(): Promise<CancelSubscriptionResult> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-
-  if (!token) {
-    throw new Error('未登入或 Session 已過期')
-  }
+  const token = await getAuthToken()
 
   const res = await fetch(`${API_URL}/v1/billing/subscription/cancel`, {
     method: 'POST',
@@ -229,6 +219,7 @@ export async function cancelSubscription(): Promise<CancelSubscriptionResult> {
       Authorization: `Bearer ${token}`,
     },
   })
+
 
   if (!res.ok) {
     let errorDetail = '取消自動續訂失敗'

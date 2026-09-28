@@ -245,6 +245,7 @@ flowchart TD
 
 ### C5：前端全鏈路 E2E 測試
 
-- [ ] C5.1 建立 Playwright 結帳導轉測試：驗證未勾選同意控制項時付款按鈕為 Disabled。
-- [ ] C5.2 建立 Playwright API Mock / 整合測試：模擬建單、導轉與回跳成功頁。
-- [ ] C5.3 建立 Playwright 訂閱管理測試：驗證 `/settings/billing` 正確顯示 `is_pro` 與執行取消續約流程。
+- [x] C5.1 建立 Playwright 結帳導轉測試 (`e2e/billing-flow.spec.ts`)：驗證未勾選同意控制項時付款按鈕為 Disabled (2026-09-28)。
+- [x] C5.2 建立 Playwright API Mock / 整合測試 (`e2e/billing-flow.spec.ts`)：模擬建單、導轉與回跳成功頁 (Paid / Pending / Failed 狀態機) (2026-09-28)。
+- [x] C5.3 建立 Playwright 訂閱管理測試 (`e2e/billing-flow.spec.ts`)：驗證 `/settings/billing` 正確顯示 `is_pro`、歷史訂單與執行取消續約二次確認流程 (2026-09-28)。
+

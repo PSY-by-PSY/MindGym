@@ -29,10 +29,11 @@ function SettingsBillingPage() {
   const loadBillingData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      if (!session && !import.meta.env.DEV) {
         void navigate({ to: '/login', search: { redirect: '/settings/billing' } })
         return
       }
+
 
       const data = await fetchBillingOverview()
       setOverview(data)

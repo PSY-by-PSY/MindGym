@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'public-pages.spec.ts',
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   use: {
     baseURL: 'http://127.0.0.1:4173',
