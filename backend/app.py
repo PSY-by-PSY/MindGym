@@ -13,7 +13,10 @@ import httpx
 import openai
 from dotenv import load_dotenv
 
-import usage_metering
+try:
+    from backend import usage_metering
+except ImportError:
+    import usage_metering
 from backend.billing.payuni import sandbox_provider_from_environment
 from backend.billing.providers import DisabledPayUniProvider
 from backend.billing.repository import BillingRepository
