@@ -177,6 +177,8 @@ async def get_order(order_id: str, request: Request, authorization: str | None =
     except RepositoryError as exc:
         if str(exc) == "invalid authentication token": raise HTTPException(status_code=401, detail="Invalid token") from None
         raise HTTPException(status_code=503, detail="Order status unavailable") from None
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Order lookup error: {exc}") from None
     if order is None: raise HTTPException(status_code=404, detail="Order not found")
     return OrderStatusResponse(id=order.id,status=order.status,paid_at=order.paid_at.isoformat() if order.paid_at else None,expires_at=order.expires_at.isoformat(),can_resume=order.can_resume)
 

@@ -1,7 +1,7 @@
 """Supabase/PostgREST persistence adapter for the billing schema."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import os
 from typing import Any
