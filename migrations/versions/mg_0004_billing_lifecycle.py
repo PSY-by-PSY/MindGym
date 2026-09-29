@@ -26,16 +26,17 @@ def upgrade() -> None:
         token_ciphertext text
       )
       LANGUAGE plpgsql SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
+      #variable_conflict use_column
       DECLARE
         v_sub billing.subscriptions%ROWTYPE;
         v_pm billing.payment_methods%ROWTYPE;
       BEGIN
         -- Find the current active, grace, or cancel_scheduled subscription
         SELECT * INTO v_sub
-        FROM billing.subscriptions
-        WHERE user_id = p_user_id
-          AND status IN ('active', 'grace', 'cancel_scheduled')
-        ORDER BY created_at DESC
+        FROM billing.subscriptions s
+        WHERE s.user_id = p_user_id
+          AND s.status IN ('active', 'grace', 'cancel_scheduled')
+        ORDER BY s.created_at DESC
         LIMIT 1;
 
         IF NOT FOUND THEN
@@ -45,9 +46,9 @@ def upgrade() -> None:
 
         -- Fetch payment method if present
         SELECT * INTO v_pm
-        FROM billing.payment_methods
-        WHERE subscription_id = v_sub.id
-        ORDER BY created_at DESC
+        FROM billing.payment_methods pm
+        WHERE pm.subscription_id = v_sub.id
+        ORDER BY pm.created_at DESC
         LIMIT 1;
 
         -- If already cancel_scheduled, return existing record idempotently
@@ -59,21 +60,21 @@ def upgrade() -> None:
         END IF;
 
         -- Update subscription: schedule cancel at period end, stop renewal charges
-        UPDATE billing.subscriptions
+        UPDATE billing.subscriptions s
         SET status = 'cancel_scheduled',
-            cancel_at = COALESCE(current_period_ends_at, clock_timestamp()),
+            cancel_at = COALESCE(v_sub.current_period_ends_at, clock_timestamp()),
             canceled_at = clock_timestamp(),
             next_charge_at = NULL,
             updated_at = clock_timestamp()
-        WHERE id = v_sub.id
+        WHERE s.id = v_sub.id
         RETURNING * INTO v_sub;
 
         -- Revoke payment method renewal authorization
         IF v_pm.id IS NOT NULL AND v_pm.revoked_at IS NULL THEN
-          UPDATE billing.payment_methods
+          UPDATE billing.payment_methods pm
           SET revoked_at = clock_timestamp(),
               updated_at = clock_timestamp()
-          WHERE id = v_pm.id
+          WHERE pm.id = v_pm.id
           RETURNING * INTO v_pm;
         END IF;
 

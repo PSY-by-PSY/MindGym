@@ -41,10 +41,10 @@ from backend.billing.repository import BillingRepository
 from backend.billing.worker import BillingCallbackWorker
 
 # Test configuration
-SERVER_URL = "http://127.0.0.1:8001"
-SUPABASE_URL = "http://127.0.0.1:54321"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
-FERNET_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:8000")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "http://127.0.0.1:54321")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU")
+FERNET_KEY = os.environ.get("BILLING_TOKEN_ENCRYPTION_KEY", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 
 os.environ["MINDGYM_LOCAL_TEST"] = "1"
 os.environ["SUPABASE_URL"] = SUPABASE_URL
@@ -62,7 +62,7 @@ if PAYUNI_FILE.exists():
     if _key: os.environ.setdefault("PAYUNI_HASH_KEY", _key.group(1))
     if _iv: os.environ.setdefault("PAYUNI_HASH_IV", _iv.group(1))
 
-os.environ["PAYUNI_RETURN_URL"] = "http://localhost:3000/billing/return"
+os.environ["PAYUNI_RETURN_URL"] = "http://localhost:5173/billing/result"
 os.environ["PAYUNI_GENERIC_UPP_SANDBOX_ENABLED"] = "1"
 os.environ["PAYUNI_INITIAL_CARD_AGREEMENT_SANDBOX_ENABLED"] = "1"
 os.environ["PAYUNI_TOKEN_CONTRACT_APPROVED"] = "1"
@@ -71,7 +71,7 @@ os.environ["BILLING_TOKEN_ENCRYPTION_KEY"] = FERNET_KEY
 
 TEST_USER_ID = "7b0c6be1-0bdd-4557-8964-b3ff92f9b2ef"
 JWT_SECRET = "super-secret-jwt-token-with-at-least-32-characters-long"
-DB_URL = "postgresql+psycopg://postgres:postgres@127.0.0.1:55434/postgres"
+DB_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres")
 
 
 def make_jwt(user_id: str) -> str:
@@ -124,8 +124,11 @@ def reset_test_user_data(engine: sa.Engine):
             DELETE FROM billing.provider_events WHERE payload_redacted->>'MerTradeNo' LIKE 'MG-%'
         """))
         conn.execute(sa.text("""
-            UPDATE public.subscriptions SET tier = 'free', status = 'active', expires_at = NULL
-            WHERE user_id = :uid
+            INSERT INTO public.profiles (id) VALUES (:uid) ON CONFLICT (id) DO NOTHING
+        """), {"uid": TEST_USER_ID})
+        conn.execute(sa.text("""
+            INSERT INTO public.subscriptions (user_id, tier, status) VALUES (:uid, 'free', 'active')
+            ON CONFLICT (user_id) DO UPDATE SET tier = 'free', status = 'active', expires_at = NULL
         """), {"uid": TEST_USER_ID})
 
 

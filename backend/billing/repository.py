@@ -198,8 +198,6 @@ class BillingRepository:
         }
 
     async def authenticated_user_id(self, token: str) -> str:
-        if token == "dev-preview-token":
-            return "00000000-0000-0000-0000-000000000001"
         try:
             response = await self._client.get(
                 self._auth_url,
@@ -224,11 +222,6 @@ class BillingRepository:
             self._raise_for_error(response, "list billing plans")
             return [Plan(**row) for row in response.json()]
         except (httpx.RequestError, RepositoryError) as exc:
-            if "invalid" in self._base_url or os.environ.get("BILLING_DEV_MODE") == "1":
-                return [
-                    Plan(code="pro_monthly", display_name="Pro 月繳方案", amount_cents=39900, currency="TWD", terms_version="2026-09-28"),
-                    Plan(code="pro_yearly", display_name="Pro 年繳方案 (特惠 83 折)", amount_cents=399000, currency="TWD", terms_version="2026-09-28"),
-                ]
             raise RepositoryError(f"unable to list billing plans: {exc}") from exc
 
     async def create_pending_checkout(
@@ -268,52 +261,64 @@ class BillingRepository:
                 raise RepositoryError("checkout RPC returned an unexpected result")
             row = rows[0]
             return PendingCheckout(
-                order_id=row["order_id"], subscription_id=row["subscription_id"],
-                merchant_order_no=row["merchant_order_no"], status=row["order_status"],
-                amount_cents=row["amount_cents"], currency=row["currency"],
+                order_id=row["order_id"],
+                subscription_id=row["subscription_id"],
+                merchant_order_no=row["merchant_order_no"],
+                status=row["order_status"],
+                amount_cents=row["amount_cents"],
+                currency=row["currency"],
                 expires_at=datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00")),
                 reused=row["reused"],
             )
         except (httpx.RequestError, RepositoryError) as exc:
-            if user_id.startswith("00000000") or "invalid" in self._base_url or os.environ.get("BILLING_DEV_MODE") == "1":
-                from uuid import uuid4
-                return PendingCheckout(
-                    order_id=f"dev-order-{uuid4().hex[:12]}",
-                    subscription_id=f"dev-sub-{uuid4().hex[:12]}",
-                    merchant_order_no=merchant_order_no,
-                    status="pending",
-                    amount_cents=399000 if "year" in plan_code else 39900,
-                    currency="TWD",
-                    expires_at=expires_at,
-                    reused=False,
-                )
             raise RepositoryError(f"unable to create pending checkout: {exc}") from exc
 
     async def record_provider_event(
-        self, *, event_ref: str, merchant_order_no: str, payload_redacted: dict[str, str],
-        provider_token_ref: str | None, token_ciphertext: str | None,
+        self,
+        *,
+        event_ref: str,
+        merchant_order_no: str,
+        payload_redacted: dict[str, str],
+        provider_token_ref: str | None,
+        token_ciphertext: str | None,
     ) -> str:
-        response = await self._client.post(f"{self._base_url}/rpc/record_provider_event", headers=self._headers, json={
-            "p_provider": "payuni", "p_event_ref": event_ref, "p_merchant_order_no": merchant_order_no,
-            "p_signature_valid": True, "p_payload_redacted": payload_redacted,
-            "p_provider_token_ref": provider_token_ref, "p_token_ciphertext": token_ciphertext,
-        })
+        response = await self._client.post(
+            f"{self._base_url}/rpc/record_provider_event",
+            headers=self._headers,
+            json={
+                "p_provider": "payuni",
+                "p_event_ref": event_ref,
+                "p_merchant_order_no": merchant_order_no,
+                "p_signature_valid": True,
+                "p_payload_redacted": payload_redacted,
+                "p_provider_token_ref": provider_token_ref,
+                "p_token_ciphertext": token_ciphertext,
+            },
+        )
         self._raise_for_error(response, "record provider callback")
         return response.json()
 
     async def get_order_for_user(self, *, user_id: str, order_id: str) -> OrderStatus | None:
         try:
-            response = await self._client.post(f"{self._base_url}/rpc/get_order_for_user", headers=self._headers, json={"p_user_id":user_id,"p_order_id":order_id})
+            response = await self._client.post(
+                f"{self._base_url}/rpc/get_order_for_user",
+                headers=self._headers,
+                json={"p_user_id": user_id, "p_order_id": order_id},
+            )
             self._raise_for_error(response, "read order")
             rows = response.json()
-            if not rows: return None
+            if not rows:
+                return None
             row = rows[0]
             paid_at = row["paid_at"]
-            return OrderStatus(row["id"],row["status"],datetime.fromisoformat(paid_at.replace("Z","+00:00")) if paid_at else None,datetime.fromisoformat(row["expires_at"].replace("Z","+00:00")),row["can_resume"])
+            return OrderStatus(
+                row["id"],
+                row["status"],
+                datetime.fromisoformat(paid_at.replace("Z", "+00:00")) if paid_at else None,
+                datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00")),
+                row["can_resume"],
+            )
         except (httpx.RequestError, RepositoryError) as exc:
-            if user_id.startswith("00000000") or "invalid" in self._base_url or os.environ.get("BILLING_DEV_MODE") == "1":
-                now = datetime.now(timezone.utc)
-                return OrderStatus(order_id, "paid", now, now + timedelta(days=1), False)
             raise RepositoryError(f"unable to read order: {exc}") from exc
 
     async def get_resumable_checkout_for_user(self, *, user_id: str, order_id: str) -> ResumableCheckout | None:
@@ -328,9 +333,12 @@ class BillingRepository:
             return None
         row = rows[0]
         return ResumableCheckout(
-            order_id=row["order_id"], merchant_order_no=row["merchant_order_no"],
-            status=row["status"], amount_cents=row["amount_cents"],
-            currency=row["currency"], plan_name=row["plan_name"],
+            order_id=row["order_id"],
+            merchant_order_no=row["merchant_order_no"],
+            status=row["status"],
+            amount_cents=row["amount_cents"],
+            currency=row["currency"],
+            plan_name=row["plan_name"],
             expires_at=datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00")),
             recurring_consent_version=row["recurring_consent_version"],
         )
@@ -347,46 +355,32 @@ class BillingRepository:
             if not rows:
                 return None
             row = rows[0]
+
             def parse_timestamp(value: str | None) -> datetime | None:
                 return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+
             return BillingOverview(
-                subscription_id=row["subscription_id"], plan_code=row["plan_code"],
+                subscription_id=row["subscription_id"],
+                plan_code=row["plan_code"],
                 subscription_status=row["subscription_status"],
                 current_period_ends_at=parse_timestamp(row["current_period_ends_at"]),
                 next_charge_at=parse_timestamp(row["next_charge_at"]),
                 cancel_at=parse_timestamp(row["cancel_at"]),
-                orders=[OrderHistoryItem(
-                    id=item["id"], status=item["status"], kind=item["kind"],
-                    amount_cents=item["amount_cents"], currency=item["currency"],
-                    created_at=parse_timestamp(item["created_at"]),
-                    paid_at=parse_timestamp(item["paid_at"]),
-                    expires_at=parse_timestamp(item["expires_at"]),
-                ) for item in row["orders"]],
+                orders=[
+                    OrderHistoryItem(
+                        id=item["id"],
+                        status=item["status"],
+                        kind=item["kind"],
+                        amount_cents=item["amount_cents"],
+                        currency=item["currency"],
+                        created_at=parse_timestamp(item["created_at"]),
+                        paid_at=parse_timestamp(item["paid_at"]),
+                        expires_at=parse_timestamp(item["expires_at"]),
+                    )
+                    for item in row.get("orders") or []
+                ],
             )
         except (httpx.RequestError, RepositoryError) as exc:
-            if user_id.startswith("00000000") or "invalid" in self._base_url or os.environ.get("BILLING_DEV_MODE") == "1":
-                now = datetime.now(timezone.utc)
-                one_year_later = now + timedelta(days=365)
-                return BillingOverview(
-                    subscription_id="dev-sub-001",
-                    plan_code="pro_yearly",
-                    subscription_status="active",
-                    current_period_ends_at=one_year_later,
-                    next_charge_at=one_year_later,
-                    cancel_at=None,
-                    orders=[
-                        OrderHistoryItem(
-                            id="MG-0459BDB53E9B4D61B74D8A8BD5D6D28F",
-                            status="paid",
-                            kind="initial",
-                            amount_cents=399000,
-                            currency="TWD",
-                            created_at=now,
-                            paid_at=now,
-                            expires_at=now + timedelta(days=1),
-                        )
-                    ],
-                )
             raise RepositoryError(f"unable to read billing overview: {exc}") from exc
 
     async def get_canonical_entitlement_for_user(self, *, user_id: str) -> str:

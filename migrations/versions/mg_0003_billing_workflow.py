@@ -146,20 +146,21 @@ def upgrade() -> None:
     op.execute("GRANT EXECUTE ON FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb,text,text) TO service_role")
 
     op.execute("""
-      CREATE FUNCTION billing.get_order_for_user(p_user_id uuid, p_order_id uuid)
+      CREATE FUNCTION billing.get_order_for_user(p_user_id uuid, p_order_id text)
       RETURNS TABLE(id uuid,status text,paid_at timestamptz,expires_at timestamptz,can_resume boolean)
       LANGUAGE sql STABLE SECURITY DEFINER SET search_path = billing, pg_catalog AS $function$
         SELECT o.id,o.status,o.paid_at,o.expires_at,
           o.status IN ('pending','processing') AND o.expires_at > now()
         FROM billing.orders o JOIN billing.subscriptions s ON s.id=o.subscription_id
-        WHERE o.id=p_order_id AND s.user_id=p_user_id
+        WHERE (o.id::text = p_order_id OR o.merchant_order_no = p_order_id)
+          AND s.user_id=p_user_id
       $function$;
     """)
-    op.execute("REVOKE ALL ON FUNCTION billing.get_order_for_user(uuid,uuid) FROM PUBLIC, anon, authenticated")
-    op.execute("GRANT EXECUTE ON FUNCTION billing.get_order_for_user(uuid,uuid) TO service_role")
+    op.execute("REVOKE ALL ON FUNCTION billing.get_order_for_user(uuid,text) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.get_order_for_user(uuid,text) TO service_role")
 
     op.execute("""
-      CREATE FUNCTION billing.get_resumable_checkout_for_user(p_user_id uuid, p_order_id uuid)
+      CREATE FUNCTION billing.get_resumable_checkout_for_user(p_user_id uuid, p_order_id text)
       RETURNS TABLE(
         order_id uuid, merchant_order_no text, status text, amount_cents integer,
         currency text, plan_name text, expires_at timestamptz, recurring_consent_version text
@@ -168,12 +169,13 @@ def upgrade() -> None:
         SELECT o.id, o.merchant_order_no, o.status, o.amount_cents, o.currency,
                o.plan_name_snapshot, o.expires_at, o.recurring_consent_version
         FROM billing.orders o JOIN billing.subscriptions s ON s.id = o.subscription_id
-        WHERE o.id = p_order_id AND s.user_id = p_user_id
+        WHERE (o.id::text = p_order_id OR o.merchant_order_no = p_order_id)
+          AND s.user_id = p_user_id
           AND o.status IN ('pending', 'processing') AND o.expires_at > now()
       $function$;
     """)
-    op.execute("REVOKE ALL ON FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid) FROM PUBLIC, anon, authenticated")
-    op.execute("GRANT EXECUTE ON FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid) TO service_role")
+    op.execute("REVOKE ALL ON FUNCTION billing.get_resumable_checkout_for_user(uuid,text) FROM PUBLIC, anon, authenticated")
+    op.execute("GRANT EXECUTE ON FUNCTION billing.get_resumable_checkout_for_user(uuid,text) TO service_role")
 
     op.execute("""
       CREATE FUNCTION billing.get_overview_for_user(p_user_id uuid)
@@ -244,7 +246,8 @@ def upgrade() -> None:
 
         SELECT * INTO v_order FROM billing.orders WHERE id = v_event.order_id FOR UPDATE;
         SELECT * INTO v_subscription FROM billing.subscriptions WHERE id = v_order.subscription_id FOR UPDATE;
-        IF v_event.processed_at IS NOT NULL THEN
+        IF v_event.processed_at IS NOT NULL OR (v_order.status = 'paid' AND p_outcome = 'succeeded') THEN
+          UPDATE billing.provider_events SET processed_at = now(), process_error = NULL WHERE id = v_event.id;
           RETURN QUERY SELECT v_order.id, v_order.status, v_subscription.id, true;
           RETURN;
         END IF;
@@ -470,7 +473,7 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION billing.get_provider_event_for_processing(uuid)")
     op.execute("DROP FUNCTION billing.apply_initial_payment_outcome(uuid,text,text,text,text,text,timestamptz)")
     op.execute("DROP FUNCTION billing.get_overview_for_user(uuid)")
-    op.execute("DROP FUNCTION billing.get_resumable_checkout_for_user(uuid,uuid)")
-    op.execute("DROP FUNCTION billing.get_order_for_user(uuid,uuid)")
+    op.execute("DROP FUNCTION billing.get_resumable_checkout_for_user(uuid,text)")
+    op.execute("DROP FUNCTION billing.get_order_for_user(uuid,text)")
     op.execute("DROP FUNCTION billing.record_provider_event(text,text,text,boolean,jsonb,text,text)")
     op.execute("DROP FUNCTION billing.create_pending_checkout(uuid,text,text,text,timestamptz,text,timestamptz,text,timestamptz,text)")
