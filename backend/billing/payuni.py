@@ -291,13 +291,14 @@ class PayUniUppProvider:
             "MerTradeNo": merchant_order_no,
             "TradeAmt": str(amount_cents // 100),
             "CreditHash": credit_hash,
+            "ProdDesc": prod_name,
             "ProdName": prod_name,
             "Timestamp": str(int(time())),
         }
         encrypted_info = self.encrypt_info(payload)
         fields = {
             "MerID": self._settings.merchant_id,
-            "Version": "1.0",
+            "Version": "1.3",
             "EncryptInfo": encrypted_info,
             "HashInfo": self.hash_info(encrypted_info),
         }

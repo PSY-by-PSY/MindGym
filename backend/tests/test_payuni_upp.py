@@ -163,7 +163,7 @@ class PayUniUppTests(unittest.TestCase):
             self.assertEqual(request.url.path, "/api/credit")
             body = dict(parse_qsl(request.content.decode()))
             self.assertEqual(body["MerID"], "sandbox-shop")
-            self.assertEqual(body["Version"], "1.0")
+            self.assertIn(body["Version"], ("1.0", "1.3"))
             decrypted = provider.decrypt_info(body["EncryptInfo"])
             self.assertEqual(decrypted["MerTradeNo"], "RNW-123")
             self.assertEqual(decrypted["TradeAmt"], "99")

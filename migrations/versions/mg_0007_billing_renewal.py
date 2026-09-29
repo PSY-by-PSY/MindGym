@@ -55,7 +55,9 @@ def upgrade() -> None:
         LOOP
           SELECT * INTO v_plan FROM billing.plans WHERE code = v_sub.plan_code;
           IF FOUND THEN
-            v_order_no := 'RNW-' || substring(v_sub.id::text, 1, 8) || '-' || to_char(v_now, 'YYYYMMDDHH24MISSMS');
+            -- PAYUNi /api/credit limits MerTradeNo to max 25 chars.
+            -- Format: RNW-(8 chars sub id)-(12 chars YYMMDDHH24MI) = 25 chars exactly.
+            v_order_no := 'RNW-' || substring(v_sub.id::text, 1, 8) || '-' || to_char(v_now, 'YYMMDDHH24MI');
 
             INSERT INTO billing.orders (
               subscription_id, merchant_order_no, idempotency_key, kind, status,

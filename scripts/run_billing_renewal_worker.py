@@ -21,11 +21,11 @@ sys.path.insert(0, str(ROOT))
 from backend.billing.credentials import FernetCredentialVault
 from backend.billing.errors import ProviderNotConfigured
 from backend.billing.payuni import (
-    DisabledPayUniProvider,
     PayUniCapabilities,
     PayUniSettings,
     PayUniUppProvider,
 )
+from backend.billing.providers import DisabledPayUniProvider
 from backend.billing.repository import BillingRepository
 from backend.billing.worker import BillingRenewalWorker
 
