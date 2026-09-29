@@ -53,7 +53,7 @@ function isUserCancelled(err: unknown): boolean {
 
 function LoginPage() {
   const { t } = useLanguage()
-  // email 密碼登入（僅供既有帳號與 App Store 審查用的 demo 帳號；不開放註冊）
+  // email 密碼登入
   const [showEmailLogin, setShowEmailLogin] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -147,17 +147,44 @@ function LoginPage() {
     setLoading(true)
     setError(null)
     track('login_started', { method: 'password', mode: 'login' })
+
+    // 1. 先嘗試以既有帳號登入
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
       password,
     })
+
+    if (!signInError) {
+      setLoading(false)
+      track('login_completed', { method: 'password', mode: 'login' })
+      return
+    }
+
+    // 2. 若登入失敗，自動為首次登入之新訪客進行註冊（與 Google OAuth 保持「登入即註冊」一致體驗）
+    const { data: autoSignUpData, error: autoSignUpError } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+    })
+
     setLoading(false)
-    if (signInError) {
+
+    if (!autoSignUpError && autoSignUpData.session) {
+      track('login_completed', { method: 'password', mode: 'auto_signup' })
+      return
+    }
+
+    // 3. 若 autoSignUp 回報帳號已存在，代表是既有會員但密碼錯誤
+    const errorMsg = autoSignUpError?.message?.toLowerCase() ?? ''
+    const errorCode = (autoSignUpError as unknown as { code?: string })?.code
+    if (errorCode === 'user_already_exists' || errorMsg.includes('already') || errorMsg.includes('registered')) {
       track('login_error', { method: 'password', mode: 'login' })
       setError(t('Email 或密碼錯誤，請再試一次。'))
       return
     }
-    track('login_completed', { method: 'password' })
+
+    // 4. 其他原因（如密碼過短、格式不符等）
+    track('login_error', { method: 'password', mode: 'auth' })
+    setError(autoSignUpError?.message || signInError?.message || t('Email 或密碼錯誤，請再試一次。'))
     // 成功後 onAuthStateChange 會更新 session，beforeLoad 自動導向 /app/home
   }
 
@@ -236,8 +263,7 @@ function LoginPage() {
             {t('用 Google 登入')}
           </button>
 
-          {/* email 密碼登入：收在次要入口。給既有帳號與 App Store 審查的 demo 帳號用，
-              不開放註冊（原因見檔案開頭）。 */}
+          {/* email 密碼登入 */}
           {showEmailLogin ? (
             <div className="space-y-3 pt-1">
               <input
