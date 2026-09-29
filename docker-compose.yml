@@ -33,8 +33,10 @@ services:
       - .env
     environment:
       - PORT=8000
-      - SUPABASE_URL=http://db:5432
-      - SUPABASE_KEY=dummy-key
+      - SUPABASE_URL=${SUPABASE_URL:-http://host.docker.internal:54321}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - .:/app
     depends_on:
@@ -49,8 +51,12 @@ services:
     restart: unless-stopped
     ports:
       - "5173:5173"
+    env_file:
+      - .env
     environment:
       - VITE_API_URL=http://localhost:8000
+      - VITE_SUPABASE_URL=http://localhost:54321
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
     volumes:
       - .:/app
       - /app/node_modules
