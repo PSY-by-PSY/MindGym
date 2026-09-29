@@ -8,6 +8,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
 export interface CreateCheckoutParams {
   planCode: string
   termsVersion?: string
+  recurringConsent?: boolean
   recurringConsentVersion?: string
   idempotencyKey?: string
 }
@@ -56,7 +57,7 @@ export async function createCheckoutSession(
     body: JSON.stringify({
       plan_code: params.planCode,
       terms_version: termsVersion,
-      recurring_consent: true,
+      recurring_consent: params.recurringConsent ?? true,
       recurring_consent_version: recurringConsentVersion,
     }),
   })

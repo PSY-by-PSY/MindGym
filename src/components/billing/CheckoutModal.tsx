@@ -32,6 +32,7 @@ export function CheckoutModal({ isOpen, onClose, plan }: CheckoutModalProps) {
       const res = await createCheckoutSession({
         planCode: plan.planCode,
         termsVersion: '2026-09-28',
+        recurringConsent: agreedRecurring,
         recurringConsentVersion: '2026-09-28',
       })
 
@@ -124,20 +125,35 @@ export function CheckoutModal({ isOpen, onClose, plan }: CheckoutModalProps) {
               </span>
             </label>
 
-            {/* C3.2: 獨立自動續扣同意 Checkbox */}
-            <label className="flex items-start space-x-3 cursor-pointer select-none border-t border-border/50 pt-3">
-              <input
-                id="checkout-recurring-consent"
-                type="checkbox"
-                checked={agreedRecurring}
-                onChange={(e) => setAgreedRecurring(e.target.checked)}
-                disabled={loading}
-                className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-              />
-              <span className="text-xs leading-relaxed text-foreground/80">
-                我同意依選定方案週期自動續扣，直至主動取消為止。我可以隨時於帳號設定中取消自動續約。
-              </span>
-            </label>
+            {/* C3.2: 獨立信用卡約定自動續扣同意 Checkbox (PAYUNi Token / CreditHash 約定卡授權) */}
+            <div className="border-t border-border/50 pt-3 space-y-2">
+              <label className="flex items-start space-x-3 cursor-pointer select-none">
+                <input
+                  id="checkout-recurring-consent"
+                  type="checkbox"
+                  checked={agreedRecurring}
+                  onChange={(e) => setAgreedRecurring(e.target.checked)}
+                  disabled={loading}
+                  className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-xs leading-relaxed text-foreground/90 font-medium">
+                  <strong>【信用卡約定自動續扣同意】</strong>本人同意授權 MindGym 透過「PAYUNi 統一金流」安全保存信用卡約定授權代碼（CreditHash/Token），於每期方案到期時自動扣款，<strong>續期無需重複輸入卡號</strong>。本人得隨時於個人設定中關閉自動續約。
+                </span>
+              </label>
+
+              {/* 展開式：信用卡約定授權扣款約定細則 (Token / CreditHash 合規說明) */}
+              <details className="text-[11px] text-muted-foreground group pl-7">
+                <summary className="cursor-pointer font-semibold text-primary/80 hover:text-primary list-none flex items-center justify-between py-1">
+                  <span>檢視「信用卡定期約定扣款授權約定說明」</span>
+                  <span className="text-xs transition-transform group-open:rotate-180">▾</span>
+                </summary>
+                <div className="mt-2 space-y-1.5 rounded-xl bg-muted/40 p-3 leading-relaxed text-foreground/75 border border-border/40">
+                  <p><strong>1. 授權目的與方式：</strong>本人同意授權 PSY by PSY 心理健身房委託「統一金流 PAYUNi」於首期刷卡成功時，安全代碼化儲存信用卡授權標記（CreditHash／Token）。本平台完全不留存您的完整信用卡號與 CVC 安全碼。</p>
+                  <p><strong>2. 續期扣款免輸卡號：</strong>於每一訂閱週期（{PERIOD_TEXT[plan.period]}）屆滿之日，系統將使用該授權代碼自動向發卡銀行請款 {formatAmount(plan.amountCents, plan.currency)}，續約期間您毋須再次輸入卡號與簡訊驗證。</p>
+                  <p><strong>3. 隨時中止約定：</strong>您可於下一期扣款日前隨時至「個人設定 → 訂閱與扣款管理」一鍵點選「取消自動續訂」，系統將即刻停止後續任何自動扣款，您的 Pro 權益將保留至當期期滿為止。</p>
+                </div>
+              </details>
+            </div>
           </div>
 
           {/* Error Notice */}
