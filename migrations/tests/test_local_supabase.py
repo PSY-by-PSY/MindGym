@@ -353,6 +353,8 @@ class LocalSupabaseTests(unittest.TestCase):
         for args in [('upgrade','head'),('check',),('current',)]:
             result=subprocess.run([sys.executable,'-m','alembic',*args],cwd=ROOT,env=env,capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stderr+result.stdout)
-        self.assertEqual(compare(capture(self.conn),self.snapshot),[])
+        # mg_0005_entitlement_cutover upgrades is_pro and get_my_entitlements to read canonical billing
+        differences = compare(capture(self.conn), self.snapshot)
+        self.assertEqual(differences, ['get_my_entitlements.definition', 'is_pro.definition'])
 
 if __name__=='__main__':unittest.main()
