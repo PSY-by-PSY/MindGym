@@ -5,11 +5,14 @@ import react from '@vitejs/plugin-react'
 import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 
+import type { ViteDevServer } from 'vite'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+
 function payuniReturnPostPlugin() {
   return {
     name: 'payuni-return-post-plugin',
-    configureServer(server: any) {
-      server.middlewares.use((req: any, _res: any, next: any) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req: IncomingMessage, _res: ServerResponse, next: () => void) => {
         if (req.method === 'POST' && req.url && req.url.startsWith('/billing/result')) {
           req.method = 'GET'
         }

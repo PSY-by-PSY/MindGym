@@ -195,7 +195,7 @@ export async function fetchBillingOverview(): Promise<BillingOverview> {
     currentPeriodEndsAt: data.current_period_ends_at,
     nextChargeAt: data.next_charge_at,
     cancelAt: data.cancel_at,
-    orders: (data.orders ?? []).map((o: any) => ({
+    orders: (data.orders ?? []).map((o: { id: string; status: string; kind: string; amount_cents: number; currency: string; created_at: string; paid_at: string | null; expires_at: string | null }) => ({
       id: o.id,
       status: o.status,
       kind: o.kind,

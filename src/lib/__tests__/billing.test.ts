@@ -66,7 +66,7 @@ describe('billing client library', () => {
       method: '',
       style: { display: '' },
       inputs: [] as Array<{ name: string; value: string }>,
-      appendChild(child: any) {
+      appendChild(child: { name: string; value: string }) {
         this.inputs.push(child)
       },
       submit() {

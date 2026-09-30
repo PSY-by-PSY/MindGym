@@ -144,12 +144,12 @@ export async function fetchPricing(): Promise<PricingBundle | null> {
     if (res.ok) {
       const data = await res.json()
       if (Array.isArray(data) && data.length > 0) {
-        const plans: PricingPlan[] = data.map((r: any, idx: number) => ({
-          planCode: r.code || r.planCode,
-          period: (r.period || (r.code === 'yearly' ? 'year' : 'month')) as PlanPeriod,
-          amountCents: r.amount_cents ?? r.amountCents,
+        const plans: PricingPlan[] = data.map((r: Record<string, unknown>, idx: number) => ({
+          planCode: (r.code || r.planCode) as string,
+          period: ((r.period as string) || (r.code === 'yearly' ? 'year' : 'month')) as PlanPeriod,
+          amountCents: (r.amount_cents ?? r.amountCents) as number,
           foundingAmountCents: null,
-          currency: r.currency || 'TWD',
+          currency: (r.currency || 'TWD') as string,
           sortOrder: idx + 1,
         }))
         return {

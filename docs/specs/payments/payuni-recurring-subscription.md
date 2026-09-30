@@ -604,14 +604,14 @@ flowchart LR
 
 | 階段 | 狀態 | 已完成 | 完成前仍需 |
 | --- | --- | --- | --- |
-| P0：採用與商務前置 | 阻擋中 | baseline 的本機基準、需求與風險已盤點 | 正式採用授權、PAYUNi recurring／查單 contract、方案／退款與營運決策 |
+| P0：採用與商務前置 | 已解除金流阻擋 | baseline 的本機基準、需求與風險已盤點；**PAYUNi 官方已正式核准「信用卡Token API」並完成限定 IP 綁定 (125.230.155.89)** | 正式環境 Supabase 採用授權、方案／退款之營運決策 |
 | P1：資料基礎 | 本機驗收通過，尚未正式採用 | `mg_0002_billing_foundation`、ORM scope、RLS／grants、outbox；全新本機 Supabase migration／verifier／integration suite | 正式採用授權與正式環境接管流程 |
-| P2：初始付款流程 | P2.1 & P2.2 本機驗收通過；P2.3 sandbox 外部驗收阻擋中 | checkout 明確續扣同意、約定卡 UPP v2 adapter、Fernet vault、驗簽 receipt／callback outbox、成功結果的金額／交易型別檢查、原子 Token 保存與 outcome transaction、受控 one-shot worker、owner read APIs、topic-specific claim／defer／dead-letter；單元、router、callback simulator 與 migration static tests；隔離 Local Supabase DB migration suite（24 項通過）；FastAPI 本機端到端閉環測試（8 項全過，含 plans、checkout、order、signed callback、worker、DB outcome 斷言、/v1/billing/me 與冪等重送） | PAYUNi Token／IP 核准、真實 sandbox E2E、正式環境部署 scheduler 與告警 |
+| P2：初始付款流程 | P2.1 & P2.2 本機驗收通過；P2.3 外部前置已就緒 | checkout 明確續扣同意、約定卡 UPP v2 adapter、Fernet vault、驗簽 receipt／callback outbox、成功結果的金額／交易型別檢查、原子 Token 保存與 outcome transaction、受控 one-shot worker、owner read APIs、topic-specific claim／defer／dead-letter；單元、router、callback simulator 與 migration static tests；隔離 Local Supabase DB migration suite（24 項通過）；FastAPI 本機端到端閉環測試（8 項全過，含 plans、checkout、order、signed callback、worker、DB outcome 斷言、/v1/billing/me 與冪等重送）；**PAYUNi Token API 與 IP 白名單已核准** | 透過真實 Sandbox UPP 刷卡取得官方 CreditHash 並完成回呼保存驗證 |
 | P3：權益與帳務操作 | 本機驗收通過 | P3.1 取消自動續扣、P3.2 Canonical entitlement cutover、P3.3 管理員退款、P3.4 整合測試與 E2E 矩陣（`backend/tests/test_p3_matrix.py` 54/54 全過，`scripts/verify_p3_e2e.py` 6/6 全過） | PAYUNi Sandbox / Production 外部驗收 |
-| P4：自動續扣營運 | 本機驗收通過 | P4.1 續約排程與結果套用 RPC (`mg_0007_billing_renewal`)、P4.2 PAYUNi `/api/credit` 幕後 Token 扣款 adapter、P4.3 續約 Worker 與 7 天寬限期狀態機 (`BillingRenewalWorker`)、P4.4 每日對帳 API 與 CLI 腳本 (`scripts/billing_reconciliation.py`, `scripts/verify_p4_e2e.py` 6/6 全過) | PAYUNi 定期扣款正式授權與固定 IP 部署 |
+| P4：自動續扣營運 | 本機驗收通過；外部 API 連線驗證通過 | P4.1 續約排程與結果套用 RPC (`mg_0007_billing_renewal`，訂單號對齊 25 字元限制)、P4.2 PAYUNi `/api/credit` v1.3 幕後 Token 扣款 adapter、P4.3 續約 Worker 與 7 天寬限期狀態機 (`BillingRenewalWorker`)、P4.4 每日對帳 API 與 CLI 腳本 (`scripts/billing_reconciliation.py`, `scripts/verify_p4_e2e.py` 6/6 全過)；**已由本機固定 IP 成功對接 PAYUNi /api/credit Sandbox 回傳 signed JSON** | 取得真實 CreditHash 後發動 Sandbox 幕後扣款實測 (P4.5) |
 | P5：上線 | 未開始 | — | P0～P4 驗收、資安與營運 readiness review |
 
-**目前位置：P2、P3、P4 本機驗收切片全數通過；P5 待進行。**
+**目前位置：PAYUNi 官方已核准 Token API 與 IP 綁定；本機驗收全數通過，正進行真實 Sandbox 授權取 Token 與幕後續扣驗收。**
 只有 UPP v2 文件明確定義的「信用卡成功」組合會被 sandbox resolver 映射為
 `succeeded`；其他 callback 會安全 defer，等待 P4 的交易查詢 adapter 與商戶 contract。
 
@@ -633,10 +633,12 @@ flowchart LR
 - [x] P3.3 管理員退款機制：`mg_0006_billing_refunds` migration (`process_admin_refund` RPC, 原子撤銷權益與 outbox 佇列)、`POST /v1/admin/billing/refunds` API 端點與完整單元/repository/router 測試（2026-09-28）。
 - [x] P3.4 端到端整合與狀態轉換測試矩陣：新增 `backend/tests/test_p3_matrix.py` (54/54 全過) 與 `scripts/verify_p3_e2e.py` 端到端驗證腳本 (6/6 步驟全過：免費會員 -> 訂購成功 -> 使用者取消 -> 到期前保留權益 -> 管理員退款 -> 原子撤銷權益與即時降級) (2026-09-28)。
 - [x] P4.1 續約排程與結果套用 RPC：`mg_0007_billing_renewal` migration (`schedule_renewals`, `apply_renewal_outcome`)、BillingRepository 與 BillingService 擴充（2026-09-28）。
-- [x] P4.2 PAYUNi `/api/credit` 幕後 Token 扣款 adapter：`PayUniUppProvider.charge_token`、雙旗標保護與單元測試（2026-09-28）。
+- [x] P4.2 PAYUNi `/api/credit` 幕後 Token 扣款 adapter：`PayUniUppProvider.charge_token` (v1.3)、雙旗標保護與單元測試（2026-09-28）。
 - [x] P4.3 自動續約 Worker 與 7 天寬限期狀態機：`BillingRenewalWorker`、記憶體 Token 短暫解密、退避重試、`scripts/run_billing_renewal_worker.py`（2026-09-28）。
 - [x] P4.4 每日對帳與 E2E 驗證：`GET /v1/admin/billing/reconciliation` API、`scripts/billing_reconciliation.py` CLI 報表工具與 `scripts/verify_p4_e2e.py` (6/6 步驟全過)（2026-09-28）。
+- [x] PAYUNi 官方核准：信用卡 Token API 權限開通，來源 IP (125.230.155.89) 已加入白名單，且 `/api/credit` 外部通道握手已實測成功 (2026-09-29)。
 - [ ] P2.3 PAYUNi 核准後的真實 sandbox E2E：首次授權、成功／失敗 callback、Token 保存、重送、查單與取消。
+- [ ] P4.5 真實 Sandbox Token 幕後扣款實測：透過真實 CreditHash 觸發自動續訂並確認扣款入帳。
 - [ ] worker 的正式部署／排程、告警與 dead-letter 人工處理 runbook。
 
 > §8 是「上線驗收」而非程式工作清單；其中條件尚未以實際 Supabase／PAYUNi 流程驗收，
