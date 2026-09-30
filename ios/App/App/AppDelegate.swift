@@ -51,6 +51,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // 遠端推播（APNs）的 token 回呼 —— @capacitor/push-notifications 必需。
+    //
+    // 插件的 PushNotifications.register() 只做一件事：呼叫
+    // UIApplication.shared.registerForRemoteNotifications()。真正的 device token
+    // 由 iOS 回呼到「AppDelegate 的這兩個方法」，插件則是在 load() 時掛
+    // NotificationCenter 的 observer 等 .capacitorDidRegisterForRemoteNotifications。
+    // 少了下面這段轉發，token 就停在 AppDelegate 沒人接：JS 的 'registration' 與
+    // 'registrationError' 事件都不會觸發，device_tokens 永遠是空的，
+    // 而且「完全不會報錯」——推播就是靜默地永遠不來。
+    // 見 node_modules/@capacitor/push-notifications/README.md 的 iOS 章節。
+    // ⚠️ 不要在 cap sync／升級殼時弄丟這兩個方法。
+    // ─────────────────────────────────────────────────────────────────────
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call

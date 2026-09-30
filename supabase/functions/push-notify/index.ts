@@ -95,6 +95,7 @@ async function sendToToken(
   providerJwt: string,
   title: string,
   body: string,
+  route?: string,
 ): Promise<'ok' | 'gone' | 'error'> {
   const res = await fetch(`https://${APNS_HOST}/3/device/${token}`, {
     method: 'POST',
@@ -104,8 +105,13 @@ async function sendToToken(
       'apns-push-type': 'alert',
       'apns-priority': '10',
     },
+    // route 放在 aps 外層（跟 aps 平行的自訂欄位）：App 端的
+    // pushNotificationActionPerformed 監聽器會讀 notification.data.route，
+    // 點擊推播時直接導到那個頁面（見 src/lib/pushNotifications.ts）。
+    // 寫法與 broadcast-notify 一致。
     body: JSON.stringify({
       aps: { alert: { title, body }, sound: 'default' },
+      ...(route ? { route } : {}),
     }),
   })
   if (res.ok) return 'ok'
@@ -130,6 +136,9 @@ Deno.serve(async (req) => {
     const title = 'PSY by PSY'
     let ownerId: string | undefined
     let body: string
+    // 點擊推播要跳去哪。按讚／留言導到該則貼文（community 的 ?focus=<entryId>
+    // 就是為了通知而做的 deep link，見 src/routes/app.community.tsx）。
+    let route: string | undefined
 
     if (table === 'subscriptions') {
       // 創始成員審核通過（admin.tsx 的核准流程 → set_user_subscription RPC → subscriptions
@@ -156,6 +165,8 @@ Deno.serve(async (req) => {
         return new Response('skip', { status: 200 })
       }
 
+      route = `/app/community?focus=${entryId}`
+
       if (table === 'likes') {
         body = '有人為你的貼文按讚 ❤️'
       } else {
@@ -179,7 +190,7 @@ Deno.serve(async (req) => {
     const dead: string[] = []
     await Promise.all(
       tokens.map(async ({ token }) => {
-        const r = await sendToToken(token as string, jwt, title, body)
+        const r = await sendToToken(token as string, jwt, title, body, route)
         if (r === 'gone') dead.push(token as string)
       }),
     )
