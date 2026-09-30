@@ -32,6 +32,9 @@ mer_id = re.search(r"商店代號：\s*(\S+)", text).group(1)
 hash_key = re.search(r"Hash Key:\s*(\S+)", text).group(1)
 hash_iv = re.search(r"IV KEY:\s*(\S+)", text).group(1)
 
+# ⚠️ Sandbox 測試專用：這是開發者本機的 ngrok 臨時通道，只承接 PAYUNi 測試環境的回呼。
+#    不是正式環境設定，也不接觸任何正式使用者資料。正式環境的回呼網址由
+#    BILLING_PAYUNI_CALLBACK_URL 環境變數提供（Render 後端），不會使用 ngrok。
 NGROK_HOST = "https://unnymphean-intrapsychic-mitchell.ngrok-free.dev"
 
 settings = PayUniSettings(

@@ -51,6 +51,8 @@ mer_id = re.search(r"商店代號：\s*(\S+)", text).group(1)
 hash_key = re.search(r"Hash Key:\s*(\S+)", text).group(1)
 hash_iv = re.search(r"IV KEY:\s*(\S+)", text).group(1)
 
+# ⚠️ Sandbox 測試專用：本機 ngrok 臨時通道，僅用於驗證 PAYUNi 測試環境的公開回呼路徑。
+#    只有 sandbox 測試資料經過此通道；正式環境不使用 ngrok。
 NGROK_URL = "https://unnymphean-intrapsychic-mitchell.ngrok-free.dev"
 LOCAL_SERVER_URL = "http://127.0.0.1:8001"
 SUPABASE_URL = "http://127.0.0.1:54321"

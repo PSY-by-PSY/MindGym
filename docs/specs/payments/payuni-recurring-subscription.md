@@ -636,7 +636,7 @@ flowchart LR
 - [x] P4.2 PAYUNi `/api/credit` 幕後 Token 扣款 adapter：`PayUniUppProvider.charge_token` (v1.3)、雙旗標保護與單元測試（2026-09-28）。
 - [x] P4.3 自動續約 Worker 與 7 天寬限期狀態機：`BillingRenewalWorker`、記憶體 Token 短暫解密、退避重試、`scripts/run_billing_renewal_worker.py`（2026-09-28）。
 - [x] P4.4 每日對帳與 E2E 驗證：`GET /v1/admin/billing/reconciliation` API、`scripts/billing_reconciliation.py` CLI 報表工具與 `scripts/verify_p4_e2e.py` (6/6 步驟全過)（2026-09-28）。
-- [x] PAYUNi 官方核准：信用卡 Token API 權限開通，來源 IP (125.230.155.89) 已加入白名單，且 `/api/credit` 外部通道握手已實測成功 (2026-09-29)。
+- [x] PAYUNi 官方核准：信用卡 Token API 權限開通，來源 IP (125.230.155.89，**開發者本機 sandbox 測試用**，非正式後端；正式上線需改為 Render 出口固定 IP 並重新向 PAYUNi 申請白名單) 已加入白名單，且 `/api/credit` 外部通道握手已實測成功 (2026-09-29)。
 - [ ] P2.3 PAYUNi 核准後的真實 sandbox E2E：首次授權、成功／失敗 callback、Token 保存、重送、查單與取消。
 - [ ] P4.5 真實 Sandbox Token 幕後扣款實測：透過真實 CreditHash 觸發自動續訂並確認扣款入帳。
 - [ ] worker 的正式部署／排程、告警與 dead-letter 人工處理 runbook。
