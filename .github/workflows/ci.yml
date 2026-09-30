@@ -78,9 +78,9 @@ jobs:
             sleep $((attempt * 45))
           done
           exit 1
+      - run: python scripts/db/verify_baseline.py
       - run: python -m alembic upgrade head
       - run: python -m alembic check
-      - run: python scripts/db/verify_baseline.py
       - run: python -m unittest discover -s migrations/tests -v
       - name: Stop isolated services
         if: always()
