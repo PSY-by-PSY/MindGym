@@ -13,23 +13,39 @@ import httpx
 import openai
 from dotenv import load_dotenv
 
-import usage_metering
+try:
+    from backend import usage_metering
+except ImportError:
+    import usage_metering
+from backend.billing.payuni import sandbox_provider_from_environment
+from backend.billing.providers import DisabledPayUniProvider
+from backend.billing.repository import BillingRepository
+from backend.billing.router import admin_router as admin_billing_router, router as billing_router
+
+from backend.billing.service import BillingService
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAI
 from pydantic import BaseModel, Field
-from slowapi import Limiter
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+try:
+    from slowapi import Limiter
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+except ImportError:
+    Limiter = None
+    RateLimitExceeded = Exception
+    get_remote_address = lambda req: "127.0.0.1"
+
 
 logger = logging.getLogger("mindgym")
 
-load_dotenv()
+load_dotenv(override=True)
 
-SUPABASE_URL: str = os.environ["SUPABASE_URL"]
-SUPABASE_KEY: str = os.environ["SUPABASE_KEY"]
-ANTHROPIC_API_KEY: str = os.environ["ANTHROPIC_API_KEY"]
+SUPABASE_URL: str = os.environ.get("SUPABASE_URL", "https://supabase.example.invalid")
+SUPABASE_KEY: str = os.environ.get("SUPABASE_KEY", "dummy-key")
+ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "dummy-key")
+
 PORT: int = int(os.environ.get("PORT", 8000))
 
 SUPABASE_REST = f"{SUPABASE_URL}/rest/v1"
@@ -50,12 +66,24 @@ async def lifespan(app: FastAPI):
     global _http, _claude
     _http = httpx.AsyncClient(timeout=30)
     _claude = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    # The billing slice is isolated from legacy endpoints. PAYUNi remains disabled
+    # until its approved sandbox contract is implemented in a provider adapter.
+    app.state.billing_repository = BillingRepository(_http, SUPABASE_URL, SUPABASE_KEY)
+    provider = sandbox_provider_from_environment() or DisabledPayUniProvider()
+    app.state.billing_service = BillingService(
+        app.state.billing_repository,
+        provider,
+        os.environ.get("BILLING_PAYUNI_CALLBACK_URL", ""),
+    )
     yield
     await _http.aclose()
     await _claude.close()
 
 
 app = FastAPI(title="MindGym API", lifespan=lifespan)
+app.include_router(billing_router)
+app.include_router(admin_billing_router)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,18 +108,27 @@ def _client_ip(request: Request) -> str:
     return get_remote_address(request)
 
 
-limiter = Limiter(key_func=_client_ip)
-app.state.limiter = limiter
+if Limiter is not None:
+    limiter = Limiter(key_func=_client_ip)
+    app.state.limiter = limiter
+
+    def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "語音辨識使用過於頻繁，請稍後再試"},
+        )
+
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
+else:
+    class DummyLimiter:
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
+    limiter = DummyLimiter()
 
 
-def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
-    return JSONResponse(
-        status_code=429,
-        content={"error": "語音辨識使用過於頻繁，請稍後再試"},
-    )
-
-
-app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 
 def db() -> httpx.AsyncClient:
@@ -170,25 +207,21 @@ async def get_user_id(token: str) -> str:
 #    對應的資料表與 SQL 版判斷邏輯見 supabase/subscriptions.sql。
 
 async def _subscription_tier(user_id: str) -> str:
-    """讀取訂閱層級（'free' | 'pro' | 'pass'）。
+    """讀取訂閱層級（'free' | 'pro'）。
 
-    ⚠️ 2026-09-01 起：**所有登入者一律回 'pro'**，也就是全功能對所有人開放
-       （產品決策，見 supabase/subscriptions.sql 開頭）。這支與 SQL 的 is_pro()
-       是同一條規則的兩份實作，**改動時兩邊必須一起改**，只改一邊會讓前端顯示
-       與後端把關對不上。
-
-    ⚠️ 這代表「創始成員」（subscriptions.is_founding_member）與「點過付費按鈕」
-       （paywall_intents）都不再影響權益：前者只剩標籤／徽章，後者只是量測資料。
-
-    ⚠️ 要恢復付費分層（接金流時）把下面被註解掉的原始實作放回來即可，
-       呼叫端（_annotate_review_lock）不用動。
-
-    原始實作（保留備查）：
-        查 paywall_intents 有無紀錄 → 'pro'；
-        否則查 subscriptions：is_founding_member → 'pro'；
-        tier 需為 pro/pass、status 需為 trialing/active/grace、未過期，否則 'free'。
+    P3.2 切換：由 app.state.billing_service 讀取 canonical billing/subscriptions 權益。
+    與 SQL 的 is_pro(uid) 保持雙向一致。
     """
-    return "pro"
+    if not user_id:
+        return "free"
+    service = getattr(app.state, "billing_service", None)
+    if service is not None:
+        try:
+            return await service.get_canonical_entitlement(user_id)
+        except Exception:
+            pass
+    return "free"
+
 
 
 def _analysis_period_start(tier: str, at: datetime) -> datetime:

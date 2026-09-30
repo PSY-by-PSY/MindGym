@@ -37,5 +37,53 @@ jobs:
         with:
           python-version: "3.11"
 
+      - run: python -m pip install -r backend/requirements.txt
       - run: python -m unittest discover -s backend/tests -v
       - run: python -m compileall -q backend scripts
+
+  database:
+    name: Local Supabase baseline and ORM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # No hosted project token, DB password or application secrets are used.
+    env:
+      MINDGYM_LOCAL_TEST: "1"
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.117.0
+      - run: python -m pip install -r backend/requirements.txt -r migrations/requirements.txt
+      - run: python -m unittest discover -s migrations/tests -p test_static.py -v
+      - name: Start isolated Supabase
+        run: |
+          mkdir -p .local-db/supabase-test
+          supabase init --workdir .local-db/supabase-test
+          # Tests use psycopg on 54322 only; kong/postgrest/postgres-meta are not needed.
+          # Pull from AWS's public mirror: ghcr.io rate-limited shared runners during the
+          # 2026-09-23 GitHub incident. setup-cli exports SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io
+          # via GITHUB_ENV, which overrides job-level env, so the override is inline here.
+          # Registry hiccups are transient, so retry the start a few times.
+          for attempt in 1 2 3; do
+            if SUPABASE_INTERNAL_IMAGE_REGISTRY=public.ecr.aws supabase start --workdir .local-db/supabase-test -x studio,imgproxy,mailpit,realtime,storage-api,edge-runtime,logflare,vector,supavisor,kong,postgrest,postgres-meta; then
+              exit 0
+            fi
+            echo "supabase start failed (attempt $attempt); cleaning up and retrying"
+            supabase stop --workdir .local-db/supabase-test --no-backup || true
+            sleep $((attempt * 45))
+          done
+          exit 1
+      - run: python -m alembic upgrade mg_0001_baseline
+      - run: python scripts/db/verify_baseline.py
+      - run: python -m alembic upgrade mg_0003_billing_workflow
+      - run: python -m unittest discover -s migrations/tests -v
+      - run: python -m alembic upgrade head
+      - run: python -m alembic check
+      - name: Stop isolated services
+        if: always()
+        run: supabase stop --workdir .local-db/supabase-test

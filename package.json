@@ -12,6 +12,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test --config playwright.public.config.ts",
+    "test:e2e:public": "playwright test --config playwright.public.config.ts",
+    "ios:sync:local-preview": "node scripts/ios/sync-local-preview.mjs",
     "preview": "vite preview",
     "postinstall": "patch-package"
   },
@@ -39,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
+    "@playwright/test": "^1.63.0",
     "@tanstack/router-generator": "^1.120.0",
     "@tanstack/router-plugin": "^1.120.0",
     "@tanstack/router-vite-plugin": "^1.120.0",

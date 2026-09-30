@@ -9,7 +9,7 @@
 //    但必須明確表達「不容忍冒犯內容與濫用使用者，違規者會被移除」。
 import { useLanguage } from '../../lib/i18n/context'
 
-export const TERMS_LAST_UPDATED = '2026 年 9 月 2 日'
+export const TERMS_LAST_UPDATED = '2026 年 9 月 26 日'
 export const CONTACT_EMAIL = 'psybypsy01@gmail.com'
 
 export function TermsBody() {
@@ -82,11 +82,18 @@ export function TermsBody() {
       </Section>
 
       <Section title={t('七、AI 功能說明')}>
-        <P>{t('本服務使用第三方 AI 服務（Anthropic Claude 與 OpenAI Whisper）來生成練習回饋、週分析報告與語音轉文字。相關資料處理方式詳見隱私政策。')}</P>
+        <P>{t('本服務使用第三方 AI 與語音處理服務來生成練習回饋、週分析報告與語音轉文字。相關資料處理方式詳見隱私政策。')}</P>
         <P>{t('AI 生成的內容僅供自我覺察參考，不構成醫療、心理或法律建議，也可能不準確，請斟酌後再採用。')}</P>
       </Section>
 
-      <Section title={t('八、服務變更與終止')}>
+      <Section title={t('八、訂閱與付款')}>
+        <P>{t('目前本服務尚未開放線上購買。若未來開放付費方案，方案內容、價格、計費週期與付款方式會以「方案與價格」頁面公告為準；所有價格將以新台幣顯示並註明是否含稅。')}</P>
+        <P>{t('網頁版付款預計由統一金流 PAYUNi 處理。我們不會取得或保存你的完整信用卡號與安全碼；定期扣款功能、實際扣款日與付款失敗處理，將在服務開放前於方案頁與結帳頁完整揭露。')}</P>
+        <P>{t('若你日後訂閱自動續訂方案，你可在「帳號設定 → 訂閱管理」取消下一期續訂。取消後，已付費期間的使用權將保留至期滿；退款條件以退款政策頁的正式公告版本為準。')}</P>
+        <P>{t('iOS App 內若日後提供 Apple 購買，其付款、續訂、取消與退款將依 Apple 的規則處理；Web PAYUNi 與 Apple 的付款紀錄及操作方式會分別清楚標示。')}</P>
+      </Section>
+
+      <Section title={t('九、服務變更與終止')}>
         <Bullets
           items={[
             t('我們可能會新增、修改或停止部分功能，重大變更會於 App 內或本頁公告。'),
@@ -95,15 +102,15 @@ export function TermsBody() {
         />
       </Section>
 
-      <Section title={t('九、免責聲明')}>
+      <Section title={t('十、免責聲明')}>
         <P>{t('本服務以「現狀」提供。在法律允許的最大範圍內，我們不對服務的中斷、資料遺失或因使用本服務所生的間接損害負責。')}</P>
       </Section>
 
-      <Section title={t('十、條款更新')}>
+      <Section title={t('十一、條款更新')}>
         <P>{t('我們可能會不時更新本條款。重大變更時會於本頁公告並更新上方的「最後更新」日期。變更後繼續使用本服務，即視為你同意更新後的條款。')}</P>
       </Section>
 
-      <Section title={t('十一、聯絡我們')}>
+      <Section title={t('十二、聯絡我們')}>
         <P>{t('對本條款有任何疑問，或需要檢舉緊急狀況，歡迎透過以下方式聯絡我們：')}</P>
         <p className="text-[15px] leading-relaxed text-foreground/85">
           {t('Email：')}

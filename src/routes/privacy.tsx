@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import { PrivacyBody, PRIVACY_LAST_UPDATED } from '../components/legal/PrivacyBody'
+import { PublicFooter } from '../components/legal/PublicFooter'
 
 export const Route = createFileRoute('/privacy')({
   component: PrivacyPage,
@@ -41,11 +42,7 @@ function PrivacyPage() {
           <PrivacyBody />
         </div>
 
-        <div className="mt-8 border-t border-border pt-6">
-          <Link to="/terms" className="text-sm font-bold text-primary underline">
-            {t('使用者條款')}
-          </Link>
-        </div>
+        <PublicFooter />
       </div>
     </div>
   )

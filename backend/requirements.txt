@@ -17,3 +17,5 @@ anthropic>=0.116.0,<1.0
 openai>=1.0.0,<4
 slowapi>=0.1.9
 python-multipart>=0.0.9
+# PAYUNi UPP envelope uses AES-256-GCM; card data never reaches this backend.
+cryptography>=42,<47

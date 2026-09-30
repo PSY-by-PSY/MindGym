@@ -1,14 +1,34 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
+const productionServerUrl = 'https://app.psybypsy.com'
+const localPreviewServerUrl = process.env.CAPACITOR_SERVER_URL
+
+function resolveServerUrl() {
+  if (!localPreviewServerUrl) return productionServerUrl
+
+  const parsed = new URL(localPreviewServerUrl)
+  const isLoopback = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost'
+  if (parsed.protocol !== 'http:' || !isLoopback) {
+    throw new Error('CAPACITOR_SERVER_URL 僅允許 http://127.0.0.1 或 http://localhost 的本機預覽網址。')
+  }
+  return parsed.toString().replace(/\/$/, '')
+}
+
+const serverUrl = resolveServerUrl()
+
 // ─────────────────────────────────────────────────────────────────────────
 // Capacitor 設定（iOS 殼）
 //
-// 核心策略：server.url 指向 Vercel 線上版。
+// 核心策略：server.url 預設指向 Vercel 線上版。
 //   → App 啟動時直接載入線上網站，內容/UI/練習模組改 web → push 即時生效，
 //
 // ⚠️ 注意：因為 WebView 載入的是「遠端 Vercel bundle」，任何要在 App 內生效的
 //   前端 JS 變更（含呼叫 Capacitor plugin 的程式碼）都必須先 deploy 到 Vercel。
 //   本地 ios/ 專案只負責「殼 + 原生 plugin + URL scheme 註冊」。
+//
+// 本機 iOS 預覽：`npm run ios:sync:local-preview` 才會讀取未提交的
+// `.capacitor-preview.local`，暫時導向 loopback Vite。沒有該檔或平常的
+// `npx cap sync ios` 一律維持 productionServerUrl，避免 localhost 被帶進發布設定。
 // ─────────────────────────────────────────────────────────────────────────
 
 const config: CapacitorConfig = {
@@ -17,8 +37,8 @@ const config: CapacitorConfig = {
   // 即使用 server.url 載入遠端，Capacitor 仍要求 webDir 存在（離線 fallback 用）。
   webDir: 'dist',
   server: {
-    url: 'https://app.psybypsy.com',
-    cleartext: false,
+    url: serverUrl,
+    cleartext: serverUrl.startsWith('http://'),
   },
   ios: {
     // safe area 一律交給 CSS 處理（index.html 有 viewport-fit=cover，全站 13 個

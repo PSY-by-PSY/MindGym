@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+test-results/
+playwright-report/
 *.local
 
 # Environment variables — never commit
@@ -41,3 +43,8 @@ supabase/functions/broadcast-push/
 *.njsproj
 *.sln
 *.sw?
+
+# Isolated database tooling and private exports
+.venv-migrations/
+.local-db/
+.private-db/

@@ -16,13 +16,17 @@ import { Route as TherapistImport } from './routes/therapist'
 import { Route as TermsImport } from './routes/terms'
 import { Route as SupportImport } from './routes/support'
 import { Route as StaffImport } from './routes/staff'
+import { Route as RefundImport } from './routes/refund'
 import { Route as PrivacyImport } from './routes/privacy'
+import { Route as PricingImport } from './routes/pricing'
 import { Route as PaywallImport } from './routes/paywall'
 import { Route as OnboardingImport } from './routes/onboarding'
 import { Route as LoginImport } from './routes/login'
 import { Route as AppImport } from './routes/app'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
+import { Route as SettingsBillingImport } from './routes/settings.billing'
+import { Route as BillingResultImport } from './routes/billing.result'
 import { Route as AppWoopImport } from './routes/app.woop'
 import { Route as AppWeeklyReviewImport } from './routes/app.weekly-review'
 import { Route as AppSelfCompassionImport } from './routes/app.self-compassion'
@@ -70,9 +74,21 @@ const StaffRoute = StaffImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const RefundRoute = RefundImport.update({
+  id: '/refund',
+  path: '/refund',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const PrivacyRoute = PrivacyImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const PricingRoute = PricingImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -109,6 +125,18 @@ const AdminRoute = AdminImport.update({
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const SettingsBillingRoute = SettingsBillingImport.update({
+  id: '/settings/billing',
+  path: '/settings/billing',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const BillingResultRoute = BillingResultImport.update({
+  id: '/billing/result',
+  path: '/billing/result',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -242,11 +270,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaywallImport
       parentRoute: typeof rootRoute
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingImport
+      parentRoute: typeof rootRoute
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyImport
+      parentRoute: typeof rootRoute
+    }
+    '/refund': {
+      id: '/refund'
+      path: '/refund'
+      fullPath: '/refund'
+      preLoaderRoute: typeof RefundImport
       parentRoute: typeof rootRoute
     }
     '/staff': {
@@ -347,6 +389,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWoopImport
       parentRoute: typeof AppImport
     }
+    '/billing/result': {
+      id: '/billing/result'
+      path: '/billing/result'
+      fullPath: '/billing/result'
+      preLoaderRoute: typeof BillingResultImport
+      parentRoute: typeof rootRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/settings/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingImport
+      parentRoute: typeof rootRoute
+    }
     '/app/pro-module/$moduleId': {
       id: '/app/pro-module/$moduleId'
       path: '/pro-module/$moduleId'
@@ -430,7 +486,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -445,6 +503,8 @@ export interface FileRoutesByFullPath {
   '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/woop': typeof AppWoopRoute
+  '/billing/result': typeof BillingResultRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -459,7 +519,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -474,6 +536,8 @@ export interface FileRoutesByTo {
   '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/woop': typeof AppWoopRoute
+  '/billing/result': typeof BillingResultRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -489,7 +553,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/paywall': typeof PaywallRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/staff': typeof StaffRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
@@ -504,6 +570,8 @@ export interface FileRoutesById {
   '/app/self-compassion': typeof AppSelfCompassionRoute
   '/app/weekly-review': typeof AppWeeklyReviewRoute
   '/app/woop': typeof AppWoopRoute
+  '/billing/result': typeof BillingResultRoute
+  '/settings/billing': typeof SettingsBillingRoute
   '/app/pro-module/$moduleId': typeof AppProModuleModuleIdRoute
   '/app/workshop/authentic-self': typeof AppWorkshopAuthenticSelfRoute
   '/app/workshop/last-day': typeof AppWorkshopLastDayRoute
@@ -520,7 +588,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/paywall'
+    | '/pricing'
     | '/privacy'
+    | '/refund'
     | '/staff'
     | '/support'
     | '/terms'
@@ -535,6 +605,8 @@ export interface FileRouteTypes {
     | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/woop'
+    | '/billing/result'
+    | '/settings/billing'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -548,7 +620,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/paywall'
+    | '/pricing'
     | '/privacy'
+    | '/refund'
     | '/staff'
     | '/support'
     | '/terms'
@@ -563,6 +637,8 @@ export interface FileRouteTypes {
     | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/woop'
+    | '/billing/result'
+    | '/settings/billing'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -576,7 +652,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/paywall'
+    | '/pricing'
     | '/privacy'
+    | '/refund'
     | '/staff'
     | '/support'
     | '/terms'
@@ -591,6 +669,8 @@ export interface FileRouteTypes {
     | '/app/self-compassion'
     | '/app/weekly-review'
     | '/app/woop'
+    | '/billing/result'
+    | '/settings/billing'
     | '/app/pro-module/$moduleId'
     | '/app/workshop/authentic-self'
     | '/app/workshop/last-day'
@@ -606,12 +686,16 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PaywallRoute: typeof PaywallRoute
+  PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  RefundRoute: typeof RefundRoute
   StaffRoute: typeof StaffRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   TherapistRoute: typeof TherapistRoute
   WelcomeRoute: typeof WelcomeRoute
+  BillingResultRoute: typeof BillingResultRoute
+  SettingsBillingRoute: typeof SettingsBillingRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -621,12 +705,16 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PaywallRoute: PaywallRoute,
+  PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  RefundRoute: RefundRoute,
   StaffRoute: StaffRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   TherapistRoute: TherapistRoute,
   WelcomeRoute: WelcomeRoute,
+  BillingResultRoute: BillingResultRoute,
+  SettingsBillingRoute: SettingsBillingRoute,
 }
 
 export const routeTree = rootRoute
@@ -645,12 +733,16 @@ export const routeTree = rootRoute
         "/login",
         "/onboarding",
         "/paywall",
+        "/pricing",
         "/privacy",
+        "/refund",
         "/staff",
         "/support",
         "/terms",
         "/therapist",
-        "/welcome"
+        "/welcome",
+        "/billing/result",
+        "/settings/billing"
       ]
     },
     "/": {
@@ -687,8 +779,14 @@ export const routeTree = rootRoute
     "/paywall": {
       "filePath": "paywall.tsx"
     },
+    "/pricing": {
+      "filePath": "pricing.tsx"
+    },
     "/privacy": {
       "filePath": "privacy.tsx"
+    },
+    "/refund": {
+      "filePath": "refund.tsx"
     },
     "/staff": {
       "filePath": "staff.tsx"
@@ -740,6 +838,12 @@ export const routeTree = rootRoute
     "/app/woop": {
       "filePath": "app.woop.tsx",
       "parent": "/app"
+    },
+    "/billing/result": {
+      "filePath": "billing.result.tsx"
+    },
+    "/settings/billing": {
+      "filePath": "settings.billing.tsx"
     },
     "/app/pro-module/$moduleId": {
       "filePath": "app.pro-module.$moduleId.tsx",
