@@ -1155,7 +1155,7 @@ function CrisisOverviewTab() {
                       </td>
                     </tr>
                     {openId === r.id && (
-                      <tr className="border-b border-border/60 bg-muted/40">
+                      <tr className="border-b border-border bg-muted">
                         <td colSpan={7} className="px-4 py-3">
                           {!entry ? (
                             <span className="text-muted-foreground">{t('讀取中…')}</span>

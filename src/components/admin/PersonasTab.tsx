@@ -63,6 +63,9 @@ const TAG_LABEL: Record<string, string> = {
   boundary_setting: '設立界線', self_compassion: '自我慈悲', courage: '勇氣', small_steps: '拆成小步驟', flow: '心流',
   other: '其他',
 }
+const GOAL_STATUS: Record<string, string> = {
+  in_progress: '進行中', done: '已完成', planned: '計畫中', stalled: '卡住', failed: '未成功',
+}
 const STATUS_META: Record<PainStatus, { label: string; cls: string; bar: string }> = {
   active: { label: '持續中', cls: 'bg-rust text-white', bar: 'bg-rust' },
   improving: { label: '改善中', cls: 'bg-gold text-[#5b3a12]', bar: 'bg-gold' },
@@ -230,7 +233,7 @@ export function PersonasTab() {
       )}
 
       {restricted.length > 0 && (
-        <div className="mt-6 rounded-2xl border-2 border-rust/60 bg-card p-4">
+        <div className="mt-6 rounded-2xl border-2 border-rust bg-card p-4">
           <h2 className="font-black text-rust">{t('需要人工處理（{n} 位）', { n: restricted.length })}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {t('疑似未成年或近期有自我傷害相關內容，不做自動化個人化。請到「危機警示總覽」確認，或由負責人員人工檢視。')}
@@ -294,8 +297,8 @@ function PainStats({ rows }: { rows: PersonaRow[] }) {
           {stats.list.map((s) => (
             <tr key={s.tag}>
               <td className="w-[32%] whitespace-nowrap py-1 pr-2 text-foreground">{t(TAG_LABEL[s.tag] ?? s.tag)}</td>
-              <td className="py-1">
-                <div className="flex h-3 overflow-hidden rounded bg-muted">
+              <td className="w-full py-1">
+                <div className="flex h-3 min-w-[120px] overflow-hidden rounded bg-muted">
                   {(Object.keys(STATUS_META) as PainStatus[]).map((st) => (
                     <span key={st} className={STATUS_META[st].bar} style={{ width: `${(s[st] / n) * 100}%` }} />
                   ))}
@@ -317,7 +320,7 @@ function PainStats({ rows }: { rows: PersonaRow[] }) {
 
 function Kpi({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-xl bg-muted/60 px-3 py-2">
+    <div className="rounded-xl bg-muted px-3 py-2">
       <div className="text-xl font-black tabular-nums text-foreground">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
@@ -336,7 +339,7 @@ function PersonaCard({ row }: { row: PersonaRow }) {
           <div className="text-[16px] font-black text-foreground">{p.label}</div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {p.pains.filter((x) => x.status !== 'resolved').slice(0, 4).map((x, i) => (
-              <span key={`p${i}`} className="rounded-full bg-rust/10 px-2 py-0.5 text-[11px] font-bold text-rust">
+              <span key={`p${i}`} className="rounded-full bg-tile-pink px-2 py-0.5 text-[11px] font-bold text-rust">
                 {t(TAG_LABEL[x.tag] ?? x.tag)}
               </span>
             ))}
@@ -370,8 +373,8 @@ function PersonaCard({ row }: { row: PersonaRow }) {
             <List title={t('有效的調適方式')} items={p.coping_that_works} />
             <List title={t('重要他人')} items={p.people} />
           </div>
-          <List title={t('目標')} items={p.goals.map((g) => `${g.text}（${g.status}）`)} />
-          <div className="mt-3 rounded-xl bg-tile-mint/50 px-3 py-2">
+          <List title={t('目標')} items={p.goals.map((g) => `${g.text}（${t(GOAL_STATUS[g.status] ?? g.status)}）`)} />
+          <div className="mt-3 rounded-xl bg-tile-mint px-3 py-2">
             <List title={t('個人化服務建議')} items={p.service_hooks} />
           </div>
           {p.watch_outs.length > 0 && (
@@ -402,7 +405,7 @@ function Item({ item, showStatus }: { item: PersonaItem; showStatus?: boolean })
   const { t } = useLanguage()
   const st = item.status ? STATUS_META[item.status] : null
   return (
-    <li className="rounded-xl bg-muted/50 px-3 py-2">
+    <li className="rounded-xl bg-muted px-3 py-2">
       <div className="mb-0.5 flex items-center gap-1.5 text-[11px]">
         {showStatus && st && <span className={`rounded px-1.5 font-bold ${st.cls}`}>{t(st.label)}</span>}
         <span className="font-bold text-muted-foreground">{t(TAG_LABEL[item.tag] ?? item.tag)}</span>
