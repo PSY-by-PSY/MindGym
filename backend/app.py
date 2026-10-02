@@ -13,8 +13,10 @@ import httpx
 import openai
 from dotenv import load_dotenv
 
+import diary_safety
+import persona_builder
 import usage_metering
-from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAI
@@ -31,6 +33,15 @@ SUPABASE_URL: str = os.environ["SUPABASE_URL"]
 SUPABASE_KEY: str = os.environ["SUPABASE_KEY"]
 ANTHROPIC_API_KEY: str = os.environ["ANTHROPIC_API_KEY"]
 PORT: int = int(os.environ.get("PORT", 8000))
+
+# 每日練習危機警示（選填：沒設 RESEND_API_KEY 時照樣寫 crisis_alerts，只是不寄信）。
+RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
+CRISIS_EMAIL_TO: str = os.environ.get("CRISIS_EMAIL_TO", "psybypsy01@gmail.com")
+# Resend 沒驗證網域時只能用 onboarding@resend.dev 寄給帳號本人的信箱。
+CRISIS_EMAIL_FROM: str = os.environ.get("CRISIS_EMAIL_FROM", "PsyByPsy 危機警示 <onboarding@resend.dev>")
+# Supabase 觸發器呼叫 /api/diary/safety-check 時帶的共享密鑰（與 SQL 裡的 <DIARY_WEBHOOK_SECRET> 相同）。
+DIARY_WEBHOOK_SECRET: str = os.environ.get("DIARY_WEBHOOK_SECRET", "")
+ADMIN_URL: str = os.environ.get("ADMIN_URL", "https://mind-gym-kappa.vercel.app/admin")
 
 SUPABASE_REST = f"{SUPABASE_URL}/rest/v1"
 SUPABASE_HEADERS = {
@@ -1395,6 +1406,336 @@ async def pro_entry_safety_check(req: EntrySafetyCheckRequest, authorization: st
     except Exception as exc:
         logger.error("pro_entry_safety_check failed [%s]: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+# ── 每日練習的危機判讀 + 通知信 ──────────────────────────────────────────────
+# 原本只有專業模組（pro_entries）會跑危機判讀；感恩日記等每日練習寫到自傷字眼，
+# 社群審核刻意不擋（見 contentFilter.ts），卻也沒有任何警示——兩邊沒接起來。
+# 這裡由 Supabase 觸發器（supabase/admin_persona_crisis.sql）在每次新增或修改日記時呼叫，
+# 涵蓋所有寫入路徑，包含私密日記：危機偵測是安全機制，不是內容分析。
+
+
+class DiarySafetyWebhook(BaseModel):
+    entry_id: str
+
+
+async def _is_admin(user_id: str) -> bool:
+    resp = await db().get(
+        f"{SUPABASE_REST}/user_roles",
+        headers=SUPABASE_HEADERS,
+        params={"user_id": f"eq.{user_id}", "role": "eq.admin", "select": "role"},
+    )
+    return resp.status_code == 200 and len(resp.json()) > 0
+
+
+async def _require_admin(authorization: str) -> str:
+    user_id = await get_user_id(authorization.removeprefix("Bearer ").strip())
+    if not await _is_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user_id
+
+
+async def _send_email(subject: str, html_body: str, text_body: str) -> bool:
+    """用 Resend 寄信。沒設金鑰或寄失敗都只記 log，不影響警示寫入。"""
+    if not RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY 未設定，危機通知信未寄出：%s", subject)
+        return False
+    try:
+        resp = await db().post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+            json={"from": CRISIS_EMAIL_FROM, "to": [CRISIS_EMAIL_TO], "subject": subject, "html": html_body, "text": text_body},
+        )
+        if resp.status_code >= 300:
+            logger.error("Resend 寄信失敗 %s：%s", resp.status_code, resp.text[:300])
+            return False
+        return True
+    except Exception as exc:
+        logger.error("Resend 寄信例外 [%s]: %s", type(exc).__name__, exc)
+        return False
+
+
+async def _diary_ai_risk(text: str, user_id: str) -> str:
+    """第二層：AI 語意判讀（與專業模組同一套提示詞）。失敗視為 none。"""
+    try:
+        msg = await claude().messages.create(
+            model=_CRISIS_MODEL,
+            max_tokens=256,
+            system="你是心理危機辨識助手，只回傳 JSON，不要任何前言或 markdown。",
+            messages=[{
+                "role": "user",
+                "content": (
+                    "判斷以下文字是否流露自我傷害、自殺意念或嚴重心理危機（含隱晦表達，"
+                    "如告別、交代後事、覺得自己是負擔）。寧可誤報、不可漏報。\n\n"
+                    f"{text}\n\n"
+                    '只回傳 JSON：{"risk":"none|medium|high","reason":"..."}'
+                ),
+            }],
+        )
+        meter_claude("diary-safety", _CRISIS_MODEL, msg.usage, user_id)
+        raw = msg.content[0].text if msg.content else ""
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            r = str(json.loads(m.group()).get("risk", "none")).lower()
+            if r in ("medium", "high"):
+                return r
+    except Exception as exc:
+        logger.warning("diary_safety AI failed [%s]: %s", type(exc).__name__, exc)
+    return "none"
+
+
+@app.post("/api/diary/safety-check")
+async def diary_safety_check(req: DiarySafetyWebhook, x_webhook_secret: str = Header(default="")):
+    """由 gratitude_entries 的觸發器呼叫。第一層關鍵字、第二層 AI；有風險就寫 crisis_alerts 並寄信。
+    同一篇日記只會有一筆警示（diary_entry_id 唯一），之後編輯不會重複寄信。"""
+    if not DIARY_WEBHOOK_SECRET or x_webhook_secret != DIARY_WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+    try:
+        resp = await db().get(
+            f"{SUPABASE_REST}/gratitude_entries",
+            headers=SUPABASE_HEADERS,
+            params={
+                "id": f"eq.{req.entry_id}",
+                "select": "id,user_id,practice_type,item_1,item_2,item_3,payload,entry_date,is_shared",
+            },
+        )
+        rows = resp.json() if resp.status_code == 200 else []
+        if not rows:
+            return {"risk": "none"}
+        entry = rows[0]
+        user_id = entry["user_id"]
+        text = diary_safety.entry_text(entry)
+        if not text.strip():
+            return {"risk": "none"}
+
+        matched = diary_safety.match_keywords(text, CRISIS_KEYWORDS)
+        if matched:
+            source, risk = "keyword", "high"
+        else:
+            source, risk = "ai", await _diary_ai_risk(text, user_id)
+        if risk == "none":
+            return {"risk": "none"}
+
+        ins = await db().post(
+            f"{SUPABASE_REST}/crisis_alerts",
+            headers={**SUPABASE_HEADERS, "Prefer": "return=representation,resolution=ignore-duplicates"},
+            params={"on_conflict": "diary_entry_id"},
+            json={
+                "user_id": user_id,
+                "context": "diary",
+                "diary_entry_id": entry["id"],
+                "source": source,
+                "severity": risk,
+                "matched_terms": matched,
+            },
+        )
+        created = ins.json() if ins.status_code in (200, 201) else []
+        if ins.status_code >= 300:
+            logger.error("insert diary crisis_alert failed %s: %s", ins.status_code, ins.text[:300])
+        if not created:  # 已經有警示（例如使用者編輯了同一篇），不重複寄信
+            return {"risk": risk, "matched_terms": matched, "notified": False}
+
+        subject, html_body, text_body = diary_safety.build_crisis_email(
+            severity=risk,
+            source=source,
+            matched_terms=matched,
+            practice_type=entry.get("practice_type") or "",
+            entry_date=entry.get("entry_date") or "",
+            is_shared=bool(entry.get("is_shared")),
+            user_id=user_id,
+            snippet=diary_safety.excerpt(text, matched),
+            admin_url=ADMIN_URL,
+        )
+        sent = await _send_email(subject, html_body, text_body)
+        if sent:
+            await db().patch(
+                f"{SUPABASE_REST}/crisis_alerts",
+                headers=SUPABASE_HEADERS,
+                params={"id": f"eq.{created[0]['id']}"},
+                json={"notified_at": _now_iso()},
+            )
+        return {"risk": risk, "matched_terms": matched, "notified": sent}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("diary_safety_check failed [%s]: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.get("/api/admin/crisis-entry/{alert_id}")
+async def admin_crisis_entry(alert_id: str, authorization: str = Header(...)):
+    """後台查看警示對應的日記內容（含私密日記，限 admin，僅限有警示的那一篇）。"""
+    await _require_admin(authorization)
+    resp = await db().get(
+        f"{SUPABASE_REST}/crisis_alerts",
+        headers=SUPABASE_HEADERS,
+        params={"id": f"eq.{alert_id}", "select": "id,context,diary_entry_id"},
+    )
+    rows = resp.json() if resp.status_code == 200 else []
+    if not rows or not rows[0].get("diary_entry_id"):
+        raise HTTPException(status_code=404, detail="這筆警示沒有對應的每日練習")
+    er = await db().get(
+        f"{SUPABASE_REST}/gratitude_entries",
+        headers=SUPABASE_HEADERS,
+        params={
+            "id": f"eq.{rows[0]['diary_entry_id']}",
+            "select": "id,user_id,practice_type,item_1,item_2,item_3,payload,entry_date,is_shared,moderation_status",
+        },
+    )
+    entries = er.json() if er.status_code == 200 else []
+    if not entries:
+        raise HTTPException(status_code=404, detail="日記已被刪除")
+    e = entries[0]
+    return {
+        "user_id": e["user_id"],
+        "practice_type": e.get("practice_type"),
+        "practice_label": diary_safety.PRACTICE_LABELS.get(e.get("practice_type") or "", e.get("practice_type")),
+        "entry_date": e.get("entry_date"),
+        "is_shared": e.get("is_shared"),
+        "moderation_status": e.get("moderation_status"),
+        "fields": diary_safety.labeled_fields(e),
+    }
+
+
+# ── 後台：使用者 Persona ────────────────────────────────────────────────────
+# 按一個鈕就替「公開日記超過 40 篇」的使用者重建 persona。只用公開日記（隱私政策承諾
+# 私密日記僅自己可見）。在背景跑，進度寫進 persona_refresh_runs，前端輪詢。
+
+_PERSONA_MODEL = "claude-sonnet-5"
+_PERSONA_CONCURRENCY = 3
+
+
+async def _fetch_all(table: str, params: dict) -> list[dict]:
+    out: list[dict] = []
+    offset = 0
+    while True:
+        resp = await db().get(
+            f"{SUPABASE_REST}/{table}",
+            headers=SUPABASE_HEADERS,
+            params={**params, "limit": "1000", "offset": str(offset)},
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"讀取 {table} 失敗 {resp.status_code}: {resp.text[:200]}")
+        page = resp.json()
+        out.extend(page)
+        if len(page) < 1000:
+            return out
+        offset += 1000
+
+
+async def _update_run(run_id: str, **fields) -> None:
+    await db().patch(
+        f"{SUPABASE_REST}/persona_refresh_runs",
+        headers=SUPABASE_HEADERS,
+        params={"id": f"eq.{run_id}"},
+        json=fields,
+    )
+
+
+async def _build_one_persona(user_id: str, entry_count: int, admin_id: str) -> None:
+    entries = await _fetch_all("gratitude_entries", {
+        "user_id": f"eq.{user_id}",
+        "is_shared": "eq.true",
+        "practice_type": "not.like.workshop_*",
+        "select": "practice_type,item_1,item_2,item_3,payload,entry_date,created_at",
+        "order": "entry_date.asc",
+    })
+    prompt, used = persona_builder.build_prompt(entries)
+    msg = await claude().messages.create(
+        model=_PERSONA_MODEL,
+        max_tokens=4096,
+        system=persona_builder.SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    meter_claude("persona-build", _PERSONA_MODEL, msg.usage, admin_id)
+    persona = persona_builder.parse_persona(msg.content[0].text if msg.content else "")
+
+    prev = await db().get(
+        f"{SUPABASE_REST}/user_personas",
+        headers=SUPABASE_HEADERS,
+        params={"user_id": f"eq.{user_id}", "select": "version"},
+    )
+    prev_rows = prev.json() if prev.status_code == 200 else []
+    resp = await db().post(
+        f"{SUPABASE_REST}/user_personas",
+        headers={**SUPABASE_HEADERS, "Prefer": "return=minimal,resolution=merge-duplicates"},
+        params={"on_conflict": "user_id"},
+        json={
+            "user_id": user_id,
+            "data": persona,
+            "entry_count": entry_count,
+            "entries_used": used,
+            "restricted": persona["restricted"],
+            "model": _PERSONA_MODEL,
+            "version": (prev_rows[0]["version"] + 1) if prev_rows else 1,
+            "updated_at": _now_iso(),
+        },
+    )
+    if resp.status_code >= 300:
+        raise RuntimeError(f"寫入 user_personas 失敗 {resp.status_code}: {resp.text[:200]}")
+
+
+async def _run_persona_refresh(run_id: str, admin_id: str) -> None:
+    done = failed = 0
+    errors: list[str] = []
+    try:
+        rows = await _fetch_all("gratitude_entries", {
+            "is_shared": "eq.true",
+            "practice_type": "not.like.workshop_*",
+            "select": "user_id",
+        })
+        targets = persona_builder.eligible_users([r["user_id"] for r in rows])
+        await _update_run(run_id, total=len(targets))
+
+        sem = asyncio.Semaphore(_PERSONA_CONCURRENCY)
+        lock = asyncio.Lock()
+
+        async def one(user_id: str, n: int) -> None:
+            nonlocal done, failed
+            async with sem:
+                try:
+                    await _build_one_persona(user_id, n, admin_id)
+                    ok = True
+                except Exception as exc:
+                    logger.error("persona build failed for %s [%s]: %s", user_id[:8], type(exc).__name__, exc)
+                    errors.append(f"{user_id[:8]}: {type(exc).__name__}")
+                    ok = False
+            async with lock:
+                if ok:
+                    done += 1
+                else:
+                    failed += 1
+                await _update_run(run_id, done=done, failed=failed)
+
+        await asyncio.gather(*(one(u, n) for u, n in targets))
+        await _update_run(run_id, status="done", finished_at=_now_iso(), error="；".join(errors)[:1000] or None)
+    except Exception as exc:
+        logger.error("persona refresh run failed [%s]: %s", type(exc).__name__, exc)
+        await _update_run(run_id, status="failed", finished_at=_now_iso(), error=f"{type(exc).__name__}: {exc}"[:1000])
+
+
+@app.post("/api/admin/personas/refresh")
+async def admin_refresh_personas(background: BackgroundTasks, authorization: str = Header(...)):
+    admin_id = await _require_admin(authorization)
+    # 45 分鐘內還在跑的就不重複啟動（避免連按造成重複花費）。
+    since = (datetime.now(timezone.utc) - timedelta(minutes=45)).isoformat()
+    running = await db().get(
+        f"{SUPABASE_REST}/persona_refresh_runs",
+        headers=SUPABASE_HEADERS,
+        params={"status": "eq.running", "started_at": f"gte.{since}", "select": "*", "limit": "1"},
+    )
+    if running.status_code == 200 and running.json():
+        return {"run": running.json()[0], "already_running": True}
+    created = await db().post(
+        f"{SUPABASE_REST}/persona_refresh_runs",
+        headers={**SUPABASE_HEADERS, "Prefer": "return=representation"},
+        json={"status": "running", "started_by": admin_id, "min_entries": persona_builder.MIN_ENTRIES},
+    )
+    if created.status_code >= 300:
+        raise HTTPException(status_code=500, detail=f"建立刷新紀錄失敗：{created.text[:200]}")
+    run = created.json()[0]
+    background.add_task(_run_persona_refresh, run["id"], admin_id)
+    return {"run": run, "already_running": False}
 
 
 # ── 日記模組：每日即時回饋 + 定期回顧（整體／週報／內建感恩日記週回顧）─────────

@@ -3,12 +3,13 @@
 // App 版本控管（強制更新門檻）、使用者預覽（模組市集）。
 // 審核與版本控管動作皆走 SECURITY DEFINER RPC（內含 is_admin 檢查）。
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { BlockRenderer } from '../components/pro/BlockRenderer'
 import { MarketplacePreview, EyeIcon } from '../components/pro/MarketplacePreview'
 import { IntakeWorkbenchPreview } from '../components/pro/PreSessionPreview'
+import { PersonasTab } from '../components/admin/PersonasTab'
 import { useLanguage } from '../lib/i18n/context'
 import { LanguageSwitcherCompact } from '../components/LanguageSwitcher'
 import type { ProModuleRow, ProModuleKind, AiReview, DiaryModuleContent, AssessmentModuleContent } from '../lib/proModules'
@@ -118,7 +119,7 @@ function Spinner() {
 
 // ── 主控台（四分頁）─────────────────────────────────────────────────────────
 
-type Tab = 'applications' | 'reviews' | 'reports' | 'published' | 'crises' | 'matching' | 'appVersion' | 'subscriptions' | 'preview'
+type Tab = 'applications' | 'reviews' | 'reports' | 'published' | 'crises' | 'personas' | 'matching' | 'appVersion' | 'subscriptions' | 'preview'
 
 function AdminConsole() {
   const { t } = useLanguage()
@@ -130,6 +131,7 @@ function AdminConsole() {
     { key: 'reports', label: t('檢舉處理') },
     { key: 'published', label: t('已上架模組') },
     { key: 'crises', label: t('危機警示總覽') },
+    { key: 'personas', label: t('使用者 Persona') },
     { key: 'matching', label: t('媒合工作台') },
     { key: 'appVersion', label: t('App 版本控管') },
     { key: 'subscriptions', label: t('訂閱管理') },
@@ -158,6 +160,7 @@ function AdminConsole() {
         {tab === 'reports' && <ReportsTab />}
         {tab === 'published' && <PublishedModulesTab />}
         {tab === 'crises' && <CrisisOverviewTab />}
+        {tab === 'personas' && <PersonasTab />}
         {tab === 'matching' && <IntakeWorkbenchPreview />}
         {tab === 'appVersion' && <AppVersionTab />}
         {tab === 'subscriptions' && <SubscriptionsTab />}
@@ -999,38 +1002,101 @@ function ReportCard({
 
 type CrisisRow = {
   id: string
+  user_id: string
   severity: string
   source: string | null
   entry_id: string | null
+  // 以下三欄來自 supabase/admin_persona_crisis.sql；還沒執行那支 SQL 時查不到，會是 undefined。
+  context?: 'pro' | 'diary'
+  diary_entry_id?: string | null
+  notified_at?: string | null
   matched_terms: string[] | null
   acknowledged_at: string | null
   created_at: string
 }
 
+type CrisisEntry = {
+  practice_label: string
+  entry_date: string | null
+  is_shared: boolean
+  moderation_status: string | null
+  fields: [string, string][]
+}
+
+const CRISIS_API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+
+function crisisContextLabel(r: CrisisRow): string {
+  if (r.context === 'diary') return '每日練習'
+  return r.entry_id ? '專業模組練習' : '測驗作答'
+}
+
 function CrisisOverviewTab() {
   const { t } = useLanguage()
   const [rows, setRows] = useState<CrisisRow[] | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [entries, setEntries] = useState<Record<string, CrisisEntry | string>>({})
 
-  useEffect(() => {
-    let cancelled = false
-    supabase
+  const load = useCallback(async () => {
+    const full = await supabase
       .from('crisis_alerts')
-      .select('id, severity, source, entry_id, matched_terms, acknowledged_at, created_at')
+      .select('id, user_id, severity, source, entry_id, context, diary_entry_id, notified_at, matched_terms, acknowledged_at, created_at')
       .order('created_at', { ascending: false })
       .limit(200)
-      .then(({ data }) => {
-        if (!cancelled) setRows((data as CrisisRow[]) ?? [])
-      })
-    return () => {
-      cancelled = true
+    if (!full.error) {
+      setRows((full.data as CrisisRow[]) ?? [])
+      return
     }
+    // 還沒執行 admin_persona_crisis.sql 時新欄位不存在，退回舊欄位，畫面照常可用。
+    const legacy = await supabase
+      .from('crisis_alerts')
+      .select('id, user_id, severity, source, entry_id, matched_terms, acknowledged_at, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    setRows((legacy.data as CrisisRow[]) ?? [])
   }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const toggleEntry = async (r: CrisisRow) => {
+    if (openId === r.id) {
+      setOpenId(null)
+      return
+    }
+    setOpenId(r.id)
+    if (entries[r.id]) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch(`${CRISIS_API_URL}/api/admin/crisis-entry/${r.id}`, {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      })
+      if (!resp.ok) throw new Error(`${resp.status}`)
+      const body = (await resp.json()) as CrisisEntry
+      setEntries((m) => ({ ...m, [r.id]: body }))
+    } catch (e) {
+      console.error('[crisis entry]', e)
+      setEntries((m) => ({ ...m, [r.id]: t('讀取失敗，請稍後再試。') }))
+    }
+  }
+
+  const acknowledge = async (id: string) => {
+    const { error } = await supabase.from('crisis_alerts').update({ acknowledged_at: new Date().toISOString() }).eq('id', id)
+    if (error) {
+      console.error('[crisis ack]', error)
+      return
+    }
+    await load()
+  }
 
   if (rows === null) return <Spinner />
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-black text-foreground">{t('危機警示總覽')}</h1>
+      <h1 className="mb-1 text-xl font-black text-foreground">{t('危機警示總覽')}</h1>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {t('每日練習（含私密日記）與專業模組都會偵測。每日練習的警示會同時寄信通知。')}
+      </p>
       {rows.length === 0 ? (
         <EmptyHint>{t('目前沒有任何危機警示。')}</EmptyHint>
       ) : (
@@ -1044,29 +1110,79 @@ function CrisisOverviewTab() {
                 <th className="px-4 py-3 font-bold">{t('來源')}</th>
                 <th className="px-4 py-3 font-bold">{t('關鍵字')}</th>
                 <th className="px-4 py-3 font-bold">{t('狀態')}</th>
+                <th className="px-4 py-3 font-bold">{t('操作')}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 last:border-0">
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatDateTime(r.created_at)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${RISK_META[r.severity]?.cls ?? 'bg-muted text-muted-foreground'}`}>
-                      {RISK_META[r.severity] ? t(RISK_META[r.severity].label) : r.severity}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.entry_id ? t('一般練習') : t('測驗作答')}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.source === 'keyword' ? t('關鍵字') : r.source === 'ai' ? 'AI' : '—'}</td>
-                  <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
-                  <td className="px-4 py-3">
-                    {r.acknowledged_at ? (
-                      <span className="text-[#71744F]">{t('已知悉')}</span>
-                    ) : (
-                      <span className="font-bold text-rust">{t('未處理')}</span>
+              {rows.map((r) => {
+                const entry = entries[r.id]
+                return (
+                  <Fragment key={r.id}>
+                    <tr className="border-b border-border/60 last:border-0">
+                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatDateTime(r.created_at)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${RISK_META[r.severity]?.cls ?? 'bg-muted text-muted-foreground'}`}>
+                          {RISK_META[r.severity] ? t(RISK_META[r.severity].label) : r.severity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {t(crisisContextLabel(r))}
+                        <div className="font-mono text-[11px]">{r.user_id.slice(0, 8)}</div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{r.source === 'keyword' ? t('關鍵字') : r.source === 'ai' ? 'AI' : '—'}</td>
+                      <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
+                      <td className="px-4 py-3">
+                        {r.acknowledged_at ? (
+                          <span className="text-[#71744F]">{t('已知悉')}</span>
+                        ) : (
+                          <span className="font-bold text-rust">{t('未處理')}</span>
+                        )}
+                        {r.context === 'diary' && (
+                          <div className="text-[11px] text-muted-foreground">{r.notified_at ? t('已寄信') : t('未寄信')}</div>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {r.diary_entry_id && (
+                          <button onClick={() => void toggleEntry(r)} className="mr-2 text-xs font-bold text-primary underline">
+                            {openId === r.id ? t('收起') : t('看內容')}
+                          </button>
+                        )}
+                        {!r.acknowledged_at && (
+                          <button onClick={() => void acknowledge(r.id)} className="text-xs font-bold text-foreground underline">
+                            {t('標記已知悉')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {openId === r.id && (
+                      <tr className="border-b border-border bg-muted">
+                        <td colSpan={7} className="px-4 py-3">
+                          {!entry ? (
+                            <span className="text-muted-foreground">{t('讀取中…')}</span>
+                          ) : typeof entry === 'string' ? (
+                            <span className="text-rust">{entry}</span>
+                          ) : (
+                            <div className="text-sm">
+                              <div className="mb-1 text-xs text-muted-foreground">
+                                {entry.practice_label}・{entry.entry_date}・{entry.is_shared ? t('公開到社群') : t('私密')}
+                                {entry.is_shared && entry.moderation_status === 'ok' && (
+                                  <span className="ml-2 font-bold text-rust">{t('目前公開顯示在社群牆上')}</span>
+                                )}
+                              </div>
+                              {entry.fields.map(([label, text], i) => (
+                                <p key={i} className="text-foreground">
+                                  <span className="mr-2 text-xs text-muted-foreground">{label}</span>
+                                  {text}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                </tr>
-              ))}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
