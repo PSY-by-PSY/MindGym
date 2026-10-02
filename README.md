@@ -46,3 +46,4 @@ uvicorn app:app --reload
 - **規劃文件**：新增至 `docs/plans/`
 - **提示詞**：新增至 `docs/prompts/`
 - **QA / 報告 / 工具手冊**：新增至 `docs/reports/`
+- 
