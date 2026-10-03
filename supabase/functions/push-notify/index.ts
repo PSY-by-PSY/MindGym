@@ -15,7 +15,8 @@
 //                      —— 判準是 build 的 aps-environment，不是「有沒有上架」：
 //                      Debug build 走 App.entitlements（development）→ sandbox；
 //                      Release／Archive 走 AppRelease.entitlements（production）→ 正式。
-//                      環境不符會回 BadDeviceToken，而且是靜默的，只有 logs 看得到。
+//                      環境不符 APNs 會回 BadDeviceToken；現在會自動換另一個環境重試一次
+//                      （_shared/apns.ts），所以 Debug 與 TestFlight 的 token 可以共存。
 //   WEBHOOK_SECRET     與 SQL 觸發器 header 的 x-webhook-secret 相同
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  讀 device_tokens、gratitude_entries（繞過 RLS）
 //
@@ -23,6 +24,7 @@
 //   （--no-verify-jwt：改用 WEBHOOK_SECRET 自行驗證，方便 pg_net 直接呼叫）
 // ════════════════════════════════════════════════════════════════════════
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { type ApnsResult, sendApns } from '../_shared/apns.ts'
 
 const KEY_ID = Deno.env.get('APNS_KEY_ID')!
 const TEAM_ID = Deno.env.get('APNS_TEAM_ID')!
@@ -90,36 +92,15 @@ function snippet(text: string | null | undefined, n = 20): string {
 }
 
 // 送一則推播給單一 token。回傳 'ok' | 'gone'（token 失效，應刪除）| 'error'
-async function sendToToken(
+// BadDeviceToken 會自動換 sandbox/production 環境重試，見 _shared/apns.ts。
+function sendToToken(
   token: string,
   providerJwt: string,
   title: string,
   body: string,
   route?: string,
-): Promise<'ok' | 'gone' | 'error'> {
-  const res = await fetch(`https://${APNS_HOST}/3/device/${token}`, {
-    method: 'POST',
-    headers: {
-      authorization: `bearer ${providerJwt}`,
-      'apns-topic': BUNDLE_ID,
-      'apns-push-type': 'alert',
-      'apns-priority': '10',
-    },
-    // route 放在 aps 外層（跟 aps 平行的自訂欄位）：App 端的
-    // pushNotificationActionPerformed 監聽器會讀 notification.data.route，
-    // 點擊推播時直接導到那個頁面（見 src/lib/pushNotifications.ts）。
-    // 寫法與 broadcast-notify 一致。
-    body: JSON.stringify({
-      aps: { alert: { title, body }, sound: 'default' },
-      ...(route ? { route } : {}),
-    }),
-  })
-  if (res.ok) return 'ok'
-  const reason = await res.text().catch(() => '')
-  // 410 Unregistered / 400 BadDeviceToken → token 已失效，清掉
-  if (res.status === 410 || /BadDeviceToken|Unregistered/.test(reason)) return 'gone'
-  console.error('[apns]', res.status, reason)
-  return 'error'
+): Promise<ApnsResult> {
+  return sendApns(token, providerJwt, BUNDLE_ID, APNS_HOST, { title, body, route })
 }
 
 Deno.serve(async (req) => {

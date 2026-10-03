@@ -13,6 +13,7 @@
 //   （沿用 push-notify 已設定好的 secrets，不需要重新 supabase secrets set）
 // ════════════════════════════════════════════════════════════════════════
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { type ApnsResult, sendApns } from '../_shared/apns.ts'
 
 const KEY_ID = Deno.env.get('APNS_KEY_ID')!
 const TEAM_ID = Deno.env.get('APNS_TEAM_ID')!
@@ -74,34 +75,15 @@ async function getProviderToken(): Promise<string> {
 }
 
 // 送一則推播給單一 token。回傳 'ok' | 'gone'（token 失效，應刪除）| 'error'
-async function sendToToken(
+// BadDeviceToken 會自動換 sandbox/production 環境重試，見 _shared/apns.ts。
+function sendToToken(
   token: string,
   providerJwt: string,
   title: string,
   body: string,
   route?: string,
-): Promise<'ok' | 'gone' | 'error'> {
-  const res = await fetch(`https://${APNS_HOST}/3/device/${token}`, {
-    method: 'POST',
-    headers: {
-      authorization: `bearer ${providerJwt}`,
-      'apns-topic': BUNDLE_ID,
-      'apns-push-type': 'alert',
-      'apns-priority': '10',
-    },
-    // route 放在 aps 外層（跟 aps 平行的自訂欄位）：App 端的
-    // pushNotificationActionPerformed 監聽器會讀 notification.data.route，
-    // 點擊推播時直接導到那個頁面（見 src/lib/pushNotifications.ts）。
-    body: JSON.stringify({
-      aps: { alert: { title, body }, sound: 'default' },
-      ...(route ? { route } : {}),
-    }),
-  })
-  if (res.ok) return 'ok'
-  const reason = await res.text().catch(() => '')
-  if (res.status === 410 || /BadDeviceToken|Unregistered/.test(reason)) return 'gone'
-  console.error('[apns]', res.status, reason)
-  return 'error'
+): Promise<ApnsResult> {
+  return sendApns(token, providerJwt, BUNDLE_ID, APNS_HOST, { title, body, route })
 }
 
 // APNs 一個 provider JWT 底下同時間發太多平行請求容易撞限流，分批送、

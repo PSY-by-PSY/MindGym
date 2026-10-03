@@ -25,11 +25,23 @@ async function saveToken(token: string): Promise<void> {
     const { data } = await supabase.auth.getSession()
     const uid = data.session?.user.id
     if (!uid) return
-    // token 為主鍵：同一裝置換帳號會覆蓋成新的 user_id，避免推到舊帳號。
-    await supabase.from('device_tokens').upsert(
+    // 走 RPC：同一台裝置換帳號時要把 token 轉給新帳號，直接 upsert 會被
+    // RLS（UPDATE 限本人）擋下，token 卡在舊帳號名下。見 supabase/register_device_token.sql。
+    const { error } = await supabase.rpc('register_device_token', {
+      p_token: token,
+      p_platform: 'ios',
+    })
+    if (!error) return
+    // PGRST202 = 函式不存在（SQL 還沒在 SQL Editor 執行）→ 退回舊寫法，至少首次登記能成功。
+    if (error.code !== 'PGRST202') {
+      console.error('[push] register_device_token', error)
+      return
+    }
+    const { error: upsertError } = await supabase.from('device_tokens').upsert(
       { token, user_id: uid, platform: 'ios', updated_at: new Date().toISOString() },
       { onConflict: 'token' },
     )
+    if (upsertError) console.error('[push] saveToken upsert', upsertError)
   } catch (e) {
     console.error('[push] saveToken', e)
   }
