@@ -30,8 +30,8 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
-  # Capacitor 7 的 podspec 宣告 iOS 14.0，但 Xcode 27 起最低只接受 15.0，
-  # 不拉高的話每個 Pod target 都會報 deployment target 錯誤（Xcode Cloud 因此失敗）。
+  # Capacitor 8 最低支援 iOS 15；第三方 Apple Sign In pod 仍宣告較低版本。
+  # 統一所有 Pod targets，避免 Xcode 27 deployment target 警告。
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
       if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
