@@ -1496,7 +1496,7 @@ async def diary_safety_check(req: DiarySafetyWebhook, x_webhook_secret: str = He
             headers=SUPABASE_HEADERS,
             params={
                 "id": f"eq.{req.entry_id}",
-                "select": "id,user_id,practice_type,item_1,item_2,item_3,payload,entry_date,is_shared",
+                "select": "id,user_id,practice_type,item_1,item_2,item_3,payload,entry_date,is_shared,created_at",
             },
         )
         rows = resp.json() if resp.status_code == 200 else []
@@ -1524,6 +1524,8 @@ async def diary_safety_check(req: DiarySafetyWebhook, x_webhook_secret: str = He
                 "user_id": user_id,
                 "context": "diary",
                 "diary_entry_id": entry["id"],
+                # 發文時間：後台依這個排序與顯示（警示本身的 created_at 是判讀的時間，補判時全部同一天）
+                "entry_created_at": entry.get("created_at"),
                 "source": source,
                 "severity": risk,
                 "matched_terms": matched,
@@ -1579,7 +1581,7 @@ async def admin_crisis_entry(alert_id: str, authorization: str = Header(...)):
         headers=SUPABASE_HEADERS,
         params={
             "id": f"eq.{rows[0]['diary_entry_id']}",
-            "select": "id,user_id,practice_type,item_1,item_2,item_3,payload,entry_date,is_shared,moderation_status",
+            "select": "id,user_id,practice_type,item_1,item_2,item_3,payload,entry_date,is_shared,moderation_status,created_at,ai_feedback",
         },
     )
     entries = er.json() if er.status_code == 200 else []
@@ -1593,6 +1595,8 @@ async def admin_crisis_entry(alert_id: str, authorization: str = Header(...)):
         "entry_date": e.get("entry_date"),
         "is_shared": e.get("is_shared"),
         "moderation_status": e.get("moderation_status"),
+        "created_at": e.get("created_at"),
+        "ai_feedback": e.get("ai_feedback"),
         "fields": diary_safety.labeled_fields(e),
     }
 
