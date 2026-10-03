@@ -1643,12 +1643,13 @@ async def _build_one_persona(user_id: str, entry_count: int, admin_id: str) -> N
     prompt, used = persona_builder.build_prompt(entries)
     msg = await claude().messages.create(
         model=_PERSONA_MODEL,
-        max_tokens=4096,
+        # 模型若先產生 thinking，也會算進 max_tokens；4096 可能讓 persona 寫到一半被截斷。
+        max_tokens=8192,
         system=persona_builder.SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     )
     meter_claude("persona-build", _PERSONA_MODEL, msg.usage, admin_id)
-    persona = persona_builder.parse_persona(msg.content[0].text if msg.content else "")
+    persona = persona_builder.parse_persona(persona_builder.response_text(msg))
 
     prev = await db().get(
         f"{SUPABASE_REST}/user_personas",
@@ -1698,7 +1699,8 @@ async def _run_persona_refresh(run_id: str, admin_id: str) -> None:
                     ok = True
                 except Exception as exc:
                     logger.error("persona build failed for %s [%s]: %s", user_id[:8], type(exc).__name__, exc)
-                    errors.append(f"{user_id[:8]}: {type(exc).__name__}")
+                    # 連同訊息一起記，後台才看得出原因（只記類型時，15 位都只顯示 AttributeError）
+                    errors.append(f"{user_id[:8]}: {type(exc).__name__}: {str(exc)[:80]}")
                     ok = False
             async with lock:
                 if ok:

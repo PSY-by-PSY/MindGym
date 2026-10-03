@@ -118,6 +118,19 @@ def build_prompt(entries: list[dict]) -> tuple[str, int]:
     return prompt, used
 
 
+def response_text(msg) -> str:
+    """把 Messages API 回應裡所有文字段落接起來。
+
+    不能直接取 msg.content[0].text：較新的模型（例如 Sonnet 5）回應開頭可能是 thinking 段落，
+    它沒有 .text，取了會丟 AttributeError（實際踩過：第一次刷新 15 位全部失敗）。
+    """
+    return "".join(
+        getattr(block, "text", "") or ""
+        for block in (getattr(msg, "content", None) or [])
+        if getattr(block, "type", "text") == "text"
+    )
+
+
 def _clamp(x, lo: float = 0.0, hi: float = 1.0) -> float:
     try:
         return max(lo, min(hi, float(x)))
