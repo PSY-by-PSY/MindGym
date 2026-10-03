@@ -1000,18 +1000,25 @@ function ReportCard({
 
 // ── 危機警示總覽 ────────────────────────────────────────────────────────────
 
+type ReviewStatus = 'needs_attention' | 'handled' | 'false_positive'
+
 type CrisisRow = {
   id: string
   user_id: string
   severity: string
   source: string | null
   entry_id: string | null
-  // 以下三欄來自 supabase/admin_persona_crisis.sql；還沒執行那支 SQL 時查不到，會是 undefined。
+  // 以下欄位來自 supabase/admin_persona_crisis.sql 等後續 SQL；還沒執行時查不到，會是 undefined。
   context?: 'pro' | 'diary'
   diary_entry_id?: string | null
   notified_at?: string | null
-  // 日記的發文時間（supabase/crisis_alerts_entry_date.sql）。created_at 是判讀的時間，補判舊日記時會全部同一天。
+  // 日記的發文時間（crisis_alerts_entry_date.sql）。created_at 是判讀的時間，補判舊日記時會全部同一天。
   entry_created_at?: string | null
+  // 團隊人工確認（crisis_alerts_admin_review.sql）。acknowledged_at 是諮商師專用，後台不碰。
+  review_status?: ReviewStatus | null
+  review_note?: string | null
+  reviewed_at?: string | null
+  reviewer?: { name: string | null } | null
   matched_terms: string[] | null
   acknowledged_at: string | null
   created_at: string
@@ -1029,6 +1036,16 @@ type CrisisEntry = {
 
 const CRISIS_API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 
+const REVIEW_META: Record<ReviewStatus, { label: string; cls: string }> = {
+  needs_attention: { label: '需要關注', cls: 'bg-gold text-[#5b3a12]' },
+  handled: { label: '已處理', cls: 'bg-tile-mint text-[#71744F]' },
+  false_positive: { label: '誤判', cls: 'bg-muted text-muted-foreground' },
+}
+type ReviewFilter = 'all' | 'unreviewed' | ReviewStatus
+
+const CRISIS_SELECT_FULL =
+  'id, user_id, severity, source, entry_id, context, diary_entry_id, notified_at, entry_created_at, review_status, review_note, reviewed_at, reviewer:profiles!crisis_alerts_reviewed_by_fkey(name), matched_terms, acknowledged_at, created_at'
+
 function crisisContextLabel(r: CrisisRow): string {
   if (r.context === 'diary') return '每日練習'
   return r.entry_id ? '專業模組練習' : '測驗作答'
@@ -1039,24 +1056,26 @@ function CrisisOverviewTab() {
   const [rows, setRows] = useState<CrisisRow[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [entries, setEntries] = useState<Record<string, CrisisEntry | string>>({})
+  const [filter, setFilter] = useState<ReviewFilter>('unreviewed')
 
   const load = useCallback(async () => {
     const full = await supabase
       .from('crisis_alerts')
-      .select('id, user_id, severity, source, entry_id, context, diary_entry_id, notified_at, entry_created_at, matched_terms, acknowledged_at, created_at')
+      .select(CRISIS_SELECT_FULL)
       .order('entry_created_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(500)
     if (!full.error) {
-      setRows((full.data as CrisisRow[]) ?? [])
+      setRows((full.data as unknown as CrisisRow[]) ?? [])
       return
     }
-    // 還沒執行 admin_persona_crisis.sql 時新欄位不存在，退回舊欄位，畫面照常可用。
+    // 還沒執行後續 SQL 時新欄位不存在，退回舊欄位，畫面照常可用。
+    console.warn('[crisis] 退回舊欄位：', full.error.message)
     const legacy = await supabase
       .from('crisis_alerts')
       .select('id, user_id, severity, source, entry_id, matched_terms, acknowledged_at, created_at')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(500)
     setRows((legacy.data as CrisisRow[]) ?? [])
   }, [])
 
@@ -1064,13 +1083,13 @@ function CrisisOverviewTab() {
     void load()
   }, [load])
 
-  const toggleEntry = async (r: CrisisRow) => {
+  const toggle = async (r: CrisisRow) => {
     if (openId === r.id) {
       setOpenId(null)
       return
     }
     setOpenId(r.id)
-    if (entries[r.id]) return
+    if (!r.diary_entry_id || entries[r.id]) return
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const resp = await fetch(`${CRISIS_API_URL}/api/admin/crisis-entry/${r.id}`, {
@@ -1085,25 +1104,47 @@ function CrisisOverviewTab() {
     }
   }
 
-  const acknowledge = async (id: string) => {
-    const { error } = await supabase.from('crisis_alerts').update({ acknowledged_at: new Date().toISOString() }).eq('id', id)
-    if (error) {
-      console.error('[crisis ack]', error)
-      return
-    }
-    await load()
-  }
-
   if (rows === null) return <Spinner />
+
+  const counts: Record<ReviewFilter, number> = {
+    all: rows.length,
+    unreviewed: rows.filter((r) => !r.review_status).length,
+    needs_attention: rows.filter((r) => r.review_status === 'needs_attention').length,
+    handled: rows.filter((r) => r.review_status === 'handled').length,
+    false_positive: rows.filter((r) => r.review_status === 'false_positive').length,
+  }
+  const FILTERS: { key: ReviewFilter; label: string }[] = [
+    { key: 'unreviewed', label: '未確認' },
+    { key: 'needs_attention', label: '需要關注' },
+    { key: 'handled', label: '已處理' },
+    { key: 'false_positive', label: '誤判' },
+    { key: 'all', label: '全部' },
+  ]
+  const visible = rows.filter((r) =>
+    filter === 'all' ? true : filter === 'unreviewed' ? !r.review_status : r.review_status === filter,
+  )
 
   return (
     <div>
       <h1 className="mb-1 text-xl font-black text-foreground">{t('危機警示總覽')}</h1>
       <p className="mb-4 text-sm text-muted-foreground">
-        {t('每日練習（含私密日記）與專業模組都會偵測。每日練習的警示會同時寄信通知。')}
+        {t('每日練習（含私密日記）與專業模組都會偵測。看過內容後，請在「人工確認」記下結果，系統不會自動確認。')}
       </p>
-      {rows.length === 0 ? (
-        <EmptyHint>{t('目前沒有任何危機警示。')}</EmptyHint>
+      <div className="mb-3 flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
+              filter === f.key ? 'bg-foreground text-cream' : 'bg-card text-foreground hover:bg-muted'
+            }`}
+          >
+            {t(f.label)} <span className="ml-1 tabular-nums opacity-70">{counts[f.key]}</span>
+          </button>
+        ))}
+      </div>
+      {visible.length === 0 ? (
+        <EmptyHint>{filter === 'unreviewed' ? t('所有警示都已經確認過了。') : t('目前沒有任何危機警示。')}</EmptyHint>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
           <table className="w-full text-left text-sm">
@@ -1114,16 +1155,17 @@ function CrisisOverviewTab() {
                 <th className="px-4 py-3 font-bold">{t('情境')}</th>
                 <th className="px-4 py-3 font-bold">{t('來源')}</th>
                 <th className="px-4 py-3 font-bold">{t('關鍵字')}</th>
-                <th className="px-4 py-3 font-bold">{t('狀態')}</th>
+                <th className="px-4 py-3 font-bold">{t('人工確認')}</th>
                 <th className="px-4 py-3 font-bold">{t('操作')}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {visible.map((r) => {
                 const entry = entries[r.id]
+                const review = r.review_status ? REVIEW_META[r.review_status] : null
                 return (
                   <Fragment key={r.id}>
-                    <tr className="border-b border-border/60 last:border-0">
+                    <tr className="border-b border-border last:border-0">
                       <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                         <div className="text-foreground">{formatDateTime(r.entry_created_at ?? r.created_at)}</div>
                         {r.entry_created_at && (
@@ -1142,59 +1184,63 @@ function CrisisOverviewTab() {
                       <td className="px-4 py-3 text-muted-foreground">{r.source === 'keyword' ? t('關鍵字') : r.source === 'ai' ? 'AI' : '—'}</td>
                       <td className="px-4 py-3 text-foreground/80">{r.matched_terms && r.matched_terms.length > 0 ? r.matched_terms.join('、') : '—'}</td>
                       <td className="px-4 py-3">
-                        {r.acknowledged_at ? (
-                          <span className="text-[#71744F]">{t('已知悉')}</span>
+                        {review ? (
+                          <>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${review.cls}`}>{t(review.label)}</span>
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              {r.reviewer?.name ?? t('（未具名）')}・{r.reviewed_at ? formatDateTime(r.reviewed_at) : ''}
+                            </div>
+                          </>
                         ) : (
-                          <span className="font-bold text-rust">{t('未處理')}</span>
-                        )}
-                        {r.context === 'diary' && (
-                          <div className="text-[11px] text-muted-foreground">{r.notified_at ? t('已寄信') : t('未寄信')}</div>
+                          <span className="font-bold text-rust">{t('未確認')}</span>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
-                        {r.diary_entry_id && (
-                          <button onClick={() => void toggleEntry(r)} className="mr-2 text-xs font-bold text-primary underline">
-                            {openId === r.id ? t('收起') : t('看內容')}
-                          </button>
-                        )}
-                        {!r.acknowledged_at && (
-                          <button onClick={() => void acknowledge(r.id)} className="text-xs font-bold text-foreground underline">
-                            {t('標記已知悉')}
-                          </button>
-                        )}
+                        <button onClick={() => void toggle(r)} className="text-xs font-bold text-primary underline">
+                          {openId === r.id ? t('收起') : t('看內容與確認')}
+                        </button>
                       </td>
                     </tr>
                     {openId === r.id && (
                       <tr className="border-b border-border bg-muted">
                         <td colSpan={7} className="px-4 py-3">
-                          {!entry ? (
-                            <span className="text-muted-foreground">{t('讀取中…')}</span>
-                          ) : typeof entry === 'string' ? (
-                            <span className="text-rust">{entry}</span>
-                          ) : (
-                            <div className="text-sm">
-                              <div className="mb-1 text-xs text-muted-foreground">
-                                {entry.practice_label}・{entry.entry_date}・{entry.is_shared ? t('公開到社群') : t('私密')}
-                                {entry.is_shared && entry.moderation_status === 'ok' && (
-                                  <span className="ml-2 font-bold text-rust">{t('目前公開顯示在社群牆上')}</span>
-                                )}
+                          {r.diary_entry_id && (
+                            !entry ? (
+                              <span className="text-muted-foreground">{t('讀取中…')}</span>
+                            ) : typeof entry === 'string' ? (
+                              <span className="text-rust">{entry}</span>
+                            ) : (
+                              <div className="text-sm">
+                                <div className="mb-1 text-xs text-muted-foreground">
+                                  {entry.practice_label}・{entry.entry_date}・{entry.is_shared ? t('公開到社群') : t('私密')}
+                                  {entry.is_shared && entry.moderation_status === 'ok' && (
+                                    <span className="ml-2 font-bold text-rust">{t('目前公開顯示在社群牆上')}</span>
+                                  )}
+                                </div>
+                                {entry.fields.map(([label, text], i) => (
+                                  <p key={i} className="text-foreground">
+                                    <span className="mr-2 text-xs text-muted-foreground">{label}</span>
+                                    {text}
+                                  </p>
+                                ))}
+                                <div className="mt-3 rounded-xl border border-border bg-card px-3 py-2">
+                                  <div className="mb-1 text-xs font-bold text-muted-foreground">{t('當時 BOUBA 的回饋')}</div>
+                                  {entry.ai_feedback ? (
+                                    <p className="whitespace-pre-line text-foreground">{entry.ai_feedback}</p>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">{t('這個練習沒有 BOUBA 回饋。')}</p>
+                                  )}
+                                </div>
                               </div>
-                              {entry.fields.map(([label, text], i) => (
-                                <p key={i} className="text-foreground">
-                                  <span className="mr-2 text-xs text-muted-foreground">{label}</span>
-                                  {text}
-                                </p>
-                              ))}
-                              <div className="mt-3 rounded-xl border border-border bg-card px-3 py-2">
-                                <div className="mb-1 text-xs font-bold text-muted-foreground">{t('當時 BOUBA 的回饋')}</div>
-                                {entry.ai_feedback ? (
-                                  <p className="whitespace-pre-line text-foreground">{entry.ai_feedback}</p>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground">{t('這個練習沒有 BOUBA 回饋。')}</p>
-                                )}
-                              </div>
-                            </div>
+                            )
                           )}
+                          {!r.diary_entry_id && (
+                            <p className="text-xs text-muted-foreground">
+                              {t('專業模組的警示由負責的諮商師處理，內容請到諮商師後台查看。')}
+                              {r.acknowledged_at && <span className="ml-2">{t('諮商師已知悉')}（{formatDateTime(r.acknowledged_at)}）</span>}
+                            </p>
+                          )}
+                          <ReviewForm row={r} onSaved={load} />
                         </td>
                       </tr>
                     )}
@@ -1205,6 +1251,69 @@ function CrisisOverviewTab() {
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+function ReviewForm({ row, onSaved }: { row: CrisisRow; onSaved: () => Promise<void> }) {
+  const { t } = useLanguage()
+  const [status, setStatus] = useState<ReviewStatus | null>(row.review_status ?? null)
+  const [note, setNote] = useState(row.review_note ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async () => {
+    if (!status) return
+    setSaving(true)
+    setError(null)
+    const { error: err } = await supabase.rpc('admin_review_crisis_alert', { p_alert_id: row.id, p_status: status, p_note: note })
+    setSaving(false)
+    if (err) {
+      console.error('[crisis review]', err)
+      setError(t('儲存失敗，請稍後再試。'))
+      return
+    }
+    await onSaved()
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border-2 border-border bg-card px-3 py-3">
+      <div className="mb-2 text-xs font-bold text-foreground">{t('人工確認（由團隊成員看過後手動記錄）')}</div>
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(REVIEW_META) as ReviewStatus[]).map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatus(s)}
+            className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+              status === s ? `${REVIEW_META[s].cls} border-transparent` : 'border-border bg-background text-foreground hover:bg-muted'
+            }`}
+          >
+            {t(REVIEW_META[s].label)}
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        placeholder={t('處理備註（選填），例如：已私訊提供求助資源；AI 誤判，內容在寫電影情節')}
+        className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+      />
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          onClick={() => void save()}
+          disabled={!status || saving}
+          className="rounded-full bg-gradient-primary px-4 py-1.5 text-xs font-extrabold text-primary-foreground shadow-soft disabled:opacity-50"
+        >
+          {saving ? t('儲存中…') : row.review_status ? t('更新確認') : t('儲存確認')}
+        </button>
+        {error && <span className="text-xs font-bold text-rust">{error}</span>}
+        {row.review_status && row.reviewed_at && (
+          <span className="text-[11px] text-muted-foreground">
+            {t('上次確認')}：{row.reviewer?.name ?? t('（未具名）')}・{formatDateTime(row.reviewed_at)}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

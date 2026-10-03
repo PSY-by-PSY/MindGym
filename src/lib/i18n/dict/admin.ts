@@ -197,6 +197,32 @@ export const admin: Record<string, Translation> = {
   '目前公開顯示在社群牆上': { 'zh-CN': '目前公开显示在社群墙上', en: 'Currently visible on the community wall' },
   '發文時間': { 'zh-CN': '发文时间', en: 'Posted' },
   '判讀': { 'zh-CN': '判读', en: 'Checked' },
+  // 危機警示：團隊人工確認（crisis_alerts_admin_review.sql）
+  '每日練習（含私密日記）與專業模組都會偵測。看過內容後，請在「人工確認」記下結果，系統不會自動確認。': {
+    'zh-CN': '每日练习（含私密日记）与专业模块都会检测。看过内容后，请在「人工确认」记下结果，系统不会自动确认。',
+    en: 'Daily practices (including private entries) and practitioner modules are both screened. After reading an entry, record the outcome under Manual review; the system never marks alerts as reviewed.',
+  },
+  '人工確認': { 'zh-CN': '人工确认', en: 'Manual review' },
+  '未確認': { 'zh-CN': '未确认', en: 'Not reviewed' },
+  '需要關注': { 'zh-CN': '需要关注', en: 'Needs attention' },
+  '已處理': { 'zh-CN': '已处理', en: 'Handled' },
+  '誤判': { 'zh-CN': '误判', en: 'False positive' },
+  '看內容與確認': { 'zh-CN': '看内容与确认', en: 'View & review' },
+  '所有警示都已經確認過了。': { 'zh-CN': '所有警示都已经确认过了。', en: 'All alerts have been reviewed.' },
+  '（未具名）': { 'zh-CN': '（未具名）', en: '(Unnamed)' },
+  '專業模組的警示由負責的諮商師處理，內容請到諮商師後台查看。': {
+    'zh-CN': '专业模块的警示由负责的咨商师处理，内容请到咨商师后台查看。',
+    en: 'Practitioner-module alerts are handled by the assigned practitioner; view the content in the practitioner dashboard.',
+  },
+  '諮商師已知悉': { 'zh-CN': '咨商师已知悉', en: 'Acknowledged by practitioner' },
+  '人工確認（由團隊成員看過後手動記錄）': { 'zh-CN': '人工确认（由团队成员看过后手动记录）', en: 'Manual review (recorded by a team member after reading)' },
+  '處理備註（選填），例如：已私訊提供求助資源；AI 誤判，內容在寫電影情節': {
+    'zh-CN': '处理备注（选填），例如：已私讯提供求助资源；AI 误判，内容在写电影情节',
+    en: 'Notes (optional), e.g. sent help resources by DM; AI false positive, describing a movie plot',
+  },
+  '儲存確認': { 'zh-CN': '储存确认', en: 'Save review' },
+  '更新確認': { 'zh-CN': '更新确认', en: 'Update review' },
+  '上次確認': { 'zh-CN': '上次确认', en: 'Last reviewed' },
   '當時 BOUBA 的回饋': { 'zh-CN': '当时 BOUBA 的回馈', en: "BOUBA's feedback at the time" },
   '這個練習沒有 BOUBA 回饋。': { 'zh-CN': '这个练习没有 BOUBA 回馈。', en: 'This practice has no BOUBA feedback.' },
 }
