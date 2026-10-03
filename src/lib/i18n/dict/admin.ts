@@ -195,4 +195,8 @@ export const admin: Record<string, Translation> = {
   '公開到社群': { 'zh-CN': '公开到社群', en: 'Shared to community' },
   '私密': { 'zh-CN': '私密', en: 'Private' },
   '目前公開顯示在社群牆上': { 'zh-CN': '目前公开显示在社群墙上', en: 'Currently visible on the community wall' },
+  '發文時間': { 'zh-CN': '发文时间', en: 'Posted' },
+  '判讀': { 'zh-CN': '判读', en: 'Checked' },
+  '當時 BOUBA 的回饋': { 'zh-CN': '当时 BOUBA 的回馈', en: "BOUBA's feedback at the time" },
+  '這個練習沒有 BOUBA 回饋。': { 'zh-CN': '这个练习没有 BOUBA 回馈。', en: 'This practice has no BOUBA feedback.' },
 }

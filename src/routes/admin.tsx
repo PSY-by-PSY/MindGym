@@ -1010,6 +1010,8 @@ type CrisisRow = {
   context?: 'pro' | 'diary'
   diary_entry_id?: string | null
   notified_at?: string | null
+  // 日記的發文時間（supabase/crisis_alerts_entry_date.sql）。created_at 是判讀的時間，補判舊日記時會全部同一天。
+  entry_created_at?: string | null
   matched_terms: string[] | null
   acknowledged_at: string | null
   created_at: string
@@ -1020,6 +1022,8 @@ type CrisisEntry = {
   entry_date: string | null
   is_shared: boolean
   moderation_status: string | null
+  created_at?: string | null
+  ai_feedback?: string | null
   fields: [string, string][]
 }
 
@@ -1039,7 +1043,8 @@ function CrisisOverviewTab() {
   const load = useCallback(async () => {
     const full = await supabase
       .from('crisis_alerts')
-      .select('id, user_id, severity, source, entry_id, context, diary_entry_id, notified_at, matched_terms, acknowledged_at, created_at')
+      .select('id, user_id, severity, source, entry_id, context, diary_entry_id, notified_at, entry_created_at, matched_terms, acknowledged_at, created_at')
+      .order('entry_created_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(200)
     if (!full.error) {
@@ -1104,7 +1109,7 @@ function CrisisOverviewTab() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                <th className="px-4 py-3 font-bold">{t('時間')}</th>
+                <th className="px-4 py-3 font-bold">{t('發文時間')}</th>
                 <th className="px-4 py-3 font-bold">{t('風險')}</th>
                 <th className="px-4 py-3 font-bold">{t('情境')}</th>
                 <th className="px-4 py-3 font-bold">{t('來源')}</th>
@@ -1119,7 +1124,12 @@ function CrisisOverviewTab() {
                 return (
                   <Fragment key={r.id}>
                     <tr className="border-b border-border/60 last:border-0">
-                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatDateTime(r.created_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                        <div className="text-foreground">{formatDateTime(r.entry_created_at ?? r.created_at)}</div>
+                        {r.entry_created_at && (
+                          <div className="text-[11px]">{t('判讀')} {formatDateTime(r.created_at)}</div>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${RISK_META[r.severity]?.cls ?? 'bg-muted text-muted-foreground'}`}>
                           {RISK_META[r.severity] ? t(RISK_META[r.severity].label) : r.severity}
@@ -1175,6 +1185,14 @@ function CrisisOverviewTab() {
                                   {text}
                                 </p>
                               ))}
+                              <div className="mt-3 rounded-xl border border-border bg-card px-3 py-2">
+                                <div className="mb-1 text-xs font-bold text-muted-foreground">{t('當時 BOUBA 的回饋')}</div>
+                                {entry.ai_feedback ? (
+                                  <p className="whitespace-pre-line text-foreground">{entry.ai_feedback}</p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">{t('這個練習沒有 BOUBA 回饋。')}</p>
+                                )}
+                              </div>
                             </div>
                           )}
                         </td>
