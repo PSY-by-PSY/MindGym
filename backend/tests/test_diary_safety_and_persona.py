@@ -5,6 +5,7 @@ from backend.diary_safety import build_crisis_email, entry_text, excerpt, labele
 from backend.persona_builder import (
     MIN_ENTRIES,
     build_prompt,
+    compute_meta,
     eligible_users,
     format_entries,
     parse_persona,
@@ -117,6 +118,32 @@ class PersonaBuilderTests(unittest.TestCase):
     def test_parse_rejects_non_json(self):
         with self.assertRaises(ValueError):
             parse_persona("抱歉，我無法完成")
+
+
+class PersonaMetaAndPortraitTests(unittest.TestCase):
+    def test_meta_prefers_real_name_and_counts(self):
+        es = [dict(_entry(1, "abc"), anon_name="晴天的微笑"), dict(_entry(1, "de"), anon_name="晴天的微笑"),
+              dict(_entry(3, "f"), anon_name="小明", use_real_name=True), {**_entry(4), "practice_type": "woop", "item_1": "", "payload": {"wish": "早睡"}, "anon_name": "清晨的微風"}]
+        m = compute_meta(es)
+        self.assertEqual(m["display_name"], "小明")
+        self.assertEqual((m["first_date"], m["last_date"], m["active_days"]), ("2026-08-01", "2026-08-04", 3))
+        self.assertEqual(m["practice_counts"], {"gratitude": 3, "woop": 1})
+        self.assertEqual(m["chars"], 3 + 2 + 1 + 2)
+
+    def test_meta_falls_back_to_most_common_anon_name(self):
+        es = [dict(_entry(1), anon_name="A"), dict(_entry(2), anon_name="B"), dict(_entry(3), anon_name="B")]
+        self.assertEqual(compute_meta(es)["display_name"], "B")
+
+    def test_portrait_normalized_and_dropped_when_restricted(self):
+        raw = json.dumps({"label": "x", "portrait": {"scene": "moon", "prop": "camera", "companion": "cat", "scarf": "gold", "why": "喜歡拍照"}})
+        p = parse_persona(raw)["portrait"]
+        self.assertEqual(p, {"scene": "hill", "prop": "camera", "companion": "cat", "scarf": "blue", "why": "喜歡拍照"})
+        self.assertIsNone(parse_persona(json.dumps({"label": "x", "restricted": True, "portrait": {"scene": "sea"}}))["portrait"])
+
+    def test_prompt_forbids_sensitive_labels(self):
+        prompt, _ = build_prompt([_entry(1)])
+        self.assertIn("label 與 summary 不可以寫出自傷、自殺", prompt)
+        self.assertIn("不可以畫痛點", prompt)
 
 
 class ResponseTextTests(unittest.TestCase):

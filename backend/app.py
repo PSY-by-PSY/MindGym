@@ -1641,10 +1641,11 @@ async def _build_one_persona(user_id: str, entry_count: int, admin_id: str) -> N
         "user_id": f"eq.{user_id}",
         "is_shared": "eq.true",
         "practice_type": "not.like.workshop_*",
-        "select": "practice_type,item_1,item_2,item_3,payload,entry_date,created_at",
+        "select": "practice_type,item_1,item_2,item_3,payload,entry_date,created_at,anon_name,use_real_name",
         "order": "entry_date.asc",
     })
     prompt, used = persona_builder.build_prompt(entries)
+    meta = persona_builder.compute_meta(entries)
     msg = await claude().messages.create(
         model=_PERSONA_MODEL,
         # 模型若先產生 thinking，也會算進 max_tokens；4096 可能讓 persona 寫到一半被截斷。
@@ -1654,6 +1655,7 @@ async def _build_one_persona(user_id: str, entry_count: int, admin_id: str) -> N
     )
     meter_claude("persona-build", _PERSONA_MODEL, msg.usage, admin_id)
     persona = persona_builder.parse_persona(persona_builder.response_text(msg))
+    persona["meta"] = meta
 
     prev = await db().get(
         f"{SUPABASE_REST}/user_personas",

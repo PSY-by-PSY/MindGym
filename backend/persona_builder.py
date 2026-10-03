@@ -44,6 +44,19 @@ STRENGTH_TAGS = {
 }
 STATUSES = ("active", "improving", "resolved")
 
+# 莫奈風格自畫像（src/components/admin/monetPortrait.ts 依這些代碼作畫）。只能從長處與喜好取材。
+PORTRAIT_SCENES = {
+    "hill": "撐陽傘的草坡（戶外、風、自由）", "poppies": "罌粟花田（熱情、跳舞、花）",
+    "garden": "花園（家、照顧、植物、寧靜）", "lilies": "睡蓮池（冥想、平靜、內省、書寫）",
+    "sea": "海邊懸崖（遠方、旅行、出國、探索）", "sunset": "日出水邊（新的開始、跑步、晨起）",
+}
+PORTRAIT_PROPS = {
+    "parasol": "陽傘", "book": "書或筆記", "camera": "相機", "bouquet": "花束", "cup": "茶或咖啡",
+    "ball": "球（運動）", "bagel": "貝果或點心", "ribbon": "舞蹈彩帶", "none": "不拿東西",
+}
+PORTRAIT_COMPANIONS = {"shiba": "柴犬", "dog": "狗", "cat": "貓", "none": "沒有動物"}
+PORTRAIT_COLORS = ("blue", "pink", "yellow", "green", "purple", "orange", "red")
+
 SYSTEM_PROMPT = "你是心理健康 App 的使用者研究員，替營運團隊整理使用者畫像（persona）。只回傳 JSON，不要前言或 markdown。"
 
 _SCHEMA = """{
@@ -60,9 +73,44 @@ _SCHEMA = """{
   "voice": {"tone": "書寫語氣"},
   "service_hooks": ["2～4 條個人化服務建議：推薦哪個練習、回饋要注意什麼"],
   "watch_outs": ["回饋或推薦時要避開的事"],
+  "portrait": {"scene": "場景代碼", "prop": "小物代碼", "companion": "動物代碼", "scarf": "手帕顏色代碼", "why": "一句話說明為什麼這樣畫"},
   "restricted": false,
   "restricted_reason": ""
 }"""
+
+
+def compute_meta(entries: list[dict]) -> dict:
+    """後台卡片要顯示的統計：社群顯示名、使用期間、活躍天數、各練習篇數、字數。
+
+    顯示名：有用真名發過文就用真名，否則用最常出現的匿名代稱（匿名發文時每篇是隨機代稱）。
+    """
+    names: Counter = Counter()
+    real = ""
+    counts: Counter = Counter()
+    days: set[str] = set()
+    chars = 0
+    for e in entries:
+        fields = labeled_fields(e)
+        if not fields:
+            continue
+        counts[e.get("practice_type") or ""] += 1
+        if e.get("entry_date"):
+            days.add(e["entry_date"])
+        chars += sum(len(text) for _, text in fields)
+        name = (e.get("anon_name") or "").strip()
+        if name:
+            names[name] += 1
+            if e.get("use_real_name"):
+                real = name
+    dates = sorted(days)
+    return {
+        "display_name": real or (names.most_common(1)[0][0] if names else ""),
+        "first_date": dates[0] if dates else None,
+        "last_date": dates[-1] if dates else None,
+        "active_days": len(days),
+        "practice_counts": dict(counts),
+        "chars": chars,
+    }
 
 
 def eligible_users(user_ids: list[str], min_entries: int = MIN_ENTRIES) -> list[tuple[str, int]]:
@@ -111,7 +159,15 @@ def build_prompt(entries: list[dict]) -> tuple[str, int]:
 7. 如果紀錄顯示這位使用者可能未滿 18 歲，或最近的紀錄出現自我傷害、自殺相關內容，
    請把 restricted 設為 true，在 restricted_reason 用一句話說明原因（不要引用原文），
    其餘欄位只填 label、life_stage 與 watch_outs，pains 和 strengths 留空陣列。這類帳號需要人工處理，不做自動化個人化。
-8. 用繁體中文。
+8. label 與 summary 不可以寫出自傷、自殺、診斷、病名或用藥等敏感病史，也不可以寫出可辨識身分的細節（真名、學校、公司名稱）。
+   這些資訊只能概括地放在 restricted_reason（例如「近期內容需要人工關懷」），不要寫出具體經歷。
+9. portrait 是給這位使用者的莫奈風格自畫像，**只能從他的長處、喜好與重視的事取材，不可以畫痛點**：
+   scene 只能用：{", ".join(f"{k}={v}" for k, v in PORTRAIT_SCENES.items())}
+   prop 只能用：{", ".join(f"{k}={v}" for k, v in PORTRAIT_PROPS.items())}
+   companion 只能用：{", ".join(f"{k}={v}" for k, v in PORTRAIT_COMPANIONS.items())}（日記裡有提到養寵物或喜歡某種動物才放）
+   scarf 只能用：{", ".join(PORTRAIT_COLORS)}
+   why 用一句話說明取材自他寫過的哪些事。restricted 為 true 時 portrait 填 null。
+10. 用繁體中文。
 
 只回傳符合這個結構的 JSON：
 {_SCHEMA}"""
@@ -136,6 +192,24 @@ def _clamp(x, lo: float = 0.0, hi: float = 1.0) -> float:
         return max(lo, min(hi, float(x)))
     except (TypeError, ValueError):
         return 0.5
+
+
+def _portrait(v) -> dict | None:
+    """正規化自畫像設定：不認得的代碼換成預設值，讓前端一定畫得出來。"""
+    if not isinstance(v, dict):
+        return None
+
+    def pick(key: str, allowed, default: str) -> str:
+        x = v.get(key)
+        return x if x in allowed else default
+
+    return {
+        "scene": pick("scene", PORTRAIT_SCENES, "hill"),
+        "prop": pick("prop", PORTRAIT_PROPS, "none"),
+        "companion": pick("companion", PORTRAIT_COMPANIONS, "none"),
+        "scarf": pick("scarf", PORTRAIT_COLORS, "blue"),
+        "why": str(v.get("why", "")).strip(),
+    }
 
 
 def _str_list(v) -> list[str]:
@@ -188,4 +262,5 @@ def parse_persona(raw: str) -> dict:
         "watch_outs": _str_list(data.get("watch_outs")),
         "restricted": restricted,
         "restricted_reason": str(data.get("restricted_reason", "")).strip() if restricted else "",
+        "portrait": None if restricted else _portrait(data.get("portrait")),
     }
