@@ -8,6 +8,7 @@ from backend.persona_builder import (
     eligible_users,
     format_entries,
     parse_persona,
+    response_text,
 )
 
 KEYWORDS = ["自殺", "想死", "割腕", "想消失"]
@@ -116,6 +117,21 @@ class PersonaBuilderTests(unittest.TestCase):
     def test_parse_rejects_non_json(self):
         with self.assertRaises(ValueError):
             parse_persona("抱歉，我無法完成")
+
+
+class ResponseTextTests(unittest.TestCase):
+    def test_skips_thinking_blocks(self):
+        # Sonnet 5 的回應開頭可能是 thinking 段落（沒有 .text），直接取 content[0].text 會 AttributeError
+        from types import SimpleNamespace as NS
+        msg = NS(content=[NS(type="thinking", thinking="想一想", signature="s"), NS(type="text", text='{"label":"x"}')])
+        self.assertEqual(response_text(msg), '{"label":"x"}')
+        self.assertEqual(parse_persona(response_text(msg))["label"], "x")
+
+    def test_joins_multiple_text_blocks_and_handles_empty(self):
+        from types import SimpleNamespace as NS
+        self.assertEqual(response_text(NS(content=[NS(type="text", text="a"), NS(type="text", text="b")])), "ab")
+        self.assertEqual(response_text(NS(content=[])), "")
+        self.assertEqual(response_text(NS(content=None)), "")
 
 
 if __name__ == "__main__":
