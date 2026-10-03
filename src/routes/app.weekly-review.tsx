@@ -5,7 +5,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { supabase } from '../lib/supabase'
-import { mondayOf, requestWeeklyDigest, isSunday, type GratitudeDepthLevel, type LifeThemeKey, type WeeklyDigestContent } from '../lib/reviews'
+import { mondayOf, requestWeeklyDigest, lastWeeklyDigestError, isSunday, type GratitudeDepthLevel, type LifeThemeKey, type WeeklyDigestContent } from '../lib/reviews'
 import { fetchWeeklyReviewData, type WeeklyReviewData } from '../lib/weeklyReview'
 import { downloadNodeAsPng } from '../lib/shareImage'
 import { useLanguage } from '../lib/i18n/context'
@@ -264,6 +264,8 @@ function WeeklyReviewPage() {
   const [digestState, setDigestState] = useState<DigestState>('loading')
   // 這份報告是否超出額度（後端標記）。true 時只顯示前 30% + 軟性付費牆。
   const [digestLocked, setDigestLocked] = useState(false)
+  // AI 分析拿不到時的原因（見 reviews.ts 的 lastWeeklyDigestError），顯示在 AI 週分析卡片裡。
+  const [digestError, setDigestError] = useState<string | null>(null)
   const [showSoftPaywall, setShowSoftPaywall] = useState(false)
   const navigate = useNavigate()
   const [sharing, setSharing] = useState(false)
@@ -327,6 +329,7 @@ function WeeklyReviewPage() {
     setDigest(null)
     setDigestState('loading')
     setDigestLocked(false)
+    setDigestError(null)
     setShowSoftPaywall(false)
 
     const now = new Date()
@@ -364,6 +367,7 @@ function WeeklyReviewPage() {
           setDigestLocked(row.locked === true)
           setDigestState('ready')
         } else {
+          setDigestError(lastWeeklyDigestError)
           setDigestState('unavailable')
         }
       })
@@ -620,6 +624,13 @@ function WeeklyReviewPage() {
               AI Weekly Analysis
             </p>
             <h2 className="mb-3 text-lg font-extrabold text-foreground">{t('AI 週分析')}</h2>
+            {/* 拿不到 AI 分析時，下面的圖表會改用本機備援統計；把原因露出來，才分得出是沒登入、後端錯誤還是連不到。 */}
+            {digestState === 'unavailable' && digestError && (
+              <p className="mb-3 rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {t('AI 分析暫時無法載入，以下為簡易統計')}
+                <span className="mt-0.5 block break-all font-mono text-[10px]">{digestError}</span>
+              </p>
+            )}
 
             <div className="mb-5">
               <p className="mb-1.5 text-xs font-bold text-muted-foreground">{t('情緒變化')}</p>
