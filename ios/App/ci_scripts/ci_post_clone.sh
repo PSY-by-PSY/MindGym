@@ -23,11 +23,11 @@ echo "===== ci_post_clone: start ====="
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_INSTALL_CLEANUP=1
 
-# --- Node 20（Xcode Cloud 映像未預裝 Node）---
-echo "----- Installing Node 20 via Homebrew -----"
-brew install node@20
-# node@20 是 keg-only，需手動加進 PATH
-export PATH="$(brew --prefix node@20)/bin:$PATH"
+# --- Node 22（Xcode Cloud 映像未預裝 Node）---
+echo "----- Installing Node 22 via Homebrew -----"
+brew install node@22
+# node@22 是 keg-only，需手動加進 PATH
+export PATH="$(brew --prefix node@22)/bin:$PATH"
 echo "node $(node --version), npm $(npm --version)"
 
 # --- CocoaPods（映像若已預裝就略過）---
